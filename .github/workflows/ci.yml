@@ -1,0 +1,26 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: bash -n syntax check
+        run: bash -n install.sh sync.sh
+
+      - name: shellcheck (informational)
+        run: shellcheck install.sh sync.sh || true
+
+      - name: drift gate (agents/skills must match sync.sh sources)
+        run: |
+          if [ -d "$HOME/.config/.claude" ]; then
+            ./sync.sh
+          else
+            echo "no ~/.config/.claude fork on this runner — drift gate skipped"
+          fi

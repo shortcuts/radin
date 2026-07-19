@@ -1,0 +1,6 @@
+{
+  "name": "radin",
+  "version": "0.1.0",
+  "description": "Cost-optimized agentic workflow stack for solo devs: backlog orchestration (radin-orchestrator, radin-plan, radin-review) plus curated companion tools.",
+  "author": "shortcuts"
+}
