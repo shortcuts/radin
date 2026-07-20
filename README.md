@@ -53,7 +53,7 @@ cd ~/Documents/radin
 | `agents/radin-orchestrator.md` | Works through an `ISSUES.md` backlog one task at a time, delegating implementation to sub-agents and committing after each task. |
 | `agents/radin-plan.md` | Same prioritization as `radin-orchestrator`, but writes one implementation plan per task instead of executing. |
 | `skills/radin-review/` | Runs a thermo-nuclear code quality review and logs findings as structured backlog entries instead of only printing them. |
-| `skills/thermo-nuclear/` | The strict maintainability review itself — invoked by `radin-review` and by `radin-orchestrator`'s optional Phase 5 review step. Vendored verbatim from cursor/plugins' [`thermo-nuclear-code-quality-review`](https://github.com/cursor/plugins/blob/main/cursor-team-kit/skills/thermo-nuclear-code-quality-review/SKILL.md) — not radin-original. |
+| `thermo-nuclear` (downloaded, not shipped) | The strict maintainability review itself — invoked by `radin-review` and by `radin-orchestrator`'s optional Phase 5 review step. `install.sh` downloads its `SKILL.md` straight from cursor/plugins' [`thermo-nuclear-code-quality-review`](https://github.com/cursor/plugins/blob/main/cursor-team-kit/skills/thermo-nuclear-code-quality-review/SKILL.md) at install time — not vendored, not radin-original. |
 | `skills/radin-setup-hooks/` | Wires a companion tool's per-repo MCP/hook config (currently `code-review-graph`) into whatever repo you invoke it from — `install.sh` only installs the binary globally. |
 | `skills/radin-update/` | Pulls the latest radin commits and re-runs `install.sh` to refresh `~/.claude/agents/`/`~/.claude/skills/`. |
 | `install.sh` | Installs radin's agents/skills into `~/.claude/`, offers the companion tools below. |

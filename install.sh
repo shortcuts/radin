@@ -50,7 +50,9 @@ fi
 mkdir -p "$HOME/.claude/agents" "$HOME/.claude/skills"
 cp "$RADIN_ROOT"/agents/*.md "$HOME/.claude/agents/"
 cp -r "$RADIN_ROOT"/skills/radin-review "$HOME/.claude/skills/"
-cp -r "$RADIN_ROOT"/skills/thermo-nuclear "$HOME/.claude/skills/"
+mkdir -p "$HOME/.claude/skills/thermo-nuclear"
+curl -fsSL "https://raw.githubusercontent.com/cursor/plugins/refs/heads/main/cursor-team-kit/skills/thermo-nuclear-code-quality-review/SKILL.md" \
+  -o "$HOME/.claude/skills/thermo-nuclear/SKILL.md"
 cp -r "$RADIN_ROOT"/skills/radin-setup-hooks "$HOME/.claude/skills/"
 cp -r "$RADIN_ROOT"/skills/radin-update "$HOME/.claude/skills/"
 

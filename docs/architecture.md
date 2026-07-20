@@ -86,8 +86,6 @@ radin/
   skills/
     radin-review/
       SKILL.md
-    thermo-nuclear/
-      SKILL.md
     radin-setup-hooks/
       SKILL.md
     radin-update/
@@ -107,6 +105,6 @@ fork pattern. `sync.sh` copies these files into this repo and fails
 loudly (`diff -rq` drift gate) if anything differs after the copy — this repo
 is a synced copy, not the live source, until Option B (symlinking, see the
 migration plan's Follow-ups) is revisited once `install.sh` is validated on
-both target Macs. `skills/thermo-nuclear/` is the one exception: it's
-vendored verbatim from cursor/plugins, not authored in `~/.config/.claude`,
-so `sync.sh` never touches it.
+both target Macs. `thermo-nuclear` is not part of this repo at all: `install.sh`
+downloads its `SKILL.md` straight from cursor/plugins at install time, so
+there's nothing here for `sync.sh` to own.

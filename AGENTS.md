@@ -36,9 +36,9 @@ anyone else who clones radin. It stays present on this machine, untracked.
   `./sync.sh` from this repo to pull the change in. Don't hand-edit
   `agents/*.md` or `skills/*/SKILL.md` here directly — `sync.sh` will
   overwrite it on the next run and the drift gate will flag the divergence.
-  (`skills/thermo-nuclear/` is the exception — it's vendored verbatim from
-  cursor/plugins, not authored in `~/.config/.claude`, so `sync.sh` doesn't
-  touch it.)
+  (`thermo-nuclear` is not vendored here at all — `install.sh` downloads its
+  `SKILL.md` straight from cursor/plugins at install time, same as any other
+  companion tool. radin only vendors what it authored itself.)
 - Editing `install.sh`, docs, or repo scaffolding: edit directly here as
   normal.
 - For someone who cloned only `radin` (no `~/.config/.claude` fork), the
