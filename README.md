@@ -1,5 +1,9 @@
 <p align="center">
-  <strong>radin</strong> — stingy on tokens, generous on backlog throughput
+  <strong>🐀 radin</strong> — stingy on tokens, generous on backlog throughput
+</p>
+
+<p align="center">
+  <sub><em>Fun fact: "radin" is French slang for a miser — someone tight with their money is often called "un rat" ("a rat"). Hence the mascot.</em></sub>
 </p>
 
 <p align="center">
@@ -30,10 +34,12 @@ install paths, never vendored or forked.
 curl -fsSL https://raw.githubusercontent.com/shortcuts/radin/main/install.sh | bash
 ```
 
-Requires [Homebrew](https://brew.sh) and `git`. Clones radin to
-`~/.claude/radin` (override with `RADIN_ROOT_OVERRIDE=<path>`) and re-runs
-`git pull` there on subsequent installs. Every companion-tool install is a
-per-tool `y`/`N` prompt — nothing installs silently.
+Requires [Homebrew](https://brew.sh), `curl`, and `tar` — no `git clone`
+needed. Downloads the latest published release from GitHub (falling back to
+`main` if none exists yet) into `~/.claude/radin` (override with
+`RADIN_ROOT_OVERRIDE=<path>`), re-downloading fresh on every subsequent
+install. Every companion-tool install is a per-tool `y`/`N` prompt — nothing
+installs silently.
 
 Prefer a manual clone (e.g. to hack on radin itself)?
 

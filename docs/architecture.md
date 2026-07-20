@@ -14,7 +14,7 @@ target repo, in a per-project namespace under `~/.claude/.radin/`:
 
 ```
 ~/.claude/.radin/
-  install_root                      # path to the radin source clone, written by install.sh
+  install_root                      # path to the radin source (downloaded tarball or dev clone), written by install.sh
   registry.json                     # repo-slug -> { path, updated_at }
   projects/
     <repo-slug>/
@@ -70,9 +70,12 @@ atomic: a same-directory temp file (`$REGISTRY.tmp.$$`) is written and then
 `mv`'d into place.
 
 `install_root` is a plain-text file holding the absolute path to the radin
-source clone `install.sh` was run from — written unconditionally on every
-`install.sh` run. `skills/radin-update/SKILL.md` reads it to find the repo
-to `git pull` and re-install from, without hardcoding a hosting URL.
+source `install.sh` was run from — written unconditionally on every
+`install.sh` run. It points at one of two things: a downloaded release
+tarball (marked by a `.radin-version` file, the normal `curl | bash` path —
+no `git clone` involved) or a manual dev clone (has a `.git` dir, for
+hacking on radin itself). `skills/radin-update/SKILL.md` reads it and
+branches on which mode applies before refreshing.
 
 ## Plugin repo layout
 

@@ -1,45 +1,74 @@
 ---
 name: radin-update
-description: Pull the latest version of radin's own repo and re-run install.sh to refresh agents/skills in ~/.claude/, overwriting what's there. Use when the user asks to "update radin", "pull the latest radin", "reinstall radin", or runs /radin-update.
+description: Refresh radin's agents/skills in ~/.claude/ from the latest published release (or main) by re-running install.sh, overwriting what's there. Use when the user asks to "update radin", "pull the latest radin", "reinstall radin", or runs /radin-update.
 ---
 # radin: Update
 
 `install.sh` covers fresh interactive install only. Skill re-applies against
-already-installed radin: pull latest commits in source clone, re-run
-`install.sh` so `~/.claude/agents/` and `~/.claude/skills/` overwrite with
-changes. Companion-tool installers in `install.sh` already skip-if-installed,
-so re-run safe.
+already-installed radin so `~/.claude/agents/` and `~/.claude/skills/`
+overwrite with the latest changes. Companion-tool installers in `install.sh`
+already skip-if-installed, so re-run safe.
 
-## Step 1: Locate source repo
+`install.sh`'s source resolution has two modes — check which one applies
+before doing anything else:
 
-Read `~/.claude/.radin/install_root` — `install.sh` writes resolved repo
-path there each run. File missing (install predates skill): ask user for
-path to radin clone instead of guessing.
+- **Downloaded tarball** (the normal `curl | bash` path): source lives at
+  `~/.claude/radin` (or `RADIN_ROOT_OVERRIDE`), marked by a `.radin-version`
+  file, no `.git` dir. Nothing to pull — just re-run `install.sh`, which
+  re-downloads the latest release (or `main`) itself.
+- **Manual dev clone** (someone hacking on radin itself, ran `git clone` +
+  `./install.sh`): source has a `.git` dir. Needs an explicit `git pull`
+  before re-running `install.sh`.
 
-## Step 2: Safety check
+## Step 1: Locate source
 
-In that directory, confirm git repo, clean working tree:
+Read `~/.claude/.radin/install_root` — `install.sh` writes the resolved
+source path there each run. File missing (install predates this skill): ask
+user for the path instead of guessing.
+
+## Step 2: Branch on source mode
 
 ```bash
-cd "$(cat "$HOME/.claude/.radin/install_root")"
-git rev-parse --is-inside-work-tree >/dev/null 2>&1 || { echo "not a git repo, stop"; exit 1; }
+SRC="$(cat "$HOME/.claude/.radin/install_root")"
+if [ -d "$SRC/.git" ]; then
+  MODE=git-clone
+elif [ -f "$SRC/.radin-version" ]; then
+  MODE=tarball
+else
+  echo "unrecognized source at $SRC, stop"; exit 1
+fi
+```
+
+### git-clone mode
+
+Confirm clean working tree before touching anything:
+
+```bash
+cd "$SRC"
 git status --porcelain
 ```
 
-`git status --porcelain` prints anything: stop, report — don't pull over
-uncommitted local changes.
-
-## Step 3: Pull and preview
+Anything printed: stop, report — don't pull over uncommitted local changes.
+Otherwise:
 
 ```bash
 git pull
 git log --oneline 'HEAD@{1}..HEAD'
 ```
 
-Show user commit list before doing anything else, so they see what's about
-to apply.
+Show the user the commit list before applying anything.
 
-## Step 4: Confirm, then re-run install.sh
+### tarball mode
+
+```bash
+cat "$SRC/.radin-version"
+```
+
+Note the current version/commit so it can be compared after re-running
+`install.sh`. No dirty-tree check needed — this dir is disposable, wiped and
+re-downloaded by `install.sh` on every run.
+
+## Step 3: Confirm, then re-run install.sh
 
 Ask explicit y/n confirmation before applying — overwrites files under
 `~/.claude/agents/` and `~/.claude/skills/`. On yes, run:
@@ -48,15 +77,18 @@ Ask explicit y/n confirmation before applying — overwrites files under
 ./install.sh
 ```
 
-from source repo directory. Companion-tool prompts (rtk, caveman,
-code-review-graph) fire same as fresh install — expected, no-op if already
-installed.
+from the source directory (`$SRC`, whichever mode). Companion-tool prompts
+(rtk, caveman, code-review-graph) fire same as fresh install — expected,
+no-op if already installed.
 
-## Step 5: Report back
+## Step 4: Report back
 
-State: old commit → new commit, which `agents/*.md` / `skills/*/SKILL.md`
-files changed in pulled range (`git diff --stat 'HEAD@{1}..HEAD'`), whether
-any companion-tool prompt ran.
+- git-clone mode: old commit → new commit, which `agents/*.md` /
+  `skills/*/SKILL.md` files changed in the pulled range
+  (`git diff --stat 'HEAD@{1}..HEAD'`).
+- tarball mode: old version → new version (`cat "$SRC/.radin-version"`
+  again after the run).
+- Either mode: whether any companion-tool prompt ran.
 
 ## Non-goals
 

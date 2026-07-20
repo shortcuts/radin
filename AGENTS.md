@@ -12,7 +12,7 @@
 | Runtime language | None — bash only |
 | Target OS | macOS and Linux |
 | Supported architectures | Arch-neutral via Homebrew (works on both macOS's `/opt/homebrew`/`/usr/local` and Linuxbrew's `/home/linuxbrew/.linuxbrew`) — no `uname -m` branching, no OS branching beyond a `command -v` check where a tool differs (e.g. `md5` vs `md5sum`) |
-| Distribution | Git repo ([github.com/shortcuts/radin](https://github.com/shortcuts/radin), currently private), installed via `curl \| bash install.sh` (self-clones to `~/.claude/radin`) or a manual `git clone` + `./install.sh` |
+| Distribution | Git repo ([github.com/shortcuts/radin](https://github.com/shortcuts/radin), currently private), installed via `curl \| bash install.sh` (downloads the latest release tarball, or `main` if no release exists, to `~/.claude/radin` — no `git clone`) or a manual `git clone` + `./install.sh` for hacking on radin itself |
 
 radin gives a solo dev on a small Claude subscription one install for a
 cost-optimized agentic workflow: backlog-driven execution
