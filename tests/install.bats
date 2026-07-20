@@ -50,14 +50,14 @@ teardown() {
 
 # Declining every companion-tool prompt is the fastest path through the
 # script and covers source resolution + core agents/skills install. None of
-# rtk/code-review-graph/claude-plugin exist on the trimmed PATH, so all three
-# prompts fire and all three get declined.
+# rtk/code-review-graph/caveman/i-have-adhd exist on the trimmed PATH, so all
+# four prompts fire and all four get declined.
 run_install_no_companions() {
-  cd "$REPO_ROOT" && printf 'n\nn\nn\n' | bash ./install.sh
+  cd "$REPO_ROOT" && printf 'n\nn\nn\nn\n' | bash ./install.sh
 }
 
 run_install_no_companions_answering() {
-  cd "$REPO_ROOT" && printf '%s\nn\nn\n' "$1" | bash ./install.sh
+  cd "$REPO_ROOT" && printf '%s\nn\nn\nn\n' "$1" | bash ./install.sh
 }
 
 @test "syntax is valid" {
@@ -67,7 +67,7 @@ run_install_no_companions_answering() {
 
 @test "fails with a clear message when brew is missing" {
   rm -f "$MOCK_BIN/brew"
-  run bash "$REPO_ROOT/install.sh" <<< $'n\nn\nn\n'
+  run bash "$REPO_ROOT/install.sh" <<< $'n\nn\nn\nn\n'
   [ "$status" -ne 0 ]
   [[ "$output" == *"Homebrew not found"* ]]
 }
@@ -137,7 +137,7 @@ run_install_no_companions_answering() {
   FETCH_DIR="$TEST_HOME/preexisting"
   mkdir -p "$FETCH_DIR"
   echo "not ours" > "$FETCH_DIR/some_other_file"
-  run bash -c "cd '$FAKE_ROOT' && printf 'n\nn\nn\n' | RADIN_ROOT_OVERRIDE='$FETCH_DIR' bash ./install.sh"
+  run bash -c "cd '$FAKE_ROOT' && printf 'n\nn\nn\nn\n' | RADIN_ROOT_OVERRIDE='$FETCH_DIR' bash ./install.sh"
   [ "$status" -ne 0 ]
   [[ "$output" == *"wasn't created by this installer"* ]]
 }

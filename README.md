@@ -38,6 +38,7 @@ they get the credit and the updates.
 | `radin-review` | Runs a strict code-quality pass and logs findings back into the backlog |
 | [rtk](https://github.com/rtk-ai/rtk) *(optional)* | Token-cheap CLI proxy |
 | [caveman](https://github.com/JuliusBrussee/caveman) *(optional)* | Ultra-compressed agent output |
+| [i-have-adhd](https://github.com/ayghri/i-have-adhd) *(optional)* | ADHD-friendly output shaping (action-first, numbered steps) |
 | [code-review-graph](https://github.com/tirth8205/code-review-graph) *(optional)* | Knowledge-graph-backed code review MCP |
 
 The first three are radin's own, shipped in this repo. The rest are other
@@ -93,11 +94,13 @@ in a canonical namespace under `~/.claude/.radin/projects/<repo-slug>/`. See
 |---|---|
 | [rtk](https://github.com/rtk-ai/rtk) | Token-cheap CLI proxy — cost optimization |
 | [caveman](https://github.com/JuliusBrussee/caveman) | Ultra-compressed agent output mode — cost optimization |
+| [i-have-adhd](https://github.com/ayghri/i-have-adhd) | ADHD-friendly output shaping — action-first, numbered steps, no preamble |
 | [code-review-graph](https://github.com/tirth8205/code-review-graph) | Knowledge-graph-backed code review MCP |
 
-`caveman` installs as a Claude Code plugin (`claude plugin marketplace add` +
-`claude plugin install`) — its hooks register globally at install time, no
-further setup needed. `rtk` installs via Homebrew. `code-review-graph`
+`caveman` and `i-have-adhd` both install as Claude Code plugins
+(`claude plugin marketplace add` + `claude plugin install`) — their hooks/
+output-style register globally at install time, no further setup needed.
+`rtk` installs via Homebrew. `code-review-graph`
 installs via `pipx`/`pip` (it's a PyPI package, not npm); `install.sh` only
 installs the binary — its MCP server and hooks are repo-scoped, so run the
 `radin-setup-hooks` skill from inside each project you want it wired into.
