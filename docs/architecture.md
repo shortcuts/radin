@@ -95,16 +95,11 @@ radin/
   README.md
 ```
 
-`sync.sh` exists on the maintainer's machine but is gitignored, not part of
-this layout.
-
 ## Authoring vs. distribution
 
-The live-edited originals are authored in a consumer's own `~/.config/.claude`
-fork pattern. `sync.sh` copies these files into this repo and fails
-loudly (`diff -rq` drift gate) if anything differs after the copy — this repo
-is a synced copy, not the live source, until Option B (symlinking, see the
-migration plan's Follow-ups) is revisited once `install.sh` is validated on
-both target Macs. `thermo-nuclear` is not part of this repo at all: `install.sh`
-downloads its `SKILL.md` straight from cursor/plugins at install time, so
-there's nothing here for `sync.sh` to own.
+This repo is the source of truth. `agents/*.md` and `skills/*/SKILL.md` are
+authored and edited directly here — no external fork, no sync step.
+`install.sh` distributes them one-directionally into `~/.claude/agents` and
+`~/.claude/skills`. `thermo-nuclear` is not part of this repo at all:
+`install.sh` downloads its `SKILL.md` straight from cursor/plugins at install
+time.

@@ -17,7 +17,7 @@
 macOS ships `/bin/bash` 3.2 (Apple froze it pre-GPLv3) as the system bash.
 Since the same scripts run unmodified on Linux (whose bash is typically
 4+), the macOS floor is the binding constraint. All scripts in this repo
-(`install.sh`, `sync.sh`, any future script) must stay bash-3.2-compatible:
+(`install.sh`, any future script) must stay bash-3.2-compatible:
 
 - No associative arrays (`declare -A`)
 - No `mapfile`

@@ -13,17 +13,14 @@
 ## Editing agents/skills
 
 `agents/radin-orchestrator.md`, `agents/radin-plan.md`, and
-`skills/radin-review/SKILL.md` are synced copies — see `AGENTS.md`'s "Dev
-loop" section for which direction edits flow in your setup. If you're editing
-them directly in this repo (no `~/.config/.claude` fork), edit normally; if
-you maintain a fork, edit there and run `./sync.sh`.
+`skills/radin-review/SKILL.md` are authored directly in this repo — this repo
+is the source of truth, no external fork, no sync step. Edit them normally.
 
-## Testing `sync.sh` / `install.sh` changes locally
+## Testing `install.sh` changes locally
 
 ```sh
-bash -n sync.sh install.sh
-shellcheck sync.sh install.sh
-./sync.sh   # if you have a ~/.config/.claude fork; confirms the drift gate passes
+bash -n install.sh
+shellcheck install.sh
 ```
 
 ## PR expectations
@@ -31,5 +28,3 @@ shellcheck sync.sh install.sh
 - `bash -n` clean on any changed script
 - `shellcheck` clean (or documented exceptions only)
 - Docs updated per the table in `AGENTS.md`'s "Doc-maintenance policy"
-- If `agents/` or `skills/` were touched, re-run `./sync.sh` and confirm zero
-  drift

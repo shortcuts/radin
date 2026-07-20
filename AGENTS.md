@@ -22,28 +22,19 @@ never vendored or forked — via their own existing install paths.
 
 ## Dev loop
 
-This repo is the **synced copy**. The live-edited originals are authored in
-the consumer's own `~/.config/.claude` fork pattern; `sync.sh` copies
-`agents/radin-orchestrator.md`, `agents/radin-plan.md`, and
-`skills/radin-review/` from `~/.config/.claude` into this repo and fails
-loudly (`diff -rq` drift gate) if anything differs after the copy.
+This repo is the **source of truth**. `agents/*.md` and `skills/*/SKILL.md`
+are authored and edited directly here — no external fork, no sync step.
 
-`sync.sh` is gitignored and not part of the shipped repo — it's specific to
-this maintainer's personal `~/.config/.claude` fork path and has no use for
-anyone else who clones radin. It stays present on this machine, untracked.
-
-- Editing radin's own agents/skills: edit in `~/.config/.claude`, then run
-  `./sync.sh` from this repo to pull the change in. Don't hand-edit
-  `agents/*.md` or `skills/*/SKILL.md` here directly — `sync.sh` will
-  overwrite it on the next run and the drift gate will flag the divergence.
-  (`thermo-nuclear` is not vendored here at all — `install.sh` downloads its
-  `SKILL.md` straight from cursor/plugins at install time, same as any other
-  companion tool. radin only vendors what it authored itself.)
+- Editing radin's own agents/skills: edit `agents/*.md` or
+  `skills/*/SKILL.md` directly in this repo. (`thermo-nuclear` is not
+  vendored here at all — `install.sh` downloads its `SKILL.md` straight from
+  cursor/plugins at install time, same as any other companion tool. radin
+  only vendors what it authored itself.)
 - Editing `install.sh`, docs, or repo scaffolding: edit directly here as
   normal.
-- For someone who cloned only `radin` (no `~/.config/.claude` fork), the
-  `~/.config` dependency doesn't apply — `sync.sh`'s direction is specific to
-  this repo's own maintenance workflow, not a requirement for consumers.
+- `install.sh` installs from this repo into `~/.claude/agents` and
+  `~/.claude/skills`, adding/updating what's there — one direction, repo to
+  consumer.
 
 ## Storage contract
 
@@ -79,8 +70,17 @@ exact problem this storage scheme replaces.
 
 ## Constraints
 
+**Never touch anything in `~/.claude` (`~/.config/.claude`) besides what
+radin itself added.** `~/.claude/agents` and `~/.claude/skills` are a shared
+directory — the consumer's other agents/skills/tools live there too.
+`install.sh` and `skills/radin-update` may only `cp`/`cp -r` radin's own
+named files (`agents/*.md` that ship in this repo, radin's own
+`skills/<name>/`) and `mkdir -p`. Never `rm`, never wildcard-delete a
+directory, never overwrite a file radin didn't ship. Call this out
+explicitly on any edit to `install.sh` or `skills/radin-update/SKILL.md`.
+
 **macOS ships `/bin/bash` 3.2** (Apple froze it pre-GPLv3). Since scripts run
-on both macOS and Linux, all scripts in this repo (`install.sh`, `sync.sh`,
+on both macOS and Linux, all scripts in this repo (`install.sh`,
 any future script) must stay bash-3.2-compatible: no associative arrays, no
 `mapfile`, no `${var,,}` case conversion. Call this out explicitly on any
 script edit — easy to reach for bash 4+ syntax without noticing on a machine
@@ -120,10 +120,8 @@ just radin not being self-hosted yet.
 
 ## Pre-commit checklist
 
-- `bash -n install.sh sync.sh` clean
-- `shellcheck install.sh sync.sh` clean (or documented exceptions only)
-- If `agents/` or `skills/` touched: re-run `./sync.sh`, confirm the `diff -rq`
-  drift gate reports zero differences
+- `bash -n install.sh` clean
+- `shellcheck install.sh` clean (or documented exceptions only)
 - Docs updated per the table above
 
 ## Code Style & Testing
