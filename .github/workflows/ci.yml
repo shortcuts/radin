@@ -7,20 +7,23 @@ on:
 
 jobs:
   lint:
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
       - name: bash -n syntax check
-        run: bash -n install.sh sync.sh
+        run: bash -n install.sh
 
       - name: shellcheck (informational)
-        run: shellcheck install.sh sync.sh || true
+        run: shellcheck install.sh || true
 
-      - name: drift gate (agents/skills must match sync.sh sources)
-        run: |
-          if [ -d "$HOME/.config/.claude" ]; then
-            ./sync.sh
-          else
-            echo "no ~/.config/.claude fork on this runner — drift gate skipped"
-          fi
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: install bats-core
+        run: sudo apt-get update && sudo apt-get install -y bats
+
+      - name: run install.sh test suite
+        run: bats tests/

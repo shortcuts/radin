@@ -14,6 +14,7 @@
 
 <p align="center">
   <a href="#quickstart">Quickstart</a> ·
+  <a href="#tools-you-get">Tools you get</a> ·
   <a href="#whats-here">What's here</a> ·
   <a href="#storage-model">Storage model</a> ·
   <a href="#companion-tools-installed-separately-not-vendored">Companion tools</a>
@@ -21,16 +22,31 @@
 
 ---
 
-Cost-optimized agentic workflow stack for solo devs on a small Claude
-subscription. One install gives backlog-driven execution
-(`radin-orchestrator`, `radin-plan`, `radin-review`) plus offers of
-a curated set of companion OSS tools — installed via their own existing
-install paths, never vendored or forked.
+One install for solo devs on a small Claude subscription: backlog-driven
+execution (`radin-orchestrator`, `radin-plan`, `radin-review`) plus one-prompt
+installs for a curated set of companion OSS tools. radin doesn't do cost
+optimization itself — it wires up and orchestrates tools that already do
+(rtk, caveman) via their own install paths, never vendored or forked, so
+they get the credit and the updates.
+
+## Tools you get
+
+| Tool | What it does |
+|---|---|
+| `radin-orchestrator` | Works through your `ISSUES.md` backlog, one task at a time, committing as it goes |
+| `radin-plan` | Same backlog, but writes a plan per task instead of executing |
+| `radin-review` | Runs a strict code-quality pass and logs findings back into the backlog |
+| [rtk](https://github.com/rtk-ai/rtk) *(optional)* | Token-cheap CLI proxy |
+| [caveman](https://github.com/JuliusBrussee/caveman) *(optional)* | Ultra-compressed agent output |
+| [code-review-graph](https://github.com/tirth8205/code-review-graph) *(optional)* | Knowledge-graph-backed code review MCP |
+
+The first three are radin's own, shipped in this repo. The rest are other
+people's tools — `install.sh` offers to install them, nothing more.
 
 ## Quickstart
 
 ```sh
-# macOS · Linux · WSL · Git Bash
+# macOS · Linux · WSL
 curl -fsSL https://raw.githubusercontent.com/shortcuts/radin/main/install.sh | bash
 ```
 

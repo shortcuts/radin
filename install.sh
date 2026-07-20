@@ -107,7 +107,7 @@ install_if_confirmed() {
     return
   fi
   read -r -p "$(printf "%b" "${YELLOW}${RAT} Install $name? [y/N]${RESET} ")" ans
-  [ "$ans" = "y" ] || [ "$ans" = "Y" ] || return
+  [ "$ans" = "y" ] || [ "$ans" = "Y" ] || return 0
   eval "$install_cmd"
 }
 
@@ -118,7 +118,7 @@ install_plugin_if_confirmed() {
     return
   fi
   read -r -p "$(printf "%b" "${YELLOW}${RAT} Install $name? [y/N]${RESET} ")" ans
-  [ "$ans" = "y" ] || [ "$ans" = "Y" ] || return
+  [ "$ans" = "y" ] || [ "$ans" = "Y" ] || return 0
   claude plugin marketplace add "$marketplace_source"
   claude plugin install "$plugin_id"
 }
