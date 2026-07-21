@@ -17,6 +17,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `install.sh`: new optional companion-tool prompt for
   [i-have-adhd](https://github.com/ayghri/i-have-adhd) — installs the same
   way as `caveman` (Claude Code plugin marketplace flow).
+- `install.sh`: new optional companion-tool prompt for
+  [ponytail](https://github.com/DietrichGebert/ponytail) — same plugin
+  marketplace flow.
 
 ### Fixed
 

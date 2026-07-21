@@ -50,14 +50,14 @@ teardown() {
 
 # Declining every companion-tool prompt is the fastest path through the
 # script and covers source resolution + core agents/skills install. None of
-# rtk/code-review-graph/caveman/i-have-adhd exist on the trimmed PATH, so all
-# four prompts fire and all four get declined.
+# rtk/code-review-graph/caveman/i-have-adhd/ponytail exist on the trimmed
+# PATH, so all five prompts fire and all five get declined.
 run_install_no_companions() {
-  cd "$REPO_ROOT" && printf 'n\nn\nn\nn\n' | bash ./install.sh
+  cd "$REPO_ROOT" && printf 'n\nn\nn\nn\nn\n' | bash ./install.sh
 }
 
 run_install_no_companions_answering() {
-  cd "$REPO_ROOT" && printf '%s\nn\nn\nn\n' "$1" | bash ./install.sh
+  cd "$REPO_ROOT" && printf '%s\nn\nn\nn\nn\n' "$1" | bash ./install.sh
 }
 
 @test "syntax is valid" {

@@ -39,6 +39,7 @@ they get the credit and the updates.
 | [rtk](https://github.com/rtk-ai/rtk) *(optional)* | Token-cheap CLI proxy |
 | [caveman](https://github.com/JuliusBrussee/caveman) *(optional)* | Ultra-compressed agent output |
 | [i-have-adhd](https://github.com/ayghri/i-have-adhd) *(optional)* | ADHD-friendly output shaping (action-first, numbered steps) |
+| [ponytail](https://github.com/DietrichGebert/ponytail) *(optional)* | "Lazy senior dev" ruleset — pushes agents to skip unnecessary code, reuse what's already there |
 | [code-review-graph](https://github.com/tirth8205/code-review-graph) *(optional)* | Knowledge-graph-backed code review MCP |
 
 The first three are radin's own, shipped in this repo. The rest are other
@@ -95,9 +96,10 @@ in a canonical namespace under `~/.claude/.radin/projects/<repo-slug>/`. See
 | [rtk](https://github.com/rtk-ai/rtk) | Token-cheap CLI proxy — cost optimization |
 | [caveman](https://github.com/JuliusBrussee/caveman) | Ultra-compressed agent output mode — cost optimization |
 | [i-have-adhd](https://github.com/ayghri/i-have-adhd) | ADHD-friendly output shaping — action-first, numbered steps, no preamble |
+| [ponytail](https://github.com/DietrichGebert/ponytail) | "Lazy senior dev" ruleset — cost/effort optimization by minimizing unnecessary code |
 | [code-review-graph](https://github.com/tirth8205/code-review-graph) | Knowledge-graph-backed code review MCP |
 
-`caveman` and `i-have-adhd` both install as Claude Code plugins
+`caveman`, `i-have-adhd`, and `ponytail` all install as Claude Code plugins
 (`claude plugin marketplace add` + `claude plugin install`) — their hooks/
 output-style register globally at install time, no further setup needed.
 `rtk` installs via Homebrew. `code-review-graph`

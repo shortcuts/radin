@@ -138,6 +138,9 @@ install_plugin_if_confirmed "caveman" "caveman@caveman" "JuliusBrussee/caveman"
 # i-have-adhd ships as a Claude Code plugin too -- same marketplace flow.
 install_plugin_if_confirmed "i-have-adhd" "i-have-adhd@i-have-adhd" "ayghri/i-have-adhd"
 
+# ponytail ships as a Claude Code plugin too -- same marketplace flow.
+install_plugin_if_confirmed "ponytail" "ponytail@ponytail" "DietrichGebert/ponytail"
+
 if command -v code-review-graph >/dev/null 2>&1; then
   info "code-review-graph binary installed. To wire its MCP server and hooks"
   info "into a specific project, run the radin-setup-hooks skill from inside"
