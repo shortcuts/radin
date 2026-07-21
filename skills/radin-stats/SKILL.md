@@ -29,6 +29,11 @@ silently if missing, don't error):
 Any other installed tool with its own `stats`/`gain` command belongs here
 too — add it to this list, don't build a separate skill.
 
+If a source (e.g. `caveman-stats`) finds nothing to report, treat that as a
+normal empty result — one quick check, then move on. Don't keep searching
+for entries that aren't there. This is informative only, not exact/precise
+required.
+
 ## Step 2: Display, don't merge
 
 Print each tool's output under its own heading, in the order above. Label
