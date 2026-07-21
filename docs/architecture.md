@@ -19,7 +19,7 @@ target repo, in a per-project namespace under `~/.claude/.radin/`:
     <repo-slug>/
       BACKLOG.md                    # backlog, source of truth
       state/
-        BACKLOG_STEPS.json          # radin-orchestrator execution plan
+        BACKLOG_STEPS.json          # radin-execute execution plan
         BACKLOG_PLAN_STEPS.json     # radin-plan execution plan
       plans/
         <task-id>.md                # radin-plan output
@@ -36,7 +36,7 @@ dropped at its root.
 
 ## Namespace resolution
 
-Every one of `agents/radin-orchestrator.md`, `agents/radin-plan.md`,
+Every one of `agents/radin-execute.md`, `agents/radin-plan.md`,
 `skills/radin-review/SKILL.md`, and `skills/radin-record/SKILL.md` resolves
 the namespace by running the same shared script —
 `lib/radin-namespace.sh`, the single source of truth for this logic —
@@ -82,6 +82,14 @@ blocks `BACKLOG_FILE` from being written correctly. Writes are atomic: a
 same-directory temp file (`$REGISTRY.tmp.$$`) is written and then `mv`'d
 into place.
 
+`agents/radin-execute.md` and `agents/radin-plan.md` also share a
+second file — `lib/radin-prioritization.md` — the single source of truth
+for backlog parsing rules, task priority criteria, and the state-file JSON
+schema. Both agents read it via `$HOME/.claude/radin-lib/radin-prioritization.md`
+at the start of Phase 1, instead of embedding their own copy. The two agents
+still diverge after that point: `radin-execute` executes each task;
+`radin-plan` only writes a plan file and a `**Plan:**` pointer.
+
 To update radin itself, re-run `install.sh` — plain `curl | bash`, or
 `./install.sh` from a dev clone. It always re-downloads or re-copies
 `agents/*.md` and `skills/*/`, overwriting what's in `~/.claude/`. Pass
@@ -95,7 +103,7 @@ radin/
   .claude-plugin/
     plugin.json
   agents/
-    radin-orchestrator.md
+    radin-execute.md
     radin-plan.md
   skills/
     radin-review/
@@ -107,6 +115,7 @@ radin/
   docs/
   lib/
     radin-namespace.sh
+    radin-prioritization.md
   install.sh
   README.md
 ```

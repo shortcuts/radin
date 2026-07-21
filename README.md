@@ -53,7 +53,7 @@ A typical flow:
    from a teammate. Run `radin-record` to turn it into a backlog entry.
 2. **Plan (optional).** Run `radin-plan` to write a step-by-step plan for
    each open entry, without touching any code.
-3. **Execute.** Run `radin-orchestrator` to work through the backlog,
+3. **Execute.** Run `radin-execute` to work through the backlog,
    entry by entry, committing as it goes.
 4. **Review.** Run `radin-review` against a commit, PR, or directory. Every
    finding becomes a new backlog entry, ready for the next pass of step 3.
@@ -64,7 +64,7 @@ A typical flow:
 
 | Tool | What it does |
 | --- | --- |
-| `radin-orchestrator` | Chews through `BACKLOG.md`, one task at a time, committing as it goes |
+| `radin-execute` | Chews through `BACKLOG.md`, one task at a time, committing as it goes |
 | `radin-plan` | Same backlog, writes a plan per task instead of touching code |
 | `radin-review` | Strict code-quality pass, findings logged straight back into the backlog |
 | `radin-record` | Logs feedback/bugs/ideas raised mid-session as `BACKLOG.md` entries |
@@ -75,7 +75,7 @@ reimplementing review or style logic themselves:
 
 | Tool | Delegates to |
 | --- | --- |
-| `radin-orchestrator` | `/ponytail` (per-task implementation), `/caveman-commit` (commit message), `/thermo-nuclear` (optional end-of-session review) |
+| `radin-execute` | `/ponytail` (per-task implementation), `/caveman-commit` (commit message), `/thermo-nuclear` (optional end-of-session review) |
 | `radin-review` | `/thermo-nuclear` (code-quality pass), `/ponytail-review` or `/ponytail-audit` (over-engineering pass) |
 
 #### `radin-record`
@@ -102,13 +102,14 @@ Result: one plan file per entry under
 `~/.claude/.radin/projects/<repo-slug>/plans/`, and a `**Plan:** <path>`
 line appended to each entry in `BACKLOG.md` pointing at it.
 
-#### `radin-orchestrator`
+#### `radin-execute`
 
-Work through the backlog end to end: prioritize, plan, implement, test,
-commit — one entry at a time.
+Work through the backlog end to end: prioritize, implement, test, commit —
+one entry at a time. Uses an existing plan from `radin-plan` if the entry
+already has one; otherwise plans inline.
 
 ```
-/radin-orchestrator
+/radin-execute
 ```
 
 Result: each entry is implemented and committed in its own commit. Finished

@@ -16,7 +16,7 @@
 
 radin gives a solo dev on a small Claude subscription one install for a
 cost-optimized agentic workflow. It ships backlog-driven execution
-(`radin-orchestrator`, `radin-plan`, `radin-review`) and installs a curated
+(`radin-execute`, `radin-plan`, `radin-review`) and installs a curated
 set of companion tools (rtk, caveman, code-review-graph) through their own
 install paths. radin never vendors or forks them.
 
@@ -48,7 +48,7 @@ and execution state live in one canonical, per-project namespace:
     <repo-slug>/
       BACKLOG.md                    # backlog, source of truth
       state/
-        BACKLOG_STEPS.json          # radin-orchestrator execution plan
+        BACKLOG_STEPS.json          # radin-execute execution plan
         BACKLOG_PLAN_STEPS.json     # radin-plan execution plan
       plans/
         <task-id>.md                # radin-plan output
@@ -62,7 +62,7 @@ Outside any git repo, it falls back to `no-repo-<cwd-hash>`. `registry.json`
 is a best-effort index — an atomic temp-file-plus-`mv` write, with a
 jq → python3 → skip fallback chain. No core agent flow depends on reading it.
 
-Every one of `agents/radin-orchestrator.md`, `agents/radin-plan.md`,
+Every one of `agents/radin-execute.md`, `agents/radin-plan.md`,
 `skills/radin-review/SKILL.md`, and `skills/radin-record/SKILL.md` resolves
 this namespace through an identical shared block before doing anything else.
 Do not reintroduce a root-`BACKLOG.md` or `.shortcuts/*.json` assumption into
@@ -154,7 +154,7 @@ A change isn't done until its affected docs are updated in the same commit.
 
 This is radin's own development backlog — a plain repo-root `BACKLOG.md`,
 same as any other project. That's the opposite of what the shipped
-`radin-orchestrator` does for consumers, who get `~/.claude/.radin/`-namespaced
+`radin-execute` does for consumers, who get `~/.claude/.radin/`-namespaced
 storage and never a repo-root file. radin's own development doesn't use its
 own shipped tooling by default, because that tooling only activates once
 installed through `install.sh`. This isn't hypocrisy — radin just isn't

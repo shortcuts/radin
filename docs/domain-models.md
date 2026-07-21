@@ -40,7 +40,7 @@ just whichever `##` section it lives under:
 ### <short title>
 <as exhaustive a description as the situation warrants — what the change is,
 why it matters, affected files/areas if known, acceptance criteria if
-known. radin-orchestrator/radin-plan derive scope and priority entirely from
+known. radin-execute/radin-plan derive scope and priority entirely from
 this text, so write enough that a sub-agent given only this entry, with no
 other session context, could act on it correctly.>
 
@@ -53,7 +53,7 @@ other session context, could act on it correctly.>
 Every radin agent/skill that appends an entry — `radin-review` (code-review
 findings, usually `fix` for an actual bug or `refactor` for a structural
 finding), `radin-record` (feedback/bugs/follow-ups/ideas surfaced in
-conversation), `radin-orchestrator`/`radin-plan` (their own backlog
+conversation), `radin-execute`/`radin-plan` (their own backlog
 grooming) — classifies into one of these four categories and writes the
 same `### title` + description shape. None of them invent a fifth category
 or a per-entry tag on top of the section.
@@ -79,7 +79,7 @@ automatically — new entries just use the new shape going forward.
 
 Free-form markdown at `$NAMESPACE_DIR/plans/<id>.md`: files to touch, the
 change in each, the order of operations, and how to verify it. No fixed
-schema — sub-agents write it, `radin-orchestrator` (or a human) reads it.
+schema — sub-agents write it, `radin-execute` (or a human) reads it.
 
 ## State JSON schema (`BACKLOG_STEPS.json` / `BACKLOG_PLAN_STEPS.json`)
 

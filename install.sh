@@ -111,6 +111,7 @@ ok "Using radin source at ${BOLD}$RADIN_ROOT${RESET}"
 step "Installing agents and skills into ~/.claude"
 mkdir -p "$HOME/.claude/agents" "$HOME/.claude/skills" "$HOME/.claude/radin-lib"
 cp "$RADIN_ROOT"/lib/radin-namespace.sh "$HOME/.claude/radin-lib/"
+cp "$RADIN_ROOT"/lib/radin-prioritization.md "$HOME/.claude/radin-lib/"
 cp "$RADIN_ROOT"/agents/*.md "$HOME/.claude/agents/"
 cp -r "$RADIN_ROOT"/skills/radin-review "$HOME/.claude/skills/"
 cp -r "$RADIN_ROOT"/skills/radin-record "$HOME/.claude/skills/"
@@ -173,14 +174,14 @@ set_agent_model() {
 }
 
 step "Agent models (optional)"
-if prompt_yn "Choose models for radin-orchestrator / radin-plan? (defaults: haiku top-level, sonnet sub-agents)"; then
-	ORCH_MODEL="$(prompt_val "radin-orchestrator top-level model" "haiku")"
-	ORCH_SUB_MODEL="$(prompt_val "radin-orchestrator sub-agent model (execution + review)" "sonnet")"
+if prompt_yn "Choose models for radin-execute / radin-plan? (defaults: haiku top-level, sonnet sub-agents)"; then
+	ORCH_MODEL="$(prompt_val "radin-execute top-level model" "haiku")"
+	ORCH_SUB_MODEL="$(prompt_val "radin-execute sub-agent model (execution + review)" "sonnet")"
 	PLAN_MODEL="$(prompt_val "radin-plan top-level model" "haiku")"
 	PLAN_SUB_MODEL="$(prompt_val "radin-plan sub-agent model (planning)" "sonnet")"
 
-	set_agent_model "$HOME/.claude/agents/radin-orchestrator.md" "^model: haiku$" "model: ${ORCH_MODEL}"
-	set_agent_model "$HOME/.claude/agents/radin-orchestrator.md" 'model: "sonnet"' "model: \"${ORCH_SUB_MODEL}\""
+	set_agent_model "$HOME/.claude/agents/radin-execute.md" "^model: haiku$" "model: ${ORCH_MODEL}"
+	set_agent_model "$HOME/.claude/agents/radin-execute.md" 'model: "sonnet"' "model: \"${ORCH_SUB_MODEL}\""
 	set_agent_model "$HOME/.claude/agents/radin-plan.md" "^model: haiku$" "model: ${PLAN_MODEL}"
 	set_agent_model "$HOME/.claude/agents/radin-plan.md" 'model: "sonnet"' "model: \"${PLAN_SUB_MODEL}\""
 	ok "agent models configured"

@@ -15,7 +15,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `BACKLOG.md` now uses semver-style category sections (`feat`, `fix`,
   `chore`, `refactor` — the same vocabulary as a conventional-commit type)
   instead of ad-hoc per-entry tags. Applies to `radin-review`,
-  `radin-record`, `radin-orchestrator`, and `radin-plan`. Adds
+  `radin-record`, `radin-execute`, and `radin-plan`. Adds
   `docs/schemas/backlog-entry.schema.json` as the formal contract.
 - `install.sh`: new optional prompt for
   [i-have-adhd](https://github.com/ayghri/i-have-adhd), installed the same
@@ -44,7 +44,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [0.1.0] — 2026 (unreleased on GitHub)
 
-Initial scaffold: `radin-orchestrator` and `radin-plan` agents,
+Initial scaffold: `radin-execute` and `radin-plan` agents,
 `radin-review` skill, the `~/.claude/.radin/` storage namespace, and
 `install.sh` with optional companion-tool installs (rtk, caveman,
 code-review-graph).
