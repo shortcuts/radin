@@ -44,8 +44,7 @@ curl -fsSL https://raw.githubusercontent.com/shortcuts/radin/main/install.sh | b
 ## The backlog lifecycle
 
 `BACKLOG.md` is your repo's backlog. It lives outside your repo, in
-`~/.claude/.radin/projects/<repo-slug>/BACKLOG.md` — see
-[AGENTS.md](AGENTS.md) for the full storage layout. Every radin tool reads
+`~/.claude/.radin/projects/<repo-slug>/BACKLOG.md`. Every radin tool reads
 from or writes to this one file.
 
 A typical flow:
@@ -61,7 +60,7 @@ A typical flow:
 
 ## Tools you get
 
-### Built by radin
+### Homemade
 
 | Tool | What it does |
 | --- | --- |
@@ -156,6 +155,7 @@ their own repo stays the source of truth.
 | [i-have-adhd](https://github.com/ayghri/i-have-adhd) | A skill for your coding agent to stop it from burying the answer. ADHD-friendly output |
 | [ponytail](https://github.com/DietrichGebert/ponytail) | Makes your AI agent think like the laziest senior dev in the room. The best code is the code you never wrote |
 | [code-review-graph](https://github.com/tirth8205/code-review-graph) | Local-first code intelligence graph for MCP and CLI. Builds a persistent map of your codebase so AI coding tools read only what matters |
+| [thermo-nuclear](https://github.com/cursor/plugins/tree/main/cursor-team-kit/skills/thermo-nuclear-code-quality-review) | Code quality review skill, downloaded straight from cursor/plugins at install time |
 
 ---
 
