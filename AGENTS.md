@@ -49,7 +49,6 @@ and execution state live in one canonical, per-project namespace:
       BACKLOG.md                    # backlog, source of truth
       state/
         BACKLOG_STEPS.json          # radin-execute execution plan
-        BACKLOG_PLAN_STEPS.json     # radin-plan execution plan
       plans/
         <task-id>.md                # radin-plan output
       reviews/
@@ -62,7 +61,7 @@ Outside any git repo, it falls back to `no-repo-<cwd-hash>`. `registry.json`
 is a best-effort index — an atomic temp-file-plus-`mv` write, with a
 jq → python3 → skip fallback chain. No core agent flow depends on reading it.
 
-Every one of `agents/radin-execute.md`, `agents/radin-plan.md`,
+Every one of `agents/radin-execute.md`, `skills/radin-plan/SKILL.md`,
 `skills/radin-review/SKILL.md`, `skills/radin-record/SKILL.md`, and
 `skills/radin-show/SKILL.md` resolves this namespace through an identical
 shared block before doing anything else.

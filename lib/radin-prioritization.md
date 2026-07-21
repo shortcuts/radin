@@ -1,10 +1,12 @@
 # Shared: Backlog Parsing, Priority Criteria, and State Schema
 
 Single source of truth for the parsing/prioritization/state-persistence logic
-shared by `radin-execute` and `radin-plan`. Both agents read this file
-at the start of their Phase 1 instead of embedding their own copy. The two
-agents differ only in what they do per task after this point (execute vs.
-plan) and in which state file they write to.
+shared by `radin-execute` and the `radin-plan` skill. Both read this file
+instead of embedding their own copy of the parsing rules — `radin-execute` at
+the start of its Phase 1, `radin-plan` at the start of its Step 2. Only
+`radin-execute` uses the priority-criteria and state-schema sections below:
+`radin-plan` is scoped to a single entry a caller points it at, so it has
+nothing to prioritize and no state file of its own.
 
 ## Parsing `$BACKLOG_FILE`
 
@@ -27,9 +29,8 @@ Assign a sequential `order` number starting from 1.
 
 ## State file schema
 
-Write the prioritized list to the caller's state file (`BACKLOG_STEPS.json`
-for `radin-execute`, `BACKLOG_PLAN_STEPS.json` for `radin-plan`) with
-this exact format:
+Write the prioritized list to `radin-execute`'s state file
+(`BACKLOG_STEPS.json`) with this exact format:
 
 ```json
 [

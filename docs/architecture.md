@@ -20,7 +20,6 @@ target repo, in a per-project namespace under `~/.claude/.radin/`:
       BACKLOG.md                    # backlog, source of truth
       state/
         BACKLOG_STEPS.json          # radin-execute execution plan
-        BACKLOG_PLAN_STEPS.json     # radin-plan sub-task list for one scoped task
       plans/
         <task-id>.md                # radin-plan output, one file per plan
       reviews/
@@ -36,7 +35,7 @@ dropped at its root.
 
 ## Namespace resolution
 
-Every one of `agents/radin-execute.md`, `agents/radin-plan.md`,
+Every one of `agents/radin-execute.md`, `skills/radin-plan/SKILL.md`,
 `skills/radin-review/SKILL.md`, `skills/radin-record/SKILL.md`, and
 `skills/radin-show/SKILL.md` resolves the namespace by running the same
 shared script —
@@ -83,28 +82,25 @@ blocks `BACKLOG_FILE` from being written correctly. Writes are atomic: a
 same-directory temp file (`$REGISTRY.tmp.$$`) is written and then `mv`'d
 into place.
 
-`agents/radin-execute.md` and `agents/radin-plan.md` also share a
-second file — `lib/radin-prioritization.md` — the single source of truth
-for backlog parsing rules, task priority criteria, and the state-file JSON
-schema. Both agents read it via `$HOME/.claude/radin-lib/radin-prioritization.md`
-at the start of Phase 1, instead of embedding their own copy.
-`radin-execute` uses all of it, to prioritize and order the whole backlog.
-`radin-plan` only uses the parsing and state-schema sections — it's scoped
-to a single task the user points it at, not the whole backlog, so it has
-nothing to prioritize. The two agents diverge after that point:
-`radin-execute` executes each task; `radin-plan` judges whether its one
-scoped task should split into independent sub-plans (confirming with the
-user before splitting), then writes a plan file and `**Plan:**` pointer per
-resulting sub-task.
+`radin-execute` and the `radin-plan` skill also share `lib/radin-prioritization.md`
+— the single source of truth for backlog parsing rules, task priority
+criteria, and the state-file JSON schema. Both read it via
+`$HOME/.claude/radin-lib/radin-prioritization.md` — `radin-execute` at the
+start of Phase 1, `radin-plan` at the start of its Step 2 — instead of
+embedding their own copy. `radin-execute` uses all of it, to prioritize and
+order the whole backlog. `radin-plan` only uses the parsing section — it's
+scoped to a single entry the caller points it at, not the whole backlog, so
+it has nothing to prioritize and no state file of its own.
 
-Both agents also share a third file — `lib/radin-planning.md` — the single
-source of truth for turning a task into an implementation plan (explore,
-apply the `/ponytail` ladder, produce files/changes/order/verification).
-`radin-plan`'s planning sub-agent reads it and saves the result to a plan
-file; `radin-execute`'s execution sub-agent reads it only when no
-`**Plan:**` exists yet, and keeps the result in-session before implementing
-it directly — no separate plan file, no split judgment, no user
-confirmation, so an unattended backlog run never stalls on a prompt.
+`radin-plan` is a skill, not an agent: it runs inline in whichever context
+invokes it — a user's own conversation, or `radin-execute`'s orchestrator
+context — rather than as a separate sub-agent. It judges whether its one
+scoped entry should split into independent sub-plans (confirming with the
+user directly before splitting, visibly, since nothing here is delegated out
+of sight), then writes a plan file and `**Plan:**` pointer per resulting
+sub-task. `radin-execute` invokes `/radin-plan` itself, in its own context,
+for any task that reaches Phase 3 with no `**Plan:**` line yet — never via a
+sub-agent, and never by re-deriving a planning approach of its own.
 
 To update radin itself, re-run `install.sh` — plain `curl | bash`, or
 `./install.sh` from a dev clone. It always re-downloads or re-copies
@@ -120,8 +116,9 @@ radin/
     plugin.json
   agents/
     radin-execute.md
-    radin-plan.md
   skills/
+    radin-plan/
+      SKILL.md
     radin-review/
       SKILL.md
     radin-record/
@@ -136,7 +133,6 @@ radin/
   lib/
     radin-namespace.sh
     radin-prioritization.md
-    radin-planning.md
   install.sh
   README.md
 ```

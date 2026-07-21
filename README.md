@@ -114,7 +114,7 @@ was split), and a `**Plan:** <path>` line appended to the entry in
 
 Work through the backlog end to end: prioritize, implement, test, commit —
 one entry at a time. Uses an existing plan from `radin-plan` if the entry
-already has one; otherwise plans inline.
+already has one; otherwise invokes `radin-plan` itself before executing.
 
 ```
 /radin-execute

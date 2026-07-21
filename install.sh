@@ -121,11 +121,11 @@ step "Installing agents and skills into ~/.claude"
 mkdir -p "$HOME/.claude/agents" "$HOME/.claude/skills" "$HOME/.claude/radin-lib"
 cp "$RADIN_ROOT"/lib/radin-namespace.sh "$HOME/.claude/radin-lib/"
 cp "$RADIN_ROOT"/lib/radin-prioritization.md "$HOME/.claude/radin-lib/"
-cp "$RADIN_ROOT"/lib/radin-planning.md "$HOME/.claude/radin-lib/"
 cp "$RADIN_ROOT"/agents/*.md "$HOME/.claude/agents/"
 cp -r "$RADIN_ROOT"/skills/radin-review "$HOME/.claude/skills/"
 cp -r "$RADIN_ROOT"/skills/radin-record "$HOME/.claude/skills/"
 cp -r "$RADIN_ROOT"/skills/radin-show "$HOME/.claude/skills/"
+cp -r "$RADIN_ROOT"/skills/radin-plan "$HOME/.claude/skills/"
 # thermo-nuclear is vendored via the vercel-labs/skills CLI (agentskills.io
 # spec), not a Claude Code plugin -- cursor/plugins isn't a plugin marketplace
 # repo, just a SKILL.md at this subpath. Falls back to a raw curl of the file
@@ -215,17 +215,13 @@ set_agent_model() {
 }
 
 step "Agent models (optional)"
-if prompt_yn "Choose models for radin-execute / radin-plan? (defaults: haiku top-level, sonnet sub-agents)"; then
+if prompt_yn "Choose models for radin-execute? (defaults: haiku top-level, sonnet sub-agents)"; then
 	ORCH_MODEL="$(prompt_val "radin-execute top-level model" "haiku")"
 	ORCH_SUB_MODEL="$(prompt_val "radin-execute sub-agent model (execution + review)" "sonnet")"
-	PLAN_MODEL="$(prompt_val "radin-plan top-level model" "haiku")"
-	PLAN_SUB_MODEL="$(prompt_val "radin-plan sub-agent model (planning)" "sonnet")"
 
 	set_agent_model "$HOME/.claude/agents/radin-execute.md" "^model: haiku$" "model: ${ORCH_MODEL}"
 	set_agent_model "$HOME/.claude/agents/radin-execute.md" 'model: "sonnet"' "model: \"${ORCH_SUB_MODEL}\""
-	set_agent_model "$HOME/.claude/agents/radin-plan.md" "^model: haiku$" "model: ${PLAN_MODEL}"
-	set_agent_model "$HOME/.claude/agents/radin-plan.md" 'model: "sonnet"' "model: \"${PLAN_SUB_MODEL}\""
-	ok "agent models configured"
+	ok "agent model configured"
 else
 	ok "keeping default models (haiku top-level, sonnet sub-agents)"
 fi

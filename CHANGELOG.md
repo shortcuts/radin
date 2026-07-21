@@ -6,6 +6,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- `radin-plan` is now a skill (`skills/radin-plan/SKILL.md`) instead of an
+  agent — it runs inline in whichever context invokes it, so its split
+  judgment and any plan-review question surface directly instead of inside
+  a sub-agent's transcript. `radin-execute` invokes it itself, in its own
+  context, for any task that reaches execution with no `**Plan:**` line yet
+  — no more ad-hoc inline planning duplicated in `radin-execute`'s own
+  prompt. `lib/radin-planning.md` is folded directly into the skill, since
+  it's now the only caller. `BACKLOG_PLAN_STEPS.json` is gone — the skill
+  re-resolves its sub-task list within the conversation instead of
+  persisting one to disk.
 - `radin-plan` now takes a single backlog entry as its scope instead of
   processing the whole backlog — point it at a task title/keyword. It uses
   `/ponytail` to judge (defaulting to no) whether that entry's scope should

@@ -65,11 +65,12 @@ entry's description:
 **Plan:** <path to plan file>
 ```
 
-`radin-plan` runs scoped to a single entry, not the whole backlog — the user
-points it at one task. If it judges that task's scope broad enough to split
-into independent sub-tasks, and the user confirms the split, it writes one
-plan file per sub-task and appends one `**Plan:**` line per plan, in order,
-instead of just one.
+`radin-plan` (a skill, not an agent — it runs inline in whichever context
+invokes it) runs scoped to a single entry, not the whole backlog — the
+caller points it at one task. If it judges that task's scope broad enough to
+split into independent sub-tasks, and the user confirms the split, it writes
+one plan file per sub-task and appends one `**Plan:**` line per plan, in
+order, instead of just one.
 
 ## Migration note
 
@@ -87,7 +88,7 @@ Free-form markdown at `$NAMESPACE_DIR/plans/<id>.md`: files to touch, the
 change in each, the order of operations, and how to verify it. No fixed
 schema — sub-agents write it, `radin-execute` (or a human) reads it.
 
-## State JSON schema (`BACKLOG_STEPS.json` / `BACKLOG_PLAN_STEPS.json`)
+## State JSON schema (`BACKLOG_STEPS.json`)
 
 ```json
 [
@@ -101,19 +102,14 @@ schema — sub-agents write it, `radin-execute` (or a human) reads it.
 ]
 ```
 
-`radin-plan`'s `BACKLOG_PLAN_STEPS.json` adds two fields, since it's scoped
-to the sub-tasks of a single entry rather than the whole backlog:
-`parent_line_start`/`parent_line_end` (the scoped entry's location, since a
-split sub-task's own `line_start`/`line_end` would otherwise point nowhere)
-and `scope_text` (`null` unless the entry was split, in which case that
-sub-task's one-line description — the only case where task text is
-persisted outside `$BACKLOG_FILE`, since a split sub-task has no entry of
-its own to re-read it from).
+`radin-execute`'s only state file — `radin-plan` is a skill that runs inline
+within one conversation, so it re-resolves a sub-task list each time instead
+of persisting one to disk.
 
 - `status` is one of `pending`, `failed`. An entry's absence from the array
   means that task is complete.
 - Never stores the full task text. `BACKLOG.md` (i.e. `$BACKLOG_FILE`) stays
   the source of truth.
-- `line_start`/`line_end` point into the live `$BACKLOG_FILE`. `radin-plan`
+- `line_start`/`line_end` point into the live `$BACKLOG_FILE`. `radin-execute`
   re-resolves them fresh each loop iteration, since inserting a `**Plan:**`
   line shifts every line below it.
