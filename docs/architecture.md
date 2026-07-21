@@ -14,7 +14,6 @@ target repo, in a per-project namespace under `~/.claude/.radin/`:
 
 ```
 ~/.claude/.radin/
-  install_root                      # path to the radin source (downloaded tarball or dev clone), written by install.sh
   registry.json                     # repo-slug -> { path, updated_at }
   projects/
     <repo-slug>/
@@ -82,13 +81,11 @@ machine) never blocks `ISSUES_FILE` from being written correctly. Writes are
 atomic: a same-directory temp file (`$REGISTRY.tmp.$$`) is written and then
 `mv`'d into place.
 
-`install_root` is a plain-text file holding the absolute path to the radin
-source `install.sh` was run from — written unconditionally on every
-`install.sh` run. It points at one of two things: a downloaded release
-tarball (marked by a `.radin-version` file, the normal `curl | bash` path —
-no `git clone` involved) or a manual dev clone (has a `.git` dir, for
-hacking on radin itself). `skills/radin-update/SKILL.md` reads it and
-branches on which mode applies before refreshing.
+To update radin itself, re-run `install.sh` (plain `curl | bash`, or
+`./install.sh` from a dev clone) — it always re-downloads/re-copies
+`agents/*.md` and `skills/*/`, overwriting what's in `~/.claude/`. Pass
+`--force` to also re-prompt on companion tools `install.sh` would otherwise
+skip because they're already detected on the system.
 
 ## Plugin repo layout
 
@@ -105,8 +102,6 @@ radin/
     radin-record/
       SKILL.md
     radin-setup-hooks/
-      SKILL.md
-    radin-update/
       SKILL.md
   docs/
   lib/

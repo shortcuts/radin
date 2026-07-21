@@ -113,11 +113,10 @@ drift from if reinvented from scratch:
 **Never touch anything in `~/.claude` (`~/.config/.claude`) besides what
 radin itself added.** `~/.claude/agents` and `~/.claude/skills` are a shared
 directory — the consumer's other agents/skills/tools live there too.
-`install.sh` and `skills/radin-update` may only `cp`/`cp -r` radin's own
-named files (`agents/*.md` that ship in this repo, radin's own
-`skills/<name>/`) and `mkdir -p`. Never `rm`, never wildcard-delete a
-directory, never overwrite a file radin didn't ship. Call this out
-explicitly on any edit to `install.sh` or `skills/radin-update/SKILL.md`.
+`install.sh` may only `cp`/`cp -r` radin's own named files (`agents/*.md`
+that ship in this repo, radin's own `skills/<name>/`) and `mkdir -p`. Never
+`rm`, never wildcard-delete a directory, never overwrite a file radin didn't
+ship. Call this out explicitly on any edit to `install.sh`.
 
 **macOS ships `/bin/bash` 3.2** (Apple froze it pre-GPLv3). Since scripts run
 on both macOS and Linux, all scripts in this repo (`install.sh`,

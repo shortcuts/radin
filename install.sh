@@ -118,12 +118,10 @@ mkdir -p "$HOME/.claude/skills/thermo-nuclear"
 curl -fsSL "https://raw.githubusercontent.com/cursor/plugins/refs/heads/main/cursor-team-kit/skills/thermo-nuclear-code-quality-review/SKILL.md" \
 	-o "$HOME/.claude/skills/thermo-nuclear/SKILL.md"
 cp -r "$RADIN_ROOT"/skills/radin-setup-hooks "$HOME/.claude/skills/"
-cp -r "$RADIN_ROOT"/skills/radin-update "$HOME/.claude/skills/"
 ok "agents/ and skills/ installed"
 
 mkdir -p "$HOME/.claude/.radin/projects"
 [ -f "$HOME/.claude/.radin/registry.json" ] || echo '{}' >"$HOME/.claude/.radin/registry.json"
-echo "$RADIN_ROOT" >"$HOME/.claude/.radin/install_root"
 
 install_if_confirmed() {
 	local name="$1" check_cmd="$2" install_cmd="$3"

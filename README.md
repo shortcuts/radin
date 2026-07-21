@@ -85,8 +85,7 @@ cd ~/Documents/radin
 | `skills/radin-review/` | Runs a thermo-nuclear code quality review and logs findings as structured backlog entries instead of only printing them. |
 | `thermo-nuclear` (downloaded, not shipped) | The strict maintainability review itself — invoked by `radin-review` and by `radin-orchestrator`'s optional Phase 5 review step. `install.sh` downloads its `SKILL.md` straight from cursor/plugins' [`thermo-nuclear-code-quality-review`](https://github.com/cursor/plugins/blob/main/cursor-team-kit/skills/thermo-nuclear-code-quality-review/SKILL.md) at install time — not vendored, not radin-original. |
 | `skills/radin-setup-hooks/` | Wires a companion tool's per-repo MCP/hook config (currently `code-review-graph`) into whatever repo you invoke it from — `install.sh` only installs the binary globally. |
-| `skills/radin-update/` | Pulls the latest radin commits and re-runs `install.sh` to refresh `~/.claude/agents/`/`~/.claude/skills/`. |
-| `install.sh` | Installs radin's agents/skills into `~/.claude/`, offers the companion tools below. |
+| `install.sh` | Installs radin's agents/skills into `~/.claude/`, offers the companion tools below. Re-run any time to update — always refreshes `~/.claude/agents/`/`~/.claude/skills/`; pass `--force` to also re-prompt on already-installed companion tools. |
 
 ## Storage model
 
