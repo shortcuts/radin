@@ -129,7 +129,13 @@ cp -r "$RADIN_ROOT"/skills/radin-record "$HOME/.claude/skills/"
 # repo, just a SKILL.md at this subpath. Falls back to a raw curl of the file
 # if npx isn't available.
 if command -v npx >/dev/null 2>&1; then
-	npx -y skills add "https://github.com/cursor/plugins/tree/main/cursor-team-kit/skills/thermo-nuclear-code-quality-review" -g -a claude-code -y
+	NPX_LOG="$(mktemp)"
+	if ! npx -y skills add "https://github.com/cursor/plugins/tree/main/cursor-team-kit/skills/thermo-nuclear-code-quality-review" -g -a claude-code -y >"$NPX_LOG" 2>&1; then
+		cat "$NPX_LOG" >&2
+		rm -f "$NPX_LOG"
+		exit 1
+	fi
+	rm -f "$NPX_LOG"
 	# Renamed back to "thermo-nuclear" -- every radin agent/skill invokes it
 	# under that name, and skills CLI installs use the source folder's name.
 	rm -rf "$HOME/.claude/skills/thermo-nuclear"
