@@ -37,8 +37,9 @@ dropped at its root.
 ## Namespace resolution
 
 Every one of `agents/radin-execute.md`, `agents/radin-plan.md`,
-`skills/radin-review/SKILL.md`, and `skills/radin-record/SKILL.md` resolves
-the namespace by running the same shared script —
+`skills/radin-review/SKILL.md`, `skills/radin-record/SKILL.md`, and
+`skills/radin-show/SKILL.md` resolves the namespace by running the same
+shared script —
 `lib/radin-namespace.sh`, the single source of truth for this logic —
 before doing anything else:
 
@@ -115,6 +116,8 @@ radin/
     radin-review/
       SKILL.md
     radin-record/
+      SKILL.md
+    radin-show/
       SKILL.md
     radin-setup-hooks/
       SKILL.md

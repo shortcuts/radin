@@ -124,6 +124,7 @@ cp "$RADIN_ROOT"/lib/radin-prioritization.md "$HOME/.claude/radin-lib/"
 cp "$RADIN_ROOT"/agents/*.md "$HOME/.claude/agents/"
 cp -r "$RADIN_ROOT"/skills/radin-review "$HOME/.claude/skills/"
 cp -r "$RADIN_ROOT"/skills/radin-record "$HOME/.claude/skills/"
+cp -r "$RADIN_ROOT"/skills/radin-show "$HOME/.claude/skills/"
 # thermo-nuclear is vendored via the vercel-labs/skills CLI (agentskills.io
 # spec), not a Claude Code plugin -- cursor/plugins isn't a plugin marketplace
 # repo, just a SKILL.md at this subpath. Falls back to a raw curl of the file

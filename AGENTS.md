@@ -63,8 +63,9 @@ is a best-effort index — an atomic temp-file-plus-`mv` write, with a
 jq → python3 → skip fallback chain. No core agent flow depends on reading it.
 
 Every one of `agents/radin-execute.md`, `agents/radin-plan.md`,
-`skills/radin-review/SKILL.md`, and `skills/radin-record/SKILL.md` resolves
-this namespace through an identical shared block before doing anything else.
+`skills/radin-review/SKILL.md`, `skills/radin-record/SKILL.md`, and
+`skills/radin-show/SKILL.md` resolves this namespace through an identical
+shared block before doing anything else.
 Do not reintroduce a root-`BACKLOG.md` or `.shortcuts/*.json` assumption into
 any of these files — that is the exact problem this storage scheme replaces.
 
