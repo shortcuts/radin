@@ -158,8 +158,8 @@ just radin not being self-hosted yet.
 
 ## Pre-commit checklist
 
-- `bash -n install.sh` clean
-- `shellcheck install.sh` clean (or documented exceptions only)
+- `make lint` clean (or documented exceptions only)
+- `make test` clean
 - Docs updated per the table above
 
 ## Code Style & Testing

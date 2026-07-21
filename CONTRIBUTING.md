@@ -19,12 +19,12 @@ is the source of truth, no external fork, no sync step. Edit them normally.
 ## Testing `install.sh` changes locally
 
 ```sh
-bash -n install.sh
-shellcheck install.sh
+make lint
+make test
 ```
 
 ## PR expectations
 
-- `bash -n` clean on any changed script
-- `shellcheck` clean (or documented exceptions only)
+- `make lint` clean (or documented exceptions only)
+- `make test` clean
 - Docs updated per the table in `AGENTS.md`'s "Doc-maintenance policy"
