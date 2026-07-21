@@ -123,14 +123,24 @@ ok "agents/ and skills/ installed"
 mkdir -p "$HOME/.claude/.radin/projects"
 [ -f "$HOME/.claude/.radin/registry.json" ] || echo '{}' >"$HOME/.claude/.radin/registry.json"
 
+prompt_yn() {
+	# Piped via curl | bash, fd0 is the script itself, not the terminal --
+	# read from /dev/tty so the prompt still works interactively. No tty at
+	# all (CI, non-interactive) means we can't ask, so default to no.
+	local msg="$1" ans=""
+	if [ -r /dev/tty ]; then
+		read -r -p "$(printf "%b" "${YELLOW}${RAT} $msg [y/N]${RESET} ")" ans </dev/tty 2>/dev/null || true
+	fi
+	[ "$ans" = "y" ] || [ "$ans" = "Y" ]
+}
+
 install_if_confirmed() {
 	local name="$1" check_cmd="$2" install_cmd="$3"
 	if [ -z "$FORCE" ] && command -v "$check_cmd" >/dev/null 2>&1; then
 		ok "$name already installed, skipping."
 		return
 	fi
-	read -r -p "$(printf "%b" "${YELLOW}${RAT} Install $name? [y/N]${RESET} ")" ans
-	[ "$ans" = "y" ] || [ "$ans" = "Y" ] || return 0
+	prompt_yn "Install $name?" || return 0
 	eval "$install_cmd"
 }
 
@@ -140,8 +150,7 @@ install_plugin_if_confirmed() {
 		ok "$name already installed, skipping."
 		return
 	fi
-	read -r -p "$(printf "%b" "${YELLOW}${RAT} Install $name? [y/N]${RESET} ")" ans
-	[ "$ans" = "y" ] || [ "$ans" = "Y" ] || return 0
+	prompt_yn "Install $name?" || return 0
 	claude plugin marketplace add "$marketplace_source"
 	claude plugin install "$plugin_id"
 }
