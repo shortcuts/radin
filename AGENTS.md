@@ -62,11 +62,49 @@ falls back to `no-repo-<cwd-hash>`. `registry.json` is a best-effort index —
 atomic temp-file-plus-`mv` write, jq → python3 → skip fallback chain — never
 required reading for core agent flows.
 
-Every one of `agents/radin-orchestrator.md`, `agents/radin-plan.md`, and
-`skills/radin-review/SKILL.md` resolves this namespace via an identical
-shared block before doing anything else. Do not reintroduce a root-`ISSUES.md`
-or `.shortcuts/*.json` assumption into any of these three files — that is the
-exact problem this storage scheme replaces.
+Every one of `agents/radin-orchestrator.md`, `agents/radin-plan.md`,
+`skills/radin-review/SKILL.md`, and `skills/radin-record/SKILL.md` resolves
+this namespace via an identical shared block before doing anything else. Do
+not reintroduce a root-`ISSUES.md` or `.shortcuts/*.json` assumption into any
+of these files — that is the exact problem this storage scheme replaces.
+
+## `ISSUES.md` entry schema
+
+`docs/schemas/issues-entry.schema.json` is the formal, repo-internal contract
+for `$ISSUES_FILE`'s structure: top-level semver-style category sections
+(`## feat`/`## fix`/`## chore`/`## refactor`, same vocabulary as a
+conventional-commit type, canonical order feat → fix → chore → refactor),
+each holding `### title` entries with an exhaustive description underneath,
+plus an optional trailing `**Plan:**` line. There is no per-entry bracket
+tag — category is purely which section an entry lives under. Read the
+schema (and `docs/domain-models.md`'s matching section) before adding a new
+category or a new skill/agent that writes to `ISSUES.md`. The schema is
+reference only — it never ships to consumers, so **every** entry-writing
+skill/agent must embed its concrete markdown format inline in its own
+`SKILL.md`/agent file rather than pointing at the schema file at runtime (a
+consumer's `~/.claude/skills/radin-record/` never has this repo's `docs/`
+alongside it).
+
+## Adding a new radin skill/agent
+
+Before writing one, skim an existing one first (`skills/radin-review/SKILL.md`
+is the shortest complete example) — the shared conventions below are easy to
+drift from if reinvented from scratch:
+
+1. **Namespace resolution.** Copy the shared bash block verbatim from an
+   existing skill/agent (see `docs/architecture.md`'s "Namespace resolution"
+   section) — don't hand-roll a variant.
+2. **`ISSUES.md` writes.** If the new skill/agent appends entries, follow the
+   schema above: classify into an existing category (feat/fix/chore/refactor)
+   — don't invent a fifth. If the shape genuinely needs to change, update both
+   `docs/schemas/issues-entry.schema.json` and `docs/domain-models.md` in the
+   same change.
+3. **Docs.** Run the doc-maintenance checklist below — `docs/architecture.md`'s
+   plugin repo layout and namespace-resolution sentence both need the new
+   file's name added.
+4. **`install.sh`.** New skills need a `cp -r` line added so `install.sh`
+   actually distributes them — a skill living only in `skills/` in this repo
+   is not yet installed anywhere.
 
 ## Constraints
 

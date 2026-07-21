@@ -18,31 +18,62 @@ every agent/skill invocation. `<repo-slug>` is
 
 ## `ISSUES.md` entry format
 
-Plain entries (from `radin-orchestrator`/`radin-plan` prioritization)
-have no fixed schema beyond a heading per task — they're parsed generically
-(title + body, `line_start`/`line_end` tracked separately in state).
+Formal contract: `docs/schemas/issues-entry.schema.json` (JSON Schema,
+draft-07). It documents the shape every radin agent/skill must produce when
+reading or appending to `$ISSUES_FILE` — read it first before changing this
+structure or adding a new entry-producing skill. It is repo-internal
+reference only: it does not ship to consumers, so every agent/skill embeds
+its concrete markdown format inline rather than reading the schema file at
+runtime.
 
-`radin-review` findings use a fixed structured format:
+`$ISSUES_FILE` is organized into top-level semver-style category sections —
+`feat`, `fix`, `chore`, `refactor` — same vocabulary as a conventional-commit
+type. A section exists only once it has its first entry (an empty backlog
+has none); when creating one, insert it in canonical order
+(feat → fix → chore → refactor) relative to whichever sections already
+exist. There is no per-entry bracket tag anymore — an entry's category is
+just whichever `##` section it lives under:
 
 ```
-## [Thermo-Nuclear Review] <short title>
+## feat
 
-**Scope:** <what was reviewed — commit hash / PR / directory / range>
-**Location:** <file path(s) and function/line if applicable>
-**Finding:**
-<the structural problem, stated directly>
-**Preferred remedy:**
-<the concrete restructuring suggested>
+### <short title>
+<as exhaustive a description as the situation warrants — what the change is,
+why it matters, affected files/areas if known, acceptance criteria if
+known. radin-orchestrator/radin-plan derive scope and priority entirely from
+this text, so write enough that a sub-agent given only this entry, with no
+other session context, could act on it correctly.>
+
+## fix
+
+### <short title>
+<description, same bar as above>
 ```
 
-Once `radin-plan` processes an entry, it appends a single additional line:
+Every radin agent/skill that appends an entry — `radin-review` (code-review
+findings, usually `fix` for an actual bug or `refactor` for a structural
+finding), `radin-record` (feedback/bugs/follow-ups/ideas surfaced in
+conversation), `radin-orchestrator`/`radin-plan` (their own backlog
+grooming) — classifies into one of these four categories and writes the
+same `### title` + description shape. None of them invent a fifth category
+or a per-entry tag on top of the section.
+
+Once `radin-plan` processes an entry, it appends a single additional line
+after the entry's description:
 
 ```
 **Plan:** <path to plan file>
 ```
 
-placed after the entry's title/heading, or after `**Scope:**`/`**Location:**`
-if the entry already uses that format.
+## Migration note
+
+Earlier revisions of this file described a bracket-tag scheme
+(`## [Thermo-Nuclear Review] <title>` with `**Scope:**`/`**Location:**`/
+`**Finding:**`/`**Preferred remedy:**` fields, and a separate
+`## [Bug]`/`[Follow-up]`/`[Idea]`/`[Feedback]` scheme for `radin-record`).
+That's superseded by the single feat/fix/chore/refactor scheme above —
+existing `ISSUES.md` files written under the old scheme are not migrated
+automatically; new entries just use the new shape going forward.
 
 ## Plan-file format (`radin-plan` output)
 

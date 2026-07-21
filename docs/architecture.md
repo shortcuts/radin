@@ -37,9 +37,9 @@ get an opinionated file dropped at its root).
 
 ## Namespace resolution
 
-Every one of `agents/radin-orchestrator.md`, `agents/radin-plan.md`, and
-`skills/radin-review/SKILL.md` resolves the namespace via an identical
-shared block before doing anything else:
+Every one of `agents/radin-orchestrator.md`, `agents/radin-plan.md`,
+`skills/radin-review/SKILL.md`, and `skills/radin-record/SKILL.md` resolves
+the namespace via an identical shared block before doing anything else:
 
 ```bash
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
@@ -88,6 +88,8 @@ radin/
     radin-plan.md
   skills/
     radin-review/
+      SKILL.md
+    radin-record/
       SKILL.md
     radin-setup-hooks/
       SKILL.md
