@@ -109,17 +109,27 @@ Execute the task from ISSUES_PATH lines Y-Z:
 1. Read ISSUES_PATH lines Y-Z to understand the task
 2. Invoke the `/ponytail` skill, then plan your approach internally
 3. Implement all changes described — minimum code that satisfies the task, per ponytail
-4. Run any required checks (lint, tests, format) per project conventions
-5. Fix any issues before committing
-6. Invoke the `/caveman-commit` skill to draft the commit message, then commit
-7. Report back: commit hash, summary of what was done, any issues encountered
+4. Where the task changes behavior (not a pure deletion/rename), add or update a unit
+   test that pins the expected behavior — follow existing test conventions in the repo
+5. Run any required checks (lint, tests, format) per project conventions
+6. Fix any issues before committing
+7. Invoke the `/caveman-commit` skill to draft the commit message, then commit
+8. Run `git status --porcelain`. If anything is still uncommitted (including changes
+   made incidentally while investigating, e.g. formatter/linter auto-fixes), either
+   commit it as part of this task's commit or a separate scoped commit — never leave
+   the working tree dirty when you report back
+9. Report back: commit hash(es), summary of what was done, any issues encountered
 
-Do NOT skip checks. Do NOT commit if checks are failing.
+Do NOT skip checks. Do NOT commit if checks are failing. Do NOT leave uncommitted
+changes on the branch — commit everything you touched, or `git checkout`/revert it if
+it turns out to be unnecessary.
 ```
 
 When the sub-agent reports back:
 
-- Record the commit hash
+- Run `git status --porcelain` yourself. If it's non-empty, treat the task as failed
+  (the sub-agent violated the no-dirty-tree contract) — do not silently continue
+- Record the commit hash(es)
 - Remove the completed entry from `$NAMESPACE_DIR/state/ISSUES_STEPS.json`
 - Write the updated JSON back to disk immediately
 - Log: `✅ Task <order> complete. Commit: <hash>. Remaining: <count>.`
@@ -141,6 +151,11 @@ Continue to the next entry in `$NAMESPACE_DIR/state/ISSUES_STEPS.json` until the
 
 Once all tasks are complete and `$NAMESPACE_DIR/state/ISSUES_STEPS.json` is empty:
 
+0. Run `git status --porcelain` in `$REPO_ROOT`. If it's non-empty (including when
+   zero tasks ran this session — e.g. an empty backlog), you have an uncommitted
+   change that isn't tied to any task. Do not leave it dangling: commit it with a
+   clear message describing what it is and why, or `git checkout`/revert it if it
+   turns out to be unnecessary. Report which you did and why in the final summary.
 1. Clean up `$ISSUES_FILE`:
    - Remove all tasks that were successfully completed this session (those whose entries were removed from `$NAMESPACE_DIR/state/ISSUES_STEPS.json`)
    - Leave failed tasks in place — they remain to be retried
