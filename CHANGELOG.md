@@ -6,6 +6,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- `radin-execute` no longer invokes `radin-plan` unconditionally for an
+  unplanned task. It first asks `/ponytail` whether the task is
+  straightforward enough to implement directly — only tasks judged genuinely
+  complex go through `/radin-plan`.
+- `radin-plan` now reviews each plan it writes with `/thermo-nuclear` and
+  `/ponytail-review` before handing it off, fixing any findings directly in
+  the plan file — no separate backlog entry, the plan hasn't executed yet.
+
 - `radin-plan` is now a skill (`skills/radin-plan/SKILL.md`) instead of an
   agent — it runs inline in whichever context invokes it, so its split
   judgment and any plan-review question surface directly instead of inside

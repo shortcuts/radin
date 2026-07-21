@@ -5,10 +5,11 @@ description: |
   touching code. Takes a task scope — a title/keyword — instead of the whole
   backlog. Judges whether the scope is broad enough to split into multiple
   independent plans, confirms any split with you directly, then writes one
-  plan file per resulting sub-task and appends a `**Plan:**` pointer back to
-  the entry. Use for /radin-plan, "plan this backlog entry", "write a plan
-  for X before we execute it". radin-execute also invokes this skill itself
-  for any entry it's about to work that has no plan yet.
+  plan file per resulting sub-task, reviews it with thermo-nuclear and
+  ponytail-review before handing it off, and appends a `**Plan:**` pointer
+  back to the entry. Use for /radin-plan, "plan this backlog entry", "write
+  a plan for X before we execute it". radin-execute also invokes this skill
+  itself for any entry it judges too complex to implement without a plan.
 ---
 # Plan a Backlog Entry
 
@@ -103,14 +104,35 @@ conversation ends up doing both in sequence.
 Do NOT edit any source file, run builds/tests, or create a git commit at any
 point in this skill.
 
+## Step 4.5: Review each plan before handing it off
+
+A plan is still just a proposal — catch structural problems in it before
+`radin-execute` builds on top of it, the same way a diff gets reviewed before
+merge. For each plan file just written:
+
+1. Invoke `/thermo-nuclear` against the plan file's content (not the
+   codebase) — does the proposed approach itself have a spaghetti shape, a
+   canonical-layer leak, an orchestration-atomicity problem, or any other
+   structural issue the rubric flags?
+2. Invoke `/ponytail-review` against the same plan file — does the proposed
+   approach carry speculative flexibility, reinvent something the stdlib or
+   an existing dependency already covers, or add a layer with only one
+   caller?
+3. For each finding either pass raises, edit the plan file in place to fix
+   it — the plan file itself is the only artifact that needs to reflect the
+   finding. Don't log anything to `$BACKLOG_FILE`; there's no separate
+   review record to keep, unlike `radin-review`'s scope (a merged commit),
+   this plan hasn't executed yet, so the fix belongs in the plan itself.
+4. Zero findings from both passes: leave the plan file untouched.
+
 ## Step 5: Report back
 
 ```
 ✅ Entry planned.
 
-| Sub-task | Plan |
-|------|------|
-| <id> | $NAMESPACE_DIR/plans/<id>.md |
+| Sub-task | Plan | Review findings |
+|------|------|------|
+| <id> | $NAMESPACE_DIR/plans/<id>.md | <count of fixes applied to the plan, or "none"> |
 
 Next: radin-execute (or a human) can implement from the plan(s) above.
 ```

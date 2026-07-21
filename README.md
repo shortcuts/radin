@@ -79,8 +79,8 @@ reimplementing review or style logic themselves:
 
 | Tool | Delegates to |
 | --- | --- |
-| `radin-execute` | `/ponytail` (per-task implementation), `/caveman-commit` (commit message), `/thermo-nuclear` (optional end-of-session review) |
-| `radin-plan` | `/ponytail` (split judgment and plan writing) |
+| `radin-execute` | `/ponytail` (plan-or-skip gate, per-task implementation), `/radin-plan` (only for tasks judged complex enough), `/caveman-commit` (commit message), `/thermo-nuclear` (optional end-of-session review) |
+| `radin-plan` | `/ponytail` (split judgment and plan writing), `/thermo-nuclear` + `/ponytail-review` (reviewing the plan itself before handoff) |
 | `radin-review` | `/thermo-nuclear` (code-quality pass), `/ponytail-review` or `/ponytail-audit` (over-engineering pass) |
 
 #### `radin-record`
@@ -107,14 +107,18 @@ and confirms with you before splitting.
 
 Result: one plan file per plan under
 `~/.claude/.radin/projects/<repo-slug>/plans/` (more than one if the entry
-was split), and a `**Plan:** <path>` line appended to the entry in
-`BACKLOG.md` per plan produced.
+was split), each reviewed with `/thermo-nuclear` and `/ponytail-review`
+before handoff — any findings are fixed directly in the plan file — and a
+`**Plan:** <path>` line appended to the entry in `BACKLOG.md` per plan
+produced.
 
 #### `radin-execute`
 
 Work through the backlog end to end: prioritize, implement, test, commit —
 one entry at a time. Uses an existing plan from `radin-plan` if the entry
-already has one; otherwise invokes `radin-plan` itself before executing.
+already has one. If not, asks `/ponytail` whether the task is straightforward
+enough to implement directly — only tasks judged genuinely complex go
+through `/radin-plan` first.
 
 ```
 /radin-execute
