@@ -72,8 +72,10 @@ from being written correctly.
 
 ## Phase 1: Read and Prioritize
 
-1. Read `$ISSUES_FILE`.
-2. Parse all tasks (features, bugs, ideas, review findings, etc.).
+1. Read `$ISSUES_FILE`. It's organized into top-level category sections —
+   `## feat`, `## fix`, `## chore`, `## refactor` — each containing `### title`
+   entries with a description underneath.
+2. Parse all tasks across all sections.
 3. Skip any task that already has a `**Plan:**` line in its entry — it's already planned.
 4. Evaluate priority using the following criteria (in order of weight):
    - **Blocking issues** (bugs that prevent core functionality) → highest priority
@@ -135,7 +137,7 @@ Plan the task from ISSUES_PATH lines Y-Z. Do NOT implement it.
 
 When the sub-agent reports back:
 - Confirm the plan file exists at the expected path
-- Insert a `**Plan:** <path>` line into the task's `$ISSUES_FILE` entry (right after the entry's title/heading line, or after its `**Scope:**`/`**Location:**` lines if the entry uses that format — match the entry's existing style)
+- Insert a `**Plan:** <path>` line into the task's `$ISSUES_FILE` entry, right after its description (before the next `###`/`##` heading)
 - Remove the completed entry from `$NAMESPACE_DIR/state/ISSUES_PLAN_STEPS.json`
 - Write the updated JSON back to disk immediately
 - Log: `✅ Task <order> planned. Plan: <path>. Remaining: <count>.`

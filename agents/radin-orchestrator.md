@@ -70,8 +70,11 @@ from being written correctly.
 
 ## Phase 1: Read and Prioritize
 
-1. Read `$ISSUES_FILE`.
-2. Parse all tasks (features, bugs, ideas, etc.).
+1. Read `$ISSUES_FILE`. It's organized into top-level category sections —
+   `## feat`, `## fix`, `## chore`, `## refactor` — each containing `### title`
+   entries with a description underneath. Category doesn't set priority by
+   itself; read every section.
+2. Parse all tasks across all sections.
 3. Evaluate priority using the following criteria (in order of weight):
    - **Blocking issues** (bugs that prevent core functionality) → highest priority
    - **Security or data-loss risks** → very high priority
@@ -192,10 +195,15 @@ Invoke a sub-agent with `model: "sonnet"` and forward the user's answer from Ste
 
 ## Step 2: Append the review finding file to ISSUES.md
 
-- If the `Reviews` section does not exist in `$ISSUES_FILE`, create it
-- Add a new entry in the `Reviews` section:
+`$ISSUES_FILE` is organized into top-level category sections — `## feat`,
+`## fix`, `## chore`, `## refactor`. This review is structural cleanup, so
+it belongs under `## refactor` — create that section (in canonical order
+feat → fix → chore → refactor relative to whichever sections already exist)
+if it doesn't exist yet, then append:
 
-- Implement the findings of review <path-to-file>
+### Address review findings: <short name for this review>
+See <path-to-file> for the full findings. Implement the recommended changes
+across the affected files listed there.
 ```
 
 ---
