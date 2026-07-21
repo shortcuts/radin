@@ -39,7 +39,20 @@ get an opinionated file dropped at its root).
 
 Every one of `agents/radin-orchestrator.md`, `agents/radin-plan.md`,
 `skills/radin-review/SKILL.md`, and `skills/radin-record/SKILL.md` resolves
-the namespace via an identical shared block before doing anything else:
+the namespace by running the same shared script — `lib/radin-namespace.sh`,
+the single source of truth for this logic — before doing anything else:
+
+```bash
+bash "$HOME/.claude/radin-lib/radin-namespace.sh"
+```
+
+`install.sh` copies `lib/radin-namespace.sh` to `~/.claude/radin-lib/` (a
+consumer install never has this repo's `lib/` directly, so the script must be
+distributed like any other radin file). It prints `REPO_ROOT`,
+`NAMESPACE_DIR`, and `ISSUES_FILE` on stdout; the calling agent/skill reads
+those values from the printed output for the rest of its session.
+
+Inside the script:
 
 ```bash
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
@@ -96,6 +109,8 @@ radin/
     radin-update/
       SKILL.md
   docs/
+  lib/
+    radin-namespace.sh
   install.sh
   README.md
 ```

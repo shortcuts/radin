@@ -7,7 +7,7 @@ test:
 	bats tests/
 
 lint:
-	bash -n install.sh
-	shellcheck install.sh
-	shfmt -w install.sh
+	bash -n install.sh lib/radin-namespace.sh
+	shellcheck install.sh lib/radin-namespace.sh
+	shfmt -w install.sh lib/radin-namespace.sh
 	markdownlint --fix '**/*.md' --ignore node_modules

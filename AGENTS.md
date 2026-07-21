@@ -91,9 +91,11 @@ Before writing one, skim an existing one first (`skills/radin-review/SKILL.md`
 is the shortest complete example) — the shared conventions below are easy to
 drift from if reinvented from scratch:
 
-1. **Namespace resolution.** Copy the shared bash block verbatim from an
-   existing skill/agent (see `docs/architecture.md`'s "Namespace resolution"
-   section) — don't hand-roll a variant.
+1. **Namespace resolution.** Call `bash "$HOME/.claude/radin-lib/radin-namespace.sh"`
+   (see `docs/architecture.md`'s "Namespace resolution" section) and read
+   `REPO_ROOT`/`NAMESPACE_DIR`/`ISSUES_FILE` from its output — don't
+   re-embed the resolution logic inline; `lib/radin-namespace.sh` is its
+   single source of truth.
 2. **`ISSUES.md` writes.** If the new skill/agent appends entries, follow the
    schema above: classify into an existing category (feat/fix/chore/refactor)
    — don't invent a fifth. If the shape genuinely needs to change, update both

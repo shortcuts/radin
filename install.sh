@@ -104,7 +104,8 @@ fi
 ok "Using radin source at ${BOLD}$RADIN_ROOT${RESET}"
 
 step "Installing agents and skills into ~/.claude"
-mkdir -p "$HOME/.claude/agents" "$HOME/.claude/skills"
+mkdir -p "$HOME/.claude/agents" "$HOME/.claude/skills" "$HOME/.claude/radin-lib"
+cp "$RADIN_ROOT"/lib/radin-namespace.sh "$HOME/.claude/radin-lib/"
 cp "$RADIN_ROOT"/agents/*.md "$HOME/.claude/agents/"
 cp -r "$RADIN_ROOT"/skills/radin-review "$HOME/.claude/skills/"
 cp -r "$RADIN_ROOT"/skills/radin-record "$HOME/.claude/skills/"
