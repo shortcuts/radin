@@ -23,8 +23,10 @@ else
 fi
 
 FORCE=""
+YES=""
 for arg in "$@"; do
 	[ "$arg" = "--force" ] && FORCE="1"
+	[ "$arg" = "--yes" ] && YES="1"
 done
 
 RAT='🐀'
@@ -125,12 +127,18 @@ mkdir -p "$HOME/.claude/.radin/projects"
 [ -f "$HOME/.claude/.radin/registry.json" ] || echo '{}' >"$HOME/.claude/.radin/registry.json"
 
 prompt_yn() {
-	# Piped via curl | bash, fd0 is the script itself, not the terminal --
-	# read from /dev/tty so the prompt still works interactively. No tty at
-	# all (CI, non-interactive) means we can't ask, so default to no.
+	# Run from a real file ($0), fd0 is free -- read the answer from stdin
+	# (works for an interactive terminal and for piped/redirected answers
+	# alike). Piped via curl | bash, fd0 is the script itself, so fall back
+	# to /dev/tty. No tty at all (CI, non-interactive) means we can't ask,
+	# so default to no.
 	local msg="$1" ans=""
-	if [ -r /dev/tty ]; then
-		read -r -p "$(printf "%b" "${YELLOW}${RAT} $msg [y/N]${RESET} ")" ans </dev/tty || true
+	if [ -z "$YES" ]; then
+		if [ -f "$0" ]; then
+			read -r -p "$(printf "%b" "${YELLOW}${RAT} $msg [y/N]${RESET} ")" ans || true
+		elif [ -r /dev/tty ]; then
+			read -r -p "$(printf "%b" "${YELLOW}${RAT} $msg [y/N]${RESET} ")" ans </dev/tty || true
+		fi
 	fi
 	[ "$ans" = "y" ] || [ "$ans" = "Y" ]
 }
@@ -157,10 +165,14 @@ install_plugin_if_confirmed() {
 }
 
 prompt_val() {
-	# Same /dev/tty rationale as prompt_yn -- works under curl | bash too.
+	# Same stdin/tty rationale as prompt_yn -- works under curl | bash too.
 	local msg="$1" default="$2" ans=""
-	if [ -r /dev/tty ]; then
-		read -r -p "$(printf "%b" "${YELLOW}${RAT} $msg [$default]${RESET} ")" ans </dev/tty || true
+	if [ -z "$YES" ]; then
+		if [ -f "$0" ]; then
+			read -r -p "$(printf "%b" "${YELLOW}${RAT} $msg [$default]${RESET} ")" ans || true
+		elif [ -r /dev/tty ]; then
+			read -r -p "$(printf "%b" "${YELLOW}${RAT} $msg [$default]${RESET} ")" ans </dev/tty || true
+		fi
 	fi
 	printf '%s' "${ans:-$default}"
 }

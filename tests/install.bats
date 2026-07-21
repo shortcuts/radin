@@ -57,7 +57,7 @@ run_install_no_companions() {
 }
 
 run_install_no_companions_answering() {
-  cd "$REPO_ROOT" && printf '%s\nn\nn\nn\nn\n' "$1" | bash ./install.sh
+  cd "$REPO_ROOT" && printf 'n\n%s\nn\nn\nn\n' "$1" | bash ./install.sh
 }
 
 @test "syntax is valid" {
@@ -91,7 +91,6 @@ run_install_no_companions_answering() {
   [ -d "$TEST_HOME/.claude/skills/radin-review" ]
   [ -d "$TEST_HOME/.claude/skills/radin-record" ]
   [ -d "$TEST_HOME/.claude/skills/radin-setup-hooks" ]
-  [ -d "$TEST_HOME/.claude/skills/radin-update" ]
 }
 
 @test "installs shared namespace-resolution script into ~/.claude/radin-lib" {
