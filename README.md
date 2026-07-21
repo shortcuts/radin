@@ -32,7 +32,7 @@ they get the credit and the updates.
 ## Tools you get
 
 | Tool | What it does |
-|---|---|
+| --- | --- |
 | `radin-orchestrator` | Works through your `ISSUES.md` backlog, one task at a time, committing as it goes |
 | `radin-plan` | Same backlog, but writes a plan per task instead of executing |
 | `radin-review` | Runs a strict code-quality pass and logs findings back into the backlog |
@@ -73,7 +73,7 @@ cd ~/Documents/radin
 ## What's here
 
 | | |
-|---|---|
+| --- | --- |
 | `agents/radin-orchestrator.md` | Works through an `ISSUES.md` backlog one task at a time, delegating implementation to sub-agents and committing after each task. |
 | `agents/radin-plan.md` | Same prioritization as `radin-orchestrator`, but writes one implementation plan per task instead of executing. |
 | `skills/radin-review/` | Runs a thermo-nuclear code quality review and logs findings as structured backlog entries instead of only printing them. |
@@ -92,7 +92,7 @@ in a canonical namespace under `~/.claude/.radin/projects/<repo-slug>/`. See
 ## Companion tools (installed separately, not vendored)
 
 | Tool | Role |
-|---|---|
+| --- | --- |
 | [rtk](https://github.com/rtk-ai/rtk) | Token-cheap CLI proxy — cost optimization |
 | [caveman](https://github.com/JuliusBrussee/caveman) | Ultra-compressed agent output mode — cost optimization |
 | [i-have-adhd](https://github.com/ayghri/i-have-adhd) | ADHD-friendly output shaping — action-first, numbered steps, no preamble |

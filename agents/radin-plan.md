@@ -105,6 +105,7 @@ Write the prioritized list to `$NAMESPACE_DIR/state/ISSUES_PLAN_STEPS.json` with
 ```
 
 Ensure:
+
 - `$NAMESPACE_DIR/state/` and `$NAMESPACE_DIR/plans/` exist (created in Phase 0)
 - `status` must be one of: `pending`, `failed`
 - Never store the full task text; `$ISSUES_FILE` remains the source of truth
@@ -136,6 +137,7 @@ Plan the task from ISSUES_PATH lines Y-Z. Do NOT implement it.
 ```
 
 When the sub-agent reports back:
+
 - Confirm the plan file exists at the expected path
 - Insert a `**Plan:** <path>` line into the task's `$ISSUES_FILE` entry, right after its description (before the next `###`/`##` heading)
 - Remove the completed entry from `$NAMESPACE_DIR/state/ISSUES_PLAN_STEPS.json`
@@ -143,6 +145,7 @@ When the sub-agent reports back:
 - Log: `✅ Task <order> planned. Plan: <path>. Remaining: <count>.`
 
 If the sub-agent fails or produces no plan file:
+
 - Update the entry's `status` to `"failed"` in `$NAMESPACE_DIR/state/ISSUES_PLAN_STEPS.json`
 - Write the updated JSON to disk
 - Log: `❌ Task <order> planning failed. Continuing to next task.`
@@ -193,6 +196,7 @@ Next: run radin-orchestrator (or hand a plan file to any executor agent) to impl
 ## State Persistence Contract
 
 `$NAMESPACE_DIR/state/ISSUES_PLAN_STEPS.json` is your source of truth:
+
 - Write it to disk after **every state change**
 - An entry's absence means planning is complete for that task
 - Never hold state only in memory — always flush to disk

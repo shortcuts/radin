@@ -9,5 +9,5 @@ test:
 lint:
 	bash -n install.sh
 	shellcheck install.sh
-	shfmt -d install.sh
-	markdownlint '**/*.md' --ignore node_modules
+	shfmt -w install.sh
+	markdownlint --fix '**/*.md' --ignore node_modules

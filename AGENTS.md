@@ -7,7 +7,7 @@
 ## Project
 
 | Field | Value |
-|---|---|
+| --- | --- |
 | What it is | Claude Code plugin: agents + skills + install glue |
 | Runtime language | None — bash only |
 | Target OS | macOS and Linux |
@@ -140,7 +140,7 @@ succeeds, and never installs without an explicit `y` confirmation.
 Work is not done until affected docs are updated in the same commit.
 
 | File | Update when |
-|---|---|
+| --- | --- |
 | `docs/architecture.md` | Storage scheme, namespace resolution, or plugin file layout changes |
 | `docs/domain-models.md` | `registry.json` schema, `ISSUES.md` entry format, or plan-file format changes |
 | `install.sh` companion-tool table (README) | A companion tool is added/removed/renamed |

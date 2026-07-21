@@ -103,6 +103,7 @@ Write the prioritized list to `$NAMESPACE_DIR/state/ISSUES_STEPS.json` with this
 ```
 
 Ensure:
+
 - `$NAMESPACE_DIR/state/` exists (created in Phase 0)
 - `status` must be one of: `pending`, `failed`
 - Never store the full task text; `$ISSUES_FILE` remains the source of truth
@@ -134,12 +135,14 @@ Do NOT skip checks. Do NOT commit if checks are failing.
 ```
 
 When the sub-agent reports back:
+
 - Record the commit hash
 - Remove the completed entry from `$NAMESPACE_DIR/state/ISSUES_STEPS.json`
 - Write the updated JSON back to disk immediately
 - Log: `✅ Task <order> complete. Commit: <hash>. Remaining: <count>.`
 
 If the sub-agent fails:
+
 - Update the entry's `status` to `"failed"` in `$NAMESPACE_DIR/state/ISSUES_STEPS.json`
 - Write the updated JSON to disk
 - Log: `❌ Task <order> failed. Continuing to next task.`
@@ -223,6 +226,7 @@ across the affected files listed there.
 ## State Persistence Contract
 
 `$NAMESPACE_DIR/state/ISSUES_STEPS.json` is your source of truth:
+
 - Write it to disk after **every state change**
 - An entry's absence means execution is complete
 - Never hold state only in memory — always flush to disk
