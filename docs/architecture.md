@@ -17,10 +17,10 @@ target repo, in a per-project namespace under `~/.claude/.radin/`:
   registry.json                     # repo-slug -> { path, updated_at }
   projects/
     <repo-slug>/
-      ISSUES.md                     # backlog, source of truth
+      BACKLOG.md                    # backlog, source of truth
       state/
-        ISSUES_STEPS.json           # radin-orchestrator execution plan
-        ISSUES_PLAN_STEPS.json      # radin-plan execution plan
+        BACKLOG_STEPS.json          # radin-orchestrator execution plan
+        BACKLOG_PLAN_STEPS.json     # radin-plan execution plan
       plans/
         <task-id>.md                # radin-plan output
       reviews/
@@ -28,8 +28,8 @@ target repo, in a per-project namespace under `~/.claude/.radin/`:
 ```
 
 No target repo ever receives a file written by radin. This replaced an
-earlier, ambiguous scheme: `ISSUES.md` could live at a repo root or at
-`~/.claude/ISSUES.md`, and per-repo state lived in `.shortcuts/*.json`. Both
+earlier, ambiguous scheme: `BACKLOG.md` could live at a repo root or at
+`~/.claude/BACKLOG.md`, and per-repo state lived in `.shortcuts/*.json`. Both
 collided across repos worked on with the same Claude install, and neither
 was fit to open-source — a stranger's repo shouldn't get an opinionated file
 dropped at its root.
@@ -49,7 +49,7 @@ bash "$HOME/.claude/radin-lib/radin-namespace.sh"
 `install.sh` copies `lib/radin-namespace.sh` to `~/.claude/radin-lib/`. A
 consumer install never has this repo's `lib/` directly, so the script has to
 be distributed like any other radin file. It prints `REPO_ROOT`,
-`NAMESPACE_DIR`, and `ISSUES_FILE` to stdout; the calling agent/skill reads
+`NAMESPACE_DIR`, and `BACKLOG_FILE` to stdout; the calling agent/skill reads
 those values from the printed output for the rest of its session.
 
 Inside the script:
@@ -78,7 +78,7 @@ any git repo, the slug falls back to `no-repo-<cwd-hash>`.
 `registry.json` is a best-effort index (repo-slug → path/updated_at), useful
 for a future `radin list`/`radin status` command. No core agent flow depends
 on reading it — a skipped upsert (no `jq`/`python3` on the machine) never
-blocks `ISSUES_FILE` from being written correctly. Writes are atomic: a
+blocks `BACKLOG_FILE` from being written correctly. Writes are atomic: a
 same-directory temp file (`$REGISTRY.tmp.$$`) is written and then `mv`'d
 into place.
 

@@ -44,8 +44,8 @@ curl -fsSL https://raw.githubusercontent.com/shortcuts/radin/main/install.sh | b
 
 ## The backlog lifecycle
 
-`ISSUES.md` is your repo's backlog. It lives outside your repo, in
-`~/.claude/.radin/projects/<repo-slug>/ISSUES.md` — see
+`BACKLOG.md` is your repo's backlog. It lives outside your repo, in
+`~/.claude/.radin/projects/<repo-slug>/BACKLOG.md` — see
 [AGENTS.md](AGENTS.md) for the full storage layout. Every radin tool reads
 from or writes to this one file.
 
@@ -66,10 +66,10 @@ A typical flow:
 
 | Tool | What it does |
 | --- | --- |
-| `radin-orchestrator` | Chews through `ISSUES.md`, one task at a time, committing as it goes |
+| `radin-orchestrator` | Chews through `BACKLOG.md`, one task at a time, committing as it goes |
 | `radin-plan` | Same backlog, writes a plan per task instead of touching code |
 | `radin-review` | Strict code-quality pass, findings logged straight back into the backlog |
-| `radin-record` | Logs feedback/bugs/ideas raised mid-session as `ISSUES.md` entries |
+| `radin-record` | Logs feedback/bugs/ideas raised mid-session as `BACKLOG.md` entries |
 | `radin-setup-hooks` | Wires up per-repo hooks/MCP config for companion tools |
 
 Some of these delegate to other skills under the hood, instead of
@@ -88,7 +88,7 @@ Log something raised mid-conversation, before it gets lost.
 /radin-record log the auth timeout bug we just found
 ```
 
-Result: a new `### <title>` entry appended under `## fix` in `ISSUES.md`,
+Result: a new `### <title>` entry appended under `## fix` in `BACKLOG.md`,
 with the bug described in enough detail for a future session to act on it
 with no other context.
 
@@ -102,7 +102,7 @@ Turn every backlog entry into a written plan, without writing any code.
 
 Result: one plan file per entry under
 `~/.claude/.radin/projects/<repo-slug>/plans/`, and a `**Plan:** <path>`
-line appended to each entry in `ISSUES.md` pointing at it.
+line appended to each entry in `BACKLOG.md` pointing at it.
 
 #### `radin-orchestrator`
 
@@ -114,7 +114,7 @@ commit — one entry at a time.
 ```
 
 Result: each entry is implemented and committed in its own commit. Finished
-entries are removed from `ISSUES.md`; failed ones stay, marked for retry.
+entries are removed from `BACKLOG.md`; failed ones stay, marked for retry.
 At the end it can optionally run a `/thermo-nuclear` review of the session
 and log the findings back to the backlog as new entries.
 
@@ -128,7 +128,7 @@ backlog instead of printing them to the terminal.
 ```
 
 Also accepts a commit hash, a directory path, or a natural-language range
-like `"commits since Monday"`. Result: one `ISSUES.md` entry per finding,
+like `"commits since Monday"`. Result: one `BACKLOG.md` entry per finding,
 classified as `fix` (a real bug) or `refactor` (structural), under the
 matching section.
 

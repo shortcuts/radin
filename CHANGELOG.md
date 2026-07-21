@@ -7,12 +7,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 
 - `skills/radin-record`: captures feedback, bugs, follow-ups, or ideas
-  raised mid-session and logs them as structured `ISSUES.md` entries.
-- `ISSUES.md` now uses semver-style category sections (`feat`, `fix`,
+  raised mid-session and logs them as structured `BACKLOG.md` entries.
+- Renamed `ISSUES.md` to `BACKLOG.md` throughout (file name, `$BACKLOG_FILE`
+  variable, `BACKLOG_STEPS.json`/`BACKLOG_PLAN_STEPS.json` state files,
+  `docs/schemas/backlog-entry.schema.json`) — the backlog holds features and
+  chores too, not only issues.
+- `BACKLOG.md` now uses semver-style category sections (`feat`, `fix`,
   `chore`, `refactor` — the same vocabulary as a conventional-commit type)
   instead of ad-hoc per-entry tags. Applies to `radin-review`,
   `radin-record`, `radin-orchestrator`, and `radin-plan`. Adds
-  `docs/schemas/issues-entry.schema.json` as the formal contract.
+  `docs/schemas/backlog-entry.schema.json` as the formal contract.
 - `install.sh`: new optional prompt for
   [i-have-adhd](https://github.com/ayghri/i-have-adhd), installed the same
   way as `caveman` (Claude Code plugin marketplace).

@@ -16,17 +16,17 @@ agent/skill invocation, but nothing requires it. `<repo-slug>` is
 `$(basename "$REPO_ROOT")-$(printf '%s' "$REPO_ROOT" | md5 | cut -c1-8)`, or
 `no-repo-<cwd-hash>` outside any git repo.
 
-## `ISSUES.md` entry format
+## `BACKLOG.md` entry format
 
-`docs/schemas/issues-entry.schema.json` is the formal contract (JSON Schema,
+`docs/schemas/backlog-entry.schema.json` is the formal contract (JSON Schema,
 draft-07). It documents the shape every radin agent/skill must produce when
-reading or appending to `$ISSUES_FILE` — read it before changing this
+reading or appending to `$BACKLOG_FILE` — read it before changing this
 structure or adding a new entry-producing skill. It's repo-internal
 reference only: it doesn't ship to consumers, so every agent/skill embeds
 its concrete markdown format inline instead of reading the schema file at
 runtime.
 
-`$ISSUES_FILE` is organized into top-level semver-style category sections —
+`$BACKLOG_FILE` is organized into top-level semver-style category sections —
 `feat`, `fix`, `chore`, `refactor` — the same vocabulary as a
 conventional-commit type. A section exists only once it has its first entry
 (an empty backlog has none). When you create one, insert it in canonical
@@ -72,7 +72,7 @@ Earlier revisions of this file described a bracket-tag scheme
 `**Finding:**`/`**Preferred remedy:**` fields, and a separate
 `## [Bug]`/`[Follow-up]`/`[Idea]`/`[Feedback]` scheme for `radin-record`).
 The single feat/fix/chore/refactor scheme above replaces it. Existing
-`ISSUES.md` files written under the old scheme aren't migrated
+`BACKLOG.md` files written under the old scheme aren't migrated
 automatically — new entries just use the new shape going forward.
 
 ## Plan-file format (`radin-plan` output)
@@ -81,7 +81,7 @@ Free-form markdown at `$NAMESPACE_DIR/plans/<id>.md`: files to touch, the
 change in each, the order of operations, and how to verify it. No fixed
 schema — sub-agents write it, `radin-orchestrator` (or a human) reads it.
 
-## State JSON schema (`ISSUES_STEPS.json` / `ISSUES_PLAN_STEPS.json`)
+## State JSON schema (`BACKLOG_STEPS.json` / `BACKLOG_PLAN_STEPS.json`)
 
 ```json
 [
@@ -97,8 +97,8 @@ schema — sub-agents write it, `radin-orchestrator` (or a human) reads it.
 
 - `status` is one of `pending`, `failed`. An entry's absence from the array
   means that task is complete.
-- Never stores the full task text. `ISSUES.md` (i.e. `$ISSUES_FILE`) stays
+- Never stores the full task text. `BACKLOG.md` (i.e. `$BACKLOG_FILE`) stays
   the source of truth.
-- `line_start`/`line_end` point into the live `$ISSUES_FILE`. `radin-plan`
+- `line_start`/`line_end` point into the live `$BACKLOG_FILE`. `radin-plan`
   re-resolves them fresh each loop iteration, since inserting a `**Plan:**`
   line shifts every line below it.

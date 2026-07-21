@@ -1,8 +1,8 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://github.com/shortcuts/radin/docs/schemas/issues-entry.schema.json",
-  "title": "ISSUES.md structure",
-  "description": "Canonical shape of $ISSUES_FILE, used by every radin agent/skill that reads or appends to it (radin-review, radin-record, radin-orchestrator, radin-plan). This schema documents the contract in JSON form for radin contributors — it is not read at runtime; each agent/skill embeds the concrete markdown format matching this schema directly in its own instructions, since installed skills/agents run in consumer repos that never receive this docs/ directory.",
+  "$id": "https://github.com/shortcuts/radin/docs/schemas/backlog-entry.schema.json",
+  "title": "BACKLOG.md structure",
+  "description": "Canonical shape of $BACKLOG_FILE, used by every radin agent/skill that reads or appends to it (radin-review, radin-record, radin-orchestrator, radin-plan). This schema documents the contract in JSON form for radin contributors — it is not read at runtime; each agent/skill embeds the concrete markdown format matching this schema directly in its own instructions, since installed skills/agents run in consumer repos that never receive this docs/ directory.",
   "type": "object",
   "properties": {
     "sections": {

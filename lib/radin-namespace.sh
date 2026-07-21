@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Single source of truth for radin's per-project namespace resolution.
 # Installed to ~/.claude/radin-lib/radin-namespace.sh by install.sh.
-# Every radin agent/skill that reads or writes ISSUES.md runs this script
-# first and reads REPO_ROOT / NAMESPACE_DIR / ISSUES_FILE from its stdout.
+# Every radin agent/skill that reads or writes BACKLOG.md runs this script
+# first and reads REPO_ROOT / NAMESPACE_DIR / BACKLOG_FILE from its stdout.
 set -euo pipefail
 
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || true)
@@ -18,7 +18,7 @@ else
 fi
 NAMESPACE_DIR="$HOME/.claude/.radin/projects/$SLUG"
 mkdir -p "$NAMESPACE_DIR/state" "$NAMESPACE_DIR/plans" "$NAMESPACE_DIR/reviews"
-ISSUES_FILE="$NAMESPACE_DIR/ISSUES.md"
+BACKLOG_FILE="$NAMESPACE_DIR/BACKLOG.md"
 
 REGISTRY="$HOME/.claude/.radin/registry.json"
 [ -f "$REGISTRY" ] || echo '{}' >"$REGISTRY"
@@ -37,8 +37,8 @@ else
 	echo "note: no jq/python3 found, skipping registry.json index update (non-critical)" >&2
 fi
 # registry.json is a best-effort index -- a skipped upsert never blocks
-# ISSUES_FILE from being written correctly.
+# BACKLOG_FILE from being written correctly.
 
 echo "REPO_ROOT=$REPO_ROOT"
 echo "NAMESPACE_DIR=$NAMESPACE_DIR"
-echo "ISSUES_FILE=$ISSUES_FILE"
+echo "BACKLOG_FILE=$BACKLOG_FILE"

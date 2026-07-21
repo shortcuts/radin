@@ -41,4 +41,4 @@ existing install paths (brew/npm/cargo). It:
 
 `jq` → `python3` → skip, in that order. The skip branch is a real path
 (stock macOS may lack both), not an error condition. It must never block
-writing `ISSUES_FILE` or creating the namespace directories.
+writing `BACKLOG_FILE` or creating the namespace directories.

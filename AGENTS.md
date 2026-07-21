@@ -46,10 +46,10 @@ and execution state live in one canonical, per-project namespace:
   registry.json                     # repo-slug -> { path, updated_at }
   projects/
     <repo-slug>/
-      ISSUES.md                     # backlog, source of truth
+      BACKLOG.md                    # backlog, source of truth
       state/
-        ISSUES_STEPS.json           # radin-orchestrator execution plan
-        ISSUES_PLAN_STEPS.json      # radin-plan execution plan
+        BACKLOG_STEPS.json          # radin-orchestrator execution plan
+        BACKLOG_PLAN_STEPS.json     # radin-plan execution plan
       plans/
         <task-id>.md                # radin-plan output
       reviews/
@@ -65,13 +65,13 @@ jq → python3 → skip fallback chain. No core agent flow depends on reading it
 Every one of `agents/radin-orchestrator.md`, `agents/radin-plan.md`,
 `skills/radin-review/SKILL.md`, and `skills/radin-record/SKILL.md` resolves
 this namespace through an identical shared block before doing anything else.
-Do not reintroduce a root-`ISSUES.md` or `.shortcuts/*.json` assumption into
+Do not reintroduce a root-`BACKLOG.md` or `.shortcuts/*.json` assumption into
 any of these files — that is the exact problem this storage scheme replaces.
 
-## `ISSUES.md` entry schema
+## `BACKLOG.md` entry schema
 
-`docs/schemas/issues-entry.schema.json` is the formal, repo-internal contract
-for `$ISSUES_FILE`'s structure. Entries live under top-level semver-style
+`docs/schemas/backlog-entry.schema.json` is the formal, repo-internal contract
+for `$BACKLOG_FILE`'s structure. Entries live under top-level semver-style
 category sections (`## feat`, `## fix`, `## chore`, `## refactor` — the same
 vocabulary as a conventional-commit type, in that canonical order). Each
 section holds `### title` entries with an exhaustive description underneath,
@@ -80,7 +80,7 @@ plus an optional trailing `**Plan:**` line. There is no per-entry bracket tag
 
 Read the schema (and the matching section of `docs/domain-models.md`) before
 adding a new category, or before writing a new skill/agent that writes to
-`ISSUES.md`. The schema is reference only. It never ships to consumers, so
+`BACKLOG.md`. The schema is reference only. It never ships to consumers, so
 every entry-writing skill/agent must embed its concrete markdown format
 inline in its own `SKILL.md`/agent file — a consumer's
 `~/.claude/skills/radin-record/` never has this repo's `docs/` alongside it.
@@ -94,13 +94,13 @@ reinvent them from scratch.
 1. **Namespace resolution.** Call
    `bash "$HOME/.claude/radin-lib/radin-namespace.sh"` (see
    `docs/architecture.md`'s "Namespace resolution" section) and read
-   `REPO_ROOT`/`NAMESPACE_DIR`/`ISSUES_FILE` from its output. Don't re-embed
+   `REPO_ROOT`/`NAMESPACE_DIR`/`BACKLOG_FILE` from its output. Don't re-embed
    the resolution logic inline — `lib/radin-namespace.sh` is its single
    source of truth.
-2. **`ISSUES.md` writes.** If the new skill/agent appends entries, follow the
+2. **`BACKLOG.md` writes.** If the new skill/agent appends entries, follow the
    schema above: classify into an existing category (feat/fix/chore/refactor)
    — don't invent a fifth. If the shape genuinely needs to change, update
-   both `docs/schemas/issues-entry.schema.json` and `docs/domain-models.md`
+   both `docs/schemas/backlog-entry.schema.json` and `docs/domain-models.md`
    in the same change.
 3. **Docs.** Run the doc-maintenance checklist below. `docs/architecture.md`'s
    plugin repo layout and namespace-resolution sentence both need the new
@@ -145,14 +145,14 @@ A change isn't done until its affected docs are updated in the same commit.
 | File | Update when |
 | --- | --- |
 | `docs/architecture.md` | Storage scheme, namespace resolution, or plugin file layout changes |
-| `docs/domain-models.md` | `registry.json` schema, `ISSUES.md` entry format, or plan-file format changes |
+| `docs/domain-models.md` | `registry.json` schema, `BACKLOG.md` entry format, or plan-file format changes |
 | `install.sh` companion-tool table (README) | A companion tool is added, removed, or renamed |
 | "Tools you get" table (README) | A radin-built skill/agent is added, removed, or renamed |
 | `CHANGELOG.md` | Any user-facing change, on every release |
 
-## `ISSUES.md` at repo root
+## `BACKLOG.md` at repo root
 
-This is radin's own development backlog — a plain repo-root `ISSUES.md`,
+This is radin's own development backlog — a plain repo-root `BACKLOG.md`,
 same as any other project. That's the opposite of what the shipped
 `radin-orchestrator` does for consumers, who get `~/.claude/.radin/`-namespaced
 storage and never a repo-root file. radin's own development doesn't use its
