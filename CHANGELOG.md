@@ -4,6 +4,17 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- `radin-plan` now takes a single backlog entry as its scope instead of
+  processing the whole backlog — point it at a task title/keyword. It uses
+  `/ponytail` to judge (defaulting to no) whether that entry's scope should
+  split into multiple independent sub-plans, confirms any split with the
+  user, then writes one plan file and `**Plan:**` line per resulting
+  sub-task. `radin-execute` now follows one or more `**Plan:**` lines per
+  entry in order. `docs/schemas/backlog-entry.schema.json`'s `plan` field is
+  now an array of lines instead of a single string.
+
 ### Added
 
 - `skills/radin-record`: captures feedback, bugs, follow-ups, or ideas

@@ -39,8 +39,9 @@
           "description": "Free-form prose beneath the title heading. Must be as exhaustive as the situation warrants — what the change is, why it matters, affected files/areas if known, acceptance criteria if known. radin-orchestrator/radin-plan derive scope and priority entirely from this text, so a thin one-liner starves them of what they need; write enough that a sub-agent picking up only this entry (no other session context) could act on it correctly."
         },
         "plan": {
-          "type": "string",
-          "description": "Optional trailing line appended by radin-plan after it plans this entry: '**Plan:** <path>'. Valid on an entry of any category."
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Optional trailing line(s) appended by radin-plan after it plans this entry: '**Plan:** <path>'. Normally one line; more than one means radin-plan judged the entry's scope broad enough to split into independent sub-plans, and the user confirmed the split. Valid on an entry of any category."
         }
       }
     }

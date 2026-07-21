@@ -20,9 +20,9 @@ target repo, in a per-project namespace under `~/.claude/.radin/`:
       BACKLOG.md                    # backlog, source of truth
       state/
         BACKLOG_STEPS.json          # radin-execute execution plan
-        BACKLOG_PLAN_STEPS.json     # radin-plan execution plan
+        BACKLOG_PLAN_STEPS.json     # radin-plan sub-task list for one scoped task
       plans/
-        <task-id>.md                # radin-plan output
+        <task-id>.md                # radin-plan output, one file per plan
       reviews/
         <review-name>.md            # radin-review / thermo-nuclear output
 ```
@@ -86,9 +86,15 @@ into place.
 second file — `lib/radin-prioritization.md` — the single source of truth
 for backlog parsing rules, task priority criteria, and the state-file JSON
 schema. Both agents read it via `$HOME/.claude/radin-lib/radin-prioritization.md`
-at the start of Phase 1, instead of embedding their own copy. The two agents
-still diverge after that point: `radin-execute` executes each task;
-`radin-plan` only writes a plan file and a `**Plan:**` pointer.
+at the start of Phase 1, instead of embedding their own copy.
+`radin-execute` uses all of it, to prioritize and order the whole backlog.
+`radin-plan` only uses the parsing and state-schema sections — it's scoped
+to a single task the user points it at, not the whole backlog, so it has
+nothing to prioritize. The two agents diverge after that point:
+`radin-execute` executes each task; `radin-plan` judges whether its one
+scoped task should split into independent sub-plans (confirming with the
+user before splitting), then writes a plan file and `**Plan:**` pointer per
+resulting sub-task.
 
 To update radin itself, re-run `install.sh` — plain `curl | bash`, or
 `./install.sh` from a dev clone. It always re-downloads or re-copies

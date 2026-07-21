@@ -78,21 +78,24 @@ For each task:
 
 ### Step 3a: Execution Sub-Agent
 
-Before delegating, check the task's entry text (lines `line_start`-`line_end`) for a
-`**Plan:** <path>` line. This means `radin-plan` already planned it — pass PLAN_PATH to
-the sub-agent and skip planning below. If there's no `**Plan:**` line, omit step 2 of
-the prompt entirely (nothing to point at).
+Before delegating, check the task's entry text (lines `line_start`-`line_end`) for one or
+more `**Plan:** <path>` lines. This means `radin-plan` already planned it (possibly as
+multiple sub-plans covering different parts of the task) — pass all PLAN_PATHs, in the
+order they appear, to the sub-agent and skip planning below. If there's no `**Plan:**`
+line, omit step 2 of the prompt entirely (nothing to point at).
 
 Invoke a sub-agent with `model: "sonnet"` and exactly this prompt (replace Y, Z with the
-task's `line_start` and `line_end`, BACKLOG_PATH with `$BACKLOG_FILE`, and — only if a
-plan exists — PLAN_PATH with the plan file's path):
+task's `line_start` and `line_end`, BACKLOG_PATH with `$BACKLOG_FILE`, and — only if plan(s)
+exist — PLAN_PATHS with the plan file path(s), in order):
 
 ```
 Execute the task from BACKLOG_PATH lines Y-Z:
 1. Read BACKLOG_PATH lines Y-Z to understand the task
-2. [Only if a plan exists] Read PLAN_PATH — a plan already written for this task by
-   radin-plan. Follow it; do not re-derive an approach from scratch. [Otherwise, if no
-   plan exists] Invoke the `/ponytail` skill, then plan your approach internally
+2. [Only if plan(s) exist] Read PLAN_PATHS in order — plan(s) already written for this
+   task by radin-plan. Follow them; do not re-derive an approach from scratch. If there's
+   more than one, they cover different parts of the same task — implement all of them.
+   [Otherwise, if no plan exists] Invoke the `/ponytail` skill, then plan your approach
+   internally
 3. Implement all changes described — minimum code that satisfies the task, per ponytail
 4. Where the task changes behavior (not a pure deletion/rename), add or update a unit
    test that pins the expected behavior — follow existing test conventions in the repo

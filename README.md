@@ -52,8 +52,9 @@ A typical flow:
 
 1. **Capture.** Something comes up mid-session — a bug, an idea, feedback
    from a teammate. Run `radin-record` to turn it into a backlog entry.
-2. **Plan (optional).** Run `radin-plan` to write a step-by-step plan for
-   each open entry, without touching any code.
+2. **Plan (optional).** Point `radin-plan` at one entry to write a
+   step-by-step plan for it, without touching any code. Repeat per entry you
+   want planned ahead of time.
 3. **Execute.** Run `radin-execute` to work through the backlog,
    entry by entry, committing as it goes.
 4. **Review.** Run `radin-review` against a commit, PR, or directory. Every
@@ -66,7 +67,7 @@ A typical flow:
 | Tool | What it does |
 | --- | --- |
 | `radin-execute` | Chews through `BACKLOG.md`, one task at a time, committing as it goes |
-| `radin-plan` | Same backlog, writes a plan per task instead of touching code |
+| `radin-plan` | Writes a plan for one backlog entry you point it at, instead of touching code |
 | `radin-review` | Strict code-quality pass, findings logged straight back into the backlog |
 | `radin-record` | Logs feedback/bugs/ideas raised mid-session as `BACKLOG.md` entries |
 | `radin-setup-hooks` | Wires up per-repo hooks/MCP config for companion tools |
@@ -78,6 +79,7 @@ reimplementing review or style logic themselves:
 | Tool | Delegates to |
 | --- | --- |
 | `radin-execute` | `/ponytail` (per-task implementation), `/caveman-commit` (commit message), `/thermo-nuclear` (optional end-of-session review) |
+| `radin-plan` | `/ponytail` (split judgment and plan writing) |
 | `radin-review` | `/thermo-nuclear` (code-quality pass), `/ponytail-review` or `/ponytail-audit` (over-engineering pass) |
 
 #### `radin-record`
@@ -94,15 +96,18 @@ with no other context.
 
 #### `radin-plan`
 
-Turn every backlog entry into a written plan, without writing any code.
+Write a plan for one backlog entry, without writing any code. Judges
+whether the entry's scope should split into multiple independent plans,
+and confirms with you before splitting.
 
 ```
-/radin-plan
+/radin-plan the auth timeout bug
 ```
 
-Result: one plan file per entry under
-`~/.claude/.radin/projects/<repo-slug>/plans/`, and a `**Plan:** <path>`
-line appended to each entry in `BACKLOG.md` pointing at it.
+Result: one plan file per plan under
+`~/.claude/.radin/projects/<repo-slug>/plans/` (more than one if the entry
+was split), and a `**Plan:** <path>` line appended to the entry in
+`BACKLOG.md` per plan produced.
 
 #### `radin-execute`
 
