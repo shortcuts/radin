@@ -3,6 +3,9 @@
 install:
 	./install.sh
 
+install-force:
+	./install.sh --force
+
 test:
 	bats tests/
 
