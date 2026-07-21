@@ -22,6 +22,11 @@ else
 	RESET=''
 fi
 
+FORCE=""
+for arg in "$@"; do
+	[ "$arg" = "--force" ] && FORCE="1"
+done
+
 RAT='🐀'
 info() { printf "%b\n" "${CYAN}${RAT}${RESET} $*"; }
 ok() { printf "%b\n" "${GREEN}${RAT}${RESET} $*"; }
@@ -122,7 +127,7 @@ echo "$RADIN_ROOT" >"$HOME/.claude/.radin/install_root"
 
 install_if_confirmed() {
 	local name="$1" check_cmd="$2" install_cmd="$3"
-	if command -v "$check_cmd" >/dev/null 2>&1; then
+	if [ -z "$FORCE" ] && command -v "$check_cmd" >/dev/null 2>&1; then
 		ok "$name already installed, skipping."
 		return
 	fi
@@ -133,7 +138,7 @@ install_if_confirmed() {
 
 install_plugin_if_confirmed() {
 	local name="$1" plugin_id="$2" marketplace_source="$3"
-	if command -v claude >/dev/null 2>&1 && claude plugin list 2>/dev/null | grep -q "$plugin_id"; then
+	if [ -z "$FORCE" ] && command -v claude >/dev/null 2>&1 && claude plugin list 2>/dev/null | grep -q "$plugin_id"; then
 		ok "$name already installed, skipping."
 		return
 	fi
