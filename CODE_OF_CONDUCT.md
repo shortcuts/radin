@@ -1,48 +1,48 @@
 # Contributor Covenant Code of Conduct
 
-## Our Pledge
+## Our pledge
 
-We as members, contributors, and leaders pledge to make participation in our
-community a harassment-free experience for everyone, regardless of age, body
-size, visible or invisible disability, ethnicity, sex characteristics, gender
-identity and expression, level of experience, education, socio-economic status,
+We, as members, contributors, and leaders, pledge to make participation in
+our community harassment-free for everyone — regardless of age, body size,
+disability (visible or invisible), ethnicity, sex characteristics, gender
+identity and expression, experience level, education, socio-economic status,
 nationality, personal appearance, race, religion, or sexual identity and
 orientation.
 
-## Our Standards
+## Our standards
 
-Examples of behavior that contributes to a positive environment include:
+Behavior that contributes to a positive environment includes:
 
-* Demonstrating empathy and kindness toward other people
-* Being respectful of differing opinions, viewpoints, and experiences
+* Showing empathy and kindness toward other people
+* Respecting differing opinions, viewpoints, and experiences
 * Giving and gracefully accepting constructive feedback
 * Accepting responsibility and apologizing for mistakes
 
-Examples of unacceptable behavior include:
+Unacceptable behavior includes:
 
-* The use of sexualized language or imagery, and sexual attention of any kind
-* Trolling, insulting or derogatory comments, and personal or political attacks
+* Sexualized language or imagery, and sexual attention of any kind
+* Trolling, insults, derogatory comments, and personal or political attacks
 * Public or private harassment
-* Publishing others' private information without explicit permission
+* Publishing others' private information without their explicit permission
 
-## Enforcement Responsibilities
+## Enforcement responsibilities
 
-Community leaders are responsible for clarifying and enforcing our standards
-and will take appropriate and fair corrective action in response to any
-behavior deemed inappropriate, threatening, offensive, or harmful.
+Community leaders clarify and enforce these standards. They will take fair,
+appropriate corrective action for any behavior they deem inappropriate,
+threatening, offensive, or harmful.
 
 ## Scope
 
-This Code of Conduct applies within all community spaces and when an
-individual is officially representing the community in public spaces.
+This Code of Conduct applies in all community spaces, and whenever someone
+officially represents the community in public.
 
 ## Enforcement
 
-Instances of abusive, harassing, or otherwise unacceptable behavior may be
-reported to the project maintainers. All complaints will be reviewed and
-investigated promptly and fairly.
+Report abusive, harassing, or otherwise unacceptable behavior to the project
+maintainers. Every report will be reviewed and investigated promptly and
+fairly.
 
 ## Attribution
 
-This Code of Conduct is adapted from the [Contributor Covenant](https://www.contributor-covenant.org),
+Adapted from the [Contributor Covenant](https://www.contributor-covenant.org),
 version 2.1.

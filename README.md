@@ -1,9 +1,13 @@
 <p align="center">
-  <strong>🐀 radin</strong> — stingy on tokens, generous on backlog throughput
+  <strong>🐀 radin</strong>
 </p>
 
 <p align="center">
-  <sub><em>Fun fact: "radin" is French slang for a miser — someone tight with their money is often called "un rat" ("a rat"). Hence the mascot.</em></sub>
+  <em>Too cheap to pay full price for a whole AI tool stack — so it went shopping for you.</em>
+</p>
+
+<p align="center">
+  <sub>"Radin" is French slang for a miser. Hence the rat.</sub>
 </p>
 
 <p align="center">
@@ -14,100 +18,147 @@
 
 <p align="center">
   <a href="#quickstart">Quickstart</a> ·
-  <a href="#tools-you-get">Tools you get</a> ·
-  <a href="#whats-here">What's here</a> ·
-  <a href="#storage-model">Storage model</a> ·
-  <a href="#companion-tools-installed-separately-not-vendored">Companion tools</a>
+  <a href="#tools-you-get">Tools you get</a>
 </p>
 
 ---
 
-One install for solo devs on a small Claude subscription: backlog-driven
-execution (`radin-orchestrator`, `radin-plan`, `radin-review`) plus one-prompt
-installs for a curated set of companion OSS tools. radin doesn't do cost
-optimization itself — it wires up and orchestrates tools that already do
-(rtk, caveman) via their own install paths, never vendored or forked, so
-they get the credit and the updates.
+An opinionated agentic stack, one script deep, baking in the most efficient (and safe) token-reduction tools around.
 
-## Tools you get
+## Install
 
-| Tool | What it does |
-| --- | --- |
-| `radin-orchestrator` | Works through your `ISSUES.md` backlog, one task at a time, committing as it goes |
-| `radin-plan` | Same backlog, but writes a plan per task instead of executing |
-| `radin-review` | Runs a strict code-quality pass and logs findings back into the backlog |
-| [rtk](https://github.com/rtk-ai/rtk) *(optional)* | Token-cheap CLI proxy |
-| [caveman](https://github.com/JuliusBrussee/caveman) *(optional)* | Ultra-compressed agent output |
-| [i-have-adhd](https://github.com/ayghri/i-have-adhd) *(optional)* | ADHD-friendly output shaping (action-first, numbered steps) |
-| [ponytail](https://github.com/DietrichGebert/ponytail) *(optional)* | "Lazy senior dev" ruleset — pushes agents to skip unnecessary code, reuse what's already there |
-| [code-review-graph](https://github.com/tirth8205/code-review-graph) *(optional)* | Knowledge-graph-backed code review MCP |
-
-The first three are radin's own, shipped in this repo. The rest are other
-people's tools — `install.sh` offers to install them, nothing more.
-
-## Quickstart
+> Needs [Homebrew](https://brew.sh), `curl`, `tar`.
 
 ```sh
 # macOS · Linux · WSL
 curl -fsSL https://raw.githubusercontent.com/shortcuts/radin/main/install.sh | bash
 ```
 
-Requires [Homebrew](https://brew.sh), `curl`, and `tar` — no `git clone`
-needed. Downloads the latest published release from GitHub (falling back to
-`main` if none exists yet) into `~/.claude/radin` (override with
-`RADIN_ROOT_OVERRIDE=<path>`), re-downloading fresh on every subsequent
-install. Every companion-tool install is a per-tool `y`/`N` prompt — nothing
-installs silently. Companion tools already detected on your system are
-skipped by default; pass `--force` to re-prompt for all of them and decide
-per-tool what to (re)install/update:
+
+## Update
 
 ```sh
+# macOS · Linux · WSL
 curl -fsSL https://raw.githubusercontent.com/shortcuts/radin/main/install.sh | bash -s -- --force
 ```
 
-Prefer a manual clone (e.g. to hack on radin itself)?
+## The backlog lifecycle
 
-```sh
-git clone https://github.com/shortcuts/radin ~/Documents/radin
-cd ~/Documents/radin
-./install.sh
+`ISSUES.md` is your repo's backlog. It lives outside your repo, in
+`~/.claude/.radin/projects/<repo-slug>/ISSUES.md` — see
+[AGENTS.md](AGENTS.md) for the full storage layout. Every radin tool reads
+from or writes to this one file.
+
+A typical flow:
+
+1. **Capture.** Something comes up mid-session — a bug, an idea, feedback
+   from a teammate. Run `radin-record` to turn it into a backlog entry.
+2. **Plan (optional).** Run `radin-plan` to write a step-by-step plan for
+   each open entry, without touching any code.
+3. **Execute.** Run `radin-orchestrator` to work through the backlog,
+   entry by entry, committing as it goes.
+4. **Review.** Run `radin-review` against a commit, PR, or directory. Every
+   finding becomes a new backlog entry, ready for the next pass of step 3.
+
+## Tools you get
+
+### Built by radin
+
+| Tool | What it does |
+| --- | --- |
+| `radin-orchestrator` | Chews through `ISSUES.md`, one task at a time, committing as it goes |
+| `radin-plan` | Same backlog, writes a plan per task instead of touching code |
+| `radin-review` | Strict code-quality pass, findings logged straight back into the backlog |
+| `radin-record` | Logs feedback/bugs/ideas raised mid-session as `ISSUES.md` entries |
+| `radin-setup-hooks` | Wires up per-repo hooks/MCP config for companion tools |
+
+Some of these delegate to other skills under the hood, instead of
+reimplementing review or style logic themselves:
+
+| Tool | Delegates to |
+| --- | --- |
+| `radin-orchestrator` | `/ponytail` (per-task implementation), `/caveman-commit` (commit message), `/thermo-nuclear` (optional end-of-session review) |
+| `radin-review` | `/thermo-nuclear` (code-quality pass), `/ponytail-review` or `/ponytail-audit` (over-engineering pass) |
+
+#### `radin-record`
+
+Log something raised mid-conversation, before it gets lost.
+
+```
+/radin-record log the auth timeout bug we just found
 ```
 
-`install.sh` detects it's running from a real checkout (sibling
-`agents/`/`skills/` dirs) and uses that in place of cloning.
+Result: a new `### <title>` entry appended under `## fix` in `ISSUES.md`,
+with the bug described in enough detail for a future session to act on it
+with no other context.
 
-## What's here
+#### `radin-plan`
 
-| | |
+Turn every backlog entry into a written plan, without writing any code.
+
+```
+/radin-plan
+```
+
+Result: one plan file per entry under
+`~/.claude/.radin/projects/<repo-slug>/plans/`, and a `**Plan:** <path>`
+line appended to each entry in `ISSUES.md` pointing at it.
+
+#### `radin-orchestrator`
+
+Work through the backlog end to end: prioritize, plan, implement, test,
+commit — one entry at a time.
+
+```
+/radin-orchestrator
+```
+
+Result: each entry is implemented and committed in its own commit. Finished
+entries are removed from `ISSUES.md`; failed ones stay, marked for retry.
+At the end it can optionally run a `/thermo-nuclear` review of the session
+and log the findings back to the backlog as new entries.
+
+#### `radin-review`
+
+Run a strict quality review over a chosen scope and log findings to the
+backlog instead of printing them to the terminal.
+
+```
+/radin-review #123
+```
+
+Also accepts a commit hash, a directory path, or a natural-language range
+like `"commits since Monday"`. Result: one `ISSUES.md` entry per finding,
+classified as `fix` (a real bug) or `refactor` (structural), under the
+matching section.
+
+#### `radin-setup-hooks`
+
+Wire up per-repo config for companion tools — currently just
+`code-review-graph`'s MCP registration and hooks.
+
+```
+/radin-setup-hooks
+```
+
+Run this once per project, right after `install.sh`, in the repo you want
+wired. It previews the exact files it will touch and asks for confirmation
+before writing anything.
+
+### Vendored in *(optional)*
+
+`install.sh` just asks if you want them — never forked, never vendored,
+their own repo stays the source of truth.
+
+| Tool | What it does |
 | --- | --- |
-| `agents/radin-orchestrator.md` | Works through an `ISSUES.md` backlog one task at a time, delegating implementation to sub-agents and committing after each task. |
-| `agents/radin-plan.md` | Same prioritization as `radin-orchestrator`, but writes one implementation plan per task instead of executing. |
-| `skills/radin-review/` | Runs a thermo-nuclear code quality review and logs findings as structured backlog entries instead of only printing them. |
-| `thermo-nuclear` (downloaded, not shipped) | The strict maintainability review itself — invoked by `radin-review` and by `radin-orchestrator`'s optional Phase 5 review step. `install.sh` downloads its `SKILL.md` straight from cursor/plugins' [`thermo-nuclear-code-quality-review`](https://github.com/cursor/plugins/blob/main/cursor-team-kit/skills/thermo-nuclear-code-quality-review/SKILL.md) at install time — not vendored, not radin-original. |
-| `skills/radin-setup-hooks/` | Wires a companion tool's per-repo MCP/hook config (currently `code-review-graph`) into whatever repo you invoke it from — `install.sh` only installs the binary globally. |
-| `install.sh` | Installs radin's agents/skills into `~/.claude/`, offers the companion tools below. Re-run any time to update — always refreshes `~/.claude/agents/`/`~/.claude/skills/`; pass `--force` to also re-prompt on already-installed companion tools. |
+| [rtk](https://github.com/rtk-ai/rtk) | CLI proxy that reduces LLM token consumption by 60-90% on common dev commands. Single Rust binary, zero dependencies |
+| [caveman](https://github.com/JuliusBrussee/caveman) | Why use many token when few token do trick — Claude Code skill that cuts 65% of tokens by talking like caveman |
+| [i-have-adhd](https://github.com/ayghri/i-have-adhd) | A skill for your coding agent to stop it from burying the answer. ADHD-friendly output |
+| [ponytail](https://github.com/DietrichGebert/ponytail) | Makes your AI agent think like the laziest senior dev in the room. The best code is the code you never wrote |
+| [code-review-graph](https://github.com/tirth8205/code-review-graph) | Local-first code intelligence graph for MCP and CLI. Builds a persistent map of your codebase so AI coding tools read only what matters |
 
-## Storage model
+---
 
-Backlog content and execution state never land in a target repo — they live
-in a canonical namespace under `~/.claude/.radin/projects/<repo-slug>/`. See
-[docs/architecture.md](docs/architecture.md) for the full layout and
-[docs/domain-models.md](docs/domain-models.md) for file formats.
-
-## Companion tools (installed separately, not vendored)
-
-| Tool | Role |
-| --- | --- |
-| [rtk](https://github.com/rtk-ai/rtk) | Token-cheap CLI proxy — cost optimization |
-| [caveman](https://github.com/JuliusBrussee/caveman) | Ultra-compressed agent output mode — cost optimization |
-| [i-have-adhd](https://github.com/ayghri/i-have-adhd) | ADHD-friendly output shaping — action-first, numbered steps, no preamble |
-| [ponytail](https://github.com/DietrichGebert/ponytail) | "Lazy senior dev" ruleset — cost/effort optimization by minimizing unnecessary code |
-| [code-review-graph](https://github.com/tirth8205/code-review-graph) | Knowledge-graph-backed code review MCP |
-
-`caveman`, `i-have-adhd`, and `ponytail` all install as Claude Code plugins
-(`claude plugin marketplace add` + `claude plugin install`) — their hooks/
-output-style register globally at install time, no further setup needed.
-`rtk` installs via Homebrew. `code-review-graph`
-installs via `pipx`/`pip` (it's a PyPI package, not npm); `install.sh` only
-installs the binary — its MCP server and hooks are repo-scoped, so run the
-`radin-setup-hooks` skill from inside each project you want it wired into.
+Maintaining or hacking on radin itself? See [AGENTS.md](AGENTS.md) and
+[CONTRIBUTING.md](CONTRIBUTING.md).

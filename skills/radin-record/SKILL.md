@@ -12,10 +12,10 @@ description: |
 
 Turn feedback, bugs, follow-ups, or ideas raised during a live session into
 structured entries in `ISSUES.md`, so they survive past the conversation
-that surfaced them. Companion to `radin-review` (which logs code-review
-findings) and `radin-plan`/`radin-orchestrator` (which consume the backlog
-afterward) — this skill is the capture step for everything that isn't a
-code-review finding: things a human said, not things a diff revealed.
+that surfaced them. This is the capture step for everything that isn't a
+code-review finding — things a human said, not things a diff revealed.
+`radin-review` logs code-review findings instead. `radin-plan` and
+`radin-orchestrator` consume the backlog afterward.
 
 ## Step 1: Resolve project namespace, locate ISSUES_FILE
 
@@ -44,9 +44,10 @@ The user's instruction after `/radin-record` decides scope:
 - **Generic** ("add the findings", "log what we discussed", bare
   `/radin-record` with no argument): scan the whole session so far for
   anything a reasonable person would call a bug, follow-up, idea, or piece
-  of feedback — things the user stated outright, and things that were
-  clearly surfaced as a "we should probably..." aside mid-task, even if
-  nobody stopped to write it down. Each distinct item becomes its own entry.
+  of feedback. Include things the user stated outright, and things that
+  were clearly surfaced as a "we should probably..." aside mid-task, even
+  if nobody stopped to write them down. Each distinct item becomes its own
+  entry.
 
 Either way, stay faithful to what was actually said. This is a capture tool,
 not a brainstorming one — don't invent items the conversation didn't raise,

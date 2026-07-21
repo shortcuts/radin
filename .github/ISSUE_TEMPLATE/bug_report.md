@@ -6,14 +6,14 @@ labels: bug
 ---
 
 **Describe the bug**
-A clear description of what went wrong.
+What went wrong.
 
-**To Reproduce**
-Steps to reproduce, including which script (`install.sh`/`sync.sh`) or
-agent/skill was involved.
+**To reproduce**
+Steps to reproduce, including which script (`install.sh`) or agent/skill was
+involved.
 
 **Expected behavior**
-What you expected to happen.
+What you expected to happen instead.
 
 **Environment**
 - macOS version:

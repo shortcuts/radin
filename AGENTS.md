@@ -1,6 +1,6 @@
 # radin — Agent Reference
 
-> Primary reference for AI coding agents. Read before touching any file in this repo.
+> Read this before you touch any file in this repo.
 
 ---
 
@@ -11,35 +11,35 @@
 | What it is | Claude Code plugin: agents + skills + install glue |
 | Runtime language | None — bash only |
 | Target OS | macOS and Linux |
-| Supported architectures | Arch-neutral via Homebrew (works on both macOS's `/opt/homebrew`/`/usr/local` and Linuxbrew's `/home/linuxbrew/.linuxbrew`) — no `uname -m` branching, no OS branching beyond a `command -v` check where a tool differs (e.g. `md5` vs `md5sum`) |
-| Distribution | Git repo ([github.com/shortcuts/radin](https://github.com/shortcuts/radin), currently private), installed via `curl \| bash install.sh` (downloads the latest release tarball, or `main` if no release exists, to `~/.claude/radin` — no `git clone`) or a manual `git clone` + `./install.sh` for hacking on radin itself |
+| Supported architectures | Arch-neutral through Homebrew. Works on macOS's `/opt/homebrew`/`/usr/local` and on Linuxbrew's `/home/linuxbrew/.linuxbrew`. No `uname -m` branching. Branch on `command -v` only where a tool itself differs by OS (e.g. `md5` vs `md5sum`). |
+| Distribution | Git repo ([github.com/shortcuts/radin](https://github.com/shortcuts/radin), currently private). Installed with `curl \| bash install.sh` — downloads the latest release tarball, or `main` if no release exists, into `~/.claude/radin`. No `git clone` needed. To hack on radin itself: `git clone` + `./install.sh`. |
 
 radin gives a solo dev on a small Claude subscription one install for a
-cost-optimized agentic workflow: backlog-driven execution
-(`radin-orchestrator`, `radin-plan`, `radin-review`) plus a curated
-set of companion OSS tools (rtk, caveman, code-review-graph) installed —
-never vendored or forked — via their own existing install paths.
+cost-optimized agentic workflow. It ships backlog-driven execution
+(`radin-orchestrator`, `radin-plan`, `radin-review`) and installs a curated
+set of companion tools (rtk, caveman, code-review-graph) through their own
+install paths. radin never vendors or forks them.
 
 ## Dev loop
 
-This repo is the **source of truth**. `agents/*.md` and `skills/*/SKILL.md`
-are authored and edited directly here — no external fork, no sync step.
+This repo is the source of truth. Edit `agents/*.md` and `skills/*/SKILL.md`
+directly here — no external fork, no sync step.
 
-- Editing radin's own agents/skills: edit `agents/*.md` or
-  `skills/*/SKILL.md` directly in this repo. (`thermo-nuclear` is not
-  vendored here at all — `install.sh` downloads its `SKILL.md` straight from
-  cursor/plugins at install time, same as any other companion tool. radin
-  only vendors what it authored itself.)
-- Editing `install.sh`, docs, or repo scaffolding: edit directly here as
+- **Editing radin's own agents/skills:** edit `agents/*.md` or
+  `skills/*/SKILL.md` directly. `thermo-nuclear` is the one exception — it
+  isn't vendored here at all. `install.sh` downloads its `SKILL.md` straight
+  from cursor/plugins at install time, the same as any other companion tool.
+  radin only vendors what it wrote itself.
+- **Editing `install.sh`, docs, or repo scaffolding:** edit directly, as
   normal.
-- `install.sh` installs from this repo into `~/.claude/agents` and
-  `~/.claude/skills`, adding/updating what's there — one direction, repo to
-  consumer.
+- **`install.sh`** installs from this repo into `~/.claude/agents` and
+  `~/.claude/skills`. It only adds or updates files there — one direction,
+  repo to consumer.
 
 ## Storage contract
 
 radin never writes a file into a consumer's target repo. All backlog content
-and execution state lives in a canonical, per-project namespace:
+and execution state live in one canonical, per-project namespace:
 
 ```
 ~/.claude/.radin/
@@ -56,106 +56,109 @@ and execution state lives in a canonical, per-project namespace:
         <review-name>.md            # radin-review / thermo-nuclear output
 ```
 
-`<repo-slug>` is `$(basename "$REPO_ROOT")-$(printf '%s' "$REPO_ROOT" | md5 | cut -c1-8)`
-(deterministic, collision-resistant, human-readable). Outside any git repo,
-falls back to `no-repo-<cwd-hash>`. `registry.json` is a best-effort index —
-atomic temp-file-plus-`mv` write, jq → python3 → skip fallback chain — never
-required reading for core agent flows.
+`<repo-slug>` is `$(basename "$REPO_ROOT")-$(printf '%s' "$REPO_ROOT" | md5 | cut -c1-8)`.
+This is deterministic, collision-resistant, and still readable by a human.
+Outside any git repo, it falls back to `no-repo-<cwd-hash>`. `registry.json`
+is a best-effort index — an atomic temp-file-plus-`mv` write, with a
+jq → python3 → skip fallback chain. No core agent flow depends on reading it.
 
 Every one of `agents/radin-orchestrator.md`, `agents/radin-plan.md`,
 `skills/radin-review/SKILL.md`, and `skills/radin-record/SKILL.md` resolves
-this namespace via an identical shared block before doing anything else. Do
-not reintroduce a root-`ISSUES.md` or `.shortcuts/*.json` assumption into any
-of these files — that is the exact problem this storage scheme replaces.
+this namespace through an identical shared block before doing anything else.
+Do not reintroduce a root-`ISSUES.md` or `.shortcuts/*.json` assumption into
+any of these files — that is the exact problem this storage scheme replaces.
 
 ## `ISSUES.md` entry schema
 
 `docs/schemas/issues-entry.schema.json` is the formal, repo-internal contract
-for `$ISSUES_FILE`'s structure: top-level semver-style category sections
-(`## feat`/`## fix`/`## chore`/`## refactor`, same vocabulary as a
-conventional-commit type, canonical order feat → fix → chore → refactor),
-each holding `### title` entries with an exhaustive description underneath,
-plus an optional trailing `**Plan:**` line. There is no per-entry bracket
-tag — category is purely which section an entry lives under. Read the
-schema (and `docs/domain-models.md`'s matching section) before adding a new
-category or a new skill/agent that writes to `ISSUES.md`. The schema is
-reference only — it never ships to consumers, so **every** entry-writing
-skill/agent must embed its concrete markdown format inline in its own
-`SKILL.md`/agent file rather than pointing at the schema file at runtime (a
-consumer's `~/.claude/skills/radin-record/` never has this repo's `docs/`
-alongside it).
+for `$ISSUES_FILE`'s structure. Entries live under top-level semver-style
+category sections (`## feat`, `## fix`, `## chore`, `## refactor` — the same
+vocabulary as a conventional-commit type, in that canonical order). Each
+section holds `### title` entries with an exhaustive description underneath,
+plus an optional trailing `**Plan:**` line. There is no per-entry bracket tag
+— category is purely which section an entry lives under.
+
+Read the schema (and the matching section of `docs/domain-models.md`) before
+adding a new category, or before writing a new skill/agent that writes to
+`ISSUES.md`. The schema is reference only. It never ships to consumers, so
+every entry-writing skill/agent must embed its concrete markdown format
+inline in its own `SKILL.md`/agent file — a consumer's
+`~/.claude/skills/radin-record/` never has this repo's `docs/` alongside it.
 
 ## Adding a new radin skill/agent
 
-Before writing one, skim an existing one first (`skills/radin-review/SKILL.md`
-is the shortest complete example) — the shared conventions below are easy to
-drift from if reinvented from scratch:
+Skim an existing one first — `skills/radin-review/SKILL.md` is the shortest
+complete example. The shared conventions below are easy to drift from if you
+reinvent them from scratch.
 
-1. **Namespace resolution.** Call `bash "$HOME/.claude/radin-lib/radin-namespace.sh"`
-   (see `docs/architecture.md`'s "Namespace resolution" section) and read
-   `REPO_ROOT`/`NAMESPACE_DIR`/`ISSUES_FILE` from its output — don't
-   re-embed the resolution logic inline; `lib/radin-namespace.sh` is its
-   single source of truth.
+1. **Namespace resolution.** Call
+   `bash "$HOME/.claude/radin-lib/radin-namespace.sh"` (see
+   `docs/architecture.md`'s "Namespace resolution" section) and read
+   `REPO_ROOT`/`NAMESPACE_DIR`/`ISSUES_FILE` from its output. Don't re-embed
+   the resolution logic inline — `lib/radin-namespace.sh` is its single
+   source of truth.
 2. **`ISSUES.md` writes.** If the new skill/agent appends entries, follow the
    schema above: classify into an existing category (feat/fix/chore/refactor)
-   — don't invent a fifth. If the shape genuinely needs to change, update both
-   `docs/schemas/issues-entry.schema.json` and `docs/domain-models.md` in the
-   same change.
-3. **Docs.** Run the doc-maintenance checklist below — `docs/architecture.md`'s
+   — don't invent a fifth. If the shape genuinely needs to change, update
+   both `docs/schemas/issues-entry.schema.json` and `docs/domain-models.md`
+   in the same change.
+3. **Docs.** Run the doc-maintenance checklist below. `docs/architecture.md`'s
    plugin repo layout and namespace-resolution sentence both need the new
-   file's name added.
-4. **`install.sh`.** New skills need a `cp -r` line added so `install.sh`
-   actually distributes them — a skill living only in `skills/` in this repo
-   is not yet installed anywhere.
+   file's name added. README's "Tools you get" table needs a new row too —
+   it drifts silently otherwise, since nothing else forces it to match
+   `agents/`/`skills/`.
+4. **`install.sh`.** New skills need a `cp -r` line, or `install.sh` never
+   distributes them — a skill living only in `skills/` in this repo isn't
+   installed anywhere yet.
 
 ## Constraints
 
 **Never touch anything in `~/.claude` (`~/.config/.claude`) besides what
-radin itself added.** `~/.claude/agents` and `~/.claude/skills` are a shared
-directory — the consumer's other agents/skills/tools live there too.
+radin itself added.** `~/.claude/agents` and `~/.claude/skills` are shared
+directories — a consumer's other agents/skills/tools live there too.
 `install.sh` may only `cp`/`cp -r` radin's own named files (`agents/*.md`
 that ship in this repo, radin's own `skills/<name>/`) and `mkdir -p`. Never
-`rm`, never wildcard-delete a directory, never overwrite a file radin didn't
+`rm`. Never wildcard-delete a directory. Never overwrite a file radin didn't
 ship. Call this out explicitly on any edit to `install.sh`.
 
-**macOS ships `/bin/bash` 3.2** (Apple froze it pre-GPLv3). Since scripts run
-on both macOS and Linux, all scripts in this repo (`install.sh`,
-any future script) must stay bash-3.2-compatible: no associative arrays, no
-`mapfile`, no `${var,,}` case conversion. Call this out explicitly on any
-script edit — easy to reach for bash 4+ syntax without noticing on a machine
-that has a newer bash on `PATH`.
+**macOS ships `/bin/bash` 3.2.** Apple froze it before the GPLv3 switch.
+Since scripts run on both macOS and Linux, every script in this repo
+(`install.sh`, any future script) must stay bash-3.2-compatible: no
+associative arrays, no `mapfile`, no `${var,,}` case conversion. Call this
+out explicitly on any script edit — it's easy to reach for bash-4+ syntax
+without noticing on a machine that has a newer bash on `PATH`.
 
-Arch/OS neutrality: no `uname -m` branching anywhere. Resolve via
-`$(command -v brew)` / `brew shellenv`, letting brew/npm/cargo pick the
-correct prefix for whichever machine (macOS ARM/Intel, or Linux via
-Linuxbrew) is running the script. Where a command itself differs by OS (e.g.
-BSD `md5` on macOS vs GNU `md5sum` on Linux), branch on `command -v <tool>`,
-never on `uname`.
+**Arch/OS neutrality.** No `uname -m` branching anywhere. Resolve through
+`$(command -v brew)` / `brew shellenv` and let brew/npm/cargo pick the right
+prefix for the machine (macOS ARM/Intel, or Linux via Linuxbrew). Where a
+command itself differs by OS — e.g. BSD `md5` on macOS vs GNU `md5sum` on
+Linux — branch on `command -v <tool>`, never on `uname`.
 
-Companion-tool installs (`install.sh`) are advisory only — radin asks and
-delegates, never guarantees rtk/caveman/code-review-graph's own install
+**Companion-tool installs are advisory only.** `install.sh` asks and
+delegates; it never guarantees rtk/caveman/code-review-graph's own install
 succeeds, and never installs without an explicit `y` confirmation.
 
 ## Doc-maintenance policy
 
-Work is not done until affected docs are updated in the same commit.
+A change isn't done until its affected docs are updated in the same commit.
 
 | File | Update when |
 | --- | --- |
 | `docs/architecture.md` | Storage scheme, namespace resolution, or plugin file layout changes |
 | `docs/domain-models.md` | `registry.json` schema, `ISSUES.md` entry format, or plan-file format changes |
-| `install.sh` companion-tool table (README) | A companion tool is added/removed/renamed |
+| `install.sh` companion-tool table (README) | A companion tool is added, removed, or renamed |
+| "Tools you get" table (README) | A radin-built skill/agent is added, removed, or renamed |
 | `CHANGELOG.md` | Any user-facing change, on every release |
 
 ## `ISSUES.md` at repo root
 
-This is radin's **own** development backlog — a normal repo-root
-`ISSUES.md`, same as any other project. This is intentionally the opposite of
-what radin's shipped `radin-orchestrator` does for *consumers* (who get
-`~/.claude/.radin/`-namespaced storage, never a repo-root file): radin's own
-meta-development doesn't use its own shipped tooling by default, since that
-tooling only activates once installed via `install.sh`. Not hypocrisy —
-just radin not being self-hosted yet.
+This is radin's own development backlog — a plain repo-root `ISSUES.md`,
+same as any other project. That's the opposite of what the shipped
+`radin-orchestrator` does for consumers, who get `~/.claude/.radin/`-namespaced
+storage and never a repo-root file. radin's own development doesn't use its
+own shipped tooling by default, because that tooling only activates once
+installed through `install.sh`. This isn't hypocrisy — radin just isn't
+self-hosted yet.
 
 ## Pre-commit checklist
 
