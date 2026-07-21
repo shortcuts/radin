@@ -40,11 +40,7 @@ printf "%s\n" "  🐀 radin — stingy on tokens, generous on backlog throughput
 printf "%b\n\n" "${RESET}"
 
 BREW="$(command -v brew || true)"
-if [ -z "$BREW" ]; then
-	printf "%b\n" "${RED}${RAT} Homebrew not found.${RESET} Install from https://brew.sh, then re-run." >&2
-	exit 1
-fi
-eval "$("$BREW" shellenv)"
+[ -n "$BREW" ] && eval "$("$BREW" shellenv)"
 
 GITHUB_REPO="shortcuts/radin"
 API_LATEST_RELEASE="https://api.github.com/repos/$GITHUB_REPO/releases/latest"
@@ -87,7 +83,12 @@ if [ -z "$RADIN_ROOT" ]; then
 		exit 1
 	fi
 
-	VERSION="$(curl -fsSL "$API_LATEST_RELEASE" 2>/dev/null | grep -m1 '"tag_name"' | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/')"
+	# Redirect lookup first -- doesn't count against the API's 60 req/hour
+	# anonymous rate limit. Fall back to the API only if that fails.
+	VERSION="$(curl -sI "https://github.com/$GITHUB_REPO/releases/latest" 2>/dev/null | grep -i '^location:' | sed -E 's|.*/tag/([^[:space:]]+).*|\1|' | tr -d '\r')"
+	if [ -z "$VERSION" ]; then
+		VERSION="$(curl -fsSL "$API_LATEST_RELEASE" 2>/dev/null | grep -m1 '"tag_name"' | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/')"
+	fi
 	if [ -n "$VERSION" ]; then
 		info "Latest release: ${BOLD}$VERSION${RESET}"
 		TARBALL_URL="$TARBALL_BASE/refs/tags/$VERSION.tar.gz"
@@ -100,6 +101,12 @@ if [ -z "$RADIN_ROOT" ]; then
 	info "Downloading radin ($VERSION)..."
 	TMP_TAR="$(mktemp)"
 	curl -fsSL "$TARBALL_URL" -o "$TMP_TAR"
+	# Reject archives with absolute paths or ".." components before extracting (CWE-22).
+	if tar -tzf "$TMP_TAR" | grep -qE '^/|(^|/)\.\.(/|$)'; then
+		printf "%b\n" "${RED}${RAT} Downloaded archive contains unsafe paths.${RESET} Refusing to extract." >&2
+		rm -f "$TMP_TAR"
+		exit 1
+	fi
 	rm -rf "$FETCH_DIR"
 	mkdir -p "$FETCH_DIR"
 	tar -xzf "$TMP_TAR" -C "$FETCH_DIR" --strip-components=1
@@ -117,10 +124,24 @@ cp "$RADIN_ROOT"/lib/radin-prioritization.md "$HOME/.claude/radin-lib/"
 cp "$RADIN_ROOT"/agents/*.md "$HOME/.claude/agents/"
 cp -r "$RADIN_ROOT"/skills/radin-review "$HOME/.claude/skills/"
 cp -r "$RADIN_ROOT"/skills/radin-record "$HOME/.claude/skills/"
-mkdir -p "$HOME/.claude/skills/thermo-nuclear"
-curl -fsSL "https://raw.githubusercontent.com/cursor/plugins/refs/heads/main/cursor-team-kit/skills/thermo-nuclear-code-quality-review/SKILL.md" \
-	-o "$HOME/.claude/skills/thermo-nuclear/SKILL.md"
+# thermo-nuclear is vendored via the vercel-labs/skills CLI (agentskills.io
+# spec), not a Claude Code plugin -- cursor/plugins isn't a plugin marketplace
+# repo, just a SKILL.md at this subpath. Falls back to a raw curl of the file
+# if npx isn't available.
+if command -v npx >/dev/null 2>&1; then
+	npx -y skills add "https://github.com/cursor/plugins/tree/main/cursor-team-kit/skills/thermo-nuclear-code-quality-review" -g -a claude-code -y
+	# Renamed back to "thermo-nuclear" -- every radin agent/skill invokes it
+	# under that name, and skills CLI installs use the source folder's name.
+	rm -rf "$HOME/.claude/skills/thermo-nuclear"
+	mv "$HOME/.claude/skills/thermo-nuclear-code-quality-review" "$HOME/.claude/skills/thermo-nuclear"
+else
+	warn "npx not found -- falling back to a direct SKILL.md download for thermo-nuclear."
+	mkdir -p "$HOME/.claude/skills/thermo-nuclear"
+	curl -fsSL "https://raw.githubusercontent.com/cursor/plugins/refs/heads/main/cursor-team-kit/skills/thermo-nuclear-code-quality-review/SKILL.md" \
+		-o "$HOME/.claude/skills/thermo-nuclear/SKILL.md"
+fi
 cp -r "$RADIN_ROOT"/skills/radin-setup-hooks "$HOME/.claude/skills/"
+cp -r "$RADIN_ROOT"/skills/radin-stats "$HOME/.claude/skills/"
 ok "agents/ and skills/ installed"
 
 mkdir -p "$HOME/.claude/.radin/projects"
@@ -202,7 +223,15 @@ else
 fi
 
 step "Companion tools (all optional)"
-install_if_confirmed "rtk" "rtk" "$BREW install rtk"
+# Prefer brew when present (macOS, Linuxbrew). Otherwise delegate to rtk's own
+# installer -- it handles Linux OS/arch detection and checksum verification
+# itself, so radin doesn't reimplement that here.
+if [ -n "$BREW" ]; then
+	RTK_INSTALL_CMD="$BREW install rtk"
+else
+	RTK_INSTALL_CMD="curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh | sh"
+fi
+install_if_confirmed "rtk" "rtk" "$RTK_INSTALL_CMD"
 
 # code-review-graph ships on PyPI, not npm -- pipx keeps it in its own venv.
 install_if_confirmed "code-review-graph" "code-review-graph" \

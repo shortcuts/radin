@@ -112,6 +112,8 @@ radin/
       SKILL.md
     radin-setup-hooks/
       SKILL.md
+    radin-stats/
+      SKILL.md
   docs/
   lib/
     radin-namespace.sh

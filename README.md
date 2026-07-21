@@ -27,7 +27,8 @@ An opinionated agentic stack, one script deep, baking in the most efficient (and
 
 ## Install
 
-> Needs [Homebrew](https://brew.sh), `curl`, `tar`.
+> Needs `curl`, `tar`. [Homebrew](https://brew.sh) is optional -- used for
+> companion-tool installs when present, but not required on Linux.
 
 ```sh
 # macOS · Linux · WSL
@@ -69,6 +70,7 @@ A typical flow:
 | `radin-review` | Strict code-quality pass, findings logged straight back into the backlog |
 | `radin-record` | Logs feedback/bugs/ideas raised mid-session as `BACKLOG.md` entries |
 | `radin-setup-hooks` | Wires up per-repo hooks/MCP config for companion tools |
+| `radin-stats` | Shows each installed companion tool's own stats/gain output, side by side |
 
 Some of these delegate to other skills under the hood, instead of
 reimplementing review or style logic themselves:
@@ -156,7 +158,7 @@ their own repo stays the source of truth.
 | [i-have-adhd](https://github.com/ayghri/i-have-adhd) | A skill for your coding agent to stop it from burying the answer. ADHD-friendly output |
 | [ponytail](https://github.com/DietrichGebert/ponytail) | Makes your AI agent think like the laziest senior dev in the room. The best code is the code you never wrote |
 | [code-review-graph](https://github.com/tirth8205/code-review-graph) | Local-first code intelligence graph for MCP and CLI. Builds a persistent map of your codebase so AI coding tools read only what matters |
-| [thermo-nuclear](https://github.com/cursor/plugins/tree/main/cursor-team-kit/skills/thermo-nuclear-code-quality-review) | Code quality review skill, downloaded straight from cursor/plugins at install time |
+| [thermo-nuclear](https://github.com/cursor/plugins/tree/main/cursor-team-kit/skills/thermo-nuclear-code-quality-review) | Code quality review skill, vendored from cursor/plugins at install time via the [vercel-labs/skills](https://github.com/vercel-labs/skills) CLI |
 
 ---
 
