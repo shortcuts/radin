@@ -94,8 +94,8 @@ Execute the task from BACKLOG_PATH lines Y-Z:
 2. [Only if plan(s) exist] Read PLAN_PATHS in order — plan(s) already written for this
    task by radin-plan. Follow them; do not re-derive an approach from scratch. If there's
    more than one, they cover different parts of the same task — implement all of them.
-   [Otherwise, if no plan exists] Invoke the `/ponytail` skill, then plan your approach
-   internally
+   [Otherwise, if no plan exists] Read $HOME/.claude/radin-lib/radin-planning.md and
+   follow its method to plan your approach internally before implementing
 3. Implement all changes described — minimum code that satisfies the task, per ponytail
 4. Where the task changes behavior (not a pure deletion/rename), add or update a unit
    test that pins the expected behavior — follow existing test conventions in the repo

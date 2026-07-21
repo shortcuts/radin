@@ -128,11 +128,11 @@ Plan the task from BACKLOG_PATH lines Y-Z. Do NOT implement it.
 
 1. Read BACKLOG_PATH lines Y-Z to understand the overall task
 2. [Only if SCOPE is set] Within that task, this plan covers only: SCOPE
-3. Explore the codebase as needed to understand current structure, affected files, and constraints
-4. Invoke the `/ponytail` skill, then write a concrete step-by-step implementation plan following its ladder: the minimum files to touch, the change in each, order of operations, and how to verify it (tests/checks to run) — no speculative steps
-5. Save the plan as a markdown file at PLAN_PATH
-6. Do NOT edit any source file, run builds/tests as a side effect, or create a git commit
-7. Report back: the plan file path, a one-line summary of the approach, any open questions or risks the plan surfaced
+3. Read $HOME/.claude/radin-lib/radin-planning.md and follow its method to
+   produce the plan
+4. Save the plan as a markdown file at PLAN_PATH
+5. Do NOT edit any source file, run builds/tests as a side effect, or create a git commit
+6. Report back: the plan file path, a one-line summary of the approach, any open questions or risks the plan surfaced
 ```
 
 When the sub-agent reports back:

@@ -97,6 +97,15 @@ scoped task should split into independent sub-plans (confirming with the
 user before splitting), then writes a plan file and `**Plan:**` pointer per
 resulting sub-task.
 
+Both agents also share a third file — `lib/radin-planning.md` — the single
+source of truth for turning a task into an implementation plan (explore,
+apply the `/ponytail` ladder, produce files/changes/order/verification).
+`radin-plan`'s planning sub-agent reads it and saves the result to a plan
+file; `radin-execute`'s execution sub-agent reads it only when no
+`**Plan:**` exists yet, and keeps the result in-session before implementing
+it directly — no separate plan file, no split judgment, no user
+confirmation, so an unattended backlog run never stalls on a prompt.
+
 To update radin itself, re-run `install.sh` — plain `curl | bash`, or
 `./install.sh` from a dev clone. It always re-downloads or re-copies
 `agents/*.md` and `skills/*/`, overwriting what's in `~/.claude/`. Pass
@@ -127,6 +136,7 @@ radin/
   lib/
     radin-namespace.sh
     radin-prioritization.md
+    radin-planning.md
   install.sh
   README.md
 ```
