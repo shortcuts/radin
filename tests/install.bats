@@ -65,11 +65,10 @@ run_install_no_companions_answering() {
   [ "$status" -eq 0 ]
 }
 
-@test "fails with a clear message when brew is missing" {
+@test "installs fine when brew is missing, falling back to rtk's own installer" {
   rm -f "$MOCK_BIN/brew"
-  run bash "$REPO_ROOT/install.sh" <<< $'n\nn\nn\nn\n'
-  [ "$status" -ne 0 ]
-  [[ "$output" == *"Homebrew not found"* ]]
+  run run_install_no_companions
+  [ "$status" -eq 0 ]
 }
 
 @test "resolves RADIN_ROOT from a real checkout, no tarball download" {
