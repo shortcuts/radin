@@ -34,7 +34,6 @@ An opinionated agentic stack, one script deep, baking in the most efficient (and
 curl -fsSL https://raw.githubusercontent.com/shortcuts/radin/main/install.sh | bash
 ```
 
-
 ## Update
 
 ```sh
