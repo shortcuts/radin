@@ -129,7 +129,7 @@ prompt_yn() {
 	# all (CI, non-interactive) means we can't ask, so default to no.
 	local msg="$1" ans=""
 	if [ -r /dev/tty ]; then
-		read -r -p "$(printf "%b" "${YELLOW}${RAT} $msg [y/N]${RESET} ")" ans </dev/tty 2>/dev/null || true
+		read -r -p "$(printf "%b" "${YELLOW}${RAT} $msg [y/N]${RESET} ")" ans </dev/tty || true
 	fi
 	[ "$ans" = "y" ] || [ "$ans" = "Y" ]
 }
@@ -154,6 +154,39 @@ install_plugin_if_confirmed() {
 	claude plugin marketplace add "$marketplace_source"
 	claude plugin install "$plugin_id"
 }
+
+prompt_val() {
+	# Same /dev/tty rationale as prompt_yn -- works under curl | bash too.
+	local msg="$1" default="$2" ans=""
+	if [ -r /dev/tty ]; then
+		read -r -p "$(printf "%b" "${YELLOW}${RAT} $msg [$default]${RESET} ")" ans </dev/tty || true
+	fi
+	printf '%s' "${ans:-$default}"
+}
+
+set_agent_model() {
+	# No `sed -i`: BSD sed (macOS) and GNU sed (Linux) take incompatible forms
+	# of it. Temp-file-plus-mv avoids the divergence entirely.
+	local file="$1" pattern="$2" replacement="$3" tmp
+	tmp="$(mktemp)"
+	sed "s/${pattern}/${replacement}/" "$file" >"$tmp" && mv "$tmp" "$file"
+}
+
+step "Agent models (optional)"
+if prompt_yn "Choose models for radin-orchestrator / radin-plan? (defaults: haiku top-level, sonnet sub-agents)"; then
+	ORCH_MODEL="$(prompt_val "radin-orchestrator top-level model" "haiku")"
+	ORCH_SUB_MODEL="$(prompt_val "radin-orchestrator sub-agent model (execution + review)" "sonnet")"
+	PLAN_MODEL="$(prompt_val "radin-plan top-level model" "haiku")"
+	PLAN_SUB_MODEL="$(prompt_val "radin-plan sub-agent model (planning)" "sonnet")"
+
+	set_agent_model "$HOME/.claude/agents/radin-orchestrator.md" "^model: haiku$" "model: ${ORCH_MODEL}"
+	set_agent_model "$HOME/.claude/agents/radin-orchestrator.md" 'model: "sonnet"' "model: \"${ORCH_SUB_MODEL}\""
+	set_agent_model "$HOME/.claude/agents/radin-plan.md" "^model: haiku$" "model: ${PLAN_MODEL}"
+	set_agent_model "$HOME/.claude/agents/radin-plan.md" 'model: "sonnet"' "model: \"${PLAN_SUB_MODEL}\""
+	ok "agent models configured"
+else
+	ok "keeping default models (haiku top-level, sonnet sub-agents)"
+fi
 
 step "Companion tools (all optional)"
 install_if_confirmed "rtk" "rtk" "$BREW install rtk"
