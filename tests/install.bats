@@ -89,6 +89,7 @@ run_install_no_companions_answering() {
 @test "installs radin's own skills, not unrelated skill dirs" {
   run_install_no_companions
   [ -d "$TEST_HOME/.claude/skills/radin-review" ]
+  [ -d "$TEST_HOME/.claude/skills/radin-record" ]
   [ -d "$TEST_HOME/.claude/skills/radin-setup-hooks" ]
   [ -d "$TEST_HOME/.claude/skills/radin-update" ]
 }

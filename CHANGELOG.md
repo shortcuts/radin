@@ -6,6 +6,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- `skills/radin-record`: new skill to capture feedback, bugs, follow-ups, or
+  ideas raised mid-session and log them as structured `ISSUES.md` entries.
+- `ISSUES.md` restructured around semver-style category sections (`feat`,
+  `fix`, `chore`, `refactor`, same vocabulary as a conventional-commit type)
+  instead of ad-hoc per-entry tags — applies across `radin-review`,
+  `radin-record`, `radin-orchestrator`, and `radin-plan`. Introduces
+  `docs/schemas/issues-entry.schema.json` as the formal contract for this
+  structure.
 - `install.sh`: new optional companion-tool prompt for
   [i-have-adhd](https://github.com/ayghri/i-have-adhd) — installs the same
   way as `caveman` (Claude Code plugin marketplace flow).
