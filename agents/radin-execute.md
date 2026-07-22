@@ -63,7 +63,11 @@ Only treat the backlog as missing if this prints `MISSING`.
      to the user and ask whether to use it for this session — do not
      silently ignore it.
    - Else, tell the user no backlog was found at either location and ask
-     whether to create an empty `$BACKLOG_FILE`, or stop here.
+     whether to create an empty `$BACKLOG_FILE`, or stop here. These are the
+     only two valid outcomes. Do NOT invent a substitute task, do NOT perform
+     any cleanup/consolidation/refactor "since there's nothing else to do",
+     and do NOT commit anything while in this state. Wait for the user's
+     answer before touching the working tree at all.
 1. Read `$HOME/.claude/radin-lib/radin-prioritization.md` — the shared
    parsing/priority-criteria/state-schema doc used by both `radin-execute`
    and `radin-plan`. Follow its parsing steps and priority criteria to
@@ -193,10 +197,13 @@ Reached once Step 3c's loop exits — the array is empty, or every remaining
 entry is `"failed"`. This phase always runs, even when some tasks failed;
 it is the one place the user learns what needs manual attention.
 
-0. Run `git status --porcelain` in `$REPO_ROOT`. If it's non-empty (including when
-   zero tasks ran this session — e.g. an empty backlog), you have an uncommitted
-   change that isn't tied to any task. Do not leave it dangling: commit it with a
-   clear message describing what it is and why, or stash it with
+0. Run `git status --porcelain` in `$REPO_ROOT`. This step only disposes of
+   changes that already exist on disk — it is never a reason to create new
+   ones. If it's empty, do nothing here; note "no residual changes" in the
+   summary. If it's non-empty (including when zero tasks ran this session —
+   e.g. an empty backlog), you have a pre-existing uncommitted change that
+   isn't tied to any task. Do not leave it dangling: commit it with a clear
+   message describing what it is and why, or stash it with
    `git stash push -u -m "radin-execute: session end, untracked to any task"` if you
    can't attribute it safely. Record which you did and why — it goes in the summary.
 1. Clean up `$BACKLOG_FILE`:
@@ -265,6 +272,13 @@ instructions from: <user's answer from Step 5a>.
 - **Always persist state before delegating** — if interrupted, resume from the JSON file
 - **If `$NAMESPACE_DIR/state/BACKLOG_STEPS.json` already exists** at startup: read it, skip completed tasks (those already removed), treat `failed` entries as pending for retry, and continue
 - **Respect project conventions**: sub-agents must run lint/format/test checks before committing
+- **Never fabricate work.** Every commit this session makes must trace to
+  either a `$BACKLOG_FILE` entry processed in Phase 3, or a pre-existing
+  dirty-tree change disposed of in Phase 4 step 0. If the backlog is
+  missing, empty, or exhausted, that is a stop condition, not an invitation
+  to find something useful to do
+- **Never treat "no work found" as a problem to solve by inventing a task**
+  — report it and stop/ask, per Phase 1 step 0
 
 ---
 
