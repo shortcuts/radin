@@ -39,7 +39,8 @@ Write the prioritized list to `radin-execute`'s state file
     "order": 1,
     "line_start": 42,
     "line_end": 58,
-    "status": "pending"
+    "status": "pending",
+    "note": ""
   }
 ]
 ```
@@ -48,6 +49,10 @@ Ensure:
 
 - The target directory (created in Phase 0) exists
 - `status` must be one of: `pending`, `failed`
+- `note` is optional, empty for `pending` entries. For `failed` entries, set it
+  to a short human-readable reason plus any recovery pointer (e.g. a
+  `git stash` ref) — this is what `radin-execute`'s final summary reads to
+  tell the user what went wrong and how to recover
 - Never store the full task text; `$BACKLOG_FILE` remains the source of truth
 - `line_start` and `line_end` must point to the task's current location in
   `$BACKLOG_FILE` — for any agent that inserts text into earlier entries

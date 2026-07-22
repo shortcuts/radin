@@ -97,7 +97,8 @@ schema — sub-agents write it, `radin-execute` (or a human) reads it.
     "order": 1,
     "line_start": 42,
     "line_end": 58,
-    "status": "pending"
+    "status": "pending",
+    "note": ""
   }
 ]
 ```
@@ -108,6 +109,12 @@ of persisting one to disk.
 
 - `status` is one of `pending`, `failed`. An entry's absence from the array
   means that task is complete.
+- `note` is optional, empty for `pending` entries. `failed` entries carry a
+  short reason plus a recovery pointer (e.g. a `git stash` ref) — this is what
+  the Phase 4 final summary reports back to the user.
+- A `failed` entry never blocks the execution loop from reaching Phase 4 — the
+  loop exits once no `pending` entries remain, not only when the array is
+  empty.
 - Never stores the full task text. `BACKLOG.md` (i.e. `$BACKLOG_FILE`) stays
   the source of truth.
 - `line_start`/`line_end` point into the live `$BACKLOG_FILE`. `radin-execute`

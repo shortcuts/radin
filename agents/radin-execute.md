@@ -153,51 +153,83 @@ it turns out to be unnecessary.
 
 When the sub-agent reports back:
 
-- Run `git status --porcelain` yourself. If it's non-empty, treat the task as failed
-  (the sub-agent violated the no-dirty-tree contract) — do not silently continue
-- Record the commit hash(es)
-- Remove the completed entry from `$NAMESPACE_DIR/state/BACKLOG_STEPS.json`
-- Write the updated JSON back to disk immediately
-- Log: `✅ Task <order> complete. Commit: <hash>. Remaining: <count>.`
+- Run `git status --porcelain` yourself. If it's non-empty, the sub-agent violated
+  the no-dirty-tree contract regardless of whether it reported success or failure.
+  Never leave it dangling and never continue to the next task with a dirty tree:
+  - Run `git stash push -u -m "radin-execute: task <order> '<title>' left uncommitted (sub-agent reported <success|failure>)"`
+    so the partial work is never lost, just parked
+  - Treat the task as `"failed"` with `note`: `"sub-agent left uncommitted changes,
+    stashed as <stash ref>. Run 'git stash show -p <ref>' to inspect, 'git stash pop'
+    to recover."`
+  - Proceed to the next task on a clean tree
+- On a clean report with a clean tree:
+  - Record the commit hash(es)
+  - Remove the completed entry from `$NAMESPACE_DIR/state/BACKLOG_STEPS.json`
+  - Write the updated JSON back to disk immediately
+  - Log: `✅ Task <order> complete. Commit: <hash>. Remaining: <count>.`
 
-If the sub-agent fails:
+If the sub-agent fails (and left no dirty tree, handled above if it did):
 
-- Update the entry's `status` to `"failed"` in `$NAMESPACE_DIR/state/BACKLOG_STEPS.json`
+- Update the entry's `status` to `"failed"` in `$NAMESPACE_DIR/state/BACKLOG_STEPS.json`,
+  with `note` set to a short reason (from the sub-agent's report) and any recovery
+  pointer (e.g. a stash ref, if one was created above)
 - Write the updated JSON to disk
 - Log: `❌ Task <order> failed. Continuing to next task.`
 - Continue to the next task
 
 ### Step 3c: Repeat
 
-Continue to the next entry in `$NAMESPACE_DIR/state/BACKLOG_STEPS.json` until the file is an empty array `[]`.
+Continue to the next entry until no `pending` entries remain in
+`$NAMESPACE_DIR/state/BACKLOG_STEPS.json` — i.e. the array is empty, or every
+remaining entry is already `"failed"`. A failed task must never block the loop
+from reaching Phase 4: `"failed"` entries stay in the file for the user to
+retry later, but they are not retried automatically within this same session.
 
 ---
 
 ## Phase 4: Final Summary
 
-Once all tasks are complete and `$NAMESPACE_DIR/state/BACKLOG_STEPS.json` is empty:
+Reached once Step 3c's loop exits — the array is empty, or every remaining
+entry is `"failed"`. This phase always runs, even when some tasks failed;
+it is the one place the user learns what needs manual attention.
 
 0. Run `git status --porcelain` in `$REPO_ROOT`. If it's non-empty (including when
    zero tasks ran this session — e.g. an empty backlog), you have an uncommitted
    change that isn't tied to any task. Do not leave it dangling: commit it with a
-   clear message describing what it is and why, or `git checkout`/revert it if it
-   turns out to be unnecessary. Report which you did and why in the final summary.
+   clear message describing what it is and why, or stash it with
+   `git stash push -u -m "radin-execute: session end, untracked to any task"` if you
+   can't attribute it safely. Record which you did and why — it goes in the summary.
 1. Clean up `$BACKLOG_FILE`:
    - Remove all tasks that were successfully completed this session (those whose entries were removed from `$NAMESPACE_DIR/state/BACKLOG_STEPS.json`)
    - Leave failed tasks in place — they remain to be retried
    - Remove duplicate entries
    - Fix formatting inconsistencies
    - Preserve all section headers, groupings, and structural elements
-2. Collect all commit hashes recorded during the session
-3. Report final summary:
-   - Total tasks processed
-   - All commit hashes
-   - Any tasks that failed or were skipped
+2. Collect all commit hashes recorded during the session, and every `"failed"`
+   entry still in `$NAMESPACE_DIR/state/BACKLOG_STEPS.json` along with its `note`
+3. Report final summary — this is not optional detail, it's the primary
+   deliverable of a session with any failures. Include:
+   - Total tasks processed, and how many succeeded vs. failed
+   - **Succeeded**: task title + commit hash, one line each
+   - **Failed**: task title + reason (from `note`) + concrete recovery step —
+     what the user should run next (`git stash pop`, retry the task, fix a
+     failing test manually, etc.). Never just say "failed", say why and what to
+     do about it
+   - Any stash refs created this session (task-scoped or session-end), with the
+     command to inspect/recover each
+   - Whether Step 5 (review) is being offered next
 
 ```
-✅ All tasks complete.
+✅ Session complete: <N> succeeded, <M> failed.
 
-Commits this session: <list>
+Succeeded:
+- <task title> — <commit hash>
+
+Failed (left in BACKLOG.md for retry):
+- <task title> — <reason>. Recover: <concrete command(s)>.
+
+Stashes created this session:
+- <stash ref> — <what it holds>. Recover: git stash pop / git stash show -p <ref>.
 ```
 
 ## Phase 5: Review process
