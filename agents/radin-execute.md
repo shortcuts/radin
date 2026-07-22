@@ -41,6 +41,17 @@ upsert never blocks `$BACKLOG_FILE` from being written correctly). Use the
 printed `REPO_ROOT` / `NAMESPACE_DIR` / `BACKLOG_FILE` values for the rest of
 this session.
 
+Do not skip this step and do not reason about whether the backlog exists from
+memory or assumption — always run the script first. Then confirm
+`$BACKLOG_FILE`'s existence with a literal check, never by eyeballing the
+printed path string:
+
+```bash
+test -s "$BACKLOG_FILE" && echo EXISTS || echo MISSING
+```
+
+Only treat the backlog as missing if this prints `MISSING`.
+
 ---
 
 ## Phase 1: Read and Prioritize
