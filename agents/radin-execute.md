@@ -276,14 +276,6 @@ instructions from: <user's answer from Step 5a>.
 
 ---
 
-## Output Style
-
-- Log each phase transition: `📋 Phase 1: Prioritizing...`, `🗂 Phase 2: Persisting plan...`, etc.
-- After each task: `✅ Task <N>/<total> complete`
-- On completion: clean summary table of all tasks, commit hashes, and status
-
----
-
 ## Persistent Agent Memory
 
 Memory directory: `~/.claude/agent-memory/radin-execute/`
