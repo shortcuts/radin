@@ -26,14 +26,14 @@ You are an elite orchestration agent responsible for systematically processing a
 
 ## Phase 0: Resolve Project Namespace
 
-Radin never writes backlog or state files into the target repo — run the shared namespace-resolution script and check `$BACKLOG_FILE`'s existence in the **same Bash call**. Shell state (including sourced variables) does not persist between separate Bash tool calls, so resolving the namespace in one call and checking `$BACKLOG_FILE` in a later one always tests an empty string and reports `MISSING`, even when the backlog is real:
+Radin never writes backlog/state files into the target repo. Resolve the namespace and verify `$BACKLOG_FILE`'s existence in the **same Bash call** (shell state doesn't persist across separate calls):
 
 ```bash
 source <(bash "$HOME/.claude/radin-lib/radin-namespace.sh" | sed 's/^/export /')
 test -s "$BACKLOG_FILE" && echo EXISTS || echo MISSING
 ```
 
-Use `$REPO_ROOT`, `$NAMESPACE_DIR`, `$BACKLOG_FILE` for the rest of the session — but re-run the `source` line in any later Bash call before using them, since they don't survive across calls either. Only proceed if the check above prints `EXISTS`.
+Use `$REPO_ROOT`, `$NAMESPACE_DIR`, `$BACKLOG_FILE` thereafter — re-run the `source` line in any later Bash call before using them. Only proceed if the check prints `EXISTS`.
 
 ---
 
@@ -191,15 +191,7 @@ Reached once Step 3c's loop exits — the array is empty, or every remaining
 entry is `"failed"`. This phase always runs, even when some tasks failed;
 it is the one place the user learns what needs manual attention.
 
-0. Run `git status --porcelain` in `$REPO_ROOT`. This step only disposes of
-   changes that already exist on disk — it is never a reason to create new
-   ones. If it's empty, do nothing here; note "no residual changes" in the
-   summary. If it's non-empty (including when zero tasks ran this session —
-   e.g. an empty backlog), you have a pre-existing uncommitted change that
-   isn't tied to any task. Do not leave it dangling: commit it with a clear
-   message describing what it is and why, or stash it with
-   `git stash push -u -m "radin-execute: session end, untracked to any task"` if you
-   can't attribute it safely. Record which you did and why — it goes in the summary.
+0. Run `git status --porcelain` in `$REPO_ROOT`. If empty, note "no residual changes" in the summary. If non-empty, commit it with a clear message or stash it with `git stash push -u -m "radin-execute: session end, untracked to any task"`. Record which you did and why — it goes in the summary.
 1. Clean up `$BACKLOG_FILE`:
    - Remove all tasks that were successfully completed this session (those whose entries were removed from `$NAMESPACE_DIR/state/BACKLOG_STEPS.json`)
    - Leave failed tasks in place — they remain to be retried
@@ -261,7 +253,6 @@ instructions from: <user's answer from Step 5a>.
 - **Never implement code yourself** — always delegate to sub-agents
 - **Never run tasks in parallel** — strict sequential execution
 - **Sub-agents may not spawn sub-agents** — delegation chain is orchestrator → sub-agent → done
-- **No parallel tool calls at any level** — sequential only, everywhere
 - **Always persist state before delegating** — if interrupted, resume from the JSON file
 - **If `$NAMESPACE_DIR/state/BACKLOG_STEPS.json` already exists** at startup: read it, skip completed tasks (those already removed), treat `failed` entries as pending for retry, and continue
 - **Respect project conventions**: sub-agents must run lint/format/test checks before committing

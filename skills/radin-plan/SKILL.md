@@ -20,20 +20,17 @@ conversation instead of being decided out of sight.
 
 ## Step 1: Resolve project namespace, locate BACKLOG_FILE
 
-Radin never writes backlog/state files into the target repo. Run the shared
-namespace-resolution script — the single source of truth for this logic,
-shared by every radin agent/skill:
+Radin never writes backlog/state files into the target repo — run the
+shared namespace-resolution script and read `REPO_ROOT`, `NAMESPACE_DIR`,
+`BACKLOG_FILE` from its output:
 
 ```bash
-source <(bash "$HOME/.claude/radin-lib/radin-namespace.sh" | sed 's/^/export /')
+bash "$HOME/.claude/radin-lib/radin-namespace.sh"
 ```
 
 This creates `$NAMESPACE_DIR/state`, `$NAMESPACE_DIR/plans`, and
-`$NAMESPACE_DIR/reviews`, and best-effort upserts `registry.json`. `$REPO_ROOT`,
-`$NAMESPACE_DIR`, `$BACKLOG_FILE` are real shell variables only within the
-Bash call that ran this `source` line — shell state does not persist between
-separate Bash tool calls, so re-run this line in any later call before using
-them again.
+`$NAMESPACE_DIR/reviews`, and best-effort upserts `registry.json`. Re-run
+this line in any later Bash call before using these variables.
 
 ## Step 2: Resolve the task scope
 
