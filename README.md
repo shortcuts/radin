@@ -79,7 +79,7 @@ reimplementing review or style logic themselves:
 
 | Tool | Delegates to |
 | --- | --- |
-| `radin-execute` | `/ponytail` (plan-or-skip gate, per-task implementation), `/radin-plan` (only for tasks judged complex enough), `/caveman-commit` (commit message), `/thermo-nuclear` (optional end-of-session review) |
+| `radin-execute` | `/ponytail` (plan-or-skip gate, per-task implementation), `/radin-plan` (only for tasks judged complex enough), `/caveman-commit` (commit message), `/radin-review` (optional end-of-session review) |
 | `radin-plan` | `/ponytail` (split judgment and plan writing), `/thermo-nuclear` + `/ponytail-review` (reviewing the plan itself before handoff) |
 | `radin-review` | `/thermo-nuclear` (code-quality pass), `/ponytail-review` or `/ponytail-audit` (over-engineering pass) |
 
