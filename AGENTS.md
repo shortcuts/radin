@@ -139,6 +139,11 @@ Linux — branch on `command -v <tool>`, never on `uname`.
 delegates; it never guarantees rtk/caveman/code-review-graph's own install
 succeeds, and never installs without an explicit `y` confirmation.
 
+**rtk is available for both user and sub-agent command execution.** When
+installed, both sub-agents and users can wrap commands with `rtk` for
+token-saving. Sub-agent prompts include guidance to use `rtk` when available
+(`command -v rtk` succeeds); the fallback when absent is transparent.
+
 ## Doc-maintenance policy
 
 A change isn't done until its affected docs are updated in the same commit.

@@ -97,7 +97,8 @@ For each sub-task, in order:
    existing patterns, constraints. If `code-review-graph` is installed and wired
    for this repo, use its MCP tools (`semantic_search_nodes`, `get_impact_radius`,
    `query_graph`) before Grep/Glob/Read — token-efficient structural context beats
-   cold file scanning.
+   cold file scanning. When running commands, prefer `rtk`-wrapped commands if
+   `command -v rtk` succeeds for token savings.
 3. Invoke the `/ponytail` skill, then apply its ladder to produce the plan:
    - The minimum files to touch — no speculative scope.
    - The concrete change in each file.

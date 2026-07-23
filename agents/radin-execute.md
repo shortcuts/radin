@@ -115,7 +115,7 @@ skipped planning):
 
 ```
 Execute the task from BACKLOG_PATH lines Y-Z:
-(When exploring the codebase: if `code-review-graph` is installed and wired for this repo, use its MCP tools—`semantic_search_nodes`, `get_impact_radius`, `query_graph`—before Grep/Glob/Read.)
+(When exploring the codebase: if `code-review-graph` is installed and wired for this repo, use its MCP tools—`semantic_search_nodes`, `get_impact_radius`, `query_graph`—before Grep/Glob/Read. When running commands: prefer `rtk`-wrapped commands if `command -v rtk` succeeds for token savings.)
 1. Read BACKLOG_PATH lines Y-Z to understand the task
 2. If PLAN_PATHS is not "none", read them in order — plan(s) already written for this
    task by radin-plan. Follow them; do not re-derive an approach from scratch. If
