@@ -131,37 +131,47 @@ Execute the task from BACKLOG_PATH lines Y-Z:
    made incidentally while investigating, e.g. formatter/linter auto-fixes), either
    commit it as part of this task's commit or a separate scoped commit — never leave
    the working tree dirty when you report back
-9. Report back: commit hash(es), summary of what was done, any issues encountered
+9. Report back the LAST line of your response as exactly one of:
+   `STATUS: SUCCESS — <commit hash(es), or "no new commit, already satisfied by <existing
+   hash>">`
+   `STATUS: FAILED — <reason>`
+   This line is mandatory whether the task was implemented, found already done, or
+   blocked — the orchestrator only acts on this explicit line, never on inferring intent
+   from prose.
 
 Do NOT skip checks. Do NOT commit if checks are failing. Do NOT leave uncommitted
 changes on the branch — commit everything you touched, or `git checkout`/revert it if
 it turns out to be unnecessary.
 ```
 
-When the sub-agent reports back:
+When the sub-agent reports back, first find its `STATUS:` line — this always drives what happens next, never the orchestrator's own guess from the surrounding prose:
 
 - Run `git status --porcelain` yourself. If it's non-empty, the sub-agent violated
-  the no-dirty-tree contract regardless of whether it reported success or failure.
-  Never leave it dangling and never continue to the next task with a dirty tree:
-  - Run `git stash push -u -m "radin-execute: task <order> '<title>' left uncommitted (sub-agent reported <success|failure>)"`
+  the no-dirty-tree contract regardless of its reported `STATUS:`. Never leave it
+  dangling and never continue to the next task with a dirty tree:
+  - Run `git stash push -u -m "radin-execute: task <order> '<title>' left uncommitted (sub-agent reported <STATUS value>)"`
     so the partial work is never lost, just parked
   - Treat the task as `"failed"` with `note`: `"sub-agent left uncommitted changes,
     stashed as <stash ref>. Run 'git stash show -p <ref>' to inspect, 'git stash pop'
     to recover."`
+  - Report to the user now: `⚠️ Task <order> '<title>': sub-agent reported <STATUS
+    value> but left a dirty tree — stashed as <stash ref>, treated as failed.`
   - Proceed to the next task on a clean tree
-- On a clean report with a clean tree:
-  - Record the commit hash(es)
+- On `STATUS: SUCCESS` with a clean tree:
+  - Record the commit hash (or the pre-existing hash it cites, if no new commit)
   - Remove the completed entry from `$NAMESPACE_DIR/state/BACKLOG_STEPS.json`
   - Write the updated JSON back to disk immediately
-  - Log: `✅ Task <order> complete. Commit: <hash>. Remaining: <count>.`
+  - Report to the user now: `✅ Task <order> '<title>' complete. <STATUS detail>.
+    Remaining: <count>.`
 
-If the sub-agent fails (and left no dirty tree, handled above if it did):
+On `STATUS: FAILED` (and left no dirty tree, handled above if it did):
 
 - Update the entry's `status` to `"failed"` in `$NAMESPACE_DIR/state/BACKLOG_STEPS.json`,
-  with `note` set to a short reason (from the sub-agent's report) and any recovery
+  with `note` set to the reason from the `STATUS:` line and any recovery
   pointer (e.g. a stash ref, if one was created above)
 - Write the updated JSON to disk
-- Log: `❌ Task <order> failed. Continuing to next task.`
+- Report to the user now: `❌ Task <order> '<title>' failed: <reason>. Continuing to
+  next task.`
 - Continue to the next task
 
 ### Step 3c: Repeat
