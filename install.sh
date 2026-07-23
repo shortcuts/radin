@@ -148,6 +148,16 @@ else
 	curl -fsSL "https://raw.githubusercontent.com/cursor/plugins/refs/heads/main/cursor-team-kit/skills/thermo-nuclear-code-quality-review/SKILL.md" \
 		-o "$HOME/.claude/skills/thermo-nuclear/SKILL.md"
 fi
+# Strip disable-model-invocation so radin-review can invoke thermo-nuclear as
+# a sub-skill; upstream sets it to block direct end-user invocation, which
+# also blocks our own agent-to-skill call. sed -i differs BSD/GNU -- write to
+# temp then mv, portable across both.
+THERMO_SKILL="$HOME/.claude/skills/thermo-nuclear/SKILL.md"
+if [ -f "$THERMO_SKILL" ]; then
+	THERMO_TMP="$(mktemp)"
+	grep -v '^disable-model-invocation:' "$THERMO_SKILL" >"$THERMO_TMP"
+	mv "$THERMO_TMP" "$THERMO_SKILL"
+fi
 cp -r "$RADIN_ROOT"/skills/radin-setup-hooks "$HOME/.claude/skills/"
 cp -r "$RADIN_ROOT"/skills/radin-stats "$HOME/.claude/skills/"
 ok "agents/ and skills/ installed"
