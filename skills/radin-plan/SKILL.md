@@ -97,7 +97,10 @@ For each sub-task, in order:
    from a split, its scope is only the one-line description recorded in
    Step 3 — plan just that part.
 2. Explore the codebase as needed: current structure, affected files,
-   existing patterns, constraints.
+   existing patterns, constraints. If `code-review-graph` is installed and wired
+   for this repo, use its MCP tools (`semantic_search_nodes`, `get_impact_radius`,
+   `query_graph`) before Grep/Glob/Read — token-efficient structural context beats
+   cold file scanning.
 3. Invoke the `/ponytail` skill, then apply its ladder to produce the plan:
    - The minimum files to touch — no speculative scope.
    - The concrete change in each file.
