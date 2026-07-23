@@ -150,16 +150,6 @@ A change isn't done until its affected docs are updated in the same commit.
 | "Tools you get" table (README) | A radin-built skill/agent is added, removed, or renamed |
 | `CHANGELOG.md` | Any user-facing change, on every release |
 
-## `BACKLOG.md` at repo root
-
-This is radin's own development backlog — a plain repo-root `BACKLOG.md`,
-same as any other project. That's the opposite of what the shipped
-`radin-execute` does for consumers, who get `~/.claude/.radin/`-namespaced
-storage and never a repo-root file. radin's own development doesn't use its
-own shipped tooling by default, because that tooling only activates once
-installed through `install.sh`. This isn't hypocrisy — radin just isn't
-self-hosted yet.
-
 ## Pre-commit checklist
 
 - `make lint` clean (or documented exceptions only)
