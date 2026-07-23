@@ -218,7 +218,6 @@ it is the one place the user learns what needs manual attention.
      do about it
    - Any stash refs created this session (task-scoped or session-end), with the
      command to inspect/recover each
-   - Whether Step 5 (review) is being offered next
 
 ```
 ✅ Session complete: <N> succeeded, <M> failed.
@@ -237,7 +236,7 @@ Stashes created this session:
 
 ### Step 5a: Ask for user consent
 
-Ask the user if we should perform a reviewer of the session or on a specific subject.
+Ask the user if we should perform a review of the session or on a specific subject.
 
 ### Step 5b: Reviewer Sub-Agent
 
