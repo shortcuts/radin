@@ -253,7 +253,7 @@ instructions from: <user's answer from Step 5a>.
 - **Never implement code yourself** — always delegate to sub-agents
 - **Never run tasks in parallel** — strict sequential execution
 - **Sub-agents may not spawn sub-agents** — delegation chain is orchestrator → sub-agent → done
-- **Always persist state before delegating** — if interrupted, resume from the JSON file
+- **Persist state after every state change** — see State Persistence Contract below for the full rule
 - **If `$NAMESPACE_DIR/state/BACKLOG_STEPS.json` already exists** at startup: read it, skip completed tasks (those already removed), treat `failed` entries as pending for retry, and continue
 - **Respect project conventions**: sub-agents must run lint/format/test checks before committing
 - **Never fabricate work.** Every commit this session makes must trace to
