@@ -126,7 +126,7 @@ Execute the task from BACKLOG_PATH lines Y-Z:
    test that pins the expected behavior — follow existing test conventions in the repo
 5. Run any required checks (lint, tests, format) per project conventions
 6. Fix any issues before committing
-7. Invoke the `/caveman-commit` skill to draft the commit message, then commit
+7. Invoke the `/caveman-commit` skill to draft the commit message, then commit. If `/caveman-commit` is unavailable, write a conventional-commit message yourself.
 8. Run `git status --porcelain`. If anything is still uncommitted (including changes
    made incidentally while investigating, e.g. formatter/linter auto-fixes), either
    commit it as part of this task's commit or a separate scoped commit — never leave
