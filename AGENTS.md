@@ -39,35 +39,32 @@ directly here — no external fork, no sync step.
 
 ## Storage contract
 
-radin never writes a file into a consumer's target repo. All backlog content
-and execution state live in one canonical, per-project namespace:
+All backlog content and execution state live inside the target repo itself,
+in one canonical directory at the repo root:
 
 ```
-~/.claude/.radin/
-  registry.json                     # repo-slug -> { path, updated_at }
-  projects/
-    <repo-slug>/
-      BACKLOG.md                    # backlog, source of truth
-      state/
-        BACKLOG_STEPS.json          # radin-execute execution plan
-      plans/
-        <task-id>.md                # radin-plan output
-      reviews/
-        <review-name>.md            # radin-review / thermo-nuclear output
+<repo-root>/.claude/.radin/
+  BACKLOG.md                    # backlog, source of truth
+  state/
+    BACKLOG_STEPS.json          # radin-execute execution plan
+  plans/
+    <task-id>.md                # radin-plan output
+  reviews/
+    <review-name>.md            # radin-review / thermo-nuclear output
 ```
 
-`<repo-slug>` is `$(basename "$REPO_ROOT")-$(printf '%s' "$REPO_ROOT" | md5 | cut -c1-8)`.
-This is deterministic, collision-resistant, and still readable by a human.
-Outside any git repo, it falls back to `no-repo-<cwd-hash>`. `registry.json`
-is a best-effort index — an atomic temp-file-plus-`mv` write, with a
-jq → python3 → skip fallback chain. No core agent flow depends on reading it.
+Outside any git repo, the current directory takes the repo root's place.
+This directory is the only thing radin ever writes into a consumer's repo.
+radin never edits the consumer's `.gitignore` — committing `.claude/.radin/`
+(shared backlog) or ignoring it (private backlog) is the consumer's call.
 
 Every one of `agents/radin-execute.md`, `skills/radin-plan/SKILL.md`,
 `skills/radin-review/SKILL.md`, `skills/radin-record/SKILL.md`, and
-`skills/radin-show/SKILL.md` resolves this namespace through an identical
-shared block before doing anything else.
-Do not reintroduce a root-`BACKLOG.md` or `.shortcuts/*.json` assumption into
-any of these files — that is the exact problem this storage scheme replaces.
+`skills/radin-show/SKILL.md` resolves this namespace through the same
+shared script before doing anything else.
+Do not reintroduce a root-`BACKLOG.md`, a `~/.claude/.radin/projects/<slug>`
+namespace, or a `.shortcuts/*.json` assumption into any of these files —
+those are the exact schemes this one replaces.
 
 ## `BACKLOG.md` entry schema
 
@@ -151,7 +148,7 @@ A change isn't done until its affected docs are updated in the same commit.
 | File | Update when |
 | --- | --- |
 | `docs/architecture.md` | Storage scheme, namespace resolution, or plugin file layout changes |
-| `docs/domain-models.md` | `registry.json` schema, `BACKLOG.md` entry format, or plan-file format changes |
+| `docs/domain-models.md` | `BACKLOG.md` entry format, plan-file format, or state-JSON schema changes |
 | `install.sh` companion-tool table (README) | A companion tool is added, removed, or renamed |
 | "Tools you get" table (README) | A radin-built skill/agent is added, removed, or renamed |
 | `CHANGELOG.md` | Any user-facing change, on every release |

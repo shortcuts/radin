@@ -102,20 +102,6 @@ run_install_no_companions_answering() {
   [ -f "$TEST_HOME/.claude/skills/thermo-nuclear/SKILL.md" ]
 }
 
-@test "creates the .radin namespace with an empty registry" {
-  run_install_no_companions
-  [ -d "$TEST_HOME/.claude/.radin/projects" ]
-  [ -f "$TEST_HOME/.claude/.radin/registry.json" ]
-  [ "$(cat "$TEST_HOME/.claude/.radin/registry.json")" = "{}" ]
-}
-
-@test "does not clobber an existing registry.json on reinstall" {
-  run_install_no_companions
-  echo '{"seeded":true}' > "$TEST_HOME/.claude/.radin/registry.json"
-  run_install_no_companions
-  [ "$(cat "$TEST_HOME/.claude/.radin/registry.json")" = '{"seeded":true}' ]
-}
-
 # Regression test for a real bug: install_if_confirmed/install_plugin_if_confirmed
 # used a bare `return` after a failed `[ ]` test, which under `set -e` propagated
 # that nonzero status and killed the whole script the moment anyone declined a

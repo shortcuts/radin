@@ -13,10 +13,12 @@ skill/agent does this; `radin-record`/`radin-review` write to it,
 
 ## Step 1: Resolve project namespace, locate BACKLOG_FILE
 
-Radin never writes backlog/state files into the target repo — run the
-shared namespace-resolution script and read `REPO_ROOT`, `NAMESPACE_DIR`,
-`BACKLOG_FILE` from its output in the **same Bash call** (shell state doesn't
-persist between separate calls):
+All radin state for a project lives inside that project's repo, in
+`.claude/.radin/` at the repo root (example: repo `/Users/x/proj` →
+`/Users/x/proj/.claude/.radin/BACKLOG.md`). Do not compute this path
+yourself — run the shared namespace-resolution script and read `REPO_ROOT`,
+`NAMESPACE_DIR`, `BACKLOG_FILE` from its output in the **same Bash call**
+(shell state doesn't persist between separate calls):
 
 ```bash
 source <(bash "$HOME/.claude/radin-lib/radin-namespace.sh" | sed 's/^/export /')

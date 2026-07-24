@@ -44,9 +44,11 @@ curl -fsSL https://raw.githubusercontent.com/shortcuts/radin/main/install.sh | b
 
 ## The backlog lifecycle
 
-`BACKLOG.md` is your repo's backlog. It lives outside your repo, in
-`~/.claude/.radin/projects/<repo-slug>/BACKLOG.md`. Every radin tool reads
-from or writes to this one file.
+`BACKLOG.md` is your repo's backlog. It lives inside your repo, at
+`.claude/.radin/BACKLOG.md` from the repo root. Every radin tool reads
+from or writes to this one file. Commit `.claude/.radin/` to share the
+backlog with your team, or add it to `.gitignore` to keep it private —
+radin never touches your `.gitignore` either way.
 
 A typical flow:
 
@@ -106,7 +108,7 @@ and confirms with you before splitting.
 ```
 
 Result: one plan file per plan under
-`~/.claude/.radin/projects/<repo-slug>/plans/` (more than one if the entry
+`.claude/.radin/plans/` at the repo root (more than one if the entry
 was split), each reviewed with `/thermo-nuclear` and `/ponytail-review`
 before handoff — any findings are fixed directly in the plan file — and a
 `**Plan:** <path>` line appended to the entry in `BACKLOG.md` per plan

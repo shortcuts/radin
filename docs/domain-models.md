@@ -1,21 +1,5 @@
 # Domain Models
 
-## `registry.json`
-
-```json
-{
-  "<repo-slug>": {
-    "path": "<absolute path to repo root>",
-    "updated_at": "<UTC ISO-8601 timestamp>"
-  }
-}
-```
-
-A best-effort index. The shared namespace block upserts it on every
-agent/skill invocation, but nothing requires it. `<repo-slug>` is
-`$(basename "$REPO_ROOT")-$(printf '%s' "$REPO_ROOT" | md5 | cut -c1-8)`, or
-`no-repo-<cwd-hash>` outside any git repo.
-
 ## `BACKLOG.md` entry format
 
 `docs/schemas/backlog-entry.schema.json` is the formal contract (JSON Schema,

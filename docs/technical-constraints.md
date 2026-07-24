@@ -9,8 +9,8 @@
   `$(command -v brew)` / `brew shellenv`, which picks the right prefix for
   the machine running the script.
 - Where a command itself differs by OS, not just by package-manager prefix
-  (e.g. BSD `md5` on macOS vs GNU `md5sum` on Linux, for the namespace-slug
-  hash), branch on `command -v <tool>` — never on `uname`.
+  (e.g. BSD `md5` on macOS vs GNU `md5sum` on Linux), branch on
+  `command -v <tool>` — never on `uname`.
 
 ## Bash 3.2 compatibility
 
@@ -36,9 +36,3 @@ existing install paths (brew/npm/cargo). It:
 - Never installs a tool without an explicit `y` confirmation per tool.
 - Never guarantees a companion tool's own install command succeeds — it
   asks and delegates, nothing more.
-
-## `registry.json` tooling fallback
-
-`jq` → `python3` → skip, in that order. The skip branch is a real path
-(stock macOS may lack both), not an error condition. It must never block
-writing `BACKLOG_FILE` or creating the namespace directories.

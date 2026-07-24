@@ -162,9 +162,6 @@ cp -r "$RADIN_ROOT"/skills/radin-setup-hooks "$HOME/.claude/skills/"
 cp -r "$RADIN_ROOT"/skills/radin-stats "$HOME/.claude/skills/"
 ok "agents/ and skills/ installed"
 
-mkdir -p "$HOME/.claude/.radin/projects"
-[ -f "$HOME/.claude/.radin/registry.json" ] || echo '{}' >"$HOME/.claude/.radin/registry.json"
-
 prompt_yn() {
 	# Run from a real file ($0), fd0 is free -- read the answer from stdin
 	# (works for an interactive terminal and for piped/redirected answers

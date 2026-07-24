@@ -26,7 +26,7 @@ You are an elite orchestration agent responsible for systematically processing a
 
 ## Phase 0: Resolve Project Namespace
 
-Radin never writes backlog/state files into the target repo. Resolve the namespace and verify `$BACKLOG_FILE`'s existence in the **same Bash call** (shell state doesn't persist across separate calls):
+All radin state for a project lives inside that project's repo, in `.claude/.radin/` at the repo root (example: repo `/Users/x/proj` → `/Users/x/proj/.claude/.radin/BACKLOG.md`). Do not compute this path yourself — the shared script below resolves it, creates the directories, and prints the exact values to use. Resolve the namespace and verify `$BACKLOG_FILE`'s existence in the **same Bash call** (shell state doesn't persist across separate calls):
 
 ```bash
 source <(bash "$HOME/.claude/radin-lib/radin-namespace.sh" | sed 's/^/export /')

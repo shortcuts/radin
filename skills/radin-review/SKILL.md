@@ -38,10 +38,13 @@ State resolved scope back in one line before proceeding, e.g.:
 
 ## Step 2: Resolve project namespace, locate BACKLOG_FILE
 
-Radin never writes backlog/state files into target repo. Run the shared
-namespace-resolution script and read `REPO_ROOT`, `NAMESPACE_DIR`,
-`BACKLOG_FILE` from its output in the **same Bash call** (record baseline
-line count there too so you can report net-new findings at end):
+All radin state for a project lives inside that project's repo, in
+`.claude/.radin/` at the repo root (example: repo `/Users/x/proj` →
+`/Users/x/proj/.claude/.radin/BACKLOG.md`). Do not compute this path
+yourself — run the shared namespace-resolution script and read `REPO_ROOT`,
+`NAMESPACE_DIR`, `BACKLOG_FILE` from its output in the **same Bash call**
+(record baseline line count there too so you can report net-new findings at
+end):
 
 ```bash
 source <(bash "$HOME/.claude/radin-lib/radin-namespace.sh" | sed 's/^/export /')

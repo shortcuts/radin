@@ -9,29 +9,29 @@ arch-neutrality rule).
 
 ## Storage model
 
-All radin state — backlog content and execution state — lives outside any
-target repo, in a per-project namespace under `~/.claude/.radin/`:
+All radin state — backlog content and execution state — lives inside the
+target repo, in one directory at the repo root:
 
 ```
-~/.claude/.radin/
-  registry.json                     # repo-slug -> { path, updated_at }
-  projects/
-    <repo-slug>/
-      BACKLOG.md                    # backlog, source of truth
-      state/
-        BACKLOG_STEPS.json          # radin-execute execution plan
-      plans/
-        <task-id>.md                # radin-plan output, one file per plan
-      reviews/
-        <review-name>.md            # radin-review / thermo-nuclear output
+<repo-root>/.claude/.radin/
+  BACKLOG.md                    # backlog, source of truth
+  state/
+    BACKLOG_STEPS.json          # radin-execute execution plan
+  plans/
+    <task-id>.md                # radin-plan output, one file per plan
+  reviews/
+    <review-name>.md            # radin-review / thermo-nuclear output
 ```
 
-No target repo ever receives a file written by radin. This replaced an
-earlier, ambiguous scheme: `BACKLOG.md` could live at a repo root or at
-`~/.claude/BACKLOG.md`, and per-repo state lived in `.shortcuts/*.json`. Both
-collided across repos worked on with the same Claude install, and neither
-was fit to open-source — a stranger's repo shouldn't get an opinionated file
-dropped at its root.
+Outside any git repo, the current directory takes the repo root's place.
+
+This replaced an earlier `~/.claude/.radin/projects/<repo-slug>/` scheme.
+That kept target repos untouched, but the hashed slug was one abstraction
+too many: the agent resolving it (haiku, by default) had to trust an opaque
+mapping instead of a path it can see. In-repo state removes the mapping —
+the backlog is always at `.claude/.radin/` in the repo being worked on, and
+whether to commit or gitignore it is the consumer's call (radin never edits
+`.gitignore`). Old `~/.claude/.radin/projects/` data is not migrated.
 
 ## Namespace resolution
 
@@ -55,32 +55,14 @@ those values from the printed output for the rest of its session.
 Inside the script:
 
 ```bash
-REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
-if command -v md5 >/dev/null 2>&1; then
-  HASH_CMD="md5"
-else
-  HASH_CMD="md5sum"
-fi
-if [ -n "$REPO_ROOT" ]; then
-  SLUG="$(basename "$REPO_ROOT")-$(printf '%s' "$REPO_ROOT" | $HASH_CMD | cut -c1-8)"
-else
-  SLUG="no-repo-$(printf '%s' "$PWD" | $HASH_CMD | cut -c1-8)"
-fi
-NAMESPACE_DIR="$HOME/.claude/.radin/projects/$SLUG"
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || true)
+[ -n "$REPO_ROOT" ] || REPO_ROOT="$PWD"
+NAMESPACE_DIR="$REPO_ROOT/.claude/.radin"
 ```
 
-`basename` keeps the directory readable in `ls ~/.claude/.radin/projects/`.
-The hash suffix disambiguates two repos that share a basename on disk. `md5`
-is BSD/macOS-native; Linux ships GNU coreutils' `md5sum` instead, so the
-block branches on `command -v md5` rather than assuming either one. Outside
-any git repo, the slug falls back to `no-repo-<cwd-hash>`.
-
-`registry.json` is a best-effort index (repo-slug → path/updated_at), useful
-for a future `radin list`/`radin status` command. No core agent flow depends
-on reading it — a skipped upsert (no `jq`/`python3` on the machine) never
-blocks `BACKLOG_FILE` from being written correctly. Writes are atomic: a
-same-directory temp file (`$REGISTRY.tmp.$$`) is written and then `mv`'d
-into place.
+It creates `state/`, `plans/`, and `reviews/` under `$NAMESPACE_DIR`, then
+prints the three variables with `printf %q` so the output stays source-able
+even when the repo path contains spaces.
 
 `radin-execute` and the `radin-plan` skill also share `lib/radin-prioritization.md`
 — the single source of truth for backlog parsing rules, task priority

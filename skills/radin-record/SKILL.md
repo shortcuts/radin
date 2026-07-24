@@ -19,9 +19,11 @@ code-review finding — things a human said, not things a diff revealed.
 
 ## Step 1: Resolve project namespace, locate BACKLOG_FILE
 
-Radin never writes backlog/state files into the target repo — run the
-shared namespace-resolution script and read `REPO_ROOT`, `NAMESPACE_DIR`,
-`BACKLOG_FILE` from its output:
+All radin state for a project lives inside that project's repo, in
+`.claude/.radin/` at the repo root (example: repo `/Users/x/proj` →
+`/Users/x/proj/.claude/.radin/BACKLOG.md`). Do not compute this path
+yourself — run the shared namespace-resolution script and read `REPO_ROOT`,
+`NAMESPACE_DIR`, `BACKLOG_FILE` from its output:
 
 ```bash
 bash "$HOME/.claude/radin-lib/radin-namespace.sh"
