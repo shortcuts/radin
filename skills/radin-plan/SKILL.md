@@ -118,11 +118,17 @@ For each sub-task, in order:
    - How to verify the change (tests/checks to run), per the ladder's
      "lazy code without its check is unfinished" rule.
    Surface any open questions or risks the plan raised — don't silently
-   resolve genuine ambiguity. Invoked interactively, ask as many
-   clarification questions as the entry needs — scope, tradeoffs,
-   acceptance criteria — before finalizing the plan: a plan that still
-   contains an open decision forces the executor to stop on it later. The
-   plan you hand off must leave zero decisions to whoever executes it.
+   resolve genuine ambiguity. Invoked interactively, interview the user
+   about every open aspect of the entry until you reach a shared
+   understanding: walk each branch of the decision tree, resolving
+   dependent decisions one by one. Ask the questions one at a time, each
+   with your recommended answer, and wait for the reply before the next —
+   asking several at once is bewildering. If a *fact* can be found by
+   exploring the repo (filesystem, code-review-graph, git history), look
+   it up instead of asking; the *decisions* are the user's — put each one
+   to them and wait. Don't finalize the plan until that shared
+   understanding is confirmed: the plan you hand off must leave zero
+   decisions to whoever executes it.
    Invoked non-interactively, an unresolvable question stops the planning
    run instead — report it rather than writing a plan around it.
 4. Save the plan as markdown at `$NAMESPACE_DIR/plans/<sub-task-id>.md`.

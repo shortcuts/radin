@@ -45,9 +45,11 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   executing the rest, and batches every question into the final summary.
   Either way, an answer given on re-invocation is appended to the entry's
   description in `BACKLOG.md` so planning/execution sub-agents read it.
-- `radin-plan` now front-loads clarification: invoked interactively it asks
-  as many questions as the entry needs before finalizing, so the plan
-  leaves zero decisions to the executor; invoked non-interactively an
+- `radin-plan` now front-loads clarification as an interview: invoked
+  interactively it walks the entry's decision tree one question at a time,
+  each with a recommended answer, looks up facts in the repo instead of
+  asking them, and doesn't finalize until shared understanding — so the
+  plan leaves zero decisions to the executor. Invoked non-interactively an
   unresolvable question stops the planning run instead of being planned
   around.
 - `radin-execute` excludes `.claude/.radin/` from every dirty-tree check and
