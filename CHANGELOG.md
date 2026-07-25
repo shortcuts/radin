@@ -37,6 +37,19 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   (as a sub-agent, nobody can answer it). A review runs only when the
   invoking prompt asked for one up front; otherwise the final summary ends
   with the `/radin-review` command the user can run themselves.
+- `radin-execute` got two interaction modes. Interactive (the default)
+  assumes the user is at the keyboard: the first open question stops the
+  run — state flushed to disk, question + options + recommendation and
+  progress so far in the report, re-invoking resumes from the state file.
+  Autonomous (say "autonomously" when invoking) parks blocked tasks, keeps
+  executing the rest, and batches every question into the final summary.
+  Either way, an answer given on re-invocation is appended to the entry's
+  description in `BACKLOG.md` so planning/execution sub-agents read it.
+- `radin-plan` now front-loads clarification: invoked interactively it asks
+  as many questions as the entry needs before finalizing, so the plan
+  leaves zero decisions to the executor; invoked non-interactively an
+  unresolvable question stops the planning run instead of being planned
+  around.
 - `radin-execute` excludes `.claude/.radin/` from every dirty-tree check and
   stash (`-- . ':(exclude).claude/.radin'`). In a repo that tracks the
   namespace, the orchestrator's own state writes previously read as a dirty

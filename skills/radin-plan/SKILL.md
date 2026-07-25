@@ -118,7 +118,13 @@ For each sub-task, in order:
    - How to verify the change (tests/checks to run), per the ladder's
      "lazy code without its check is unfinished" rule.
    Surface any open questions or risks the plan raised — don't silently
-   resolve genuine ambiguity.
+   resolve genuine ambiguity. Invoked interactively, ask as many
+   clarification questions as the entry needs — scope, tradeoffs,
+   acceptance criteria — before finalizing the plan: a plan that still
+   contains an open decision forces the executor to stop on it later. The
+   plan you hand off must leave zero decisions to whoever executes it.
+   Invoked non-interactively, an unresolvable question stops the planning
+   run instead — report it rather than writing a plan around it.
 4. Save the plan as markdown at `$NAMESPACE_DIR/plans/<sub-task-id>.md`.
 5. Insert a `**Plan:** <path>` line into the entry in `$BACKLOG_FILE`, right
    after its description (before the next `###`/`##` heading) — after any
