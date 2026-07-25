@@ -34,6 +34,12 @@ other session context, could act on it correctly.>
 <description, same bar as above>
 ```
 
+An entry spans from its `### title` line to the line before the next `###`
+or `##` heading (or end of file). Everything in that span — prose, lists,
+code blocks, `**Plan:**` lines, deeper `####`+ headings — belongs to that
+entry, and is what `radin-execute`/`radin-plan` read as the task's scope.
+The title is only the lookup key.
+
 Every radin agent/skill that appends an entry — `radin-review` (code-review
 findings, usually `fix` for an actual bug or `refactor` for a structural
 finding), `radin-record` (feedback/bugs/follow-ups/ideas surfaced in
@@ -91,14 +97,16 @@ schema — sub-agents write it, `radin-execute` (or a human) reads it.
 within one conversation, so it re-resolves a sub-task list each time instead
 of persisting one to disk.
 
-- `status` is one of `pending`, `failed`. An entry's absence from the array
-  means that task is complete.
+- `status` is one of `pending`, `failed`, `blocked`. An entry's absence from
+  the array means that task is complete.
 - `note` is optional, empty for `pending` entries. `failed` entries carry a
   short reason plus a recovery pointer (e.g. a `git stash` ref) — this is what
-  the Phase 4 final summary reports back to the user.
-- A `failed` entry never blocks the execution loop from reaching Phase 4 — the
-  loop exits once no `pending` entries remain, not only when the array is
-  empty.
+  the Phase 4 final summary reports back to the user. `blocked` entries carry
+  the decision question, the candidate options, and the agent's recommendation
+  — the final summary asks the user to decide.
+- A `failed` or `blocked` entry never blocks the execution loop from reaching
+  Phase 4 — the loop exits once no `pending` entries remain, not only when the
+  array is empty.
 - Never stores the full task text. `BACKLOG.md` (i.e. `$BACKLOG_FILE`) stays
   the source of truth.
 - `line_start`/`line_end` point into the live `$BACKLOG_FILE`. `radin-execute`

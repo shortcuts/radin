@@ -8,15 +8,18 @@ description: |
   plan file per resulting sub-task, reviews it with thermo-nuclear and
   ponytail-review before handing it off, and appends a `**Plan:**` pointer
   back to the entry. Use for /radin-plan, "plan this backlog entry", "write
-  a plan for X before we execute it". radin-execute also invokes this skill
-  itself for any entry it judges too complex to implement without a plan.
+  a plan for X before we execute it". radin-execute delegates to a planning
+  sub-agent that invokes this skill, non-interactively, for any entry it
+  judges too complex to implement without a plan.
 ---
 # Plan a Backlog Entry
 
 Turn one `BACKLOG.md` entry into one or more concrete implementation plans,
-without writing any code. This runs inline — no sub-agent, no separate
-process — so any split judgment or open question surfaces directly in this
-conversation instead of being decided out of sight.
+without writing any code. This runs inline in whichever context invokes it,
+so any split judgment or open question surfaces in that conversation. When
+the invoking context cannot reach the user (e.g. radin-execute's planning
+sub-agent), the caller says so and this skill's questions resolve to their
+non-destructive defaults: no split, no overwrite.
 
 ## Step 1: Resolve project namespace, locate BACKLOG_FILE
 

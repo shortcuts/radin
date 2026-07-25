@@ -6,6 +6,29 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- `radin-execute` now runs the whole backlog in one turn. It delegates every
+  task sub-agent synchronously (`run_in_background: false`) and waits for
+  the result — it no longer spawns a background sub-agent and ends its turn,
+  which left nobody listening for the completion.
+- `radin-execute` never decides on the user's behalf. A task that needs a
+  judgment call the entry or plan doesn't settle is marked `blocked` (new
+  state-JSON status, next to `pending`/`failed`) with the question, options,
+  and a recommendation — nothing is implemented for it, the rest of the
+  backlog still runs, and the final summary asks the user to decide. The
+  execution sub-agent got a matching `STATUS: BLOCKED` report line.
+- `radin-execute` keeps its own context lean over long sessions: execution
+  sub-agents are told to report a few lines plus the `STATUS:` line, and the
+  state-persistence contract spells out recovery from disk after context
+  compaction. Planning runs in its own sub-agent so its codebase exploration
+  never lands in the orchestrator's context — the plan file on disk is the
+  handoff to the execution sub-agent. That planning run is non-interactive:
+  where `/radin-plan` would ask the user (split, overwrite) it takes the
+  non-destructive path, and real ambiguity marks the task `blocked` instead
+  of guessing.
+- `radin-execute`'s orchestrator model bumped from `haiku` to `sonnet` — the
+  observed haiku failure modes (ending the session on one decision,
+  modeling itself as a persistent process) cost whole sessions, far more
+  than the model delta on control-flow turns.
 - `radin-execute` no longer invokes `radin-plan` unconditionally for an
   unplanned task. It first asks `/ponytail` whether the task is
   straightforward enough to implement directly — only tasks judged genuinely
@@ -17,10 +40,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `radin-plan` is now a skill (`skills/radin-plan/SKILL.md`) instead of an
   agent — it runs inline in whichever context invokes it, so its split
   judgment and any plan-review question surface directly instead of inside
-  a sub-agent's transcript. `radin-execute` invokes it itself, in its own
-  context, for any task that reaches execution with no `**Plan:**` line yet
-  — no more ad-hoc inline planning duplicated in `radin-execute`'s own
-  prompt. `lib/radin-planning.md` is folded directly into the skill, since
+  a sub-agent's transcript. `radin-execute` delegates it to a dedicated
+  planning sub-agent for any task that reaches execution with no `**Plan:**`
+  line yet — no more ad-hoc inline planning duplicated in `radin-execute`'s
+  own prompt. `lib/radin-planning.md` is folded directly into the skill, since
   it's now the only caller. `BACKLOG_PLAN_STEPS.json` is gone — the skill
   re-resolves its sub-task list within the conversation instead of
   persisting one to disk.

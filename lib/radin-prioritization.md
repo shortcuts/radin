@@ -10,11 +10,18 @@ nothing to prioritize and no state file of its own.
 
 ## Parsing `$BACKLOG_FILE`
 
-1. It's organized into top-level category sections — `## feat`, `## fix`,
+1. The file follows a fixed markdown hierarchy: one `#` (h1) file title at
+   the top, then top-level category sections — `## feat`, `## fix`,
    `## chore`, `## refactor` — each containing `### title` entries with a
    description underneath. Category doesn't set priority by itself; read
    every section.
-2. Parse all tasks across all sections.
+2. An entry spans from its `### title` line to the line before the next
+   `###` or `##` heading (or end of file). Everything in that span — prose,
+   lists, code blocks, `**Plan:**` lines, deeper `####`+ headings — belongs
+   to that entry. `line_start`/`line_end` must cover exactly this span. The
+   title line alone is never the task: the body underneath it is the actual
+   scope.
+3. Parse all tasks across all sections.
 
 ## Priority criteria (in order of weight)
 
@@ -48,11 +55,13 @@ Write the prioritized list to `radin-execute`'s state file
 Ensure:
 
 - The target directory (created in Phase 0) exists
-- `status` must be one of: `pending`, `failed`
+- `status` must be one of: `pending`, `failed`, `blocked`
 - `note` is optional, empty for `pending` entries. For `failed` entries, set it
   to a short human-readable reason plus any recovery pointer (e.g. a
   `git stash` ref) — this is what `radin-execute`'s final summary reads to
-  tell the user what went wrong and how to recover
+  tell the user what went wrong and how to recover. For `blocked` entries, set
+  it to the decision question, the candidate options, and the agent's
+  recommendation — the final summary asks the user to decide
 - Never store the full task text; `$BACKLOG_FILE` remains the source of truth
 - `line_start` and `line_end` must point to the task's current location in
   `$BACKLOG_FILE` — for any agent that inserts text into earlier entries

@@ -75,14 +75,17 @@ scoped to a single entry the caller points it at, not the whole backlog, so
 it has nothing to prioritize and no state file of its own.
 
 `radin-plan` is a skill, not an agent: it runs inline in whichever context
-invokes it — a user's own conversation, or `radin-execute`'s orchestrator
-context — rather than as a separate sub-agent. It judges whether its one
-scoped entry should split into independent sub-plans (confirming with the
-user directly before splitting, visibly, since nothing here is delegated out
-of sight), then writes a plan file and `**Plan:**` pointer per resulting
-sub-task. `radin-execute` invokes `/radin-plan` itself, in its own context,
-for any task that reaches Phase 3 with no `**Plan:**` line yet — never via a
-sub-agent, and never by re-deriving a planning approach of its own.
+invokes it. In a user's own conversation it judges whether its one scoped
+entry should split into independent sub-plans, confirming with the user
+directly before splitting, then writes a plan file and `**Plan:**` pointer
+per resulting sub-task. `radin-execute` delegates planning to a dedicated
+planning sub-agent that invokes `/radin-plan`, for any task that reaches
+Phase 3 with no `**Plan:**` line yet — planning's codebase exploration
+stays out of the orchestrator's context, and the plan file on disk is the
+handoff to the execution sub-agent. That sub-agent runs non-interactively:
+where the skill would ask for confirmation it takes the non-destructive
+path (no split, no overwrite), and genuine ambiguity marks the task
+`blocked` for the user instead of guessing.
 
 To update radin itself, re-run `install.sh` — plain `curl | bash`, or
 `./install.sh` from a dev clone. It always re-downloads or re-copies
