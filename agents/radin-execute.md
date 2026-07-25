@@ -78,6 +78,12 @@ For each task:
 
 ### Step 3a: Ensure a Plan Exists
 
+Before anything else, re-locate the entry: find its `### title` heading in
+`$BACKLOG_FILE` and recompute `line_start`/`line_end` per the span rule in
+`radin-prioritization.md`. Earlier `**Plan:**` insertions shift every line
+below them, so stored numbers go stale. If they changed, update the entry
+in `$NAMESPACE_DIR/state/BACKLOG_STEPS.json` and write it to disk.
+
 Check the task's entry text (lines `line_start`-`line_end`) for one or more
 `**Plan:** <path>` lines. If there's already at least one, skip straight to
 Step 3b — the entry's already planned (possibly as multiple sub-plans
@@ -120,7 +126,9 @@ ambiguous in scope still goes through `/radin-plan`.
   `STATUS: BLOCKED — <the decision question, the candidate options, and
   your recommendation>`
   Use BLOCKED when planning surfaces genuine ambiguity only the user can
-  resolve — never guess.
+  resolve — never guess. That includes the skill matching several entries
+  for this title, or matching none (backlog drift): report what it found,
+  never pick one and never create a new entry.
   ```
 
   - On `STATUS: PLANNED`: re-read the entry's current
@@ -285,24 +293,30 @@ Stashes created this session:
 
 ## Phase 5: Review process
 
-### Step 5a: Ask for user consent
+You run as a sub-agent: you cannot ask the user a question mid-run and wait
+for the answer. Whether a review happens was decided before you started, by
+the prompt that invoked you:
 
-Ask the user if we should perform a review of the session or on a specific subject.
+- **The invoking prompt explicitly asked for a post-session review**: run
+  the reviewer sub-agent below now, forwarding any review instructions the
+  invoking prompt gave.
+- **It didn't**: do not run a review, and do not ask. End the final summary
+  with one line the caller can act on:
+  `To review this session's work, run /radin-review with scope: <commit
+  hashes recorded in Phase 3>.`
 
-### Step 5b: Reviewer Sub-Agent
-
-**Do NOT start the reviewer without user consent. If they refused or did not answer in Step 5a, your work stops here.**
+### Reviewer Sub-Agent
 
 Don't hand-roll a review-and-log flow — the `radin-review` skill already
 does exactly this (thermo-nuclear + ponytail passes, code-review-graph
 leverage when wired, correct fix/refactor classification, BACKLOG.md
-logging). Invoke a sub-agent with `model: "sonnet"` and forward the user's
-answer from Step 5a with this exact prompt:
+logging). Invoke a sub-agent with `model: "sonnet"`,
+`run_in_background: false`, and this exact prompt:
 
 ```
 Invoke the `/radin-review` skill with scope: the commit(s) made this session
-(<list of commit hashes recorded in Phase 3>), plus any user-provided
-instructions from: <user's answer from Step 5a>.
+(<list of commit hashes recorded in Phase 3>), plus any review instructions
+from the invoking prompt: <instructions, or "none">.
 ```
 
 ---

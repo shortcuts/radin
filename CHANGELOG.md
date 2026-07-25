@@ -25,6 +25,18 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   where `/radin-plan` would ask the user (split, overwrite) it takes the
   non-destructive path, and real ambiguity marks the task `blocked` instead
   of guessing.
+- `radin-execute` re-locates each entry by its `### title` at the start of
+  every task and refreshes `line_start`/`line_end` in the state file —
+  earlier `**Plan:**` insertions shift line numbers, and stale spans meant
+  reading the wrong entry text.
+- `/radin-plan` invoked non-interactively no longer guesses on entry
+  matching: several candidate matches, or no match at all (backlog drift),
+  stop the planning run and mark the task `blocked` instead of picking one
+  or creating a duplicate entry.
+- `radin-execute`'s post-session review no longer asks for consent mid-run
+  (as a sub-agent, nobody can answer it). A review runs only when the
+  invoking prompt asked for one up front; otherwise the final summary ends
+  with the `/radin-review` command the user can run themselves.
 - `radin-execute`'s orchestrator model bumped from `haiku` to `sonnet` — the
   observed haiku failure modes (ending the session on one decision,
   modeling itself as a persistent process) cost whole sessions, far more

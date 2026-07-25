@@ -47,8 +47,11 @@ Match the caller's scope (a title, keyword, or paraphrase) against `### title`
 entries in `$BACKLOG_FILE`:
 
 - **Exactly one match**: use it.
-- **Multiple candidate matches**: list them and ask which one.
-- **No match**: this task isn't in `$BACKLOG_FILE` yet. Don't ask the user
+- **Multiple candidate matches**: list them and ask which one. Invoked
+  non-interactively: don't guess — report the candidates and stop; the
+  caller marks the task blocked for the user.
+- **No match** (interactive callers only): this task isn't in
+  `$BACKLOG_FILE` yet. Don't ask the user
   whether to create one — assume yes, and create it automatically:
   classify it into `feat`/`fix`/`chore`/`refactor` (see
   `skills/radin-record/SKILL.md`'s Step 3 rubric) and append it to its
@@ -64,6 +67,10 @@ entries in `$BACKLOG_FILE`:
 
   Report the new entry was created, then continue to Step 3 with it as the
   scoped entry.
+
+  Invoked non-interactively, never create an entry: the scope always came
+  from an existing one, so no match means the backlog drifted — report it
+  and stop instead of writing a duplicate.
 - **Entry already has a `**Plan:**` line**: show the existing plan path(s)
   and ask whether to re-plan (overwrite) or stop. Stop unless re-planning is
   confirmed.
