@@ -37,6 +37,19 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   (as a sub-agent, nobody can answer it). A review runs only when the
   invoking prompt asked for one up front; otherwise the final summary ends
   with the `/radin-review` command the user can run themselves.
+- `radin-execute` excludes `.claude/.radin/` from every dirty-tree check and
+  stash (`-- . ':(exclude).claude/.radin'`). In a repo that tracks the
+  namespace, the orchestrator's own state writes previously read as a dirty
+  tree — sub-agents could fold radin state into task commits, and the
+  orchestrator could stash its own state file. radin never commits its
+  namespace: committing or ignoring `.claude/.radin/` stays the consumer's
+  call.
+- `radin-execute` session-end residuals are now always stashed, never
+  auto-committed — deciding that unknown changes belong in history is the
+  user's call. Phase 1's "no backlog found" questions end the run with the
+  question as the final report instead of waiting mid-run, and a task whose
+  title no longer matches exactly one `###` heading is marked `blocked`
+  instead of guessing which entry was meant.
 - `radin-execute`'s orchestrator model bumped from `haiku` to `sonnet` — the
   observed haiku failure modes (ending the session on one decision,
   modeling itself as a persistent process) cost whole sessions, far more

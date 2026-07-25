@@ -51,8 +51,12 @@ Use `$REPO_ROOT`, `$NAMESPACE_DIR`, `$BACKLOG_FILE` thereafter — re-run the `s
      whether to create an empty `$BACKLOG_FILE`, or stop here. These are the
      only two valid outcomes. Do NOT invent a substitute task, do NOT perform
      any cleanup/consolidation/refactor "since there's nothing else to do",
-     and do NOT commit anything while in this state. Wait for the user's
-     answer before touching the working tree at all.
+     and do NOT commit anything while in this state.
+
+   "Ask" in both cases means: end your run with the question as your final
+   report, without touching the working tree. You are a sub-agent — nobody
+   can answer you mid-run. The user answers by re-invoking you after
+   deciding.
 1. Read `$HOME/.claude/radin-lib/radin-prioritization.md` — the shared
    parsing/priority-criteria/state-schema doc used by both `radin-execute`
    and `radin-plan`. Follow its parsing steps and priority criteria to
@@ -83,6 +87,11 @@ Before anything else, re-locate the entry: find its `### title` heading in
 `radin-prioritization.md`. Earlier `**Plan:**` insertions shift every line
 below them, so stored numbers go stale. If they changed, update the entry
 in `$NAMESPACE_DIR/state/BACKLOG_STEPS.json` and write it to disk.
+
+If the title matches no heading or several (the backlog drifted or holds
+duplicates), don't guess which entry was meant: mark the task `"blocked"`
+with what you found as its `note`, report it, and continue to the next
+task.
 
 Check the task's entry text (lines `line_start`-`line_end`) for one or more
 `**Plan:** <path>` lines. If there's already at least one, skip straight to
@@ -140,10 +149,11 @@ ambiguous in scope still goes through `/radin-plan`.
 
 ### Step 3b: Execution Sub-Agent
 
-Read the task's entry text (lines `line_start`-`line_end`). If Step 3a wrote
-`**Plan:** <path>` line(s), pass all PLAN_PATHs, in the order they appear, to
-the sub-agent. If Step 3a judged the task straightforward and skipped
-planning, there are no PLAN_PATHS — say so explicitly in the prompt below.
+Read the task's entry text (lines `line_start`-`line_end`). If the entry has
+`**Plan:** <path>` line(s) — pre-existing or just written in Step 3a — pass
+all PLAN_PATHs, in the order they appear, to the sub-agent. If Step 3a
+judged the task straightforward and skipped planning, there are no
+PLAN_PATHS — say so explicitly in the prompt below.
 
 Invoke a sub-agent with `model: "sonnet"`, `run_in_background: false`, and exactly this prompt (replace Y, Z with the
 task's `line_start` and `line_end`, BACKLOG_PATH with `$BACKLOG_FILE`, and PLAN_PATHS with
@@ -165,10 +175,13 @@ Execute the task from BACKLOG_PATH lines Y-Z:
 5. Run any required checks (lint, tests, format) per project conventions
 6. Fix any issues before committing
 7. Invoke the `/caveman-commit` skill to draft the commit message, then commit. If `/caveman-commit` is unavailable, write a conventional-commit message yourself.
-8. Run `git status --porcelain`. If anything is still uncommitted (including changes
-   made incidentally while investigating, e.g. formatter/linter auto-fixes), either
-   commit it as part of this task's commit or a separate scoped commit — never leave
-   the working tree dirty when you report back
+8. Run `git status --porcelain -- . ':(exclude).claude/.radin'` from the repo root.
+   If anything is still uncommitted (including changes made incidentally while
+   investigating, e.g. formatter/linter auto-fixes), either commit it as part of this
+   task's commit or a separate scoped commit — never leave the working tree dirty when
+   you report back. Never commit, revert, or otherwise touch anything under
+   `.claude/.radin/` — that's the orchestrator's state, not task work; whether it gets
+   committed at all is the repo owner's call
 9. Report back the LAST line of your response as exactly one of:
    `STATUS: SUCCESS — <commit hash(es), or "no new commit, already satisfied by <existing
    hash>">`
@@ -193,11 +206,17 @@ context for the rest of the session.
 
 When the sub-agent reports back, first find its `STATUS:` line — this always drives what happens next, never the orchestrator's own guess from the surrounding prose:
 
-- Run `git status --porcelain` yourself. If it's non-empty, the sub-agent violated
-  the no-dirty-tree contract regardless of its reported `STATUS:`. Never leave it
-  dangling and never continue to the next task with a dirty tree:
-  - Run `git stash push -u -m "radin-execute: task <order> '<title>' left uncommitted (sub-agent reported <STATUS value>)"`
-    so the partial work is never lost, just parked
+- Run `git status --porcelain -- . ':(exclude).claude/.radin'` yourself, from
+  `$REPO_ROOT`. The exclusion matters: your own `BACKLOG_STEPS.json` and
+  `$BACKLOG_FILE` writes live under `.claude/.radin/` and must never count as a
+  dirty tree — in a repo that tracks the namespace, an unfiltered check
+  false-positives on radin's own state every single task. If the filtered check is
+  non-empty, the sub-agent violated the no-dirty-tree contract regardless of its
+  reported `STATUS:`. Never leave it dangling and never continue to the next task
+  with a dirty tree:
+  - Run `git stash push -u -m "radin-execute: task <order> '<title>' left uncommitted (sub-agent reported <STATUS value>)" -- . ':(exclude).claude/.radin'`
+    so the partial work is never lost, just parked — the exclusion keeps your own
+    namespace state out of the stash
   - Treat the task as `"failed"` with `note`: `"sub-agent left uncommitted changes,
     stashed as <stash ref>. Run 'git stash show -p <ref>' to inspect, 'git stash pop'
     to recover."`
@@ -250,7 +269,7 @@ entry is `"failed"` or `"blocked"`. This phase always runs, even when some
 tasks failed or blocked; it is the one place the user learns what needs
 manual attention or a decision.
 
-0. Run `git status --porcelain` in `$REPO_ROOT`. If empty, note "no residual changes" in the summary. If non-empty, commit it with a clear message or stash it with `git stash push -u -m "radin-execute: session end, untracked to any task"`. Record which you did and why — it goes in the summary.
+0. Run `git status --porcelain -- . ':(exclude).claude/.radin'` in `$REPO_ROOT`. If empty, note "no residual changes" in the summary. If non-empty, do NOT commit it — deciding that unknown changes belong in history is the user's call, not yours. Stash it with `git stash push -u -m "radin-execute: session end, untracked to any task" -- . ':(exclude).claude/.radin'` and record the stash ref — it goes in the summary. Changes under `.claude/.radin/` (your own state and backlog writes) stay as they are: committing or ignoring radin's namespace is the repo owner's call, never radin's.
 1. Clean up `$BACKLOG_FILE`:
    - Remove all tasks that were successfully completed this session (those whose entries were removed from `$NAMESPACE_DIR/state/BACKLOG_STEPS.json`)
    - Leave failed and blocked tasks in place — they remain to be retried or
@@ -337,6 +356,7 @@ from the invoking prompt: <instructions, or "none">.
 - **Persist state after every state change** — see State Persistence Contract below for the full rule
 - **If `$NAMESPACE_DIR/state/BACKLOG_STEPS.json` already exists** at startup: read it, skip completed tasks (those already removed), treat `failed` and `blocked` entries as pending for retry (the user may have fixed the failure or answered the question in `$BACKLOG_FILE` since), and continue
 - **Respect project conventions**: sub-agents must run lint/format/test checks before committing
+- **Never commit anything under `$NAMESPACE_DIR` (`.claude/.radin/`)** — whether the consumer commits or ignores radin's namespace is their call. Exclude it from every dirty-tree check with `-- . ':(exclude).claude/.radin'`; without the exclusion, your own state writes read as a dirty tree in repos that track the namespace
 - **Never fabricate work.** Every commit this session makes must trace to
   either a `$BACKLOG_FILE` entry processed in Phase 3, or a pre-existing
   dirty-tree change disposed of in Phase 4 step 0. If the backlog is
