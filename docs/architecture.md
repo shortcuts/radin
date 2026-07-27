@@ -33,24 +33,38 @@ the backlog is always at `.claude/.radin/` in the repo being worked on, and
 whether to commit or gitignore it is the consumer's call (radin never edits
 `.gitignore`). Old `~/.claude/.radin/projects/` data is not migrated.
 
-## Namespace resolution
+## Namespace resolution and the backlog CLI
 
 Every one of `agents/radin-execute.md`, `skills/radin-plan/SKILL.md`,
 `skills/radin-review/SKILL.md`, `skills/radin-record/SKILL.md`, and
-`skills/radin-show/SKILL.md` resolves the namespace by running the same
-shared script —
-`lib/radin-namespace.sh`, the single source of truth for this logic —
-before doing anything else:
+`skills/radin-show/SKILL.md` goes through the same shared CLI,
+`lib/radin-backlog.sh`, for every deterministic backlog operation:
 
 ```bash
-bash "$HOME/.claude/radin-lib/radin-namespace.sh"
+bash "$HOME/.claude/radin-lib/radin-backlog.sh" <env|show|find|add|add-plan|remove>
 ```
 
-`install.sh` copies `lib/radin-namespace.sh` to `~/.claude/radin-lib/`. A
-consumer install never has this repo's `lib/` directly, so the script has to
-be distributed like any other radin file. It prints `REPO_ROOT`,
-`NAMESPACE_DIR`, and `BACKLOG_FILE` to stdout; the calling agent/skill reads
-those values from the printed output for the rest of its session.
+- `env` — namespace resolution (delegates to `lib/radin-namespace.sh`, the
+  single source of truth for the path logic; prints `REPO_ROOT`,
+  `NAMESPACE_DIR`, `BACKLOG_FILE`)
+- `show [category]` — print the backlog, or one `##` section
+- `list` — print `line_start<TAB>line_end<TAB>title` for every entry
+- `find <title>` — locate an entry, print `line_start<TAB>line_end<TAB>title`
+  per match (exact title first, else case-insensitive substring)
+- `add <category> <title>` — append an entry (body on stdin); creates the
+  file and its category section in canonical order
+- `add-plan <title> <path>` — insert a `**Plan:**` pointer into an entry
+- `remove <title>` — delete an entry (exact single match required)
+
+The point is offloading: entry location, section ordering, span math, and
+plan-pointer insertion are deterministic text operations the model used to
+re-derive from prose rules on every run. The CLI does them exactly, and the
+agents/skills only supply judgment (what to log, how to classify, what to
+plan).
+
+`install.sh` copies `lib/radin-namespace.sh` and `lib/radin-backlog.sh` to
+`~/.claude/radin-lib/`. A consumer install never has this repo's `lib/`
+directly, so both scripts are distributed like any other radin file.
 
 Inside the script:
 
@@ -116,6 +130,7 @@ radin/
       SKILL.md
   docs/
   lib/
+    radin-backlog.sh
     radin-namespace.sh
     radin-prioritization.md
   install.sh

@@ -52,10 +52,10 @@ entry as `pending` and execute normally.
 
 ## Phase 0: Resolve Project Namespace
 
-All radin state for a project lives inside that project's repo, in `.claude/.radin/` at the repo root (example: repo `/Users/x/proj` → `/Users/x/proj/.claude/.radin/BACKLOG.md`). Do not compute this path yourself — the shared script below resolves it, creates the directories, and prints the exact values to use. Resolve the namespace and verify `$BACKLOG_FILE`'s existence in the **same Bash call** (shell state doesn't persist across separate calls):
+All radin state for a project lives inside that project's repo, in `.claude/.radin/` at the repo root. Do not compute this path yourself — the shared backlog CLI (`$HOME/.claude/radin-lib/radin-backlog.sh`) resolves it, creates the directories, and prints the exact values to use. Its `find`/`remove` subcommands are also the only way you locate or delete backlog entries later — never hand-edit those operations. Resolve the namespace and verify `$BACKLOG_FILE`'s existence in the **same Bash call** (shell state doesn't persist across separate calls):
 
 ```bash
-source <(bash "$HOME/.claude/radin-lib/radin-namespace.sh" | sed 's/^/export /')
+source <(bash "$HOME/.claude/radin-lib/radin-backlog.sh" env | sed 's/^/export /')
 test -s "$BACKLOG_FILE" && echo EXISTS || echo MISSING
 ```
 
@@ -106,16 +106,19 @@ For each task:
 
 ### Step 3a: Ensure a Plan Exists
 
-Before anything else, re-locate the entry: find its `### title` heading in
-`$BACKLOG_FILE` and recompute `line_start`/`line_end` per the span rule in
-`radin-prioritization.md`. Earlier `**Plan:**` insertions shift every line
-below them, so stored numbers go stale. If they changed, update the entry
-in `$NAMESPACE_DIR/state/BACKLOG_STEPS.json` and write it to disk.
+Before anything else, re-locate the entry — earlier `**Plan:**` insertions
+shift every line below them, so stored numbers go stale:
 
-If the title matches no heading or several (the backlog drifted or holds
-duplicates), don't guess which entry was meant: mark the task `"blocked"`
-with what you found as its `note`, report it, and continue to the next
-task.
+```bash
+bash "$HOME/.claude/radin-lib/radin-backlog.sh" find "<task title>"
+```
+
+It prints one `line_start<TAB>line_end<TAB>title` line per match. Exactly
+one line: if the numbers changed, update the entry in
+`$NAMESPACE_DIR/state/BACKLOG_STEPS.json` and write it to disk. Zero
+matches (it errors) or several (the backlog drifted or holds duplicates):
+don't guess which entry was meant — mark the task `"blocked"` with what the
+CLI printed as its `note`, report it, and continue to the next task.
 
 Check the task's entry text (lines `line_start`-`line_end`) for one or more
 `**Plan:** <path>` lines. If there's already at least one, skip straight to
@@ -256,12 +259,16 @@ When the sub-agent reports back, first find its `STATUS:` line — this always d
   - Proceed to the next task on a clean tree
 - On `STATUS: SUCCESS` with a clean tree:
   - Record the commit hash (or the pre-existing hash it cites, if no new commit)
-  - Remove the completed entry's `### title` heading and body (lines
-    `line_start`-`line_end`) from `$BACKLOG_FILE` itself, not just the state
-    file — do this now, not deferred to Phase 4, since interactive mode can
-    stop the run before Phase 4 ever runs (a later blocked task) and a
-    completed entry left in `$BACKLOG_FILE` would look unstarted next
-    session. Write the file back to disk immediately.
+  - Remove the completed entry from `$BACKLOG_FILE` itself, not just the
+    state file — do this now, not deferred to Phase 4, since interactive
+    mode can stop the run before Phase 4 ever runs (a later blocked task)
+    and a completed entry left in `$BACKLOG_FILE` would look unstarted next
+    session:
+
+    ```bash
+    bash "$HOME/.claude/radin-lib/radin-backlog.sh" remove "<task title>"
+    ```
+
   - Remove the completed entry from `$NAMESPACE_DIR/state/BACKLOG_STEPS.json`
   - Write the updated JSON back to disk immediately
   - Report to the user now: `✅ Task <order> '<title>' complete. <STATUS detail>.

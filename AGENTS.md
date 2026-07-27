@@ -60,8 +60,10 @@ radin never edits the consumer's `.gitignore` — committing `.claude/.radin/`
 
 Every one of `agents/radin-execute.md`, `skills/radin-plan/SKILL.md`,
 `skills/radin-review/SKILL.md`, `skills/radin-record/SKILL.md`, and
-`skills/radin-show/SKILL.md` resolves this namespace through the same
-shared script before doing anything else.
+`skills/radin-show/SKILL.md` goes through the shared backlog CLI
+(`lib/radin-backlog.sh`) for namespace resolution and every deterministic
+`BACKLOG.md` operation (locate, append, remove, plan pointers) — the model
+never hand-edits the file's structure.
 Do not reintroduce a root-`BACKLOG.md`, a `~/.claude/.radin/projects/<slug>`
 namespace, or a `.shortcuts/*.json` assumption into any of these files —
 those are the exact schemes this one replaces.
@@ -78,10 +80,10 @@ plus an optional trailing `**Plan:**` line. There is no per-entry bracket tag
 
 Read the schema (and the matching section of `docs/domain-models.md`) before
 adding a new category, or before writing a new skill/agent that writes to
-`BACKLOG.md`. The schema is reference only. It never ships to consumers, so
-every entry-writing skill/agent must embed its concrete markdown format
-inline in its own `SKILL.md`/agent file — a consumer's
-`~/.claude/skills/radin-record/` never has this repo's `docs/` alongside it.
+`BACKLOG.md`. The schema is reference only — it never ships to consumers.
+`lib/radin-backlog.sh` (which does ship) enforces the structural half
+(headings, section order, entry spans); each entry-writing skill keeps only
+its body-content guidance inline in its own `SKILL.md`.
 
 ## Adding a new radin skill/agent
 
@@ -89,17 +91,19 @@ Skim an existing one first — `skills/radin-review/SKILL.md` is the shortest
 complete example. The shared conventions below are easy to drift from if you
 reinvent them from scratch.
 
-1. **Namespace resolution.** Call
-   `bash "$HOME/.claude/radin-lib/radin-namespace.sh"` (see
-   `docs/architecture.md`'s "Namespace resolution" section) and read
-   `REPO_ROOT`/`NAMESPACE_DIR`/`BACKLOG_FILE` from its output. Don't re-embed
-   the resolution logic inline — `lib/radin-namespace.sh` is its single
-   source of truth.
-2. **`BACKLOG.md` writes.** If the new skill/agent appends entries, follow the
-   schema above: classify into an existing category (feat/fix/chore/refactor)
-   — don't invent a fifth. If the shape genuinely needs to change, update
-   both `docs/schemas/backlog-entry.schema.json` and `docs/domain-models.md`
-   in the same change.
+1. **Namespace resolution and backlog I/O.** Go through
+   `bash "$HOME/.claude/radin-lib/radin-backlog.sh"` (see
+   `docs/architecture.md`'s "Namespace resolution and the backlog CLI"
+   section): `env` for `REPO_ROOT`/`NAMESPACE_DIR`/`BACKLOG_FILE`, and
+   `find`/`add`/`add-plan`/`remove` for entry operations. Don't re-embed
+   path resolution or markdown-surgery logic inline — the CLI is the single
+   source of truth for both.
+2. **`BACKLOG.md` writes.** If the new skill/agent appends entries, use the
+   CLI's `add` and classify into an existing category
+   (feat/fix/chore/refactor) — don't invent a fifth. If the shape genuinely
+   needs to change, update `lib/radin-backlog.sh`,
+   `docs/schemas/backlog-entry.schema.json`, and `docs/domain-models.md` in
+   the same change.
 3. **Docs.** Run the doc-maintenance checklist below. `docs/architecture.md`'s
    plugin repo layout and namespace-resolution sentence both need the new
    file's name added. README's "Tools you get" table needs a new row too —

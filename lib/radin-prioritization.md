@@ -10,18 +10,19 @@ nothing to prioritize and no state file of its own.
 
 ## Parsing `$BACKLOG_FILE`
 
-1. The file follows a fixed markdown hierarchy: one `#` (h1) file title at
-   the top, then top-level category sections — `## feat`, `## fix`,
-   `## chore`, `## refactor` — each containing `### title` entries with a
-   description underneath. Category doesn't set priority by itself; read
-   every section.
-2. An entry spans from its `### title` line to the line before the next
-   `###` or `##` heading (or end of file). Everything in that span — prose,
-   lists, code blocks, `**Plan:**` lines, deeper `####`+ headings — belongs
-   to that entry. `line_start`/`line_end` must cover exactly this span. The
-   title line alone is never the task: the body underneath it is the actual
-   scope.
-3. Parse all tasks across all sections.
+1. Don't parse entry boundaries yourself — the backlog CLI computes them:
+
+   ```bash
+   bash "$HOME/.claude/radin-lib/radin-backlog.sh" list
+   ```
+
+   One `line_start<TAB>line_end<TAB>title` line per entry, across all
+   category sections (`## feat`, `## fix`, `## chore`, `## refactor`).
+   Everything in a span — prose, lists, code blocks, `**Plan:**` lines —
+   belongs to that entry.
+2. Read each entry's body from those lines. The title line alone is never
+   the task: the body underneath it is the actual scope. Category doesn't
+   set priority by itself; consider every section.
 
 ## Priority criteria (in order of weight)
 
