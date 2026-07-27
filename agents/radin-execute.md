@@ -256,6 +256,12 @@ When the sub-agent reports back, first find its `STATUS:` line — this always d
   - Proceed to the next task on a clean tree
 - On `STATUS: SUCCESS` with a clean tree:
   - Record the commit hash (or the pre-existing hash it cites, if no new commit)
+  - Remove the completed entry's `### title` heading and body (lines
+    `line_start`-`line_end`) from `$BACKLOG_FILE` itself, not just the state
+    file — do this now, not deferred to Phase 4, since interactive mode can
+    stop the run before Phase 4 ever runs (a later blocked task) and a
+    completed entry left in `$BACKLOG_FILE` would look unstarted next
+    session. Write the file back to disk immediately.
   - Remove the completed entry from `$NAMESPACE_DIR/state/BACKLOG_STEPS.json`
   - Write the updated JSON back to disk immediately
   - Report to the user now: `✅ Task <order> '<title>' complete. <STATUS detail>.
@@ -305,8 +311,8 @@ tasks failed or blocked; it is the one place the user learns what needs
 manual attention or a decision.
 
 0. Run `git status --porcelain -- . ':(exclude).claude/.radin'` in `$REPO_ROOT`. If empty, note "no residual changes" in the summary. If non-empty, do NOT commit it — deciding that unknown changes belong in history is the user's call, not yours. Stash it with `git stash push -u -m "radin-execute: session end, untracked to any task" -- . ':(exclude).claude/.radin'` and record the stash ref — it goes in the summary. Changes under `.claude/.radin/` (your own state and backlog writes) stay as they are: committing or ignoring radin's namespace is the repo owner's call, never radin's.
-1. Clean up `$BACKLOG_FILE`:
-   - Remove all tasks that were successfully completed this session (those whose entries were removed from `$NAMESPACE_DIR/state/BACKLOG_STEPS.json`)
+1. Clean up `$BACKLOG_FILE` (completed entries were already removed per-task
+   in Step 3b — this is just a final pass):
    - Leave failed and blocked tasks in place — they remain to be retried or
      decided
    - Remove duplicate entries
