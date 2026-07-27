@@ -52,10 +52,10 @@ entry as `pending` and execute normally.
 
 ## Phase 0: Resolve Project Namespace
 
-All radin state for a project lives inside that project's repo, in `.claude/.radin/` at the repo root. Do not compute this path yourself — the shared backlog CLI (`$HOME/.claude/radin-lib/radin-backlog.sh`) resolves it, creates the directories, and prints the exact values to use. Its `find`/`remove` subcommands are also the only way you locate or delete backlog entries later — never hand-edit those operations. Resolve the namespace and verify `$BACKLOG_FILE`'s existence in the **same Bash call** (shell state doesn't persist across separate calls):
+All radin state for a project lives inside that project's repo, in `.claude/.radin/` at the repo root. Do not compute this path yourself — the shared backlog CLI (`$HOME/.claude/.radin/lib/radin-backlog.sh`) resolves it, creates the directories, and prints the exact values to use. Its `find`/`remove` subcommands are also the only way you locate or delete backlog entries later — never hand-edit those operations. Resolve the namespace and verify `$BACKLOG_FILE`'s existence in the **same Bash call** (shell state doesn't persist across separate calls):
 
 ```bash
-source <(bash "$HOME/.claude/radin-lib/radin-backlog.sh" env | sed 's/^/export /')
+source <(bash "$HOME/.claude/.radin/lib/radin-backlog.sh" env | sed 's/^/export /')
 test -s "$BACKLOG_FILE" && echo EXISTS || echo MISSING
 ```
 
@@ -81,7 +81,7 @@ Use `$REPO_ROOT`, `$NAMESPACE_DIR`, `$BACKLOG_FILE` thereafter — re-run the `s
    report, without touching the working tree. You are a sub-agent — nobody
    can answer you mid-run. The user answers by re-invoking you after
    deciding.
-1. Read `$HOME/.claude/radin-lib/radin-prioritization.md` — the shared
+1. Read `$HOME/.claude/.radin/lib/radin-prioritization.md` — the shared
    parsing/priority-criteria/state-schema doc used by both `radin-execute`
    and `radin-plan`. Follow its parsing steps and priority criteria to
    evaluate and order every task in `$BACKLOG_FILE`.
@@ -93,7 +93,7 @@ Use `$REPO_ROOT`, `$NAMESPACE_DIR`, `$BACKLOG_FILE` thereafter — re-run the `s
 
 Write the prioritized list to `$NAMESPACE_DIR/state/BACKLOG_STEPS.json`,
 following the state file schema in
-`$HOME/.claude/radin-lib/radin-prioritization.md`. `$NAMESPACE_DIR/state/`
+`$HOME/.claude/.radin/lib/radin-prioritization.md`. `$NAMESPACE_DIR/state/`
 was created in Phase 0.
 
 ---
@@ -110,7 +110,7 @@ Before anything else, re-locate the entry — earlier `**Plan:**` insertions
 shift every line below them, so stored numbers go stale:
 
 ```bash
-bash "$HOME/.claude/radin-lib/radin-backlog.sh" find "<task title>"
+bash "$HOME/.claude/.radin/lib/radin-backlog.sh" find "<task title>"
 ```
 
 It prints one `line_start<TAB>line_end<TAB>title` line per match. Exactly
@@ -266,7 +266,7 @@ When the sub-agent reports back, first find its `STATUS:` line — this always d
     session:
 
     ```bash
-    bash "$HOME/.claude/radin-lib/radin-backlog.sh" remove "<task title>"
+    bash "$HOME/.claude/.radin/lib/radin-backlog.sh" remove "<task title>"
     ```
 
   - Remove the completed entry from `$NAMESPACE_DIR/state/BACKLOG_STEPS.json`

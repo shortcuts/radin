@@ -24,12 +24,12 @@ non-destructive defaults: no split, no overwrite.
 ## Step 1: Resolve project namespace, locate BACKLOG_FILE
 
 All backlog reads/writes go through the shared CLI at
-`$HOME/.claude/radin-lib/radin-backlog.sh` — never hand-edit `BACKLOG.md`
+`$HOME/.claude/.radin/lib/radin-backlog.sh` — never hand-edit `BACKLOG.md`
 or compute its path yourself. Get the paths (also creates
 `$NAMESPACE_DIR/state`, `plans/`, `reviews/`):
 
 ```bash
-bash "$HOME/.claude/radin-lib/radin-backlog.sh" env
+bash "$HOME/.claude/.radin/lib/radin-backlog.sh" env
 ```
 
 Read `REPO_ROOT`, `NAMESPACE_DIR`, `BACKLOG_FILE` from its output. Re-run
@@ -42,7 +42,7 @@ Match the caller's scope against entries with the CLI — it prints one
 match first, else case-insensitive substring):
 
 ```bash
-bash "$HOME/.claude/radin-lib/radin-backlog.sh" find "<scope title/keyword>"
+bash "$HOME/.claude/.radin/lib/radin-backlog.sh" find "<scope title/keyword>"
 ```
 
 - **Exactly one match**: use it.
@@ -56,7 +56,7 @@ bash "$HOME/.claude/radin-lib/radin-backlog.sh" find "<scope title/keyword>"
   classification rubric), then:
 
   ```bash
-  bash "$HOME/.claude/radin-lib/radin-backlog.sh" add <category> "<short title>" <<'EOF'
+  bash "$HOME/.claude/.radin/lib/radin-backlog.sh" add <category> "<short title>" <<'EOF'
   <as exhaustive a description as the scope given warrants — the task as
   the caller stated or clearly implied it, and why it matters if not
   already obvious.>
@@ -135,7 +135,7 @@ For each sub-task, in order:
    `**Plan:**` lines):
 
    ```bash
-   bash "$HOME/.claude/radin-lib/radin-backlog.sh" add-plan "<entry title>" "$NAMESPACE_DIR/plans/<sub-task-id>.md"
+   bash "$HOME/.claude/.radin/lib/radin-backlog.sh" add-plan "<entry title>" "$NAMESPACE_DIR/plans/<sub-task-id>.md"
    ```
 
 6. Report: `✅ <sub-task-id> planned. Plan: <path>.`

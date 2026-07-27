@@ -13,7 +13,7 @@ nothing to prioritize and no state file of its own.
 1. Don't parse entry boundaries yourself — the backlog CLI computes them:
 
    ```bash
-   bash "$HOME/.claude/radin-lib/radin-backlog.sh" list
+   bash "$HOME/.claude/.radin/lib/radin-backlog.sh" list
    ```
 
    One `line_start<TAB>line_end<TAB>title` line per entry, across all

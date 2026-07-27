@@ -14,7 +14,7 @@ skill/agent does this; `radin-record`/`radin-review` write to it,
 ## Step 1: Print it
 
 ```bash
-bash "$HOME/.claude/radin-lib/radin-backlog.sh" show
+bash "$HOME/.claude/.radin/lib/radin-backlog.sh" show
 ```
 
 If the user narrowed scope to one category ("show me the fix items"), pass

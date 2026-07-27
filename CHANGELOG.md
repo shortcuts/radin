@@ -6,6 +6,11 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- `install.sh` installs the shared `lib/` scripts (`radin-backlog.sh`,
+  `radin-namespace.sh`, `radin-prioritization.md`) to `~/.claude/.radin/lib/`
+  instead of `~/.claude/radin-lib/`. Every agent/skill reference updated to
+  match.
+
 - `radin-execute` now runs the whole backlog in one turn. It delegates every
   task sub-agent synchronously (`run_in_background: false`) and waits for
   the result — it no longer spawns a background sub-agent and ends its turn,

@@ -18,7 +18,7 @@ code-review finding — things a human said, not things a diff revealed.
 `radin-execute` consume the backlog afterward.
 
 All backlog writes go through the shared CLI at
-`$HOME/.claude/radin-lib/radin-backlog.sh` — it resolves the per-project
+`$HOME/.claude/.radin/lib/radin-backlog.sh` — it resolves the per-project
 namespace (`<repo-root>/.claude/.radin/BACKLOG.md`), creates the file and
 category sections, and appends entries deterministically. Never hand-edit
 `BACKLOG.md` or compute its path yourself.
@@ -65,7 +65,7 @@ regardless of category.
 For each classified item:
 
 ```bash
-bash "$HOME/.claude/radin-lib/radin-backlog.sh" add <category> "<short title>" <<'EOF'
+bash "$HOME/.claude/.radin/lib/radin-backlog.sh" add <category> "<short title>" <<'EOF'
 <as exhaustive a description as the situation warrants: what was being
 discussed/worked on when this came up, the item itself close to how the
 user stated or clearly implied it, and why it matters if that's not

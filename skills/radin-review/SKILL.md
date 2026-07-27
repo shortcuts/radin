@@ -39,12 +39,12 @@ State resolved scope back in one line before proceeding, e.g.:
 ## Step 2: Record the backlog baseline
 
 Backlog writes go through the shared CLI at
-`$HOME/.claude/radin-lib/radin-backlog.sh` — it resolves the per-project
+`$HOME/.claude/.radin/lib/radin-backlog.sh` — it resolves the per-project
 backlog path itself; never hand-edit `BACKLOG.md`. Record a baseline now so
 you can report net-new findings at the end:
 
 ```bash
-bash "$HOME/.claude/radin-lib/radin-backlog.sh" show 2>/dev/null | wc -l
+bash "$HOME/.claude/.radin/lib/radin-backlog.sh" show 2>/dev/null | wc -l
 ```
 
 ## Step 3: Run reviews
@@ -81,7 +81,7 @@ Then append each via the CLI (it handles file creation and section
 ordering):
 
 ```bash
-bash "$HOME/.claude/radin-lib/radin-backlog.sh" add <fix|refactor> "<short title>" <<'EOF'
+bash "$HOME/.claude/.radin/lib/radin-backlog.sh" add <fix|refactor> "<short title>" <<'EOF'
 **Scope:** <what was reviewed — commit hash / PR / directory / range from Step 1>
 **Location:** <file path(s) and function/line if applicable>
 **Finding:**

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Deterministic BACKLOG.md operations, so agents/skills don't hand-edit the
-# file. Installed to ~/.claude/radin-lib/radin-backlog.sh by install.sh.
+# file. Installed to ~/.claude/.radin/lib/radin-backlog.sh by install.sh.
 #
 # Usage:
 #   radin-backlog.sh env                        # print REPO_ROOT/NAMESPACE_DIR/BACKLOG_FILE

@@ -92,9 +92,9 @@ run_install_no_companions_answering() {
   [ -d "$TEST_HOME/.claude/skills/radin-setup-hooks" ]
 }
 
-@test "installs shared namespace-resolution script into ~/.claude/radin-lib" {
+@test "installs shared namespace-resolution script into ~/.claude/.radin/lib" {
   run_install_no_companions
-  [ -f "$TEST_HOME/.claude/radin-lib/radin-namespace.sh" ]
+  [ -f "$TEST_HOME/.claude/.radin/lib/radin-namespace.sh" ]
 }
 
 @test "downloads thermo-nuclear SKILL.md alongside radin's own skills" {

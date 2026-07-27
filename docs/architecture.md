@@ -41,7 +41,7 @@ Every one of `agents/radin-execute.md`, `skills/radin-plan/SKILL.md`,
 `lib/radin-backlog.sh`, for every deterministic backlog operation:
 
 ```bash
-bash "$HOME/.claude/radin-lib/radin-backlog.sh" <env|show|find|add|add-plan|remove>
+bash "$HOME/.claude/.radin/lib/radin-backlog.sh" <env|show|find|add|add-plan|remove>
 ```
 
 - `env` — namespace resolution (delegates to `lib/radin-namespace.sh`, the
@@ -63,7 +63,7 @@ agents/skills only supply judgment (what to log, how to classify, what to
 plan).
 
 `install.sh` copies `lib/radin-namespace.sh` and `lib/radin-backlog.sh` to
-`~/.claude/radin-lib/`. A consumer install never has this repo's `lib/`
+`~/.claude/.radin/lib/`. A consumer install never has this repo's `lib/`
 directly, so both scripts are distributed like any other radin file.
 
 Inside the script:
@@ -81,7 +81,7 @@ even when the repo path contains spaces.
 `radin-execute` and the `radin-plan` skill also share `lib/radin-prioritization.md`
 — the single source of truth for backlog parsing rules, task priority
 criteria, and the state-file JSON schema. Both read it via
-`$HOME/.claude/radin-lib/radin-prioritization.md` — `radin-execute` at the
+`$HOME/.claude/.radin/lib/radin-prioritization.md` — `radin-execute` at the
 start of Phase 1, `radin-plan` at the start of its Step 2 — instead of
 embedding their own copy. `radin-execute` uses all of it, to prioritize and
 order the whole backlog. `radin-plan` only uses the parsing section — it's

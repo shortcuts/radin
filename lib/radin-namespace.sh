@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Single source of truth for radin's per-project namespace resolution.
-# Installed to ~/.claude/radin-lib/radin-namespace.sh by install.sh.
+# Installed to ~/.claude/.radin/lib/radin-namespace.sh by install.sh.
 # Every radin agent/skill that reads or writes BACKLOG.md runs this script
 # first and reads REPO_ROOT / NAMESPACE_DIR / BACKLOG_FILE from its stdout.
 #

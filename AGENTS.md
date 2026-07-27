@@ -92,7 +92,7 @@ complete example. The shared conventions below are easy to drift from if you
 reinvent them from scratch.
 
 1. **Namespace resolution and backlog I/O.** Go through
-   `bash "$HOME/.claude/radin-lib/radin-backlog.sh"` (see
+   `bash "$HOME/.claude/.radin/lib/radin-backlog.sh"` (see
    `docs/architecture.md`'s "Namespace resolution and the backlog CLI"
    section): `env` for `REPO_ROOT`/`NAMESPACE_DIR`/`BACKLOG_FILE`, and
    `find`/`add`/`add-plan`/`remove` for entry operations. Don't re-embed
@@ -118,8 +118,12 @@ reinvent them from scratch.
 **Never touch anything in `~/.claude` (`~/.config/.claude`) besides what
 radin itself added.** `~/.claude/agents` and `~/.claude/skills` are shared
 directories — a consumer's other agents/skills/tools live there too.
-`install.sh` may only `cp`/`cp -r` radin's own named files (`agents/*.md`
-that ship in this repo, radin's own `skills/<name>/`) and `mkdir -p`. Never
+`~/.claude/.radin/lib` is radin's own global tool directory (distinct from
+the per-repo `<repo-root>/.claude/.radin/` backlog namespace — same `.radin`
+name, different scope: this one holds shared scripts like
+`radin-backlog.sh`, not backlog state). `install.sh` may only `cp`/`cp -r`
+radin's own named files (`agents/*.md` that ship in this repo, radin's own
+`skills/<name>/`, `lib/*` into `~/.claude/.radin/lib/`) and `mkdir -p`. Never
 `rm`. Never wildcard-delete a directory. Never overwrite a file radin didn't
 ship. Call this out explicitly on any edit to `install.sh`.
 
