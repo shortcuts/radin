@@ -10,6 +10,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `radin-namespace.sh`, `radin-prioritization.md`) to `~/.claude/.radin/lib/`
   instead of `~/.claude/radin-lib/`. Every agent/skill reference updated to
   match.
+- `install.sh`'s agent-model prompt matched `radin-execute.md`'s stale
+  top-level default (`haiku`); the frontmatter had already moved to `sonnet`,
+  so the prompt's stated default and its `sed` replacement pattern both
+  silently no-op'd. Both now match the file's actual `sonnet` default.
 
 - `radin-execute` now runs the whole backlog in one turn. It delegates every
   task sub-agent synchronously (`run_in_background: false`) and waits for

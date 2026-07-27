@@ -223,15 +223,15 @@ set_agent_model() {
 }
 
 step "Agent models (optional)"
-if prompt_yn "Choose models for radin-execute? (defaults: haiku top-level, sonnet sub-agents)"; then
-	ORCH_MODEL="$(prompt_val "radin-execute top-level model" "haiku")"
+if prompt_yn "Choose models for radin-execute? (defaults: sonnet top-level, sonnet sub-agents)"; then
+	ORCH_MODEL="$(prompt_val "radin-execute top-level model" "sonnet")"
 	ORCH_SUB_MODEL="$(prompt_val "radin-execute sub-agent model (execution + review)" "sonnet")"
 
-	set_agent_model "$HOME/.claude/agents/radin-execute.md" "^model: haiku$" "model: ${ORCH_MODEL}"
+	set_agent_model "$HOME/.claude/agents/radin-execute.md" "^model: sonnet$" "model: ${ORCH_MODEL}"
 	set_agent_model "$HOME/.claude/agents/radin-execute.md" 'model: "sonnet"' "model: \"${ORCH_SUB_MODEL}\""
 	ok "agent model configured"
 else
-	ok "keeping default models (haiku top-level, sonnet sub-agents)"
+	ok "keeping default models (sonnet top-level, sonnet sub-agents)"
 fi
 
 step "Companion tools (all optional)"
