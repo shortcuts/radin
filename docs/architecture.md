@@ -118,6 +118,8 @@ radin/
   skills/
     radin-plan/
       SKILL.md
+    radin-doctor/
+      SKILL.md
     radin-review/
       SKILL.md
     radin-record/
@@ -131,6 +133,7 @@ radin/
   docs/
   lib/
     radin-backlog.sh
+    radin-doctor.sh
     radin-namespace.sh
     radin-prioritization.md
   install.sh

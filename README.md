@@ -73,6 +73,7 @@ A typical flow:
 | `radin-review` | Strict code-quality pass, findings logged straight back into the backlog |
 | `radin-record` | Logs feedback/bugs/ideas raised mid-session as `BACKLOG.md` entries |
 | `radin-show` | Prints the current project's `BACKLOG.md` |
+| `radin-doctor` | Checks radin's own install is complete and reports which companion tools are reachable |
 | `radin-setup-hooks` | Wires up per-repo hooks/MCP config for companion tools |
 | `radin-stats` | Shows each installed companion tool's own stats/gain output, side by side |
 

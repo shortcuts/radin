@@ -90,6 +90,7 @@ run_install_no_companions_answering() {
   [ -d "$TEST_HOME/.claude/skills/radin-review" ]
   [ -d "$TEST_HOME/.claude/skills/radin-record" ]
   [ -d "$TEST_HOME/.claude/skills/radin-setup-hooks" ]
+  [ -d "$TEST_HOME/.claude/skills/radin-doctor" ]
 }
 
 @test "installs shared namespace-resolution script into ~/.claude/.radin/lib" {

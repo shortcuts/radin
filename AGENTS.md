@@ -111,7 +111,9 @@ reinvent them from scratch.
    `agents/`/`skills/`.
 4. **`install.sh`.** New skills need a `cp -r` line, or `install.sh` never
    distributes them — a skill living only in `skills/` in this repo isn't
-   installed anywhere yet.
+   installed anywhere yet. If the new skill/agent should be verified by
+   `radin-doctor`, also add it to `lib/radin-doctor.sh`'s expected-file
+   list — it isn't derived automatically from `install.sh`'s cp lines.
 
 ## Constraints
 
