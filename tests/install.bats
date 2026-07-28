@@ -13,9 +13,16 @@ setup() {
   export PATH="$MOCK_BIN:/usr/bin:/bin:/usr/sbin:/sbin"
 
   BREW_LOG="$TEST_HOME/brew.log"
+  # "install rtk" also drops a stub rtk binary on PATH, mirroring what a real
+  # brew install would leave behind -- needed for manifest/companion-tool
+  # reachability checks (command -v rtk) to see the install take effect.
   cat > "$MOCK_BIN/brew" <<EOF
 #!/bin/sh
 echo "\$@" >> "$BREW_LOG"
+if [ "\$1" = "install" ] && [ "\$2" = "rtk" ]; then
+  printf '#!/bin/sh\n' > "$MOCK_BIN/rtk"
+  chmod +x "$MOCK_BIN/rtk"
+fi
 exit 0
 EOF
 
@@ -120,6 +127,19 @@ run_install_no_companions_answering() {
   run run_install_no_companions_answering "y"
   [ "$status" -eq 0 ]
   [[ "$(cat "$BREW_LOG")" == *"install rtk"* ]]
+}
+
+@test "writes an install manifest listing installed files and companion tools" {
+  run run_install_no_companions_answering "y"
+  [ "$status" -eq 0 ]
+  manifest="$TEST_HOME/.claude/.radin/manifest.json"
+  [ -f "$manifest" ]
+  grep -q '"version"' "$manifest"
+  grep -q '"radin-execute.md"' "$manifest"
+  grep -q '"radin-doctor"' "$manifest"
+  grep -q '"radin-namespace.sh"' "$manifest"
+  grep -q '"rtk": true' "$manifest"
+  grep -q '"code-review-graph": false' "$manifest"
 }
 
 @test "refuses to reuse a fetch dir it didn't create" {

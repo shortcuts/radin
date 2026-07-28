@@ -117,6 +117,9 @@ if [ -z "$RADIN_ROOT" ]; then
 fi
 ok "Using radin source at ${BOLD}$RADIN_ROOT${RESET}"
 
+MANIFEST_VERSION="dev"
+[ -f "$RADIN_ROOT/.radin-version" ] && MANIFEST_VERSION="$(cat "$RADIN_ROOT/.radin-version")"
+
 step "Installing agents and skills into ~/.claude"
 mkdir -p "$HOME/.claude/agents" "$HOME/.claude/skills" "$HOME/.claude/.radin/lib"
 cp "$RADIN_ROOT"/lib/radin-namespace.sh "$HOME/.claude/.radin/lib/"
@@ -268,6 +271,65 @@ if command -v code-review-graph >/dev/null 2>&1; then
 	info "into a specific project, run the radin-setup-hooks skill from inside"
 	info "that project (it edits that repo's .mcp.json / CLAUDE.md, not this one)."
 fi
+
+step "Writing install manifest"
+# ponytail: three independent copies of this file list already exist
+# (install.sh's own cp lines above, radin-doctor.sh, radin-uninstall.sh) --
+# a fourth here for the manifest. Dedup if that drift ever bites; out of
+# scope for generating the manifest itself.
+json_bool_cmd() {
+	if command -v "$1" >/dev/null 2>&1; then
+		printf 'true'
+	else
+		printf 'false'
+	fi
+}
+json_bool_plugin() {
+	if command -v claude >/dev/null 2>&1 && claude plugin list 2>/dev/null | grep -q "$1"; then
+		printf 'true'
+	else
+		printf 'false'
+	fi
+}
+
+mkdir -p "$HOME/.claude/.radin"
+MANIFEST_FILE="$HOME/.claude/.radin/manifest.json"
+INSTALLED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+cat >"$MANIFEST_FILE" <<EOF
+{
+  "version": "$MANIFEST_VERSION",
+  "installed_at": "$INSTALLED_AT",
+  "agents": [
+    "radin-execute.md"
+  ],
+  "skills": [
+    "radin-plan",
+    "radin-record",
+    "radin-review",
+    "radin-setup-hooks",
+    "radin-show",
+    "radin-stats",
+    "radin-doctor",
+    "radin-uninstall",
+    "thermo-nuclear"
+  ],
+  "lib": [
+    "radin-namespace.sh",
+    "radin-backlog.sh",
+    "radin-prioritization.md",
+    "radin-doctor.sh",
+    "radin-uninstall.sh"
+  ],
+  "companion_tools": {
+    "rtk": $(json_bool_cmd rtk),
+    "code-review-graph": $(json_bool_cmd code-review-graph),
+    "caveman": $(json_bool_plugin "caveman@caveman"),
+    "i-have-adhd": $(json_bool_plugin "i-have-adhd@i-have-adhd"),
+    "ponytail": $(json_bool_plugin "ponytail@ponytail")
+  }
+}
+EOF
+ok "manifest written to ${BOLD}$MANIFEST_FILE${RESET}"
 
 step "Done"
 ok "radin installed. ${DIM}Go be stingy with those tokens.${RESET}"

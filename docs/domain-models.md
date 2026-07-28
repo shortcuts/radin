@@ -112,3 +112,38 @@ of persisting one to disk.
 - `line_start`/`line_end` point into the live `$BACKLOG_FILE`. `radin-execute`
   re-resolves them fresh each loop iteration, since inserting a `**Plan:**`
   line shifts every line below it.
+
+## Install manifest (`manifest.json`)
+
+Written by `install.sh` to `~/.claude/.radin/manifest.json` on every run —
+not part of any repo's `.claude/.radin/` backlog namespace, this is
+global, one per machine.
+
+```json
+{
+  "version": "v0.4.0",
+  "installed_at": "2026-07-28T00:00:00Z",
+  "agents": ["radin-execute.md"],
+  "skills": ["radin-plan", "radin-record", "radin-review", "radin-setup-hooks", "radin-show", "radin-stats", "radin-doctor", "radin-uninstall", "thermo-nuclear"],
+  "lib": ["radin-namespace.sh", "radin-backlog.sh", "radin-prioritization.md", "radin-doctor.sh", "radin-uninstall.sh"],
+  "companion_tools": {
+    "rtk": true,
+    "code-review-graph": false,
+    "caveman": true,
+    "i-have-adhd": false,
+    "ponytail": true
+  }
+}
+```
+
+- `version` is `dev` when installed from a local git clone (no downloaded
+  release tarball, no `.radin-version` file to read).
+- `agents`/`skills`/`lib` are static lists matching exactly what
+  `install.sh` copies and what `radin-doctor.sh` checks for — not derived
+  from the manifest at runtime by either script (see `docs/architecture.md`
+  "Install manifest").
+- `companion_tools` values reflect final reachable state after this
+  install.sh run (already present, just installed, or skipped are not
+  distinguished — only "is it there now").
+- Regenerated wholesale on every `install.sh` run; never partially updated,
+  never read back by `install.sh` itself.

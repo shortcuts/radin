@@ -4,6 +4,13 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- `install.sh` now writes `~/.claude/.radin/manifest.json` on every run: a
+  generated snapshot of the agent/skill/lib files it installed and which
+  companion tools are reachable, so other tooling has one file to read
+  instead of reconstructing it from `install.sh`'s prose/cp lines.
+
 ### Changed
 
 - `install.sh` installs the shared `lib/` scripts (`radin-backlog.sh`,

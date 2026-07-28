@@ -107,6 +107,22 @@ To update radin itself, re-run `install.sh` — plain `curl | bash`, or
 `--force` to also re-prompt on companion tools `install.sh` would otherwise
 skip because they're already on the system.
 
+## Install manifest
+
+`install.sh` writes `~/.claude/.radin/manifest.json` on every run: a
+generated snapshot of what it installed. It records `version` (the release
+tag, or `dev` for a local git clone), `installed_at` (UTC timestamp), the
+`agents`/`skills`/`lib` file lists it copied, and a `companion_tools`
+object recording whether each of rtk, code-review-graph, caveman,
+i-have-adhd, and ponytail is reachable on this machine after the
+confirmation prompts.
+
+It's a snapshot for external tooling to read, not a live source of truth.
+`radin-doctor.sh` and `radin-uninstall.sh` each keep their own independent
+file list and check the filesystem directly, rather than trusting the
+manifest — a corrupted or stale manifest must never make either of them
+report a false "OK" or delete the wrong thing.
+
 ## Plugin repo layout
 
 ```
