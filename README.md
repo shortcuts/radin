@@ -76,6 +76,7 @@ A typical flow:
 | `radin-doctor` | Checks radin's own install is complete and reports which companion tools are reachable |
 | `radin-setup-hooks` | Wires up per-repo hooks/MCP config for companion tools |
 | `radin-stats` | Shows each installed companion tool's own stats/gain output, side by side |
+| `radin-uninstall` | Removes everything `install.sh` added to `~/.claude` |
 
 Some of these delegate to other skills under the hood, instead of
 reimplementing review or style logic themselves:

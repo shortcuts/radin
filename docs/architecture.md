@@ -130,12 +130,15 @@ radin/
       SKILL.md
     radin-stats/
       SKILL.md
+    radin-uninstall/
+      SKILL.md
   docs/
   lib/
     radin-backlog.sh
     radin-doctor.sh
     radin-namespace.sh
     radin-prioritization.md
+    radin-uninstall.sh
   install.sh
   README.md
 ```

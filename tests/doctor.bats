@@ -16,7 +16,7 @@ teardown() {
 install_all_expected() {
   mkdir -p "$TEST_HOME/.claude/agents"
   mkdir -p "$TEST_HOME/.claude/.radin/lib"
-  for name in radin-plan radin-record radin-review radin-setup-hooks radin-show radin-stats radin-doctor thermo-nuclear; do
+  for name in radin-plan radin-record radin-review radin-setup-hooks radin-show radin-stats radin-doctor radin-uninstall thermo-nuclear; do
     mkdir -p "$TEST_HOME/.claude/skills/$name"
     : > "$TEST_HOME/.claude/skills/$name/SKILL.md"
   done
@@ -25,6 +25,7 @@ install_all_expected() {
   printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-backlog.sh"
   : > "$TEST_HOME/.claude/.radin/lib/radin-prioritization.md"
   printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-doctor.sh"
+  printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-uninstall.sh"
 }
 
 @test "syntax is valid" {

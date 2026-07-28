@@ -63,7 +63,7 @@ printf '\nAgents (%s/agents):\n' "$CLAUDE_DIR"
 check_file "radin-execute.md" "$CLAUDE_DIR/agents/radin-execute.md"
 
 printf '\nSkills (%s/skills):\n' "$CLAUDE_DIR"
-for name in radin-plan radin-record radin-review radin-setup-hooks radin-show radin-stats radin-doctor thermo-nuclear; do
+for name in radin-plan radin-record radin-review radin-setup-hooks radin-show radin-stats radin-doctor radin-uninstall thermo-nuclear; do
 	check_file "$name" "$CLAUDE_DIR/skills/$name/SKILL.md"
 done
 
@@ -72,6 +72,7 @@ check_lib_script "radin-namespace.sh" "$CLAUDE_DIR/.radin/lib/radin-namespace.sh
 check_lib_script "radin-backlog.sh" "$CLAUDE_DIR/.radin/lib/radin-backlog.sh"
 check_file "radin-prioritization.md" "$CLAUDE_DIR/.radin/lib/radin-prioritization.md"
 check_lib_script "radin-doctor.sh" "$CLAUDE_DIR/.radin/lib/radin-doctor.sh"
+check_lib_script "radin-uninstall.sh" "$CLAUDE_DIR/.radin/lib/radin-uninstall.sh"
 
 printf '\nCompanion tools (optional, advisory-only):\n'
 check_path_tool "rtk" "rtk"

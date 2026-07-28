@@ -91,11 +91,13 @@ run_install_no_companions_answering() {
   [ -d "$TEST_HOME/.claude/skills/radin-record" ]
   [ -d "$TEST_HOME/.claude/skills/radin-setup-hooks" ]
   [ -d "$TEST_HOME/.claude/skills/radin-doctor" ]
+  [ -d "$TEST_HOME/.claude/skills/radin-uninstall" ]
 }
 
 @test "installs shared namespace-resolution script into ~/.claude/.radin/lib" {
   run_install_no_companions
   [ -f "$TEST_HOME/.claude/.radin/lib/radin-namespace.sh" ]
+  [ -f "$TEST_HOME/.claude/.radin/lib/radin-uninstall.sh" ]
 }
 
 @test "downloads thermo-nuclear SKILL.md alongside radin's own skills" {

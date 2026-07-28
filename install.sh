@@ -123,6 +123,7 @@ cp "$RADIN_ROOT"/lib/radin-namespace.sh "$HOME/.claude/.radin/lib/"
 cp "$RADIN_ROOT"/lib/radin-backlog.sh "$HOME/.claude/.radin/lib/"
 cp "$RADIN_ROOT"/lib/radin-prioritization.md "$HOME/.claude/.radin/lib/"
 cp "$RADIN_ROOT"/lib/radin-doctor.sh "$HOME/.claude/.radin/lib/"
+cp "$RADIN_ROOT"/lib/radin-uninstall.sh "$HOME/.claude/.radin/lib/"
 cp "$RADIN_ROOT"/agents/*.md "$HOME/.claude/agents/"
 cp -r "$RADIN_ROOT"/skills/radin-review "$HOME/.claude/skills/"
 cp -r "$RADIN_ROOT"/skills/radin-record "$HOME/.claude/skills/"
@@ -163,6 +164,7 @@ fi
 cp -r "$RADIN_ROOT"/skills/radin-setup-hooks "$HOME/.claude/skills/"
 cp -r "$RADIN_ROOT"/skills/radin-stats "$HOME/.claude/skills/"
 cp -r "$RADIN_ROOT"/skills/radin-doctor "$HOME/.claude/skills/"
+cp -r "$RADIN_ROOT"/skills/radin-uninstall "$HOME/.claude/skills/"
 ok "agents/ and skills/ installed"
 
 prompt_yn() {
