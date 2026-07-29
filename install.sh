@@ -266,7 +266,7 @@ install_if_confirmed "code-review-graph" "code-review-graph" \
 # wrap vs per-command output compression), not a replacement -- never
 # phrase this as preferred over rtk.
 install_if_confirmed "headroom" "headroom" \
-	"command -v pipx >/dev/null 2>&1 && pipx install \"headroom-ai[all]\" || pip3 install --user \"headroom-ai[all]\"" \
+	"command -v pipx >/dev/null 2>&1 && pipx install headroom-ai || pip3 install --user headroom-ai" \
 	"headroom pulls in a Python/pip stack (proxy, MCP, ML, memory -- heavier than rtk's static binary)."
 
 # caveman ships as a Claude Code plugin (not an npm package) -- installs via
