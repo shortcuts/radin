@@ -6,6 +6,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- `install.sh` offers `headroom` as an optional companion tool, alongside
+  rtk/code-review-graph/caveman/i-have-adhd/ponytail. Its Python/pip
+  footprint gets an extra confirmation step beyond the normal install
+  prompt. It complements rtk (whole-session wrap vs. rtk's per-command
+  compression) — not a replacement, and never installed or recommended by
+  default.
 - `install.sh` now writes `~/.claude/.radin/manifest.json` on every run: a
   generated snapshot of the agent/skill/lib files it installed and which
   companion tools are reachable, so other tooling has one file to read

@@ -43,6 +43,7 @@ printf '\nLeft untouched:\n'
 printf '  %-20s not vendored by radin, remove manually if wanted\n' "thermo-nuclear"
 printf '  %-20s advisory install, remove with: brew uninstall rtk\n' "rtk"
 printf '  %-20s advisory install, remove with: pipx uninstall code-review-graph\n' "code-review-graph"
+printf '  %-20s advisory install, remove with: pipx uninstall headroom-ai\n' "headroom"
 printf '  %-20s advisory install, remove with: claude plugin uninstall caveman@caveman\n' "caveman"
 printf '  %-20s advisory install, remove with: claude plugin uninstall i-have-adhd@i-have-adhd\n' "i-have-adhd"
 printf '  %-20s advisory install, remove with: claude plugin uninstall ponytail@ponytail\n' "ponytail"

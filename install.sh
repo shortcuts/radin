@@ -188,12 +188,16 @@ prompt_yn() {
 }
 
 install_if_confirmed() {
-	local name="$1" check_cmd="$2" install_cmd="$3"
+	local name="$1" check_cmd="$2" install_cmd="$3" extra_confirm="${4:-}"
 	if [ -z "$FORCE" ] && command -v "$check_cmd" >/dev/null 2>&1; then
 		ok "$name already installed, skipping."
 		return
 	fi
 	prompt_yn "Install $name?" || return 0
+	if [ -n "$extra_confirm" ]; then
+		info "$extra_confirm"
+		prompt_yn "Confirm: install $name's Python/pip stack?" || return 0
+	fi
 	eval "$install_cmd"
 }
 
@@ -255,6 +259,15 @@ install_if_confirmed "rtk" "rtk" "$RTK_INSTALL_CMD"
 # code-review-graph ships on PyPI, not npm -- pipx keeps it in its own venv.
 install_if_confirmed "code-review-graph" "code-review-graph" \
 	"command -v pipx >/dev/null 2>&1 && pipx install code-review-graph || pip3 install --user code-review-graph"
+
+# headroom is a heavier Python/pip stack than rtk's static binary or
+# code-review-graph -- gets a second confirmation (install_if_confirmed's
+# 4th arg) on top of the normal y/N gate. It complements rtk (whole-session
+# wrap vs per-command output compression), not a replacement -- never
+# phrase this as preferred over rtk.
+install_if_confirmed "headroom" "headroom" \
+	"command -v pipx >/dev/null 2>&1 && pipx install \"headroom-ai[all]\" || pip3 install --user \"headroom-ai[all]\"" \
+	"headroom pulls in a Python/pip stack (proxy, MCP, ML, memory -- heavier than rtk's static binary)."
 
 # caveman ships as a Claude Code plugin (not an npm package) -- installs via
 # the plugin marketplace flow, same as the interactive `/plugin` command.
@@ -323,6 +336,7 @@ cat >"$MANIFEST_FILE" <<EOF
   "companion_tools": {
     "rtk": $(json_bool_cmd rtk),
     "code-review-graph": $(json_bool_cmd code-review-graph),
+    "headroom": $(json_bool_cmd headroom),
     "caveman": $(json_bool_plugin "caveman@caveman"),
     "i-have-adhd": $(json_bool_plugin "i-have-adhd@i-have-adhd"),
     "ponytail": $(json_bool_plugin "ponytail@ponytail")

@@ -77,6 +77,7 @@ check_lib_script "radin-uninstall.sh" "$CLAUDE_DIR/.radin/lib/radin-uninstall.sh
 printf '\nCompanion tools (optional, advisory-only):\n'
 check_path_tool "rtk" "rtk"
 check_path_tool "code-review-graph" "code-review-graph"
+check_path_tool "headroom" "headroom"
 check_plugin "caveman" "caveman@caveman"
 check_plugin "i-have-adhd" "i-have-adhd@i-have-adhd"
 check_plugin "ponytail" "ponytail@ponytail"

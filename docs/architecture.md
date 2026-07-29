@@ -113,8 +113,8 @@ skip because they're already on the system.
 generated snapshot of what it installed. It records `version` (the release
 tag, or `dev` for a local git clone), `installed_at` (UTC timestamp), the
 `agents`/`skills`/`lib` file lists it copied, and a `companion_tools`
-object recording whether each of rtk, code-review-graph, caveman,
-i-have-adhd, and ponytail is reachable on this machine after the
+object recording whether each of rtk, code-review-graph, headroom,
+caveman, i-have-adhd, and ponytail is reachable on this machine after the
 confirmation prompts.
 
 It's a snapshot for external tooling to read, not a live source of truth.

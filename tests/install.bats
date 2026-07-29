@@ -48,7 +48,24 @@ if [ "$1" = "plugin" ] && [ "$2" = "list" ]; then exit 0; fi
 exit 0
 EOF
 
-  chmod +x "$MOCK_BIN"/brew "$MOCK_BIN"/curl "$MOCK_BIN"/claude
+  PIP_LOG="$TEST_HOME/pip.log"
+  # Mirrors the brew mock: "install headroom-ai[...]" drops a stub headroom
+  # binary on PATH, needed for headroom's own manifest/reachability check.
+  cat > "$MOCK_BIN/pipx" <<EOF
+#!/bin/sh
+echo "\$@" >> "$PIP_LOG"
+if [ "\$1" = "install" ]; then
+  case "\$2" in
+    headroom-ai*)
+      printf '#!/bin/sh\n' > "$MOCK_BIN/headroom"
+      chmod +x "$MOCK_BIN/headroom"
+      ;;
+  esac
+fi
+exit 0
+EOF
+
+  chmod +x "$MOCK_BIN"/brew "$MOCK_BIN"/curl "$MOCK_BIN"/claude "$MOCK_BIN"/pipx
 }
 
 teardown() {
@@ -57,14 +74,14 @@ teardown() {
 
 # Declining every companion-tool prompt is the fastest path through the
 # script and covers source resolution + core agents/skills install. None of
-# rtk/code-review-graph/caveman/i-have-adhd/ponytail exist on the trimmed
-# PATH, so all five prompts fire and all five get declined.
+# rtk/code-review-graph/headroom/caveman/i-have-adhd/ponytail exist on the
+# trimmed PATH, so all six prompts fire and all six get declined.
 run_install_no_companions() {
-  cd "$REPO_ROOT" && printf 'n\nn\nn\nn\nn\n' | bash ./install.sh
+  cd "$REPO_ROOT" && printf 'n\nn\nn\nn\nn\nn\n' | bash ./install.sh
 }
 
 run_install_no_companions_answering() {
-  cd "$REPO_ROOT" && printf 'n\n%s\nn\nn\nn\n' "$1" | bash ./install.sh
+  cd "$REPO_ROOT" && printf 'n\n%s\nn\nn\nn\nn\n' "$1" | bash ./install.sh
 }
 
 @test "syntax is valid" {
@@ -140,6 +157,24 @@ run_install_no_companions_answering() {
   grep -q '"radin-namespace.sh"' "$manifest"
   grep -q '"rtk": true' "$manifest"
   grep -q '"code-review-graph": false' "$manifest"
+  grep -q '"headroom": false' "$manifest"
+}
+
+# headroom gets install_if_confirmed's extra 4th-arg confirmation on top of
+# the normal y/N gate (Python/pip footprint) -- both prompts must be
+# answered y before the pip/pipx install command actually runs.
+@test "headroom's extra pip confirmation blocks install when declined" {
+  cd "$REPO_ROOT" && run bash -c "printf 'n\nn\nn\ny\nn\nn\nn\n' | bash ./install.sh"
+  [ "$status" -eq 0 ]
+  [ ! -f "$PIP_LOG" ] || ! grep -q "headroom-ai" "$PIP_LOG"
+}
+
+@test "headroom installs only after both confirmations are answered y" {
+  cd "$REPO_ROOT" && run bash -c "printf 'n\nn\nn\ny\ny\nn\nn\n' | bash ./install.sh"
+  [ "$status" -eq 0 ]
+  grep -q "headroom-ai" "$PIP_LOG"
+  manifest="$TEST_HOME/.claude/.radin/manifest.json"
+  grep -q '"headroom": true' "$manifest"
 }
 
 @test "refuses to reuse a fetch dir it didn't create" {
