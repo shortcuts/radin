@@ -47,6 +47,7 @@ printf '  %-20s advisory install, remove with: pipx uninstall headroom-ai\n' "he
 printf '  %-20s advisory install, remove with: claude plugin uninstall caveman@caveman\n' "caveman"
 printf '  %-20s advisory install, remove with: claude plugin uninstall i-have-adhd@i-have-adhd\n' "i-have-adhd"
 printf '  %-20s advisory install, remove with: claude plugin uninstall ponytail@ponytail\n' "ponytail"
+printf '  %-20s advisory install, remove with: claude plugin uninstall mattpocock-skills@claude-plugins-official\n' "mattpocock-skills"
 printf '  %s\n' "Any <repo-root>/.claude/.radin/ backlog directory -- your data, your call"
 
 printf '\nradin removed from ~/.claude.\n'

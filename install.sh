@@ -279,6 +279,11 @@ install_plugin_if_confirmed "i-have-adhd" "i-have-adhd@i-have-adhd" "ayghri/i-ha
 # ponytail ships as a Claude Code plugin too -- same marketplace flow.
 install_plugin_if_confirmed "ponytail" "ponytail@ponytail" "DietrichGebert/ponytail"
 
+# mattpocock-skills ships from Anthropic's own official marketplace, not a
+# third-party repo. radin-plan invokes its /grilling and /research skills
+# rather than reimplementing an interview loop or a research step.
+install_plugin_if_confirmed "mattpocock-skills" "mattpocock-skills@claude-plugins-official" "anthropics/claude-plugins-official"
+
 if command -v code-review-graph >/dev/null 2>&1; then
 	info "code-review-graph binary installed. To wire its MCP server and hooks"
 	info "into a specific project, run the radin-setup-hooks skill from inside"
@@ -339,7 +344,8 @@ cat >"$MANIFEST_FILE" <<EOF
     "headroom": $(json_bool_cmd headroom),
     "caveman": $(json_bool_plugin "caveman@caveman"),
     "i-have-adhd": $(json_bool_plugin "i-have-adhd@i-have-adhd"),
-    "ponytail": $(json_bool_plugin "ponytail@ponytail")
+    "ponytail": $(json_bool_plugin "ponytail@ponytail"),
+    "mattpocock-skills": $(json_bool_plugin "mattpocock-skills@claude-plugins-official")
   }
 }
 EOF

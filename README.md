@@ -174,6 +174,7 @@ their own repo stays the source of truth.
 | [code-review-graph](https://github.com/tirth8205/code-review-graph) | Local-first code intelligence graph for MCP and CLI. Builds a persistent map of your codebase so AI coding tools read only what matters |
 | [headroom](https://github.com/headroomlabs-ai/headroom) | Local-first context-compression stack — proxy/MCP/wrap layer with cross-agent memory and CLAUDE.md-learning. Complements rtk (whole-session wrap vs. rtk's per-command compression), not a replacement. Python/pip footprint — install prompts for an extra confirmation |
 | [thermo-nuclear](https://github.com/cursor/plugins/tree/main/cursor-team-kit/skills/thermo-nuclear-code-quality-review) | Code quality review skill, vendored from cursor/plugins at install time via the [vercel-labs/skills](https://github.com/vercel-labs/skills) CLI |
+| [mattpocock-skills](https://github.com/mattpocock/skills) | Engineering skills plugin (`claude-plugins-official` marketplace) — `radin-plan` delegates its interview step to `/grilling` and its API/library fact-checking to `/research` instead of reimplementing them |
 
 ---
 

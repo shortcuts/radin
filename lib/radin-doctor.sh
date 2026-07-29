@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Read-only post-install health check for radin. Confirms the files
 # install.sh should have copied are present, and reports which advisory
-# companion tools (rtk, code-review-graph, caveman, i-have-adhd, ponytail)
-# are reachable. Never mutates anything -- mirrors install.sh's own
+# companion tools (rtk, code-review-graph, caveman, i-have-adhd, ponytail,
+# mattpocock-skills) are reachable. Never mutates anything -- mirrors install.sh's own
 # "advisory only" stance on companion tools.
 # Installed to ~/.claude/.radin/lib/radin-doctor.sh by install.sh.
 #
@@ -81,6 +81,7 @@ check_path_tool "headroom" "headroom"
 check_plugin "caveman" "caveman@caveman"
 check_plugin "i-have-adhd" "i-have-adhd@i-have-adhd"
 check_plugin "ponytail" "ponytail@ponytail"
+check_plugin "mattpocock-skills" "mattpocock-skills@claude-plugins-official"
 
 printf '\n'
 if [ "$MISSING" -eq 0 ]; then
