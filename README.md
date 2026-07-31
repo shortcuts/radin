@@ -63,11 +63,13 @@ curl -fsSL https://raw.githubusercontent.com/shortcuts/radin/main/install.sh | b
 
 ## The backlog lifecycle
 
-`BACKLOG.md` is your repo's backlog. It lives inside your repo, at
-`.claude/.radin/BACKLOG.md` from the repo root. Every radin tool reads
-from or writes to this one file. Commit `.claude/.radin/` to share the
-backlog with your team, or add it to `.gitignore` to keep it private —
-radin never touches your `.gitignore` either way.
+Your repo's backlog lives inside your repo, at `.claude/.radin/backlog/`
+from the repo root: an index file plus one markdown file per task. Every
+radin tool reads from or writes to it through radin's own CLI — you never
+need to look inside. Run `/radin-show` to read it as plain markdown.
+Commit `.claude/.radin/` to share the backlog with your team, or add it to
+`.gitignore` to keep it private — radin never touches your `.gitignore`
+either way.
 
 A typical flow:
 
@@ -87,11 +89,11 @@ A typical flow:
 
 | Tool | What it does |
 | --- | --- |
-| `radin-execute` | Chews through `BACKLOG.md`, one task at a time, committing as it goes |
+| `radin-execute` | Chews through the backlog, one task at a time, committing as it goes |
 | `radin-plan` | Writes a plan for one backlog entry you point it at, instead of touching code |
 | `radin-review` | Strict code-quality pass, findings logged straight back into the backlog |
-| `radin-record` | Logs feedback/bugs/ideas raised mid-session as `BACKLOG.md` entries |
-| `radin-show` | Prints the current project's `BACKLOG.md` |
+| `radin-record` | Logs feedback/bugs/ideas raised mid-session as backlog entries |
+| `radin-show` | Prints the current project's backlog |
 | `radin-doctor` | Checks radin's own install is complete and reports which companion tools are reachable |
 | `radin-setup-hooks` | Wires up per-repo hooks/MCP config for companion tools |
 | `radin-stats` | Shows each installed companion tool's own stats/gain output, side by side |
@@ -114,9 +116,9 @@ Log something raised mid-conversation, before it gets lost.
 /radin-record log the auth timeout bug we just found
 ```
 
-Result: a new `### <title>` entry appended under `## fix` in `BACKLOG.md`,
-with the bug described in enough detail for a future session to act on it
-with no other context.
+Result: a new `fix`-classified task added to the backlog, with the bug
+described in enough detail for a future session to act on it with no other
+context.
 
 #### `radin-plan`
 
@@ -132,7 +134,7 @@ Result: one plan file per plan under
 `.claude/.radin/plans/` at the repo root (more than one if the entry
 was split), each reviewed with `/thermo-nuclear` and `/ponytail-review`
 before handoff — any findings are fixed directly in the plan file — and a
-`**Plan:** <path>` line appended to the entry in `BACKLOG.md` per plan
+`**Plan:** <path>` line appended to the task's own backlog file per plan
 produced.
 
 #### `radin-execute`
@@ -148,7 +150,7 @@ through `/radin-plan` first.
 ```
 
 Result: each entry is implemented and committed in its own commit. Finished
-entries are removed from `BACKLOG.md`; failed ones stay, marked for retry.
+entries are removed from the backlog; failed ones stay, marked for retry.
 At the end it can optionally run a `/thermo-nuclear` review of the session
 and log the findings back to the backlog as new entries.
 
@@ -162,9 +164,8 @@ backlog instead of printing them to the terminal.
 ```
 
 Also accepts a commit hash, a directory path, or a natural-language range
-like `"commits since Monday"`. Result: one `BACKLOG.md` entry per finding,
-classified as `fix` (a real bug) or `refactor` (structural), under the
-matching section.
+like `"commits since Monday"`. Result: one backlog task per finding,
+classified as `fix` (a real bug) or `refactor` (structural).
 
 #### `radin-setup-hooks`
 

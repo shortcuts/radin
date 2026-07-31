@@ -8,21 +8,22 @@ the start of its Phase 1, `radin-plan` at the start of its Step 2. Only
 `radin-plan` is scoped to a single entry a caller points it at, so it has
 nothing to prioritize and no state file of its own.
 
-## Parsing `$BACKLOG_FILE`
+## Parsing the backlog
 
-1. Don't parse entry boundaries yourself — the backlog CLI computes them:
+1. Don't parse entries yourself — the backlog CLI resolves them:
 
    ```bash
    bash "$HOME/.claude/.radin/lib/radin-backlog.sh" list
    ```
 
-   One `line_start<TAB>line_end<TAB>title` line per entry, across all
-   category sections (`## feat`, `## fix`, `## chore`, `## refactor`).
-   Everything in a span — prose, lists, code blocks, `**Plan:**` lines —
-   belongs to that entry.
-2. Read each entry's body from those lines. The title line alone is never
-   the task: the body underneath it is the actual scope. Category doesn't
-   set priority by itself; consider every section.
+   One `id<TAB>category<TAB>title<TAB>file` line per task, across all
+   categories (`feat`, `fix`, `chore`, `refactor`). Each task's full body —
+   prose, lists, code blocks, `**Plan:**` lines — lives in its own file at
+   `$BACKLOG_TASKS_DIR/<id>.md`, or read them all at once with
+   `radin-backlog.sh show`.
+2. Read each task's body from its file. The title alone is never the task:
+   the body underneath it is the actual scope. Category doesn't set
+   priority by itself; consider every task.
 
 ## Priority criteria (in order of weight)
 
@@ -53,8 +54,6 @@ Write the prioritized list to `radin-execute`'s state file
   {
     "id": "add-route-exports",
     "order": 1,
-    "line_start": 42,
-    "line_end": 58,
     "status": "pending",
     "depends_on": [],
     "note": ""
@@ -65,6 +64,11 @@ Write the prioritized list to `radin-execute`'s state file
 Ensure:
 
 - The target directory (created in Phase 0) exists
+- `id` is the task's id as printed by `radin-backlog.sh list`/`find` — its
+  file is always `$BACKLOG_TASKS_DIR/<id>.md`, so no line numbers or other
+  location bookkeeping is needed here; a task's file path can never go
+  stale, since inserting into one task's file (e.g. `radin-plan`'s
+  `**Plan:**` line) can never affect another task's file
 - `depends_on` lists the `id`s of other tasks in this same file whose result
   this task's plan or implementation assumes (per the dependency-order
   criterion above) — empty when there's no overlap. This is what the
@@ -78,8 +82,5 @@ Ensure:
   tell the user what went wrong and how to recover. For `blocked` entries, set
   it to the decision question, the candidate options, and the agent's
   recommendation — the final summary asks the user to decide
-- Never store the full task text; `$BACKLOG_FILE` remains the source of truth
-- `line_start` and `line_end` must point to the task's current location in
-  `$BACKLOG_FILE` — for any agent that inserts text into earlier entries
-  (e.g. `radin-plan`'s `**Plan:**` line), re-read these fresh each loop
-  iteration, since that shifts line numbers for everything below
+- Never store the full task text; `$BACKLOG_TASKS_DIR/<id>.md` remains the
+  source of truth for that task's body

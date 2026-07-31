@@ -2,14 +2,14 @@
 name: radin-review
 description: |
   Run a thermo-nuclear code quality review over a scope (commit, PR, directory,
-  or a range like "since yesterday") and log each finding as a BACKLOG.md entry
+  or a range like "since yesterday") and log each finding as a backlog entry
   instead of printing to terminal. Use for /radin-review, "review and log to
   backlog", "audit this commit/PR/directory and file backlog entries", "turn
   this review into a backlog".
 ---
 # Review to Backlog
 
-Run `/thermo-nuclear` code quality review against caller-specified scope, persist every finding as structured entry in `BACKLOG.md` instead of just printing to terminal. Turns one-off strict review into durable backlog `radin-execute` (or human) can work through later.
+Run `/thermo-nuclear` code quality review against caller-specified scope, persist every finding as a structured backlog entry instead of just printing to terminal. Turns one-off strict review into durable backlog `radin-execute` (or human) can work through later.
 
 ## Step 1: Resolve scope argument
 
@@ -40,8 +40,8 @@ State resolved scope back in one line before proceeding, e.g.:
 
 Backlog writes go through the shared CLI at
 `$HOME/.claude/.radin/lib/radin-backlog.sh` — it resolves the per-project
-backlog path itself; never hand-edit `BACKLOG.md`. Record a baseline now so
-you can report net-new findings at the end:
+backlog paths itself; never hand-edit the index or a task file. Record a
+baseline now so you can report net-new findings at the end:
 
 ```bash
 bash "$HOME/.claude/.radin/lib/radin-backlog.sh" show 2>/dev/null | wc -l
@@ -65,7 +65,7 @@ commit/PR/range (diff scope), `/ponytail-audit` for a directory (whole-tree scop
 hunts a different axis than thermo-nuclear (over-engineering, dead flexibility,
 reinvented stdlib/native code) and is meant to complement it, not duplicate it.
 
-## Step 4: Log every finding to BACKLOG.md
+## Step 4: Log every finding to the backlog
 
 For each finding review surfaces, classify it:
 
@@ -108,7 +108,7 @@ Tell user:
 
 - Resolved scope reviewed.
 - How many findings logged (net-new lines/entries vs. Step 2 baseline).
-- Path to `BACKLOG.md` written.
+- Path to the backlog index written to.
 - Zero findings: say clearly the review passed both thermo-nuclear's and ponytail's
   approval bar with no logged issues — don't write an empty entry just to prove the
   skill ran.

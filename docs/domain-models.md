@@ -1,76 +1,85 @@
 # Domain Models
 
-## `BACKLOG.md` entry format
+## Backlog entry format (`index.jsonl` + task files)
 
 `docs/schemas/backlog-entry.schema.json` is the formal contract (JSON Schema,
 draft-07). It documents the shape every radin agent/skill must produce when
-reading or appending to `$BACKLOG_FILE` — read it before changing this
+reading or appending to the backlog — read it before changing this
 structure or adding a new entry-producing skill. It's repo-internal
 reference only: it doesn't ship to consumers, so every agent/skill embeds
-its concrete markdown format inline instead of reading the schema file at
-runtime.
+its concrete shape inline instead of reading the schema file at runtime.
 
-`$BACKLOG_FILE` is organized into top-level semver-style category sections —
-`feat`, `fix`, `chore`, `refactor` — the same vocabulary as a
-conventional-commit type. A section exists only once it has its first entry
-(an empty backlog has none). When you create one, insert it in canonical
-order (feat → fix → chore → refactor) relative to whichever sections already
-exist. There's no per-entry bracket tag anymore — an entry's category is
-just whichever `##` section it lives under:
+The backlog lives at `<repo-root>/.claude/.radin/backlog/`: an
+`index.jsonl` file (one compact JSON object per line, one per task) plus a
+`tasks/` directory holding one markdown file per task. A task's category —
+`feat`, `fix`, `chore`, `refactor`, the same vocabulary as a
+conventional-commit type — is a field on its index line, not a section
+heading; there's no per-entry bracket tag. `radin-backlog.sh show`
+reconstructs the old grouped-by-category markdown view for humans, in
+canonical order (feat → fix → chore → refactor), but that's a rendering,
+not the storage.
+
+One index line:
+
+```json
+{"id":"add-route-exports","category":"feat","title":"Add route exports","file":"tasks/add-route-exports.md"}
+```
+
+`id` is a slug derived from the title when the task is created (deduped
+with a `-2`/`-3` suffix on collision) — it never changes afterward, even if
+the title text is later edited, so it's the stable key `depends_on`
+(`docs/domain-models.md`'s state schema, below) and `radin-plan`/
+`radin-execute` key off. `file` is always `tasks/<id>.md`, relative to the
+`backlog/` directory.
+
+The task's file (`$BACKLOG_TASKS_DIR/<id>.md`) holds everything that used
+to live under a `### title` heading's span: description prose, lists, code
+blocks, and any `**Plan:**` pointer lines — this is what
+`radin-execute`/`radin-plan` read as the task's scope.
 
 ```
-## feat
-
-### <short title>
 <as exhaustive a description as the situation warrants — what the change is,
 why it matters, affected files/areas if known, acceptance criteria if
 known. radin-execute/radin-plan derive scope and priority entirely from
 this text, so write enough that a sub-agent given only this entry, with no
 other session context, could act on it correctly.>
-
-## fix
-
-### <short title>
-<description, same bar as above>
 ```
-
-An entry spans from its `### title` line to the line before the next `###`
-or `##` heading (or end of file). Everything in that span — prose, lists,
-code blocks, `**Plan:**` lines, deeper `####`+ headings — belongs to that
-entry, and is what `radin-execute`/`radin-plan` read as the task's scope.
-The title is only the lookup key.
 
 Every radin agent/skill that appends an entry — `radin-review` (code-review
 findings, usually `fix` for an actual bug or `refactor` for a structural
 finding), `radin-record` (feedback/bugs/follow-ups/ideas surfaced in
 conversation), `radin-execute`/`radin-plan` (their own backlog
 grooming) — classifies into one of these four categories and writes the
-same `### title` + description shape. None of them invent a fifth category
-or a per-entry tag on top of the section.
+same title + description shape via `radin-backlog.sh add`. None of them
+invent a fifth category or a per-entry tag on top of it.
 
-Once `radin-plan` processes an entry, it appends one more line after the
-entry's description:
+Once `radin-plan` processes a task, it appends one more line to that
+task's own file:
 
 ```
 **Plan:** <path to plan file>
 ```
 
 `radin-plan` (a skill, not an agent — it runs inline in whichever context
-invokes it) runs scoped to a single entry, not the whole backlog — the
-caller points it at one task. If it judges that task's scope broad enough to
-split into independent sub-tasks, and the user confirms the split, it writes
-one plan file per sub-task and appends one `**Plan:**` line per plan, in
-order, instead of just one.
+invokes it) runs scoped to a single task, not the whole backlog — the
+caller points it at one task by id or title. If it judges that task's
+scope broad enough to split into independent sub-tasks, and the user
+confirms the split, it appends one `**Plan:**` line per plan, in order,
+to that same file instead of just one.
 
 ## Migration note
 
-Earlier revisions of this file described a bracket-tag scheme
-(`## [Thermo-Nuclear Review] <title>` with `**Scope:**`/`**Location:**`/
+Earlier revisions of this file described a single monolithic
+`<repo-root>/.claude/.radin/BACKLOG.md`, addressed by `### title` headings
+and line-number spans (before that, a bracket-tag scheme with
+`## [Thermo-Nuclear Review] <title>`/`**Scope:**`/`**Location:**`/
 `**Finding:**`/`**Preferred remedy:**` fields, and a separate
 `## [Bug]`/`[Follow-up]`/`[Idea]`/`[Feedback]` scheme for `radin-record`).
-The single feat/fix/chore/refactor scheme above replaces it. Existing
-`BACKLOG.md` files written under the old scheme aren't migrated
-automatically — new entries just use the new shape going forward.
+The `index.jsonl` + per-task-file scheme above replaces it: splitting each
+task into its own file means no radin agent/skill ever addresses backlog
+content by line number again. Existing `BACKLOG.md` files written under
+any earlier scheme aren't migrated automatically — finish or manually
+split an old-format backlog before upgrading.
 
 ## Plan-file format (`radin-plan` output)
 
@@ -85,14 +94,16 @@ schema — sub-agents write it, `radin-execute` (or a human) reads it.
   {
     "id": "add-route-exports",
     "order": 1,
-    "line_start": 42,
-    "line_end": 58,
     "status": "pending",
     "depends_on": [],
     "note": ""
   }
 ]
 ```
+
+`id` matches the task's id in `index.jsonl` — its file is always
+`$BACKLOG_TASKS_DIR/<id>.md`, so this schema no longer carries a line
+range: a task's file path is fixed at creation and never goes stale.
 
 `radin-execute`'s only state file — `radin-plan` is a skill that runs inline
 within one conversation, so it re-resolves a sub-task list each time instead
@@ -112,11 +123,8 @@ of persisting one to disk.
 - A `failed` or `blocked` entry never blocks the execution loop from reaching
   Phase 4 — the loop exits once no `pending` entries remain, not only when the
   array is empty.
-- Never stores the full task text. `BACKLOG.md` (i.e. `$BACKLOG_FILE`) stays
-  the source of truth.
-- `line_start`/`line_end` point into the live `$BACKLOG_FILE`. `radin-execute`
-  re-resolves them fresh each loop iteration, since inserting a `**Plan:**`
-  line shifts every line below it.
+- Never stores the full task text. `$BACKLOG_TASKS_DIR/<id>.md` stays the
+  source of truth for each task's body.
 
 ## Completed-task log (`completed.json`)
 

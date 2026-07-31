@@ -2,8 +2,8 @@
 name: radin-record
 description: |
   Log feedback, bugs, follow-ups, or ideas raised mid-session as structured
-  BACKLOG.md entries, so they survive past the conversation. Use for
-  /radin-record, "log this to BACKLOG.md", "add as follow-up/bug/idea",
+  backlog entries, so they survive past the conversation. Use for
+  /radin-record, "log this to the backlog", "add as follow-up/bug/idea",
   "record what we just found", "note this for later", "add findings to
   backlog". Triggers even on vague asks ("add the findings") — scan the
   whole session, not just the literal text.
@@ -11,7 +11,7 @@ description: |
 # Record to Backlog
 
 Turn feedback, bugs, follow-ups, or ideas raised during a live session into
-structured entries in `BACKLOG.md`, so they survive past the conversation
+structured entries in the backlog, so they survive past the conversation
 that surfaced them. This is the capture step for everything that isn't a
 code-review finding — things a human said, not things a diff revealed.
 `radin-review` logs code-review findings instead. `radin-plan` and
@@ -19,9 +19,9 @@ code-review finding — things a human said, not things a diff revealed.
 
 All backlog writes go through the shared CLI at
 `$HOME/.claude/.radin/lib/radin-backlog.sh` — it resolves the per-project
-namespace (`<repo-root>/.claude/.radin/BACKLOG.md`), creates the file and
-category sections, and appends entries deterministically. Never hand-edit
-`BACKLOG.md` or compute its path yourself.
+namespace (`<repo-root>/.claude/.radin/backlog/`, a JSONL index plus one
+markdown file per task), and appends entries deterministically. Never
+hand-edit the index or a task file, or compute their paths yourself.
 
 ## Step 1: Decide what to log
 
@@ -52,7 +52,7 @@ sequential tasks.
 ## Step 2: Classify each item and note dependencies
 
 For each item, before writing it: does landing it require another item in
-this same batch (or a task already sitting in `BACKLOG.md`) to land first?
+this same batch (or a task already sitting in the backlog) to land first?
 Same signal `radin-execute` and `radin-plan` already use — same file,
 function, or behavior touched by both, or the item explicitly builds on the
 other. If so, the dependent entry's description must name the other entry's
@@ -96,7 +96,7 @@ EOF
 The CLI handles file creation, section ordering, and appending — you only
 supply category, title, and body.
 
-Always append — don't scan `BACKLOG.md` for near-duplicates or try to merge
+Always append — don't scan the backlog for near-duplicates or try to merge
 with an existing entry; let `radin-execute`/`radin-plan` or a human
 dedupe later, since a false-positive merge silently drops something the
 user cared about, which is worse than an occasional repeated entry.

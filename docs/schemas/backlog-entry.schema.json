@@ -1,49 +1,37 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://github.com/shortcuts/radin/docs/schemas/backlog-entry.schema.json",
-  "title": "BACKLOG.md structure",
-  "description": "Canonical shape of $BACKLOG_FILE, used by every radin agent/skill that reads or appends to it (radin-review, radin-record, radin-orchestrator, radin-plan). This schema documents the contract in JSON form for radin contributors — it is not read at runtime; each agent/skill embeds the concrete markdown format matching this schema directly in its own instructions, since installed skills/agents run in consumer repos that never receive this docs/ directory.",
-  "type": "object",
-  "properties": {
-    "sections": {
-      "type": "array",
-      "description": "Top-level '## <category>' sections, in canonical order feat -> fix -> chore -> refactor. A section is created only once it has its first entry; an empty backlog file has none. There is exactly one section per category — never split the same category across two headings.",
-      "items": {
-        "type": "object",
-        "required": ["category", "entries"],
-        "properties": {
-          "category": {
-            "type": "string",
-            "enum": ["feat", "fix", "chore", "refactor"],
-            "description": "Semver-style change type, same vocabulary as a conventional-commit type. Determines which section an entry lives under — there is no per-entry bracket tag anymore."
-          },
-          "entries": {
-            "type": "array",
-            "items": { "$ref": "#/definitions/entry" }
-          }
-        }
-      }
-    }
-  },
+  "title": "Backlog storage shape",
+  "description": "Canonical shape of a project's backlog, used by every radin agent/skill that reads or appends to it (radin-review, radin-record, radin-execute, radin-plan). This schema documents the contract in JSON form for radin contributors — it is not read at runtime; each agent/skill embeds the concrete shape matching this schema directly in its own instructions, since installed skills/agents run in consumer repos that never receive this docs/ directory. Storage is $NAMESPACE_DIR/backlog/index.jsonl (one 'indexLine' object per line, JSON Lines not a JSON array) plus one 'taskFile' per task under $NAMESPACE_DIR/backlog/tasks/.",
   "definitions": {
-    "entry": {
+    "indexLine": {
       "type": "object",
-      "required": ["title", "description"],
+      "description": "One line of index.jsonl, one line per task, in no particular order (category grouping/order is a presentation concern `radin-backlog.sh show` applies at render time, not a storage concern).",
+      "required": ["id", "category", "title", "file"],
       "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*(-[0-9]+)?$",
+          "description": "Slug derived from the title when the task is created by `radin-backlog.sh add`, deduped with a numeric suffix on collision. Stable for the task's lifetime, even if the title is later edited — this is the key `depends_on` and radin-plan/radin-execute use, never the title."
+        },
+        "category": {
+          "type": "string",
+          "enum": ["feat", "fix", "chore", "refactor"],
+          "description": "Semver-style change type, same vocabulary as a conventional-commit type. There is no per-entry bracket tag on top of this."
+        },
         "title": {
           "type": "string",
-          "description": "Heading text: '### <title>', directly under its category's '##' section."
+          "description": "Human-readable heading text, used for display and as a fallback lookup key (exact then case-insensitive substring) when a caller doesn't have the id."
         },
-        "description": {
+        "file": {
           "type": "string",
-          "description": "Free-form prose beneath the title heading. Must be as exhaustive as the situation warrants — what the change is, why it matters, affected files/areas if known, acceptance criteria if known. radin-orchestrator/radin-plan derive scope and priority entirely from this text, so a thin one-liner starves them of what they need; write enough that a sub-agent picking up only this entry (no other session context) could act on it correctly."
-        },
-        "plan": {
-          "type": "array",
-          "items": { "type": "string" },
-          "description": "Optional trailing line(s) appended by radin-plan after it plans this entry: '**Plan:** <path>'. Normally one line; more than one means radin-plan judged the entry's scope broad enough to split into independent sub-plans, and the user confirmed the split. Valid on an entry of any category."
+          "description": "Always \"tasks/<id>.md\", relative to the backlog/ directory. Points at the matching taskFile."
         }
       }
+    },
+    "taskFile": {
+      "type": "string",
+      "description": "Free-form markdown at $BACKLOG_TASKS_DIR/<id>.md: the task's description, as exhaustive as the situation warrants — what the change is, why it matters, affected files/areas if known, acceptance criteria if known. radin-execute/radin-plan derive scope and priority entirely from this text, so a thin one-liner starves them of what they need; write enough that a sub-agent picking up only this file (no other session context) could act on it correctly. May end with one or more '**Plan:** <path>' lines, appended by radin-plan after it plans this task (more than one means radin-plan judged the task's scope broad enough to split into independent sub-plans, and the user confirmed the split). Splitting each task into its own file means inserting a **Plan:** line here can never shift or otherwise affect any other task's file."
     }
   }
 }

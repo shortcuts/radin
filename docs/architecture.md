@@ -14,7 +14,10 @@ target repo, in one directory at the repo root:
 
 ```
 <repo-root>/.claude/.radin/
-  BACKLOG.md                    # backlog, source of truth
+  backlog/
+    index.jsonl                  # backlog index, source of truth: one JSON object per task
+    tasks/
+      <task-id>.md                # one file per task: description + any **Plan:** lines
   state/
     BACKLOG_STEPS.json          # radin-execute execution plan
     completed.json               # radin-execute completed-task -> commit log
@@ -23,6 +26,15 @@ target repo, in one directory at the repo root:
   reviews/
     <review-name>.md            # radin-review / thermo-nuclear output
 ```
+
+Splitting each task into its own file (rather than one monolithic
+markdown document) means no radin agent/skill ever addresses backlog
+content by line number: a `**Plan:**` insertion into one task's file
+cannot affect any other task's file. `index.jsonl` is JSON Lines (one
+compact object per line: `{"id":...,"category":...,"title":...,"file":...}`)
+rather than a single JSON array, since bash 3.2 has no JSON parser and the
+project has no `jq` dependency — one-object-per-line keeps every CLI
+operation a grep/sed one-liner.
 
 Outside any git repo, the current directory takes the repo root's place.
 
@@ -47,21 +59,28 @@ bash "$HOME/.claude/.radin/lib/radin-backlog.sh" <env|show|find|add|add-plan|rem
 
 - `env` — namespace resolution (delegates to `lib/radin-namespace.sh`, the
   single source of truth for the path logic; prints `REPO_ROOT`,
-  `NAMESPACE_DIR`, `BACKLOG_FILE`)
-- `show [category]` — print the backlog, or one `##` section
-- `list` — print `line_start<TAB>line_end<TAB>title` for every entry
-- `find <title>` — locate an entry, print `line_start<TAB>line_end<TAB>title`
-  per match (exact title first, else case-insensitive substring)
-- `add <category> <title>` — append an entry (body on stdin); creates the
-  file and its category section in canonical order
-- `add-plan <title> <path>` — insert a `**Plan:**` pointer into an entry
-- `remove <title>` — delete an entry (exact single match required)
+  `NAMESPACE_DIR`, `BACKLOG_INDEX`, `BACKLOG_TASKS_DIR`)
+- `show [category]` — render the backlog as markdown (all tasks, or one
+  category), reconstructed from `index.jsonl` + each task's file
+- `list` — print `id<TAB>category<TAB>title<TAB>file` for every task
+- `find <id-or-title>` — locate a task, print `id<TAB>category<TAB>title<TAB>file`
+  per match (exact id first, then exact title, else case-insensitive
+  substring on title)
+- `add <category> <title>` — create a task (body on stdin): slugifies the
+  title into an id (deduped on collision), writes its file, appends one
+  line to the index
+- `add-plan <id-or-title> <path>` — append a `**Plan:**` pointer to the
+  task's own file
+- `remove <id-or-title>` — delete a task's file and its index line (exact
+  single match required)
 
-The point is offloading: entry location, section ordering, span math, and
-plan-pointer insertion are deterministic text operations the model used to
-re-derive from prose rules on every run. The CLI does them exactly, and the
-agents/skills only supply judgment (what to log, how to classify, what to
-plan).
+The point is offloading: id assignment, task lookup, and plan-pointer
+insertion are deterministic operations the model used to re-derive from
+prose rules on every run. The CLI does them exactly, and the agents/skills
+only supply judgment (what to log, how to classify, what to plan). A task's
+file path is always `$BACKLOG_TASKS_DIR/<id>.md` — never computed from a
+stored line number, so nothing here goes stale as the backlog changes
+shape around it.
 
 `install.sh` copies `lib/radin-namespace.sh` and `lib/radin-backlog.sh` to
 `~/.claude/.radin/lib/`. A consumer install never has this repo's `lib/`
@@ -75,9 +94,9 @@ REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || true)
 NAMESPACE_DIR="$REPO_ROOT/.claude/.radin"
 ```
 
-It creates `state/`, `plans/`, and `reviews/` under `$NAMESPACE_DIR`, then
-prints the three variables with `printf %q` so the output stays source-able
-even when the repo path contains spaces.
+It creates `state/`, `plans/`, `reviews/`, and `backlog/tasks/` under
+`$NAMESPACE_DIR`, then prints the four variables with `printf %q` so the
+output stays source-able even when the repo path contains spaces.
 
 `radin-execute` and the `radin-plan` skill also share `lib/radin-prioritization.md`
 — the single source of truth for backlog parsing rules, task priority

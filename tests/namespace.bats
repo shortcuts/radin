@@ -19,23 +19,25 @@ teardown() {
   mkdir -p "$WORK/proj/sub"
   run bash -c "cd '$WORK/proj/sub' && bash '$NS_SCRIPT'"
   [ "$status" -eq 0 ]
-  [[ "$output" == *"BACKLOG_FILE=$WORK/proj/.claude/.radin/BACKLOG.md"* ]]
+  [[ "$output" == *"BACKLOG_INDEX=$WORK/proj/.claude/.radin/backlog/index.jsonl"* ]]
+  [[ "$output" == *"BACKLOG_TASKS_DIR=$WORK/proj/.claude/.radin/backlog/tasks"* ]]
   [ -d "$WORK/proj/.claude/.radin/state" ]
   [ -d "$WORK/proj/.claude/.radin/plans" ]
   [ -d "$WORK/proj/.claude/.radin/reviews" ]
+  [ -d "$WORK/proj/.claude/.radin/backlog/tasks" ]
 }
 
 @test "falls back to \$PWD outside any git repo" {
   mkdir -p "$WORK/plain"
   run bash -c "cd '$WORK/plain' && bash '$NS_SCRIPT'"
   [ "$status" -eq 0 ]
-  [[ "$output" == *"BACKLOG_FILE=$WORK/plain/.claude/.radin/BACKLOG.md"* ]]
+  [[ "$output" == *"BACKLOG_INDEX=$WORK/plain/.claude/.radin/backlog/index.jsonl"* ]]
   [ -d "$WORK/plain/.claude/.radin/state" ]
 }
 
 @test "output stays source-able when the repo path contains spaces" {
   git init -q "$WORK/my proj"
-  run bash -c "cd '$WORK/my proj' && source <(bash '$NS_SCRIPT' | sed 's/^/export /') && printf '%s' \"\$BACKLOG_FILE\""
+  run bash -c "cd '$WORK/my proj' && source <(bash '$NS_SCRIPT' | sed 's/^/export /') && printf '%s' \"\$BACKLOG_INDEX\""
   [ "$status" -eq 0 ]
-  [ "$output" = "$WORK/my proj/.claude/.radin/BACKLOG.md" ]
+  [ "$output" = "$WORK/my proj/.claude/.radin/backlog/index.jsonl" ]
 }

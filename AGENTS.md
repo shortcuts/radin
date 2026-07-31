@@ -44,7 +44,10 @@ in one canonical directory at the repo root:
 
 ```
 <repo-root>/.claude/.radin/
-  BACKLOG.md                    # backlog, source of truth
+  backlog/
+    index.jsonl                  # backlog index, source of truth: one JSON object per task
+    tasks/
+      <task-id>.md                # one file per task: description + any **Plan:** lines
   state/
     BACKLOG_STEPS.json          # radin-execute execution plan
     completed.json               # radin-execute completed-task -> commit log
@@ -63,28 +66,31 @@ Every one of `agents/radin-execute.md`, `skills/radin-plan/SKILL.md`,
 `skills/radin-review/SKILL.md`, `skills/radin-record/SKILL.md`, and
 `skills/radin-show/SKILL.md` goes through the shared backlog CLI
 (`lib/radin-backlog.sh`) for namespace resolution and every deterministic
-`BACKLOG.md` operation (locate, append, remove, plan pointers) — the model
-never hand-edits the file's structure.
-Do not reintroduce a root-`BACKLOG.md`, a `~/.claude/.radin/projects/<slug>`
-namespace, or a `.shortcuts/*.json` assumption into any of these files —
-those are the exact schemes this one replaces.
+backlog operation (locate, append, remove, plan pointers) — the model
+never hand-edits `index.jsonl` or a task file directly, and never
+addresses backlog content by line number.
+Do not reintroduce a monolithic `BACKLOG.md`, a
+`~/.claude/.radin/projects/<slug>` namespace, or a `.shortcuts/*.json`
+assumption into any of these files — those are the exact schemes this one
+replaces.
 
-## `BACKLOG.md` entry schema
+## Backlog entry schema
 
 `docs/schemas/backlog-entry.schema.json` is the formal, repo-internal contract
-for `$BACKLOG_FILE`'s structure. Entries live under top-level semver-style
-category sections (`## feat`, `## fix`, `## chore`, `## refactor` — the same
-vocabulary as a conventional-commit type, in that canonical order). Each
-section holds `### title` entries with an exhaustive description underneath,
-plus an optional trailing `**Plan:**` line. There is no per-entry bracket tag
-— category is purely which section an entry lives under.
+for the backlog's structure: `$BACKLOG_INDEX` (`index.jsonl`, one JSON
+object per task) plus one file per task under `$BACKLOG_TASKS_DIR`. Each
+index line carries `id` (a stable slug assigned at creation), `category`
+(`feat`/`fix`/`chore`/`refactor` — the same vocabulary as a
+conventional-commit type; there is no per-entry bracket tag beyond it),
+`title`, and `file`. The matching task file holds the exhaustive
+description, plus an optional trailing `**Plan:**` line.
 
 Read the schema (and the matching section of `docs/domain-models.md`) before
 adding a new category, or before writing a new skill/agent that writes to
-`BACKLOG.md`. The schema is reference only — it never ships to consumers.
-`lib/radin-backlog.sh` (which does ship) enforces the structural half
-(headings, section order, entry spans); each entry-writing skill keeps only
-its body-content guidance inline in its own `SKILL.md`.
+the backlog. The schema is reference only — it never ships to consumers.
+`lib/radin-backlog.sh` (which does ship) enforces the structural half (id
+slugging/dedup, index-line shape, task-file location); each entry-writing
+skill keeps only its body-content guidance inline in its own `SKILL.md`.
 
 ## Adding a new radin skill/agent
 
@@ -95,11 +101,11 @@ reinvent them from scratch.
 1. **Namespace resolution and backlog I/O.** Go through
    `bash "$HOME/.claude/.radin/lib/radin-backlog.sh"` (see
    `docs/architecture.md`'s "Namespace resolution and the backlog CLI"
-   section): `env` for `REPO_ROOT`/`NAMESPACE_DIR`/`BACKLOG_FILE`, and
-   `find`/`add`/`add-plan`/`remove` for entry operations. Don't re-embed
-   path resolution or markdown-surgery logic inline — the CLI is the single
-   source of truth for both.
-2. **`BACKLOG.md` writes.** If the new skill/agent appends entries, use the
+   section): `env` for `REPO_ROOT`/`NAMESPACE_DIR`/`BACKLOG_INDEX`/
+   `BACKLOG_TASKS_DIR`, and `find`/`add`/`add-plan`/`remove` for entry
+   operations. Don't re-embed path resolution or index/task-file surgery
+   inline — the CLI is the single source of truth for both.
+2. **Backlog writes.** If the new skill/agent appends entries, use the
    CLI's `add` and classify into an existing category
    (feat/fix/chore/refactor) — don't invent a fifth. If the shape genuinely
    needs to change, update `lib/radin-backlog.sh`,
@@ -159,7 +165,7 @@ A change isn't done until its affected docs are updated in the same commit.
 | File | Update when |
 | --- | --- |
 | `docs/architecture.md` | Storage scheme, namespace resolution, or plugin file layout changes |
-| `docs/domain-models.md` | `BACKLOG.md` entry format, plan-file format, or state-JSON schema changes |
+| `docs/domain-models.md` | Backlog entry format, plan-file format, or state-JSON schema changes |
 | `install.sh` companion-tool table (README) | A companion tool is added, removed, or renamed |
 | "Tools you get" table (README) | A radin-built skill/agent is added, removed, or renamed |
 | `CHANGELOG.md` | Any user-facing change, on every release |

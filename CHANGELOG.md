@@ -4,6 +4,19 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking:** the backlog is no longer one monolithic `BACKLOG.md`. It's
+  now `.claude/.radin/backlog/index.jsonl` (one JSON object per task) plus
+  one markdown file per task under `.claude/.radin/backlog/tasks/`. This
+  removes line-number tracking from `radin-execute`/`radin-plan` entirely —
+  a task's file path (`tasks/<id>.md`) never goes stale, since inserting a
+  `**Plan:**` line into one task's file can't affect any other task's.
+  Existing repos with an old-style `BACKLOG.md` are not auto-migrated:
+  finish or manually split it into the new shape before upgrading. Run
+  `/radin-show` to read the backlog as before — it renders the same
+  markdown view from the new storage.
+
 ### Added
 
 - `install.sh` now runs a `python3`/`pyexpat` preflight before the pipx/pip
