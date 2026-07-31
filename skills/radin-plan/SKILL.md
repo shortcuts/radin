@@ -17,11 +17,11 @@ description: |
 # Plan a Backlog Entry
 
 Turn one backlog entry into one or more concrete implementation plans,
-without writing any code. This runs inline in whichever context invokes it,
-so any split judgment or open question surfaces in that conversation. When
-the invoking context cannot reach the user (e.g. radin-execute's planning
-sub-agent), the caller says so and this skill's questions resolve to their
-non-destructive defaults: no split, no overwrite.
+without writing any code. This runs inline in whichever context invokes
+it, so any split judgment or open question surfaces in that conversation.
+When the invoking context cannot reach the user (e.g. radin-execute's
+planning sub-agent), the caller says so. This skill's questions then
+resolve to their non-destructive defaults: no split, no overwrite.
 
 ## Step 1: Resolve project namespace, locate the backlog
 
@@ -54,8 +54,8 @@ bash "$HOME/.claude/.radin/lib/radin-backlog.sh" find "<scope id/title/keyword>"
   non-interactively: don't guess — report the candidates and stop; the
   caller marks the task blocked for the user.
 - **No match** (interactive callers only): this task isn't in the backlog
-  yet. Don't ask the user whether to create one — assume yes, and create it
-  automatically: classify it into `feat`/`fix`/`chore`/`refactor` (see
+  yet. Don't ask the user whether to create one — assume yes and create it
+  automatically. Classify it into `feat`/`fix`/`chore`/`refactor` (see
   `skills/radin-record/SKILL.md`'s classification rubric), then:
 
   ```bash
@@ -107,31 +107,32 @@ For each sub-task, in order:
    sub-task came from a split, its scope is only the one-line description
    recorded in Step 3 — plan just that part.
 2. Explore the codebase as needed: current structure, affected files,
-   existing patterns, constraints. If `code-review-graph` is installed and wired
-   for this repo, use its MCP tools (`semantic_search_nodes`, `get_impact_radius`,
-   `query_graph`) before Grep/Glob/Read — token-efficient structural context beats
-   cold file scanning. When running commands, prefer `rtk`-wrapped commands if
-   `command -v rtk` succeeds for token savings. If the plan hinges on a
-   third-party API's or library's behavior that local code can't confirm,
-   invoke `/research` to verify it against primary sources before planning
-   around it — don't guess at external behavior.
+   existing patterns, constraints. If `code-review-graph` is installed and
+   wired for this repo, use its MCP tools (`semantic_search_nodes`,
+   `get_impact_radius`, `query_graph`) before Grep/Glob/Read — token-efficient
+   structural context beats cold file scanning. When running commands,
+   prefer `rtk`-wrapped commands if `command -v rtk` succeeds, for token
+   savings. If the plan hinges on a third-party API's or library's behavior
+   that local code can't confirm, invoke `/research` to verify it against
+   primary sources before planning around it. Don't guess at external
+   behavior.
 3. Invoke the `/ponytail` skill, then apply its ladder to produce the plan:
    - The minimum files to touch — no speculative scope.
    - The concrete change in each file.
    - Order of operations, where it matters.
    - How to verify the change (tests/checks to run), per the ladder's
      "lazy code without its check is unfinished" rule.
-   Surface any open questions or risks the plan raised — don't silently
+   Surface any open questions or risks the plan raised. Don't silently
    resolve genuine ambiguity. Invoked interactively, invoke the `/grilling`
-   skill on the entry's open aspects instead of interviewing free-form — it
+   skill on the entry's open aspects instead of interviewing free-form. It
    already walks the decision tree one question at a time, leads with a
    recommended answer, defers facts to repo exploration (filesystem,
    code-review-graph, git history) instead of asking, and won't let you
    finalize until shared understanding is confirmed. The plan you hand off
    must leave zero decisions to whoever executes it.
    Invoked non-interactively, an unresolvable question stops the planning
-   run instead — report it rather than writing a plan around it (`/grilling`
-   assumes a live user, so skip it here).
+   run instead. Report it rather than writing a plan around it — `/grilling`
+   assumes a live user, so skip it here.
 4. Save the plan as markdown at `$NAMESPACE_DIR/plans/<sub-task-id>.md`.
 5. Insert the pointer via the CLI — it locates the task's file and appends
    `**Plan:** <path>` to it (after any earlier `**Plan:**` lines):
@@ -151,9 +152,9 @@ point in this skill.
 
 ## Step 4.5: Review each plan before handing it off
 
-A plan is still just a proposal — catch structural problems in it before
-`radin-execute` builds on top of it, the same way a diff gets reviewed before
-merge. For each plan file just written:
+A plan is still just a proposal. Catch structural problems in it before
+`radin-execute` builds on top of it, the same way a diff gets reviewed
+before merge. For each plan file just written:
 
 1. Invoke `/thermo-nuclear` against the plan file's content (not the
    codebase) — does the proposed approach itself have a spaghetti shape, a
@@ -165,9 +166,9 @@ merge. For each plan file just written:
    caller?
 3. For each finding either pass raises, edit the plan file in place to fix
    it — the plan file itself is the only artifact that needs to reflect the
-   finding. Don't log anything to the backlog; there's no separate
-   review record to keep, unlike `radin-review`'s scope (a merged commit),
-   this plan hasn't executed yet, so the fix belongs in the plan itself.
+   finding. Don't log anything to the backlog. Unlike `radin-review`'s
+   scope (a merged commit), this plan hasn't executed yet, so there's no
+   separate review record to keep — the fix belongs in the plan itself.
 4. Zero findings from both passes: leave the plan file untouched.
 
 ## Step 5: Report back

@@ -6,17 +6,17 @@ description: Wire up per-repo hooks/MCP config for radin's companion tools (code
 
 `install.sh` installs companion tool *binaries* globally (rtk,
 code-review-graph, caveman). It does not wire per-repo config. That config
-(MCP server registration, hooks, CLAUDE.md instructions) is repo-scoped and
-needs setup once per project. This skill does that setup, for the repo the
-user is currently in.
+— MCP server registration, hooks, CLAUDE.md instructions — is repo-scoped
+and needs setup once per project. This skill does that setup, for the repo
+the user is currently in.
 
 ## Scope
 
 Only `code-review-graph` needs this step today. `caveman` is a Claude Code
-plugin — its hooks register globally at plugin-install time, nothing
-repo-scoped to do. `rtk` is a CLI with no hook/MCP wiring. If radin adds
-more per-repo-wired companion tools later, extend this skill rather than
-write a new one.
+plugin — its hooks register globally at plugin-install time, so there's
+nothing repo-scoped to do. `rtk` is a CLI with no hook/MCP wiring. If
+radin adds more per-repo-wired companion tools later, extend this skill
+rather than write a new one.
 
 ## Steps
 

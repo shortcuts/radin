@@ -11,16 +11,16 @@ description: |
 # Record to Backlog
 
 Turn feedback, bugs, follow-ups, or ideas raised during a live session into
-structured entries in the backlog, so they survive past the conversation
-that surfaced them. This is the capture step for everything that isn't a
+structured backlog entries. This lets them survive past the conversation
+that surfaced them. It is the capture step for everything that isn't a
 code-review finding — things a human said, not things a diff revealed.
 `radin-review` logs code-review findings instead. `radin-plan` and
 `radin-execute` consume the backlog afterward.
 
 All backlog writes go through the shared CLI at
-`$HOME/.claude/.radin/lib/radin-backlog.sh` — it resolves the per-project
+`$HOME/.claude/.radin/lib/radin-backlog.sh`. It resolves the per-project
 namespace (`<repo-root>/.claude/.radin/backlog/`, a JSONL index plus one
-markdown file per task), and appends entries deterministically. Never
+markdown file per task) and appends entries deterministically. Never
 hand-edit the index or a task file, or compute their paths yourself.
 
 ## Step 1: Decide what to log
@@ -42,26 +42,26 @@ Either way, stay faithful to what was actually said. This is a capture tool,
 not a brainstorming one — don't invent items the conversation didn't raise,
 and don't editorialize on top of what the user said.
 
-If a single thing raised in conversation is broad enough that it's really
-two or more sequential pieces of work (e.g. "add rate limiting on top of the
-new auth middleware" — the middleware has to exist first), log each piece as
-its own entry rather than one entry hiding two tasks. Splitting is about the
-work's shape, not the user's phrasing — a single sentence can still name two
-sequential tasks.
+A single thing raised in conversation can be broad enough that it's really
+two or more sequential pieces of work — e.g. "add rate limiting on top of
+the new auth middleware" needs the middleware to exist first. Log each
+piece as its own entry; don't let one entry hide two tasks. Splitting is
+about the work's shape, not the user's phrasing — a single sentence can
+still name two sequential tasks.
 
 ## Step 2: Classify each item and note dependencies
 
-For each item, before writing it: does landing it require another item in
-this same batch (or a task already sitting in the backlog) to land first?
-Same signal `radin-execute` and `radin-plan` already use — same file,
+Before writing each item, ask: does landing it require another item in this
+same batch (or a task already in the backlog) to land first? Use the same
+signal `radin-execute` and `radin-plan` already use: the same file,
 function, or behavior touched by both, or the item explicitly builds on the
-other. If so, the dependent entry's description must name the other entry's
-exact title and say why it has to come first (e.g. "Depends on the '<other
-title>' entry — needs the endpoint it adds before this can call it."). This
-is plain prose, not a special tag: `radin-execute`'s prioritization step
-reads entry bodies for exactly this kind of signal when ordering the
-backlog, so leaving it out of the text means the dependency is invisible to
-it later.
+other. If so, the dependent entry's description must name the other
+entry's exact title and say why it has to come first — e.g. "Depends on
+the '<other title>' entry — needs the endpoint it adds before this can
+call it." This is plain prose, not a special tag. `radin-execute`'s
+prioritization step reads entry bodies for exactly this kind of signal
+when ordering the backlog. Leaving it out of the text makes the dependency
+invisible to it later.
 
 Classify each item into exactly one category (same vocabulary as a
 conventional-commit type):
@@ -96,10 +96,10 @@ EOF
 The CLI handles file creation, section ordering, and appending — you only
 supply category, title, and body.
 
-Always append — don't scan the backlog for near-duplicates or try to merge
-with an existing entry; let `radin-execute`/`radin-plan` or a human
-dedupe later, since a false-positive merge silently drops something the
-user cared about, which is worse than an occasional repeated entry.
+Always append. Don't scan the backlog for near-duplicates or try to merge
+with an existing entry — let `radin-execute`/`radin-plan` or a human dedupe
+later. A false-positive merge silently drops something the user cared
+about, which is worse than an occasional repeated entry.
 
 ## Step 4: Report back
 

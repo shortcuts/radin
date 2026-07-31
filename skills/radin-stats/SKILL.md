@@ -7,10 +7,10 @@ description: |
 ---
 # Stats Roundup
 
-Surface each installed companion tool's own stats/gain command, back to back.
-No merged total: the numbers below use incompatible units (real per-session
-tokens, static benchmark medians, a counted per-repo ledger) — summing them
-would misrepresent all three, so display each as-is instead.
+Surface each installed companion tool's own stats/gain command, back to
+back. No merged total: the numbers below use incompatible units — real
+per-session tokens, static benchmark medians, a counted per-repo ledger.
+Summing them would misrepresent all three, so display each as-is instead.
 
 ## Step 1: Invoke each available source
 
@@ -30,9 +30,9 @@ Any other installed tool with its own `stats`/`gain` command belongs here
 too — add it to this list, don't build a separate skill.
 
 If a source (e.g. `caveman-stats`) finds nothing to report, treat that as a
-normal empty result — one quick check, then move on. Don't keep searching
-for entries that aren't there. This is informative only, not exact/precise
-required.
+normal empty result: one quick check, then move on. Don't keep searching
+for entries that aren't there. This is informative only — it doesn't need
+to be exact.
 
 ## Step 2: Display, don't merge
 

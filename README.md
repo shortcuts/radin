@@ -65,10 +65,10 @@ curl -fsSL https://raw.githubusercontent.com/shortcuts/radin/main/install.sh | b
 
 Your repo's backlog lives inside your repo, at `.claude/.radin/backlog/`
 from the repo root: an index file plus one markdown file per task. Every
-radin tool reads from or writes to it through radin's own CLI — you never
-need to look inside. Run `/radin-show` to read it as plain markdown.
+radin tool reads from or writes to it through radin's own CLI, so you
+never need to look inside. Run `/radin-show` to read it as plain markdown.
 Commit `.claude/.radin/` to share the backlog with your team, or add it to
-`.gitignore` to keep it private — radin never touches your `.gitignore`
+`.gitignore` to keep it private. Radin never touches your `.gitignore`
 either way.
 
 A typical flow:
@@ -99,8 +99,8 @@ A typical flow:
 | `radin-stats` | Shows each installed companion tool's own stats/gain output, side by side |
 | `radin-uninstall` | Removes everything `install.sh` added to `~/.claude` |
 
-Some of these delegate to other skills under the hood, instead of
-reimplementing review or style logic themselves:
+Some of these delegate to other skills instead of reimplementing review or
+style logic themselves:
 
 | Tool | Delegates to |
 | --- | --- |
@@ -130,29 +130,28 @@ and confirms with you before splitting.
 /radin-plan the auth timeout bug
 ```
 
-Result: one plan file per plan under
-`.claude/.radin/plans/` at the repo root (more than one if the entry
-was split), each reviewed with `/thermo-nuclear` and `/ponytail-review`
-before handoff — any findings are fixed directly in the plan file — and a
-`**Plan:** <path>` line appended to the task's own backlog file per plan
-produced.
+Result: one plan file per plan under `.claude/.radin/plans/` at the repo
+root (more than one if the entry was split). Each plan is reviewed with
+`/thermo-nuclear` and `/ponytail-review` before handoff, with any findings
+fixed directly in the plan file, and a `**Plan:** <path>` line appended to
+the task's own backlog file per plan produced.
 
 #### `radin-execute`
 
 Work through the backlog end to end: prioritize, implement, test, commit —
 one entry at a time. Uses an existing plan from `radin-plan` if the entry
-already has one. If not, asks `/ponytail` whether the task is straightforward
-enough to implement directly — only tasks judged genuinely complex go
-through `/radin-plan` first.
+already has one. If not, asks `/ponytail` whether the task is
+straightforward enough to implement directly. Only tasks judged genuinely
+complex go through `/radin-plan` first.
 
 ```
 /radin-execute
 ```
 
-Result: each entry is implemented and committed in its own commit. Finished
-entries are removed from the backlog; failed ones stay, marked for retry.
-At the end it can optionally run a `/thermo-nuclear` review of the session
-and log the findings back to the backlog as new entries.
+Result: each entry is implemented and committed in its own commit.
+Finished entries are removed from the backlog; failed ones stay, marked
+for retry. At the end it can optionally run a `/thermo-nuclear` review of
+the session and log the findings back to the backlog as new entries.
 
 #### `radin-review`
 
@@ -177,8 +176,8 @@ Wire up per-repo config for companion tools — currently just
 ```
 
 Run this once per project, right after `install.sh`, in the repo you want
-wired. It previews the exact files it will touch and asks for confirmation
-before writing anything.
+wired. It previews the exact files it will touch, and asks for
+confirmation before writing anything.
 
 ### Vendored in *(optional)*
 

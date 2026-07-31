@@ -9,7 +9,7 @@ description: |
 ---
 # Review to Backlog
 
-Run `/thermo-nuclear` code quality review against caller-specified scope, persist every finding as a structured backlog entry instead of just printing to terminal. Turns one-off strict review into durable backlog `radin-execute` (or human) can work through later.
+Run `/thermo-nuclear` code quality review against the caller-specified scope, and persist every finding as a structured backlog entry instead of printing to the terminal. This turns a one-off strict review into a durable backlog `radin-execute` (or a human) can work through later.
 
 ## Step 1: Resolve scope argument
 
@@ -30,8 +30,8 @@ User passes one argument, can be any of:
   (`git merge-base main HEAD` or `master`, whichever exists), same default `/code-review`
   would use.
 
-Argument ambiguous (e.g. could be commit hash or directory name, or PR number doesn't
-resolve via `gh`) — ask user, don't guess.
+If the argument is ambiguous (e.g. it could be a commit hash or a directory
+name, or a PR number doesn't resolve via `gh`), ask the user. Don't guess.
 
 State resolved scope back in one line before proceeding, e.g.:
 `Scope: commit a1b2c3d` or `Scope: PR #123 (algolia/foo)` or `Scope: directory src/auth/`.
@@ -49,21 +49,24 @@ bash "$HOME/.claude/.radin/lib/radin-backlog.sh" show 2>/dev/null | wc -l
 
 ## Step 3: Run reviews
 
-If `code-review-graph` is installed and wired for this repo (`command -v code-review-graph`
-succeeds, and its MCP tools are available) use `detect_changes` + `get_review_context`
-against the resolved scope first — risk-scored, token-efficient source context beats
-reading raw diffs/files cold. Not installed or not wired here: fall back to
-`git show`/`git diff`/reading the files directly, same as Step 1's scope resolution.
+If `code-review-graph` is installed and wired for this repo (`command -v
+code-review-graph` succeeds, and its MCP tools are available), use
+`detect_changes` + `get_review_context` against the resolved scope first —
+risk-scored, token-efficient source context beats reading raw diffs/files
+cold. If it's not installed or not wired here, fall back to
+`git show`/`git diff`/reading the files directly, same as Step 1's scope
+resolution.
 
-Invoke `/thermo-nuclear` against the resolved scope. Apply full standards: ambitious
-code-judo restructuring, 1k-line file smell, spaghetti branching, boundary/type
-cleanliness, canonical-layer leaks, orchestration atomicity — see that skill for
-complete rubric. Don't water down for this skill.
+Invoke `/thermo-nuclear` against the resolved scope. Apply full standards:
+ambitious code-judo restructuring, 1k-line file smell, spaghetti branching,
+boundary/type cleanliness, canonical-layer leaks, orchestration atomicity —
+see that skill for the complete rubric. Don't water down for this skill.
 
-Then invoke the ponytail complexity pass over the same scope — `/ponytail-review` for a
-commit/PR/range (diff scope), `/ponytail-audit` for a directory (whole-tree scope). It
-hunts a different axis than thermo-nuclear (over-engineering, dead flexibility,
-reinvented stdlib/native code) and is meant to complement it, not duplicate it.
+Then invoke the ponytail complexity pass over the same scope: `/ponytail-review`
+for a commit/PR/range (diff scope), `/ponytail-audit` for a directory
+(whole-tree scope). It hunts a different axis than thermo-nuclear —
+over-engineering, dead flexibility, reinvented stdlib/native code — and
+complements it rather than duplicating it.
 
 ## Step 4: Log every finding to the backlog
 
@@ -97,10 +100,10 @@ The description under the title should be as exhaustive as the finding
 warrants — `Scope`/`Location`/`Finding`/`Preferred remedy` are that
 description's internal structure, not a separate schema.
 
-Log every finding clearing either pass's bar — thermo-nuclear's or ponytail's — don't
-filter down to only the scariest one, but also don't pad the file with cosmetic nits
-neither skill would have raised itself. One entry per finding, appended in order the
-reviews produced them.
+Log every finding that clears either pass's bar — thermo-nuclear's or
+ponytail's. Don't filter down to only the scariest one, but also don't pad
+the file with cosmetic nits neither skill would have raised itself. One
+entry per finding, appended in the order the reviews produced them.
 
 ## Step 5: Report back
 
@@ -109,6 +112,6 @@ Tell user:
 - Resolved scope reviewed.
 - How many findings logged (net-new lines/entries vs. Step 2 baseline).
 - Path to the backlog index written to.
-- Zero findings: say clearly the review passed both thermo-nuclear's and ponytail's
-  approval bar with no logged issues — don't write an empty entry just to prove the
-  skill ran.
+- Zero findings: say clearly that the review passed both thermo-nuclear's
+  and ponytail's approval bar with no logged issues. Don't write an empty
+  entry just to prove the skill ran.

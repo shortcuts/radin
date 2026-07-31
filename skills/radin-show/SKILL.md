@@ -7,9 +7,9 @@ description: |
 ---
 # Show Backlog
 
-Print the current project's backlog as markdown. Read-only — no other radin
-skill/agent does this; `radin-record`/`radin-review` write to it,
-`radin-plan`/`radin-execute` consume it, this just displays it.
+Print the current project's backlog as markdown. Read-only — no other
+radin skill/agent does this. `radin-record`/`radin-review` write to it.
+`radin-plan`/`radin-execute` consume it. This just displays it.
 
 ## Step 1: Print it
 

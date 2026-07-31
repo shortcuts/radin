@@ -27,24 +27,25 @@ target repo, in one directory at the repo root:
     <review-name>.md            # radin-review / thermo-nuclear output
 ```
 
-Splitting each task into its own file (rather than one monolithic
-markdown document) means no radin agent/skill ever addresses backlog
-content by line number: a `**Plan:**` insertion into one task's file
-cannot affect any other task's file. `index.jsonl` is JSON Lines (one
-compact object per line: `{"id":...,"category":...,"title":...,"file":...}`)
-rather than a single JSON array, since bash 3.2 has no JSON parser and the
-project has no `jq` dependency — one-object-per-line keeps every CLI
-operation a grep/sed one-liner.
+Splitting each task into its own file, rather than one monolithic markdown
+document, means no radin agent/skill ever addresses backlog content by
+line number: a `**Plan:**` insertion into one task's file cannot affect
+any other task's file. `index.jsonl` is JSON Lines — one compact object
+per line, `{"id":...,"category":...,"title":...,"file":...}` — rather than
+a single JSON array. Bash 3.2 has no JSON parser and the project has no
+`jq` dependency, so one-object-per-line keeps every CLI operation a
+grep/sed one-liner.
 
 Outside any git repo, the current directory takes the repo root's place.
 
 This replaced an earlier `~/.claude/.radin/projects/<repo-slug>/` scheme.
-That kept target repos untouched, but the hashed slug was one abstraction
-too many: the agent resolving it (haiku, by default) had to trust an opaque
-mapping instead of a path it can see. In-repo state removes the mapping —
-the backlog is always at `.claude/.radin/` in the repo being worked on, and
-whether to commit or gitignore it is the consumer's call (radin never edits
-`.gitignore`). Old `~/.claude/.radin/projects/` data is not migrated.
+That scheme kept target repos untouched, but the hashed slug was one
+abstraction too many: the agent resolving it (haiku, by default) had to
+trust an opaque mapping instead of a path it can see. In-repo state
+removes the mapping. The backlog is always at `.claude/.radin/` in the
+repo being worked on. Whether to commit or gitignore it is the consumer's
+call — radin never edits `.gitignore`. Old `~/.claude/.radin/projects/`
+data is not migrated.
 
 ## Namespace resolution and the backlog CLI
 
@@ -74,13 +75,13 @@ bash "$HOME/.claude/.radin/lib/radin-backlog.sh" <env|show|find|add|add-plan|rem
 - `remove <id-or-title>` — delete a task's file and its index line (exact
   single match required)
 
-The point is offloading: id assignment, task lookup, and plan-pointer
+The point is offloading. Id assignment, task lookup, and plan-pointer
 insertion are deterministic operations the model used to re-derive from
-prose rules on every run. The CLI does them exactly, and the agents/skills
-only supply judgment (what to log, how to classify, what to plan). A task's
-file path is always `$BACKLOG_TASKS_DIR/<id>.md` — never computed from a
-stored line number, so nothing here goes stale as the backlog changes
-shape around it.
+prose rules on every run. The CLI does them exactly; the agents/skills
+supply only judgment (what to log, how to classify, what to plan). A
+task's file path is always `$BACKLOG_TASKS_DIR/<id>.md`, never computed
+from a stored line number, so nothing here goes stale as the backlog
+changes shape around it.
 
 `install.sh` copies `lib/radin-namespace.sh`, `lib/radin-backlog.sh`, and
 `lib/radin-state.sh` to `~/.claude/.radin/lib/`. A consumer install never
@@ -100,7 +101,7 @@ It creates `state/`, `plans/`, `reviews/`, and `backlog/tasks/` under
 output stays source-able even when the repo path contains spaces.
 
 `radin-execute`'s own state files (`BACKLOG_STEPS.json`, `completed.json`)
-get the same treatment as the backlog: a sibling CLI, `lib/radin-state.sh`,
+get the same treatment as the backlog. A sibling CLI, `lib/radin-state.sh`,
 is the only way the agent mutates either file — never a hand-written JSON
 edit in the agent's own prose.
 
@@ -123,28 +124,29 @@ per line), the same convention as the backlog's `index.jsonl` — a
 single-entry edit never risks another line, and the model never needs to
 parse or rewrite a bracketed JSON array by hand.
 
-`radin-execute` and the `radin-plan` skill also share `lib/radin-prioritization.md`
-— the single source of truth for backlog parsing rules, task priority
-criteria, and the state-file JSON schema. Both read it via
-`$HOME/.claude/.radin/lib/radin-prioritization.md` — `radin-execute` at the
-start of Phase 1, `radin-plan` at the start of its Step 2 — instead of
-embedding their own copy. `radin-execute` uses all of it, to prioritize and
-order the whole backlog. `radin-plan` only uses the parsing section — it's
-scoped to a single entry the caller points it at, not the whole backlog, so
-it has nothing to prioritize and no state file of its own.
+`radin-execute` and the `radin-plan` skill also share
+`lib/radin-prioritization.md`, the single source of truth for backlog
+parsing rules, task priority criteria, and the state-file JSON schema.
+Both read it via `$HOME/.claude/.radin/lib/radin-prioritization.md` —
+`radin-execute` at the start of Phase 1, `radin-plan` at the start of its
+Step 2 — instead of embedding their own copy. `radin-execute` uses all of
+it, to prioritize and order the whole backlog. `radin-plan` uses only the
+parsing section: it's scoped to a single entry the caller points it at,
+not the whole backlog, so it has nothing to prioritize and no state file
+of its own.
 
 `radin-plan` is a skill, not an agent: it runs inline in whichever context
-invokes it. In a user's own conversation it judges whether its one scoped
-entry should split into independent sub-plans, confirming with the user
+invokes it. In a user's own conversation, it judges whether its one scoped
+entry should split into independent sub-plans, confirms with the user
 directly before splitting, then writes a plan file and `**Plan:**` pointer
-per resulting sub-task. `radin-execute` delegates planning to a dedicated
-planning sub-agent that invokes `/radin-plan`, for any task that reaches
-Phase 3 with no `**Plan:**` line yet — planning's codebase exploration
-stays out of the orchestrator's context, and the plan file on disk is the
-handoff to the execution sub-agent. That sub-agent runs non-interactively:
-where the skill would ask for confirmation it takes the non-destructive
-path (no split, no overwrite), and genuine ambiguity marks the task
-`blocked` for the user instead of guessing.
+per resulting sub-task. For any task that reaches Phase 3 with no
+`**Plan:**` line yet, `radin-execute` delegates planning to a dedicated
+planning sub-agent that invokes `/radin-plan`. This keeps planning's
+codebase exploration out of the orchestrator's context — the plan file on
+disk is the handoff to the execution sub-agent. That sub-agent runs
+non-interactively: where the skill would ask for confirmation, it takes
+the non-destructive path (no split, no overwrite), and genuine ambiguity
+marks the task `blocked` for the user instead of guessing.
 
 To update radin itself, re-run `install.sh` — plain `curl | bash`, or
 `./install.sh` from a dev clone. It always re-downloads or re-copies
@@ -165,7 +167,7 @@ confirmation prompts.
 It's a snapshot for external tooling to read, not a live source of truth.
 `radin-doctor.sh` and `radin-uninstall.sh` each keep their own independent
 file list and check the filesystem directly, rather than trusting the
-manifest — a corrupted or stale manifest must never make either of them
+manifest. A corrupted or stale manifest must never make either of them
 report a false "OK" or delete the wrong thing.
 
 ## Plugin repo layout
