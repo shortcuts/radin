@@ -27,8 +27,27 @@ An opinionated agentic stack, one script deep, baking in the most efficient (and
 
 ## Install
 
-> Needs `curl`, `tar`. [Homebrew](https://brew.sh) is optional -- used for
-> companion-tool installs when present, but not required on Linux.
+### Requirements
+
+radin itself only copies files. Companion tools pull in their own stacks,
+each gated behind a `y` prompt.
+
+| For | You need |
+| --- | --- |
+| radin core (agents + skills) | `curl`, `tar`, `bash` |
+| Claude plugins (caveman, ponytail, i-have-adhd) | `claude` CLI |
+| rtk | [Homebrew](https://brew.sh), or `curl` for rtk's own installer |
+| code-review-graph, headroom | `python3` with `pip3` or [`pipx`](https://pipx.pypa.io) |
+
+Homebrew is optional. When present, radin uses it for `rtk`. It is not
+required on Linux.
+
+> **Homebrew Python note (macOS).** A broken `python@3.14` bottle can make
+> every `pip`/`pipx` install fail with a `pyexpat` / `libexpat` symbol error.
+> `install.sh` detects this and prints the fix: `brew reinstall
+> --build-from-source python@3.14`. A plain `brew reinstall` reinstalls the
+> same broken bottle — the `--build-from-source` flag is what relinks Python
+> against Homebrew's `expat`.
 
 ```sh
 # macOS · Linux · WSL

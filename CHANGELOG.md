@@ -6,6 +6,13 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- `install.sh` now runs a `python3`/`pyexpat` preflight before the pipx/pip
+  companion installs (code-review-graph, headroom). A broken Homebrew
+  `python@3.14` bottle previously failed with an opaque `libexpat` symbol
+  traceback. The preflight prints the fix (`brew reinstall
+  --build-from-source python@3.14`) and skips the step instead. README's
+  new "Requirements" table lists every tool's prerequisites and the same
+  Homebrew Python note.
 - `install.sh` offers `headroom` as an optional companion tool, alongside
   rtk/code-review-graph/caveman/i-have-adhd/ponytail. Its Python/pip
   footprint gets an extra confirmation step beyond the normal install

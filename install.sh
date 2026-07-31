@@ -245,6 +245,22 @@ else
 	ok "keeping default models (sonnet top-level, sonnet sub-agents)"
 fi
 
+# Preflight for the pipx/pip-based tools below. A broken Homebrew python bottle
+# (pyexpat linked against Apple's system libexpat, which lacks the symbols brew's
+# expat exports) makes every pip/pipx call die with an opaque dlopen traceback.
+# Probe it once here and print the fix, instead of letting pip dump the stack.
+python_ok() {
+	if python3 -c "import pyexpat" >/dev/null 2>&1; then
+		return 0
+	fi
+	warn "python3 can't import pyexpat -- its Homebrew build links a libexpat"
+	warn "that lacks required symbols. pip/pipx installs will fail. Fix with:"
+	warn "  brew reinstall --build-from-source python@3.14"
+	warn "(a plain 'brew reinstall' pulls the same broken bottle -- the"
+	warn "--build-from-source flag relinks against brew's expat). Then re-run."
+	return 1
+}
+
 step "Companion tools (all optional)"
 # Prefer brew when present (macOS, Linuxbrew). Otherwise delegate to rtk's own
 # installer -- it handles Linux OS/arch detection and checksum verification
@@ -258,7 +274,7 @@ install_if_confirmed "rtk" "rtk" "$RTK_INSTALL_CMD"
 
 # code-review-graph ships on PyPI, not npm -- pipx keeps it in its own venv.
 install_if_confirmed "code-review-graph" "code-review-graph" \
-	"command -v pipx >/dev/null 2>&1 && pipx install code-review-graph || pip3 install --user code-review-graph"
+	"python_ok && { command -v pipx >/dev/null 2>&1 && pipx install code-review-graph || pip3 install --user code-review-graph; }"
 
 # headroom is a heavier Python/pip stack than rtk's static binary or
 # code-review-graph -- gets a second confirmation (install_if_confirmed's
@@ -266,7 +282,7 @@ install_if_confirmed "code-review-graph" "code-review-graph" \
 # wrap vs per-command output compression), not a replacement -- never
 # phrase this as preferred over rtk.
 install_if_confirmed "headroom" "headroom" \
-	"command -v pipx >/dev/null 2>&1 && pipx install headroom-ai || pip3 install --user headroom-ai" \
+	"python_ok && { command -v pipx >/dev/null 2>&1 && pipx install headroom-ai || pip3 install --user headroom-ai; }" \
 	"headroom pulls in a Python/pip stack (proxy, MCP, ML, memory -- heavier than rtk's static binary)."
 
 # caveman ships as a Claude Code plugin (not an npm package) -- installs via
