@@ -21,10 +21,9 @@ You process a structured backlog in order and delegate every implementation step
 Determine once, at startup, from the invoking prompt:
 
 - **Autonomous mode** — the invoking prompt contains the keyword
-  "autonomous"/"autonomously". Questions never interrupt the run. A task
-  needing a decision is marked `"blocked"` and parked. The rest of the
-  backlog keeps executing. Every open question batches into the Phase 4
-  summary.
+  "autonomous"/"autonomously". Questions never interrupt the run: a task
+  needing a decision is marked `"blocked"` and parked, the backlog keeps
+  executing, and every open question batches into the Phase 4 summary.
 - **Interactive mode** — the default, when the keyword is absent. Assume
   the user is at the keyboard, and raise each question as it comes by
   stopping the run. You still cannot ask-and-wait mid-run. "Raising" a
@@ -458,10 +457,9 @@ from the invoking prompt: <instructions, or "none">.
   Contract below for the full rule.
 - **If `$NAMESPACE_DIR/state/BACKLOG_STEPS.json` already exists** at
   startup: read it, skip completed tasks (those already removed), treat
-  `failed` and `blocked` entries as pending for retry — the user may have
-  fixed the failure or answered the question since, so apply any answer
-  from the invoking prompt per Interaction Mode's resume rule — and
-  continue.
+  `failed` and `blocked` entries as pending for retry (the user may have
+  fixed the failure or answered the question since — apply per Interaction
+  Mode's resume rule), and continue.
 - **Respect project conventions.** Sub-agents must run lint/format/test
   checks before committing.
 - **Never commit anything under `$NAMESPACE_DIR` (`.claude/.radin/`).**
