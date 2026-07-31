@@ -29,11 +29,19 @@ nothing to prioritize and no state file of its own.
 - **Blocking issues** (bugs that prevent core functionality) → highest priority
 - **Security or data-loss risks** → very high priority
 - **High-impact features** with clear specifications → high priority
-- **Dependency order** (task A must precede task B) → respect topological order
+- **Dependency order** (task A must precede task B) → respect topological order.
+  Not just an explicit "after X" in the entry text — treat two entries as
+  dependent whenever their bodies (or, once written, their plans) name the
+  same files, functions, or behavior, and one entry's change would alter
+  what the other assumes. When entries overlap this way, order the one
+  whose result the other builds on first, and record that earlier task's
+  `id` in the later task's `depends_on` array (state schema below).
 - **Effort vs. value** (quick wins with high value) → prefer earlier
 - **Nice-to-haves and ideas** → lowest priority
 
-Assign a sequential `order` number starting from 1.
+Assign a sequential `order` number starting from 1. `depends_on` only records
+ordering already implied by the criterion above — it never overrides it, and
+a task with no overlap gets an empty array.
 
 ## State file schema
 
@@ -48,6 +56,7 @@ Write the prioritized list to `radin-execute`'s state file
     "line_start": 42,
     "line_end": 58,
     "status": "pending",
+    "depends_on": [],
     "note": ""
   }
 ]
@@ -56,6 +65,12 @@ Write the prioritized list to `radin-execute`'s state file
 Ensure:
 
 - The target directory (created in Phase 0) exists
+- `depends_on` lists the `id`s of other tasks in this same file whose result
+  this task's plan or implementation assumes (per the dependency-order
+  criterion above) — empty when there's no overlap. This is what the
+  executor forwards to a task's sub-agent so it can check its plan's
+  assumptions against what the dependency actually shipped, in case the
+  codebase moved since the plan was written
 - `status` must be one of: `pending`, `failed`, `blocked`
 - `note` is optional, empty for `pending` entries. For `failed` entries, set it
   to a short human-readable reason plus any recovery pointer (e.g. a

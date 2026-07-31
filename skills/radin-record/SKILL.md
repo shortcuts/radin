@@ -42,7 +42,26 @@ Either way, stay faithful to what was actually said. This is a capture tool,
 not a brainstorming one — don't invent items the conversation didn't raise,
 and don't editorialize on top of what the user said.
 
-## Step 2: Classify each item
+If a single thing raised in conversation is broad enough that it's really
+two or more sequential pieces of work (e.g. "add rate limiting on top of the
+new auth middleware" — the middleware has to exist first), log each piece as
+its own entry rather than one entry hiding two tasks. Splitting is about the
+work's shape, not the user's phrasing — a single sentence can still name two
+sequential tasks.
+
+## Step 2: Classify each item and note dependencies
+
+For each item, before writing it: does landing it require another item in
+this same batch (or a task already sitting in `BACKLOG.md`) to land first?
+Same signal `radin-execute` and `radin-plan` already use — same file,
+function, or behavior touched by both, or the item explicitly builds on the
+other. If so, the dependent entry's description must name the other entry's
+exact title and say why it has to come first (e.g. "Depends on the '<other
+title>' entry — needs the endpoint it adds before this can call it."). This
+is plain prose, not a special tag: `radin-execute`'s prioritization step
+reads entry bodies for exactly this kind of signal when ordering the
+backlog, so leaving it out of the text means the dependency is invisible to
+it later.
 
 Classify each item into exactly one category (same vocabulary as a
 conventional-commit type):

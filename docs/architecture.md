@@ -17,6 +17,7 @@ target repo, in one directory at the repo root:
   BACKLOG.md                    # backlog, source of truth
   state/
     BACKLOG_STEPS.json          # radin-execute execution plan
+    completed.json               # radin-execute completed-task -> commit log
   plans/
     <task-id>.md                # radin-plan output, one file per plan
   reviews/

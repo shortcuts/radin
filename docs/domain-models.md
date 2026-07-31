@@ -88,6 +88,7 @@ schema — sub-agents write it, `radin-execute` (or a human) reads it.
     "line_start": 42,
     "line_end": 58,
     "status": "pending",
+    "depends_on": [],
     "note": ""
   }
 ]
@@ -97,6 +98,10 @@ schema — sub-agents write it, `radin-execute` (or a human) reads it.
 within one conversation, so it re-resolves a sub-task list each time instead
 of persisting one to disk.
 
+- `depends_on` lists `id`s of other tasks in this file whose result this
+  task's plan or implementation assumes — set during prioritization per
+  `radin-prioritization.md`'s dependency-order criterion (same files,
+  functions, or behavior touched by both). Empty when there's no overlap.
 - `status` is one of `pending`, `failed`, `blocked`. An entry's absence from
   the array means that task is complete.
 - `note` is optional, empty for `pending` entries. `failed` entries carry a
@@ -112,6 +117,19 @@ of persisting one to disk.
 - `line_start`/`line_end` point into the live `$BACKLOG_FILE`. `radin-execute`
   re-resolves them fresh each loop iteration, since inserting a `**Plan:**`
   line shifts every line below it.
+
+## Completed-task log (`completed.json`)
+
+```json
+[{"id": "add-route-exports", "commit": "abc1234"}]
+```
+
+Appended to at `$NAMESPACE_DIR/state/completed.json` on every `STATUS:
+SUCCESS`, since a task's entry in `BACKLOG_STEPS.json` is deleted once it
+completes and can no longer carry its commit hash. A later task whose
+`depends_on` names a completed `id` looks its commit up here and forwards it
+to that task's execution sub-agent, so the sub-agent can check whether the
+dependency's actual changes still match what this task's plan assumed.
 
 ## Install manifest (`manifest.json`)
 

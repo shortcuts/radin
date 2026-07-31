@@ -104,6 +104,24 @@ Process tasks **one at a time**, in the order defined in `$NAMESPACE_DIR/state/B
 
 For each task:
 
+### Step 3a-0: Check Dependencies Are Resolved
+
+If the task's `depends_on` array (set in Phase 1/2 per
+`radin-prioritization.md`'s dependency-order criterion) is non-empty, read
+`$NAMESPACE_DIR/state/completed.json` (absent means no task has succeeded
+yet this session — treat as empty). For each `id` in `depends_on`:
+
+- Found in `completed.json`: note its recorded commit hash — it's forwarded
+  to the sub-agent in Step 3b so it can check whether that dependency's
+  actual changes diverged from what this task's plan assumed.
+- Not found: the dependency hasn't succeeded (it's still pending later in
+  the array — ordering bug, fix `BACKLOG_STEPS.json` — or it's sitting
+  `"failed"`/`"blocked"`). Don't execute this task on an unresolved
+  dependency. Mark it `"blocked"` with `note`: `"waiting on dependency
+  '<id>', which is <its status>"`, write state to disk, and follow
+  Interaction Mode like any other blocked task. Skip Steps 3a/3b for this
+  task.
+
 ### Step 3a: Ensure a Plan Exists
 
 Before anything else, re-locate the entry — earlier `**Plan:**` insertions
@@ -190,9 +208,10 @@ judged the task straightforward and skipped planning, there are no
 PLAN_PATHS — say so explicitly in the prompt below.
 
 Invoke a sub-agent with `model: "sonnet"`, `run_in_background: false`, and exactly this prompt (replace Y, Z with the
-task's `line_start` and `line_end`, BACKLOG_PATH with `$BACKLOG_FILE`, and PLAN_PATHS with
+task's `line_start` and `line_end`, BACKLOG_PATH with `$BACKLOG_FILE`, PLAN_PATHS with
 the plan file path(s) in order, or "none — implement directly from the entry" if Step 3a
-skipped planning):
+skipped planning, and DEPENDS_ON with the list of `<id>: <commit hash>` pairs gathered in
+Step 3a-0, or "none" if `depends_on` was empty):
 
 ```
 Execute the task from BACKLOG_PATH lines Y-Z:
@@ -203,6 +222,20 @@ Execute the task from BACKLOG_PATH lines Y-Z:
    there's more than one, they cover different parts of the same task — implement all
    of them. If PLAN_PATHS is "none", the task was judged straightforward enough to skip
    planning — implement directly from the entry text.
+2b. If DEPENDS_ON is not "none", this task's scope/plan was written assuming certain
+   other tasks in this backlog would land a certain way. Those tasks already committed
+   this session at the listed hashes. Run `git show --stat <hash>` for each and skim
+   the diff for any file/function this task's plan also touches. If nothing overlaps,
+   proceed normally. If something does overlap, check whether the dependency's actual
+   changes still match what this task's plan/entry assumed:
+   - Assumptions still hold: proceed normally.
+   - They diverged in a way you can resolve yourself (e.g. a renamed function, a moved
+     file, an adjusted signature the plan didn't foresee but the fix is mechanical):
+     implement against the current code, not the stale assumption, and say what you
+     adjusted in your report.
+   - They diverged in a way that changes a design decision the plan made (not just a
+     mechanical detail): do not guess which way to resolve it — report `STATUS: BLOCKED`
+     per step 9, describing the divergence.
 3. Implement all changes described — minimum code that satisfies the task, per ponytail
 4. Where the task changes behavior (not a pure deletion/rename), add or update a unit
    test that pins the expected behavior — follow existing test conventions in the repo
@@ -259,6 +292,10 @@ When the sub-agent reports back, first find its `STATUS:` line — this always d
   - Proceed to the next task on a clean tree
 - On `STATUS: SUCCESS` with a clean tree:
   - Record the commit hash (or the pre-existing hash it cites, if no new commit)
+  - Append `{"id": "<task id>", "commit": "<hash>"}` to
+    `$NAMESPACE_DIR/state/completed.json` (create it as `[]` first if it
+    doesn't exist yet) and write it to disk — this is what Step 3a-0 reads
+    for any later task that lists this one in its `depends_on`
   - Remove the completed entry from `$BACKLOG_FILE` itself, not just the
     state file — do this now, not deferred to Phase 4, since interactive
     mode can stop the run before Phase 4 ever runs (a later blocked task)
