@@ -6,6 +6,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- `radin-execute`'s own state files, `BACKLOG_STEPS.json` and
+  `completed.json`, moved from a bracketed JSON array to JSONL (one compact
+  object per line) — the same convention the backlog index already uses.
+  All mutations now go through a new `lib/radin-state.sh` CLI
+  (`set-status`/`remove`/`completed-add`/`completed-get`/`dirty-check`)
+  instead of the agent hand-editing JSON from prose instructions.
 - **Breaking:** the backlog is no longer one monolithic `BACKLOG.md`. It's
   now `.claude/.radin/backlog/index.jsonl` (one JSON object per task) plus
   one markdown file per task under `.claude/.radin/backlog/tasks/`. This

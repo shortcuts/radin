@@ -89,16 +89,11 @@ schema — sub-agents write it, `radin-execute` (or a human) reads it.
 
 ## State JSON schema (`BACKLOG_STEPS.json`)
 
+JSONL, one compact object per line — same convention as `index.jsonl`, so a
+single-entry update never touches another entry's line:
+
 ```json
-[
-  {
-    "id": "add-route-exports",
-    "order": 1,
-    "status": "pending",
-    "depends_on": [],
-    "note": ""
-  }
-]
+{"id":"add-route-exports","order":1,"status":"pending","depends_on":[],"note":""}
 ```
 
 `id` matches the task's id in `index.jsonl` — its file is always
@@ -109,12 +104,15 @@ range: a task's file path is fixed at creation and never goes stale.
 within one conversation, so it re-resolves a sub-task list each time instead
 of persisting one to disk.
 
+Every mutation goes through `lib/radin-state.sh` (`set-status`/`remove`) —
+`radin-execute` never hand-edits this file's JSON.
+
 - `depends_on` lists `id`s of other tasks in this file whose result this
   task's plan or implementation assumes — set during prioritization per
   `radin-prioritization.md`'s dependency-order criterion (same files,
   functions, or behavior touched by both). Empty when there's no overlap.
 - `status` is one of `pending`, `failed`, `blocked`. An entry's absence from
-  the array means that task is complete.
+  the file means that task is complete.
 - `note` is optional, empty for `pending` entries. `failed` entries carry a
   short reason plus a recovery pointer (e.g. a `git stash` ref) — this is what
   the Phase 4 final summary reports back to the user. `blocked` entries carry
@@ -122,20 +120,23 @@ of persisting one to disk.
   — the final summary asks the user to decide.
 - A `failed` or `blocked` entry never blocks the execution loop from reaching
   Phase 4 — the loop exits once no `pending` entries remain, not only when the
-  array is empty.
+  file is empty.
 - Never stores the full task text. `$BACKLOG_TASKS_DIR/<id>.md` stays the
   source of truth for each task's body.
 
 ## Completed-task log (`completed.json`)
 
+JSONL, one compact object per line:
+
 ```json
-[{"id": "add-route-exports", "commit": "abc1234"}]
+{"id":"add-route-exports","commit":"abc1234"}
 ```
 
-Appended to at `$NAMESPACE_DIR/state/completed.json` on every `STATUS:
-SUCCESS`, since a task's entry in `BACKLOG_STEPS.json` is deleted once it
-completes and can no longer carry its commit hash. A later task whose
-`depends_on` names a completed `id` looks its commit up here and forwards it
+Appended to at `$NAMESPACE_DIR/state/completed.json` via `lib/radin-state.sh
+completed-add` on every `STATUS: SUCCESS`, since a task's entry in
+`BACKLOG_STEPS.json` is deleted once it completes and can no longer carry
+its commit hash. A later task whose `depends_on` names a completed `id`
+looks its commit up here via `radin-state.sh completed-get` and forwards it
 to that task's execution sub-agent, so the sub-agent can check whether the
 dependency's actual changes still match what this task's plan assumed.
 
@@ -151,7 +152,7 @@ global, one per machine.
   "installed_at": "2026-07-28T00:00:00Z",
   "agents": ["radin-execute.md"],
   "skills": ["radin-plan", "radin-record", "radin-review", "radin-setup-hooks", "radin-show", "radin-stats", "radin-doctor", "radin-uninstall", "thermo-nuclear"],
-  "lib": ["radin-namespace.sh", "radin-backlog.sh", "radin-prioritization.md", "radin-doctor.sh", "radin-uninstall.sh"],
+  "lib": ["radin-namespace.sh", "radin-backlog.sh", "radin-state.sh", "radin-prioritization.md", "radin-doctor.sh", "radin-uninstall.sh"],
   "companion_tools": {
     "rtk": true,
     "code-review-graph": false,

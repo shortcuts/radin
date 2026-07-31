@@ -82,9 +82,10 @@ file path is always `$BACKLOG_TASKS_DIR/<id>.md` — never computed from a
 stored line number, so nothing here goes stale as the backlog changes
 shape around it.
 
-`install.sh` copies `lib/radin-namespace.sh` and `lib/radin-backlog.sh` to
-`~/.claude/.radin/lib/`. A consumer install never has this repo's `lib/`
-directly, so both scripts are distributed like any other radin file.
+`install.sh` copies `lib/radin-namespace.sh`, `lib/radin-backlog.sh`, and
+`lib/radin-state.sh` to `~/.claude/.radin/lib/`. A consumer install never
+has this repo's `lib/` directly, so all three scripts are distributed like
+any other radin file.
 
 Inside the script:
 
@@ -97,6 +98,30 @@ NAMESPACE_DIR="$REPO_ROOT/.claude/.radin"
 It creates `state/`, `plans/`, `reviews/`, and `backlog/tasks/` under
 `$NAMESPACE_DIR`, then prints the four variables with `printf %q` so the
 output stays source-able even when the repo path contains spaces.
+
+`radin-execute`'s own state files (`BACKLOG_STEPS.json`, `completed.json`)
+get the same treatment as the backlog: a sibling CLI, `lib/radin-state.sh`,
+is the only way the agent mutates either file — never a hand-written JSON
+edit in the agent's own prose.
+
+```bash
+bash "$HOME/.claude/.radin/lib/radin-state.sh" <set-status|remove|completed-add|completed-get|dirty-check>
+```
+
+- `set-status <steps-file> <id> <pending|failed|blocked> [note]` — rewrite
+  one entry's `status`/`note` in place, `order`/`depends_on` untouched
+- `remove <steps-file> <id>` — delete one completed entry's line
+- `completed-add <completed-file> <id> <hash>` — append a completed task's
+  commit, creating the file if absent
+- `completed-get <completed-file> <id>` — print a completed task's commit
+  hash (exit 1 if not recorded), for a later task's `depends_on` check
+- `dirty-check <repo-root>` — `git status --porcelain`, with `.claude/.radin`
+  excluded so radin's own state writes never read as a dirty tree
+
+Both `BACKLOG_STEPS.json` and `completed.json` are JSONL (one compact object
+per line), the same convention as the backlog's `index.jsonl` — a
+single-entry edit never risks another line, and the model never needs to
+parse or rewrite a bracketed JSON array by hand.
 
 `radin-execute` and the `radin-plan` skill also share `lib/radin-prioritization.md`
 — the single source of truth for backlog parsing rules, task priority
@@ -174,6 +199,7 @@ radin/
     radin-doctor.sh
     radin-namespace.sh
     radin-prioritization.md
+    radin-state.sh
     radin-uninstall.sh
   install.sh
   README.md

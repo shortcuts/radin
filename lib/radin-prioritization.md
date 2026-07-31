@@ -47,19 +47,18 @@ a task with no overlap gets an empty array.
 ## State file schema
 
 Write the prioritized list to `radin-execute`'s state file
-(`BACKLOG_STEPS.json`) with this exact format:
+(`BACKLOG_STEPS.json`) as JSONL -- one compact JSON object per line, same
+convention as the backlog index (`index.jsonl`) -- so any single-line update
+(via `radin-state.sh set-status`) never risks another line:
 
 ```json
-[
-  {
-    "id": "add-route-exports",
-    "order": 1,
-    "status": "pending",
-    "depends_on": [],
-    "note": ""
-  }
-]
+{"id":"add-route-exports","order":1,"status":"pending","depends_on":[],"note":""}
 ```
+
+Every state-file mutation (marking an entry `blocked`/`failed`, or recording a
+completed task's commit in `completed.json`) goes through
+`$HOME/.claude/.radin/lib/radin-state.sh` -- never hand-edit either file's
+JSON directly. See its own usage comment for the full command list.
 
 Ensure:
 

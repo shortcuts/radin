@@ -52,7 +52,7 @@ entry as `pending` and execute normally.
 
 ## Phase 0: Resolve Project Namespace
 
-All radin state for a project lives inside that project's repo, in `.claude/.radin/` at the repo root. Do not compute this path yourself — the shared backlog CLI (`$HOME/.claude/.radin/lib/radin-backlog.sh`) resolves it, creates the directories, and prints the exact values to use. Its `find`/`remove` subcommands are also the only way you locate or delete backlog entries later — never hand-edit those operations, and never hand-parse `$BACKLOG_INDEX` (a JSONL file, one task per line) or the files under `$BACKLOG_TASKS_DIR`. Resolve the namespace and verify a backlog exists in the **same Bash call** (shell state doesn't persist across separate calls):
+All radin state for a project lives inside that project's repo, in `.claude/.radin/` at the repo root. Do not compute this path yourself — the shared backlog CLI (`$HOME/.claude/.radin/lib/radin-backlog.sh`) resolves it, creates the directories, and prints the exact values to use. Its `find`/`remove` subcommands are also the only way you locate or delete backlog entries later — never hand-edit those operations, and never hand-parse `$BACKLOG_INDEX` (a JSONL file, one task per line) or the files under `$BACKLOG_TASKS_DIR`. Its sibling `$HOME/.claude/.radin/lib/radin-state.sh` is the same contract for `BACKLOG_STEPS.json`/`completed.json` — never hand-edit those either, use its `set-status`/`remove`/`completed-add`/`completed-get`/`dirty-check` subcommands. Resolve the namespace and verify a backlog exists in the **same Bash call** (shell state doesn't persist across separate calls):
 
 ```bash
 source <(bash "$HOME/.claude/.radin/lib/radin-backlog.sh" env | sed 's/^/export /')
@@ -105,14 +105,18 @@ For each task:
 ### Step 3a-0: Check Dependencies Are Resolved
 
 If the task's `depends_on` array (set in Phase 1/2 per
-`radin-prioritization.md`'s dependency-order criterion) is non-empty, read
-`$NAMESPACE_DIR/state/completed.json` (absent means no task has succeeded
-yet this session — treat as empty). For each `id` in `depends_on`:
+`radin-prioritization.md`'s dependency-order criterion) is non-empty, look
+up each `id` in `depends_on` via the state CLI (absent file means no task
+has succeeded yet this session — every lookup fails, treat as such):
 
-- Found in `completed.json`: note its recorded commit hash — it's forwarded
-  to the sub-agent in Step 3b so it can check whether that dependency's
-  actual changes diverged from what this task's plan assumed.
-- Not found: the dependency hasn't succeeded (it's still pending later in
+```bash
+bash "$HOME/.claude/.radin/lib/radin-state.sh" completed-get "$NAMESPACE_DIR/state/completed.json" "<dependency id>"
+```
+
+- Exit 0 (prints the commit hash): note it — it's forwarded to the sub-agent
+  in Step 3b so it can check whether that dependency's actual changes
+  diverged from what this task's plan assumed.
+- Exit 1 (nothing printed): the dependency hasn't succeeded (it's still pending later in
   the array — ordering bug, fix `BACKLOG_STEPS.json` — or it's sitting
   `"failed"`/`"blocked"`). Don't execute this task on an unresolved
   dependency. Mark it `"blocked"` with `note`: `"waiting on dependency
@@ -238,7 +242,7 @@ Execute the task described in TASK_FILE:
 5. Run any required checks (lint, tests, format) per project conventions
 6. Fix any issues before committing
 7. Invoke the `/caveman-commit` skill to draft the commit message, then commit. If `/caveman-commit` is unavailable, write a conventional-commit message yourself.
-8. Run `git status --porcelain -- . ':(exclude).claude/.radin'` from the repo root.
+8. Run `bash "$HOME/.claude/.radin/lib/radin-state.sh" dirty-check "$(pwd)"` from the repo root.
    If anything is still uncommitted (including changes made incidentally while
    investigating, e.g. formatter/linter auto-fixes), either commit it as part of this
    task's commit or a separate scoped commit — never leave the working tree dirty when
@@ -269,11 +273,16 @@ context for the rest of the session.
 
 When the sub-agent reports back, first find its `STATUS:` line — this always drives what happens next, never the orchestrator's own guess from the surrounding prose:
 
-- Run `git status --porcelain -- . ':(exclude).claude/.radin'` yourself, from
-  `$REPO_ROOT`. The exclusion matters: your own `BACKLOG_STEPS.json` and
+- Run yourself, from `$REPO_ROOT`:
+
+  ```bash
+  bash "$HOME/.claude/.radin/lib/radin-state.sh" dirty-check "$REPO_ROOT"
+  ```
+
+  The exclusion it applies matters: your own `BACKLOG_STEPS.json` and
   backlog writes live under `.claude/.radin/` and must never count as a
   dirty tree — in a repo that tracks the namespace, an unfiltered check
-  false-positives on radin's own state every single task. If the filtered check is
+  false-positives on radin's own state every single task. If the output is
   non-empty, the sub-agent violated the no-dirty-tree contract regardless of its
   reported `STATUS:`. Never leave it dangling and never continue to the next task
   with a dirty tree:
@@ -288,10 +297,13 @@ When the sub-agent reports back, first find its `STATUS:` line — this always d
   - Proceed to the next task on a clean tree
 - On `STATUS: SUCCESS` with a clean tree:
   - Record the commit hash (or the pre-existing hash it cites, if no new commit)
-  - Append `{"id": "<task id>", "commit": "<hash>"}` to
-    `$NAMESPACE_DIR/state/completed.json` (create it as `[]` first if it
-    doesn't exist yet) and write it to disk — this is what Step 3a-0 reads
-    for any later task that lists this one in its `depends_on`
+  - Record it via the state CLI — this is what Step 3a-0 reads for any later
+    task that lists this one in its `depends_on`:
+
+    ```bash
+    bash "$HOME/.claude/.radin/lib/radin-state.sh" completed-add "$NAMESPACE_DIR/state/completed.json" "<task id>" "<commit hash>"
+    ```
+
   - Remove the completed entry (index line + task file) from the backlog
     itself, not just the state file — do this now, not deferred to Phase 4,
     since interactive mode can stop the run before Phase 4 ever runs (a
@@ -300,19 +312,21 @@ When the sub-agent reports back, first find its `STATUS:` line — this always d
 
     ```bash
     bash "$HOME/.claude/.radin/lib/radin-backlog.sh" remove "<task id>"
+    bash "$HOME/.claude/.radin/lib/radin-state.sh" remove "$NAMESPACE_DIR/state/BACKLOG_STEPS.json" "<task id>"
     ```
 
-  - Remove the completed entry from `$NAMESPACE_DIR/state/BACKLOG_STEPS.json`
-  - Write the updated JSON back to disk immediately
   - Report to the user now: `✅ Task <order> '<title>' complete. <STATUS detail>.
     Remaining: <count>.`
 
 On `STATUS: BLOCKED` (and left no dirty tree, handled above if it did):
 
-- Update the entry's `status` to `"blocked"` in `$NAMESPACE_DIR/state/BACKLOG_STEPS.json`,
-  with `note` set to the question, options, and recommendation from the
-  `STATUS:` line
-- Write the updated JSON to disk
+- Set the entry's status via the state CLI, with the note set to the
+  question, options, and recommendation from the `STATUS:` line:
+
+  ```bash
+  bash "$HOME/.claude/.radin/lib/radin-state.sh" set-status "$NAMESPACE_DIR/state/BACKLOG_STEPS.json" "<task id>" blocked "<question, options, recommendation>"
+  ```
+
 - Then follow Interaction Mode:
   - **Interactive**: stop the run — end with the question, options, and
     recommendation, progress so far (tasks done + commit hashes), and the
@@ -324,10 +338,14 @@ On `STATUS: BLOCKED` (and left no dirty tree, handled above if it did):
 
 On `STATUS: FAILED` (and left no dirty tree, handled above if it did):
 
-- Update the entry's `status` to `"failed"` in `$NAMESPACE_DIR/state/BACKLOG_STEPS.json`,
-  with `note` set to the reason from the `STATUS:` line and any recovery
-  pointer (e.g. a stash ref, if one was created above)
-- Write the updated JSON to disk
+- Set the entry's status via the state CLI, with the note set to the reason
+  from the `STATUS:` line and any recovery pointer (e.g. a stash ref, if one
+  was created above):
+
+  ```bash
+  bash "$HOME/.claude/.radin/lib/radin-state.sh" set-status "$NAMESPACE_DIR/state/BACKLOG_STEPS.json" "<task id>" failed "<reason, and recovery pointer if any>"
+  ```
+
 - Report to the user now: `❌ Task <order> '<title>' failed: <reason>. Continuing to
   next task.`
 - Continue to the next task
@@ -335,7 +353,7 @@ On `STATUS: FAILED` (and left no dirty tree, handled above if it did):
 ### Step 3c: Repeat
 
 Continue to the next entry until no `pending` entries remain in
-`$NAMESPACE_DIR/state/BACKLOG_STEPS.json` — i.e. the array is empty, or every
+`$NAMESPACE_DIR/state/BACKLOG_STEPS.json` — i.e. the file is empty, or every
 remaining entry is already `"failed"` or `"blocked"`. A failed or blocked task
 must never block the loop from reaching Phase 4: those entries stay in the
 file for the user to retry or decide later, but they are not retried
@@ -345,12 +363,12 @@ automatically within this same session.
 
 ## Phase 4: Final Summary
 
-Reached once Step 3c's loop exits — the array is empty, or every remaining
+Reached once Step 3c's loop exits — the file is empty, or every remaining
 entry is `"failed"` or `"blocked"`. This phase always runs, even when some
 tasks failed or blocked; it is the one place the user learns what needs
 manual attention or a decision.
 
-0. Run `git status --porcelain -- . ':(exclude).claude/.radin'` in `$REPO_ROOT`. If empty, note "no residual changes" in the summary. If non-empty, do NOT commit it — deciding that unknown changes belong in history is the user's call, not yours. Stash it with `git stash push -u -m "radin-execute: session end, untracked to any task" -- . ':(exclude).claude/.radin'` and record the stash ref — it goes in the summary. Changes under `.claude/.radin/` (your own state and backlog writes) stay as they are: committing or ignoring radin's namespace is the repo owner's call, never radin's.
+0. Run `bash "$HOME/.claude/.radin/lib/radin-state.sh" dirty-check "$REPO_ROOT"`. If empty, note "no residual changes" in the summary. If non-empty, do NOT commit it — deciding that unknown changes belong in history is the user's call, not yours. Stash it with `git stash push -u -m "radin-execute: session end, untracked to any task" -- . ':(exclude).claude/.radin'` and record the stash ref — it goes in the summary. Changes under `.claude/.radin/` (your own state and backlog writes) stay as they are: committing or ignoring radin's namespace is the repo owner's call, never radin's.
 1. Clean up the backlog (completed entries were already removed per-task
    in Step 3b via `radin-backlog.sh remove` — this is just a final pass):
    - Leave failed and blocked tasks in place — they remain to be retried or
@@ -438,7 +456,7 @@ from the invoking prompt: <instructions, or "none">.
 - **Persist state after every state change** — see State Persistence Contract below for the full rule
 - **If `$NAMESPACE_DIR/state/BACKLOG_STEPS.json` already exists** at startup: read it, skip completed tasks (those already removed), treat `failed` and `blocked` entries as pending for retry (the user may have fixed the failure or answered the question since — apply any answer from the invoking prompt per Interaction Mode's resume rule), and continue
 - **Respect project conventions**: sub-agents must run lint/format/test checks before committing
-- **Never commit anything under `$NAMESPACE_DIR` (`.claude/.radin/`)** — whether the consumer commits or ignores radin's namespace is their call. Exclude it from every dirty-tree check with `-- . ':(exclude).claude/.radin'`; without the exclusion, your own state writes read as a dirty tree in repos that track the namespace
+- **Never commit anything under `$NAMESPACE_DIR` (`.claude/.radin/`)** — whether the consumer commits or ignores radin's namespace is their call. Always check dirty-tree state via `radin-state.sh dirty-check`, never a raw `git status`; without its built-in exclusion, your own state writes read as a dirty tree in repos that track the namespace
 - **Never fabricate work.** Every commit this session makes must trace to
   either a backlog entry processed in Phase 3, or a pre-existing
   dirty-tree change disposed of in Phase 4 step 0. If the backlog is
@@ -453,9 +471,12 @@ from the invoking prompt: <instructions, or "none">.
 
 `$NAMESPACE_DIR/state/BACKLOG_STEPS.json` is your source of truth:
 
-- Write it to disk after **every state change**
+- Every mutation goes through `radin-state.sh` (`set-status`/`remove`) —
+  each call writes to disk immediately, so there is no separate "flush"
+  step
 - An entry's absence means execution is complete
-- Never hold state only in memory — always flush to disk
+- Never hold state only in memory between calls — the CLI already persists
+  every change; just re-run it on each state transition
 - This is what makes a long session survive context compaction: if earlier
   turns get summarized away, re-read `$NAMESPACE_DIR/state/BACKLOG_STEPS.json`
   and each task's file under `$BACKLOG_TASKS_DIR`, and continue from disk —
