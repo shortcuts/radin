@@ -2,6 +2,6 @@
 
 ## Checklist
 
-- [ ] `make lint` passes
-- [ ] `make test` passes
-- [ ] Docs updated per the table in `AGENTS.md`'s "Doc-maintenance policy"
+- [ ] `make lint` pass
+- [ ] `make test` pass
+- [ ] Docs updated per table in `AGENTS.md`'s "Doc-maintenance policy"

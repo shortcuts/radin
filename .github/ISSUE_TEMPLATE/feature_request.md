@@ -4,9 +4,8 @@ about: Suggest an idea for radin
 title: ''
 labels: enhancement
 ---
+**What problem solve?**
 
-**What problem does this solve?**
+**Proposed fix**
 
-**Proposed solution**
-
-**Alternatives considered**
+**Alternatives weighed**

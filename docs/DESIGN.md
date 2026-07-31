@@ -1,7 +1,5 @@
 # radin — design history
 
-This was the scratch/working design doc for the `~/.claude/.radin/`
-namespace migration. Its content has been formalized into
-[docs/architecture.md](architecture.md) and [docs/domain-models.md](domain-models.md).
-Kept here as a historical note of how the storage model was arrived at; not
-maintained going forward.
+Scratch doc for `~/.claude/.radin/` namespace migration. Content formalized into [docs/architecture.md](architecture.md) and [docs/domain-models.md](domain-models.md).
+
+Kept as historical note on storage model origin. Not maintained forward.

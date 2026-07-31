@@ -1,6 +1,6 @@
 # Contributing to radin
 
-## Testing `install.sh` changes locally
+## Test `install.sh` changes local
 
 ```sh
 make lint

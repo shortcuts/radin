@@ -4,16 +4,14 @@ about: Report a problem with radin
 title: ''
 labels: bug
 ---
-
-**Describe the bug**
+**Describe bug**
 What went wrong.
 
 **To reproduce**
-Steps to reproduce, including which script (`install.sh`) or agent/skill was
-involved.
+Steps to reproduce. Include script (`install.sh`) or agent/skill involved.
 
 **Expected behavior**
-What you expected to happen instead.
+What expected instead.
 
 **Environment**
 - macOS version:

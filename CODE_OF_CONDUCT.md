@@ -2,47 +2,36 @@
 
 ## Our pledge
 
-We, as members, contributors, and leaders, pledge to make participation in
-our community harassment-free for everyone — regardless of age, body size,
-disability (visible or invisible), ethnicity, sex characteristics, gender
-identity and expression, experience level, education, socio-economic status,
-nationality, personal appearance, race, religion, or sexual identity and
-orientation.
+We, members, contributors, leaders, pledge: participation in our community harassment-free for everyone — regardless age, body size, disability (visible or invisible), ethnicity, sex characteristics, gender identity/expression, experience level, education, socio-economic status, nationality, personal appearance, race, religion, sexual identity/orientation.
 
 ## Our standards
 
-Behavior that contributes to a positive environment includes:
+Positive-environment behavior includes:
 
-* Showing empathy and kindness toward other people
-* Respecting differing opinions, viewpoints, and experiences
+* Empathy and kindness toward others
+* Respecting differing opinions, viewpoints, experiences
 * Giving and gracefully accepting constructive feedback
-* Accepting responsibility and apologizing for mistakes
+* Accepting responsibility, apologizing for mistakes
 
 Unacceptable behavior includes:
 
-* Sexualized language or imagery, and sexual attention of any kind
-* Trolling, insults, derogatory comments, and personal or political attacks
+* Sexualized language/imagery, sexual attention of any kind
+* Trolling, insults, derogatory comments, personal/political attacks
 * Public or private harassment
-* Publishing others' private information without their explicit permission
+* Publishing others' private info without explicit permission
 
 ## Enforcement responsibilities
 
-Community leaders clarify and enforce these standards. They will take fair,
-appropriate corrective action for any behavior they deem inappropriate,
-threatening, offensive, or harmful.
+Community leaders clarify and enforce these standards. Take fair, appropriate corrective action for any behavior deemed inappropriate, threatening, offensive, harmful.
 
 ## Scope
 
-This Code of Conduct applies in all community spaces, and whenever someone
-officially represents the community in public.
+Applies in all community spaces, and whenever someone officially represents community in public.
 
 ## Enforcement
 
-Report abusive, harassing, or otherwise unacceptable behavior to the project
-maintainers. Every report will be reviewed and investigated promptly and
-fairly.
+Report abusive, harassing, unacceptable behavior to project maintainers. Every report reviewed and investigated promptly, fairly.
 
 ## Attribution
 
-Adapted from the [Contributor Covenant](https://www.contributor-covenant.org),
-version 2.1.
+Adapted from [Contributor Covenant](https://www.contributor-covenant.org), version 2.1.

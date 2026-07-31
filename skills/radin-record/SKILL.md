@@ -10,74 +10,65 @@ description: |
 ---
 # Record to Backlog
 
-Turn feedback, bugs, follow-ups, or ideas raised during a live session into
-structured backlog entries. This lets them survive past the conversation
-that surfaced them. It is the capture step for everything that isn't a
-code-review finding — things a human said, not things a diff revealed.
-`radin-review` logs code-review findings instead. `radin-plan` and
-`radin-execute` consume the backlog afterward.
+Feedback, bugs, follow-ups, ideas from live session → structured backlog entries. Survive past conversation that raised them. Capture step for anything not code-review finding — human said, not diff revealed. `radin-review` logs code-review findings instead. `radin-plan` and `radin-execute` consume backlog after.
 
-All backlog writes go through the shared CLI at
-`$HOME/.claude/.radin/lib/radin-backlog.sh`. It resolves the per-project
-namespace (`<repo-root>/.claude/.radin/backlog/`, a JSONL index plus one
-markdown file per task) and appends entries deterministically. Never
-hand-edit the index or a task file, or compute their paths yourself.
+All backlog writes go through shared CLI at
+`$HOME/.claude/.radin/lib/radin-backlog.sh`. Resolves per-project
+namespace (`<repo-root>/.claude/.radin/backlog/`, JSONL index plus one
+markdown file per task), appends entries deterministic. Never
+hand-edit index or task file, never compute paths yourself.
 
 ## Step 1: Decide what to log
 
-The user's instruction after `/radin-record` decides scope:
+User's instruction after `/radin-record` decides scope:
 
-- **Specific** (names a particular thing — "add the auth timeout bug",
-  "log the caching idea we discussed"): log exactly that item. Don't go
-  digging for other candidates the user didn't point at.
+- **Specific** (names particular thing — "add the auth timeout bug",
+  "log the caching idea we discussed"): log exactly that item. Don't dig
+  for other candidates user didn't point at.
 - **Generic** ("add the findings", "log what we discussed", bare
-  `/radin-record` with no argument): scan the whole session so far for
-  anything a reasonable person would call a bug, follow-up, idea, or piece
-  of feedback. Include things the user stated outright, and things that
-  were clearly surfaced as a "we should probably..." aside mid-task, even
-  if nobody stopped to write them down. Each distinct item becomes its own
-  entry.
+  `/radin-record` with no argument): scan whole session so far for
+  anything reasonable person calls bug, follow-up, idea, feedback. Include
+  things user stated outright, and things clearly surfaced as "we should
+  probably..." aside mid-task, even if nobody wrote down. Each distinct
+  item becomes own entry.
 
-Either way, stay faithful to what was actually said. This is a capture tool,
-not a brainstorming one — don't invent items the conversation didn't raise,
-and don't editorialize on top of what the user said.
+Either way, stay faithful to what actually said. Capture tool, not
+brainstorming — don't invent items conversation didn't raise, don't
+editorialize on top of what user said.
 
-A single thing raised in conversation can be broad enough that it's really
+Single thing raised in conversation can be broad enough it's really
 two or more sequential pieces of work — e.g. "add rate limiting on top of
-the new auth middleware" needs the middleware to exist first. Log each
-piece as its own entry; don't let one entry hide two tasks. Splitting is
-about the work's shape, not the user's phrasing — a single sentence can
-still name two sequential tasks.
+new auth middleware" needs middleware exist first. Log each piece own
+entry, don't let one entry hide two tasks. Splitting about work's shape,
+not user's phrasing — single sentence can still name two sequential tasks.
 
 ## Step 2: Classify each item and note dependencies
 
-Before writing each item, ask: does landing it require another item in this
-same batch (or a task already in the backlog) to land first? Use the same
-signal `radin-execute` and `radin-plan` already use: the same file,
-function, or behavior touched by both, or the item explicitly builds on the
-other. If so, the dependent entry's description must name the other
-entry's exact title and say why it has to come first — e.g. "Depends on
-the '<other title>' entry — needs the endpoint it adds before this can
-call it." This is plain prose, not a special tag. `radin-execute`'s
-prioritization step reads entry bodies for exactly this kind of signal
-when ordering the backlog. Leaving it out of the text makes the dependency
-invisible to it later.
+Before writing each item, ask: landing it require another item in same
+batch (or task already in backlog) land first? Use same signal
+`radin-execute` and `radin-plan` already use: same file, function, or
+behavior touched by both, or item explicitly builds on other. If so,
+dependent entry's description must name other entry's exact title, say
+why comes first — e.g. "Depends on the '<other title>' entry — needs
+the endpoint it adds before this can call it." Plain prose, not special
+tag. `radin-execute`'s prioritization step reads entry bodies for exactly
+this signal when ordering backlog. Leave out of text → invisible to it
+later.
 
-Classify each item into exactly one category (same vocabulary as a
+Classify each item into exactly one category (same vocabulary as
 conventional-commit type):
 
-- **feat** — a new capability or behavior is being asked for (an idea, a
-  "what if we...", a feature request).
-- **fix** — something is broken or behaving incorrectly.
-- **chore** — maintenance-shaped: a follow-up/TODO that isn't a new feature
-  or a bug (docs, tooling, cleanup, "we should probably go back and...").
-- **refactor** — feedback that an existing approach/structure should change
+- **feat** — new capability or behavior asked for (idea, "what if we...",
+  feature request).
+- **fix** — something broken or behaving incorrectly.
+- **chore** — maintenance-shaped: follow-up/TODO not new feature or bug
+  (docs, tooling, cleanup, "we should probably go back and...").
+- **refactor** — feedback existing approach/structure should change
   without changing behavior (e.g. "I don't love how this got structured").
 
-When an item could plausibly fit two categories, pick the closer one and
-move on — don't stall on classification; a slightly-off category costs
-nothing since `radin-execute`/`radin-plan` read the description
-regardless of category.
+Item could plausibly fit two categories → pick closer one, move on. Don't
+stall on classification; slightly-off category costs nothing since
+`radin-execute`/`radin-plan` read description regardless of category.
 
 ## Step 3: Append entries via the CLI
 
@@ -93,20 +84,19 @@ no other session context, so don't compress it down to one line.>
 EOF
 ```
 
-The CLI handles file creation, section ordering, and appending — you only
-supply category, title, and body.
+CLI handles file creation, section ordering, appending — you only supply
+category, title, body.
 
-Always append. Don't scan the backlog for near-duplicates or try to merge
-with an existing entry — let `radin-execute`/`radin-plan` or a human dedupe
-later. A false-positive merge silently drops something the user cared
-about, which is worse than an occasional repeated entry.
+Always append. Don't scan backlog for near-duplicates, don't try merge
+with existing entry — let `radin-execute`/`radin-plan` or human dedupe
+later. False-positive merge silently drops something user cared about,
+worse than occasional repeated entry.
 
 ## Step 4: Report back
 
-Tell the user:
+Tell user:
 
-- How many entries were logged, with their titles and categories.
-- Path to the backlog file (the CLI prints it on each `add`).
-- If nothing in scope (Step 1) actually rose to the level of a loggable
-  item, say so plainly — don't pad the file with a vague entry just to prove
-  the skill ran.
+- How many entries logged, with titles and categories.
+- Path to backlog file (CLI prints it on each `add`).
+- If nothing in scope (Step 1) actually rose to level of loggable item,
+  say so plainly — don't pad file with vague entry just to prove skill ran.

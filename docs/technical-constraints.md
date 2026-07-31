@@ -2,37 +2,37 @@
 
 ## Platform
 
-- macOS and Linux only. No Windows support planned.
-- Arch-neutral through Homebrew: `/opt/homebrew`/`/usr/local` on macOS
+- macOS + Linux only. No Windows support planned.
+- Arch-neutral via Homebrew: `/opt/homebrew`/`/usr/local` on macOS
   (ARM/Intel), `/home/linuxbrew/.linuxbrew` on Linux. No `uname -m`
   branching anywhere — resolution goes through `brew`/`npm`/`cargo` via
-  `$(command -v brew)` / `brew shellenv`, which picks the right prefix for
-  the machine running the script.
-- Where a command itself differs by OS, not just by package-manager prefix
-  (e.g. BSD `md5` on macOS vs GNU `md5sum` on Linux), branch on
-  `command -v <tool>` — never on `uname`.
+  `$(command -v brew)` / `brew shellenv`, picks right prefix for
+  machine running script.
+- Command differs by OS, not just package-manager prefix
+  (e.g. BSD `md5` on macOS vs GNU `md5sum` on Linux)? Branch on
+  `command -v <tool>` — never `uname`.
 
 ## Bash 3.2 compatibility
 
-macOS ships `/bin/bash` 3.2 as its system bash (Apple froze it before the
-GPLv3 switch). The same scripts run unmodified on Linux, where bash is
-usually 4+, so macOS's 3.2 is the binding floor. Every script in this repo
-(`install.sh`, any future script) must stay bash-3.2-compatible:
+macOS ships `/bin/bash` 3.2 as system bash (Apple froze it before GPLv3
+switch). Same scripts run unmodified on Linux, where bash usually 4+, so
+macOS's 3.2 binding floor. Every script here
+(`install.sh`, future scripts) must stay bash-3.2-compatible:
 
 - No associative arrays (`declare -A`)
 - No `mapfile`
 - No `${var,,}` / `${var^^}` case conversion
 
-This is easy to break by accident on a dev machine with a newer bash on
-`PATH`. Test against `/bin/bash` directly, or at minimum grep for these
-constructs before committing a script change.
+Easy to break by accident on dev machine w/ newer bash on
+`PATH`. Test against `/bin/bash` directly, or grep for these
+constructs before committing script change.
 
 ## Companion-tool installs are advisory only
 
-`install.sh` offers rtk, caveman, and code-review-graph through their own
+`install.sh` offers rtk, caveman, code-review-graph through their own
 existing install paths (brew/npm/cargo). It:
 
 - Never vendors or forks their source.
-- Never installs a tool without an explicit `y` confirmation per tool.
-- Never guarantees a companion tool's own install command succeeds — it
+- Never installs tool without explicit `y` confirmation per tool.
+- Never guarantees companion tool's own install command succeeds — it
   asks and delegates, nothing more.
