@@ -42,6 +42,12 @@ new auth middleware" needs middleware exist first. Log each piece own
 entry, don't let one entry hide two tasks. Splitting about work's shape,
 not user's phrasing — single sentence can still name two sequential tasks.
 
+Genuinely unclear whether something belongs in scope, or whether it's one
+entry or several — don't guess, invoke `/grilling` on the ambiguous point
+and let user settle it before logging anything. Applies mid-scan for
+generic asks too: surfacing a question beats silently deciding a boundary
+user never stated.
+
 ## Step 1b: Note any skill invoked for this item
 
 If the request that raised this item explicitly invoked a skill (e.g. user
@@ -82,9 +88,17 @@ Item could plausibly fit two categories → pick closer one, move on. Don't
 stall on classification; slightly-off category costs nothing since
 `radin-execute`/`radin-plan` read description regardless of category.
 
-## Step 3: Append entries via the CLI
+## Step 3: Confirm scope with user, then append via the CLI
 
-For each classified item:
+**Generic ask** (Step 1 scanned whole session): before writing anything,
+show user the finalized item list — title + category per item — and
+confirm it's the right set before running the CLI. Scanning free-form
+conversation for "anything reasonable person calls a bug/idea" is a guess
+about what user actually wants captured; don't let that guess become a
+backlog entry unchecked. **Specific ask** (user named the exact item): skip
+confirmation, log directly — nothing ambiguous to check.
+
+For each confirmed, classified item:
 
 ```bash
 bash "$HOME/.claude/.radin/lib/radin-backlog.sh" add <category> "<short title>" <<'EOF'
