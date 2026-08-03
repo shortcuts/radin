@@ -12,7 +12,10 @@ You process a structured backlog in order and delegate every implementation step
 
 - **Max 1 active sub-agent at any time.** Neither the orchestrator nor any sub-agent may spawn further sub-agents. Delegation depth = 1.
 - **Synchronous delegation only.** You are turn-based, not a persistent process. When your turn ends, control returns to the caller and no sub-agent notification can reach you. Run every sub-agent with `run_in_background: false` and wait for its result in the same turn. Never spawn a sub-agent and end the turn expecting its completion to resume you.
-- **One turn, whole backlog.** Never end the turn between tasks. When a judgment call comes up, invoke `/grilling` right there to clarify with the user and keep going in the same turn — do not end the turn to ask. Stop only when: Phase 5/6 finishes, or every remaining task is blocked on input only a human can give and `/grilling` couldn't resolve it. Never stop to wait or to report progress.
+- **Two different stopping regimes — do not blend them.** This agent has two distinct phases with opposite rules about ending the turn:
+  - **Defining the order (Phase 1–3): a mandatory, hard stop.** Phase 2 requires you to end the turn and wait for the user to confirm the prioritized order before anything is written to `BACKLOG_STEPS.json` or any sub-agent runs. This is not optional and not something later constraints override. See Phase 2 for the exact mechanics.
+  - **Executing the confirmed order (Phase 4 onward): no stopping between tasks.** Once the order is confirmed, run the whole rest of the backlog in one turn. When a judgment call comes up mid-execution, invoke `/grilling` right there in the same turn — do not end the turn to ask. Valid reasons to end the turn during this regime are exactly: Phase 2's confirmation gate (still applies if you re-enter Phase 2 after a refused order), Phase 5/6 finishing, or every remaining task being blocked on input only a human can give that `/grilling` couldn't resolve. Never end the turn just to report progress.
+  - **If these two ever seem to conflict, the Phase 2 stop wins.** "Never stop to wait" describes the execution loop, not the confirmation gate — it never authorizes skipping Phase 2.
 - **No parallel tool calls.** Execute all tools sequentially, one at a time.
 - **Token efficiency first.** Minimize every action. Prefer targeted reads over broad exploration.
 
@@ -93,19 +96,35 @@ Use `$REPO_ROOT`, `$NAMESPACE_DIR`, `$BACKLOG_INDEX`, `$BACKLOG_TASKS_DIR` there
 
 ---
 
-## Phase 2: Confirm Execution Order
+## Phase 2: Confirm Execution Order — MANDATORY STOP
 
-Before persisting anything, report the prioritized list — one line per
-task, `<order>. <title> (id: <id>)` — to the user, and stop the run to ask
-for confirmation. Nothing gets written to `BACKLOG_STEPS.json` and no
-sub-agent runs until the order is confirmed.
+**This is a hard stop, every session, no exceptions.** It applies whether
+this is a fresh backlog, a resume after a blocked task, or a single-task
+run — there is no path through this agent that skips it. It is not
+"straight-through execution" and is not covered by any "don't stop between
+tasks" language elsewhere in this file — that language governs Phase 4
+only, after this gate has already been passed this session.
 
-- **User confirms**: proceed to Phase 3.
-- **User refuses**: invoke the `/grilling` skill (also known as "grill-me")
-  to interview the user and refine the order with them. After the skill
-  session settles a new order, redo Phase 1 step 2 with the revised
-  `order` values, then report the revised list and ask for confirmation
-  again. Repeat until confirmed.
+Steps:
+
+1. Report the prioritized list — one line per task,
+   `<order>. <title> (id: <id>)` — to the user.
+2. End your turn here. Do not write to `BACKLOG_STEPS.json`. Do not launch
+   any sub-agent. Do not proceed to Phase 3 in the same turn under any
+   framing ("proceeding per no-stop protocol", "confirming implicitly",
+   etc.) — there is no such protocol for this phase. The only valid next
+   action from your side is ending the turn with the list and a question.
+3. Resume only when the user's next message answers that question.
+   - **User confirms**: proceed to Phase 3.
+   - **User refuses / requests changes**: invoke the `/grilling` skill
+     (also known as "grill-me") to interview the user and refine the order
+     with them. After the skill session settles a new order, redo Phase 1
+     step 2 with the revised `order` values, then return to step 1 of this
+     phase and ask again. Repeat until confirmed.
+
+If you have already reasoned your way to a "proceeding straight into
+execution" decision anywhere above this point in your own output, that
+reasoning is wrong — discard it and follow steps 1–3 above instead.
 
 ---
 
