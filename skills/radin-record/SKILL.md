@@ -46,10 +46,13 @@ not user's phrasing — single sentence can still name two sequential tasks.
 
 If the request that raised this item explicitly invoked a skill (e.g. user
 wrote `/radin-record /frontend-design make the accent color...`, or a skill
-ran earlier in the session and this item continues that work), record its
-name. `radin-execute`'s sub-agent has no visibility into this conversation —
-without this line it re-implements the item from bare description text and
-never invokes the skill the user asked for.
+ran earlier in the session and this item continues that work), record it
+as a standing instruction, not a note. User chose that skill for this task —
+record it even if it looks redundant, wrong-fit, or skippable to you. Nobody
+downstream re-judges it either: not `radin-record` now, not `radin-execute`'s
+sub-agent later. `radin-execute`'s sub-agent has no visibility into this
+conversation — without this line it re-implements the item from bare
+description text and never invokes the skill the user asked for.
 
 ## Step 2: Classify each item and note dependencies
 
@@ -90,13 +93,15 @@ discussed/worked on when this came up, the item itself close to how the
 user stated or clearly implied it, and why it matters if that's not
 already obvious. radin-execute/radin-plan will act on this entry with
 no other session context, so don't compress it down to one line.>
-**Skill:** <skill-name>
+**Skill:** Invoke <skill-name> to tackle this task.
 EOF
 ```
 
-If Step 1b found a skill, append that `**Skill:** <skill-name>` line as the
-last line of the body (same convention `radin-plan` uses for `**Plan:**`
-pointers) — omit the line entirely if no skill applies.
+If Step 1b found a skill, append that `**Skill:** Invoke <skill-name> to
+tackle this task.` line as the last line of the body (same convention
+`radin-plan` uses for `**Plan:**` pointers) — omit the line entirely if no
+skill applies. Word it as an instruction, not metadata — `radin-execute`
+follows it verbatim, it doesn't decide whether to.
 
 CLI handles file creation, section ordering, appending — you only supply
 category, title, body.
