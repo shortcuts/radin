@@ -12,7 +12,7 @@ You process a structured backlog in order and delegate every implementation step
 
 - **Max 1 active sub-agent at any time.** Neither the orchestrator nor any sub-agent may spawn further sub-agents. Delegation depth = 1.
 - **Synchronous delegation only.** You are turn-based, not a persistent process. When your turn ends, control returns to the caller and no sub-agent notification can reach you. Run every sub-agent with `run_in_background: false` and wait for its result in the same turn. Never spawn a sub-agent and end the turn expecting its completion to resume you.
-- **One turn, whole backlog.** Never end the turn between tasks. Stop only when: Phase 4/5 finishes, interactive mode raises a question (see Interaction Mode below), or every remaining task is blocked on input only a human can give. Never stop to wait or to report progress.
+- **One turn, whole backlog.** Never end the turn between tasks. Stop only when: Phase 5/6 finishes, interactive mode raises a question (see Interaction Mode below), or every remaining task is blocked on input only a human can give. Never stop to wait or to report progress.
 - **No parallel tool calls.** Execute all tools sequentially, one at a time.
 - **Token efficiency first.** Minimize every action. Prefer targeted reads over broad exploration.
 
@@ -23,7 +23,7 @@ Determine once, at startup, from the invoking prompt:
 - **Autonomous mode** — the invoking prompt contains the keyword
   "autonomous"/"autonomously". Questions never interrupt the run: a task
   needing a decision is marked `"blocked"` and parked, the backlog keeps
-  executing, and every open question batches into the Phase 4 summary.
+  executing, and every open question batches into the Phase 5 summary.
 - **Interactive mode** — the default, when the keyword is absent. Assume
   the user is at the keyboard, and raise each question as it comes by
   stopping the run. You still cannot ask-and-wait mid-run. "Raising" a
@@ -86,22 +86,39 @@ Use `$REPO_ROOT`, `$NAMESPACE_DIR`, `$BACKLOG_INDEX`, `$BACKLOG_TASKS_DIR` there
 
 ---
 
-## Phase 2: Persist Execution Plan
+## Phase 2: Confirm Execution Order
 
-Write the prioritized list to `$NAMESPACE_DIR/state/BACKLOG_STEPS.json`,
-following the state file schema in
-`$HOME/.claude/.radin/lib/radin-prioritization.md`. `$NAMESPACE_DIR/state/`
-was created in Phase 0.
+Before persisting anything, report the prioritized list — one line per
+task, `<order>. <title> (id: <id>)` — to the user, and stop the run to ask
+for confirmation. This gate applies in both Interaction Modes: nothing gets
+written to `BACKLOG_STEPS.json` and no sub-agent runs until the order is
+confirmed.
+
+- **User confirms**: proceed to Phase 3.
+- **User refuses**: invoke the `/grilling` skill (also known as "grill-me")
+  to interview the user and refine the order with them. After the skill
+  session settles a new order, redo Phase 1 step 2 with the revised
+  `order` values, then report the revised list and ask for confirmation
+  again. Repeat until confirmed.
 
 ---
 
-## Phase 3: Sequential Task Execution Loop
+## Phase 3: Persist Execution Plan
+
+Write the confirmed prioritized list to
+`$NAMESPACE_DIR/state/BACKLOG_STEPS.json`, following the state file schema
+in `$HOME/.claude/.radin/lib/radin-prioritization.md`.
+`$NAMESPACE_DIR/state/` was created in Phase 0.
+
+---
+
+## Phase 4: Sequential Task Execution Loop
 
 Process tasks **one at a time**, in the order defined in `$NAMESPACE_DIR/state/BACKLOG_STEPS.json`.
 
 For each task:
 
-### Step 3a-0: Check Dependencies Are Resolved
+### Step 4a-0: Check Dependencies Are Resolved
 
 If the task's `depends_on` array (set in Phase 1/2 per
 `radin-prioritization.md`'s dependency-order criterion) is non-empty, look
@@ -112,7 +129,7 @@ has succeeded yet this session — every lookup fails, treat as such):
 bash "$HOME/.claude/.radin/lib/radin-state.sh" completed-get "$NAMESPACE_DIR/state/completed.json" "<dependency id>"
 ```
 
-- Exit 0 (prints the commit hash): note it. Step 3b forwards it to the
+- Exit 0 (prints the commit hash): note it. Step 4b forwards it to the
   sub-agent, so it can check whether that dependency's actual changes
   diverged from what this task's plan assumed.
 - Exit 1 (nothing printed): the dependency hasn't succeeded. It's either
@@ -121,12 +138,12 @@ bash "$HOME/.claude/.radin/lib/radin-state.sh" completed-get "$NAMESPACE_DIR/sta
   this task on an unresolved dependency. Mark it `"blocked"` with `note`:
   `"waiting on dependency '<id>', which is <its status>"`, write state to
   disk, and follow Interaction Mode like any other blocked task. Skip
-  Steps 3a/3b for this task.
+  Steps 4a/4b for this task.
 
-### Step 3a: Ensure a Plan Exists
+### Step 4a: Ensure a Plan Exists
 
 Before anything else, confirm the task's entry still exists — the backlog
-may have drifted since Phase 2 (a human edit, a duplicate title):
+may have drifted since Phase 3 (a human edit, a duplicate title):
 
 ```bash
 bash "$HOME/.claude/.radin/lib/radin-backlog.sh" find "<task id>"
@@ -142,7 +159,7 @@ another task's file.
 
 Read the task's file (`$BACKLOG_TASKS_DIR/<id>.md`) and check it for one or
 more `**Plan:** <path>` lines. If there's already at least one, skip
-straight to Step 3b — the entry's already planned (possibly as multiple
+straight to Step 4b — the entry's already planned (possibly as multiple
 sub-plans covering different parts of the task).
 
 If there's none yet, invoke the `/ponytail` skill yourself first and apply
@@ -153,7 +170,7 @@ single obvious change a sub-agent could execute without a design decision
 Anything touching multiple files, requiring a structural choice, or
 ambiguous in scope still goes through `/radin-plan`.
 
-- **Straightforward**: skip planning. Proceed to Step 3b with no
+- **Straightforward**: skip planning. Proceed to Step 4b with no
   `**Plan:**` pointer — the sub-agent implements directly from the entry
   text.
 - **Needs a plan**: delegate planning to a sub-agent. Never run
@@ -190,19 +207,19 @@ ambiguous in scope still goes through `/radin-plan`.
   never pick one and never create a new entry.
   ```
 
-  - On `STATUS: PLANNED`: proceed to Step 3b — the task's file path is
+  - On `STATUS: PLANNED`: proceed to Step 4b — the task's file path is
     unchanged by the pointer insertion.
   - On `STATUS: BLOCKED`: handle exactly like an execution `STATUS: BLOCKED`
     below — mark the entry `"blocked"` with the note, then follow
     Interaction Mode (interactive: stop the run and raise the question;
-    autonomous: report and continue to the next task). Step 3b is skipped
+    autonomous: report and continue to the next task). Step 4b is skipped
     for this task either way.
 
-### Step 3b: Execution Sub-Agent
+### Step 4b: Execution Sub-Agent
 
 Read the task's file (`$BACKLOG_TASKS_DIR/<id>.md`). If it has `**Plan:**
-<path>` line(s) — pre-existing or just written in Step 3a — pass all
-PLAN_PATHs to the sub-agent, in the order they appear. If Step 3a judged
+<path>` line(s) — pre-existing or just written in Step 4a — pass all
+PLAN_PATHs to the sub-agent, in the order they appear. If Step 4a judged
 the task straightforward and skipped planning, there are no PLAN_PATHS.
 Say so explicitly in the prompt below.
 
@@ -214,9 +231,9 @@ suggestions — pass them through as-is, don't second-guess or filter them.
 
 Invoke a sub-agent with `model: "sonnet"`, `run_in_background: false`, and exactly this prompt (replace TASK_FILE with
 `$BACKLOG_TASKS_DIR/<id>.md`, PLAN_PATHS with
-the plan file path(s) in order, or "none — implement directly from the entry" if Step 3a
+the plan file path(s) in order, or "none — implement directly from the entry" if Step 4a
 skipped planning, SKILLS with the collected `**Skill:**` name(s) or "none", and DEPENDS_ON with the list of `<id>: <commit hash>` pairs gathered in
-Step 3a-0, or "none" if `depends_on` was empty):
+Step 4a-0, or "none" if `depends_on` was empty):
 
 ```
 Execute the task described in TASK_FILE:
@@ -305,7 +322,7 @@ When the sub-agent reports back, find its `STATUS:` line first. This always driv
   - Proceed to the next task on a clean tree
 - On `STATUS: SUCCESS` with a clean tree:
   - Record the commit hash (or the pre-existing hash it cites, if no new commit)
-  - Record it via the state CLI — this is what Step 3a-0 reads for any later
+  - Record it via the state CLI — this is what Step 4a-0 reads for any later
     task that lists this one in its `depends_on`:
 
     ```bash
@@ -313,8 +330,8 @@ When the sub-agent reports back, find its `STATUS:` line first. This always driv
     ```
 
   - Remove the completed entry (index line + task file) from the backlog
-    itself, not just the state file — do this now, not deferred to Phase 4,
-    since interactive mode can stop the run before Phase 4 ever runs (a
+    itself, not just the state file — do this now, not deferred to Phase 5,
+    since interactive mode can stop the run before Phase 5 ever runs (a
     later blocked task) and a completed entry left in the backlog would
     look unstarted next session:
 
@@ -358,27 +375,27 @@ On `STATUS: FAILED` (and left no dirty tree, handled above if it did):
   next task.`
 - Continue to the next task
 
-### Step 3c: Repeat
+### Step 4c: Repeat
 
 Continue to the next entry until no `pending` entries remain in
 `$NAMESPACE_DIR/state/BACKLOG_STEPS.json` — i.e. the file is empty, or every
 remaining entry is already `"failed"` or `"blocked"`. A failed or blocked task
-must never block the loop from reaching Phase 4: those entries stay in the
+must never block the loop from reaching Phase 5: those entries stay in the
 file for the user to retry or decide later, but they are not retried
 automatically within this same session.
 
 ---
 
-## Phase 4: Final Summary
+## Phase 5: Final Summary
 
-Reached once Step 3c's loop exits — the file is empty, or every remaining
+Reached once Step 4c's loop exits — the file is empty, or every remaining
 entry is `"failed"` or `"blocked"`. This phase always runs, even when some
 tasks failed or blocked. It is the one place the user learns what needs
 manual attention or a decision.
 
 0. Run `bash "$HOME/.claude/.radin/lib/radin-state.sh" dirty-check "$REPO_ROOT"`. If empty, note "no residual changes" in the summary. If non-empty, do NOT commit it — deciding that unknown changes belong in history is the user's call, not yours. Stash it with `git stash push -u -m "radin-execute: session end, untracked to any task" -- . ':(exclude).claude/.radin'` and record the stash ref in the summary. Changes under `.claude/.radin/` (your own state and backlog writes) stay as they are: committing or ignoring radin's namespace is the repo owner's call, never radin's.
 1. Clean up the backlog (completed entries were already removed per-task
-   in Step 3b via `radin-backlog.sh remove` — this is just a final pass):
+   in Step 4b via `radin-backlog.sh remove` — this is just a final pass):
    - Leave failed and blocked tasks in place — they remain to be retried or
      decided
    - If `radin-backlog.sh list` shows a duplicate id or title left over
@@ -417,7 +434,7 @@ Stashes created this session:
 - <stash ref> — <what it holds>. Recover: git stash pop / git stash show -p <ref>.
 ```
 
-## Phase 5: Review process
+## Phase 6: Review process
 
 You run as a sub-agent. You cannot ask the user a question mid-run and wait
 for the answer. Whether a review happens was decided before you started, by
@@ -429,7 +446,7 @@ the prompt that invoked you:
 - **It didn't**: do not run a review, and do not ask. End the final summary
   with one line the caller can act on:
   `To review this session's work, run /radin-review with scope: <commit
-  hashes recorded in Phase 3>.`
+  hashes recorded in Phase 4>.`
 
 ### Reviewer Sub-Agent
 
@@ -441,7 +458,7 @@ exact prompt:
 
 ```
 Invoke the `/radin-review` skill with scope: the commit(s) made this session
-(<list of commit hashes recorded in Phase 3>), plus any review instructions
+(<list of commit hashes recorded in Phase 4>), plus any review instructions
 from the invoking prompt: <instructions, or "none">.
 ```
 
@@ -457,7 +474,7 @@ from the invoking prompt: <instructions, or "none">.
   recommendation as its `note`. Skip its execution and follow Interaction
   Mode: interactive stops the run to raise the question now; autonomous
   continues with the remaining tasks and surfaces every `blocked` entry in
-  the Phase 4 summary. In autonomous mode a single blocked task never ends
+  the Phase 5 summary. In autonomous mode a single blocked task never ends
   the session early — the rest of the backlog still runs.
 - **Never run tasks in parallel.** Strict sequential execution.
 - **Sub-agents may not spawn sub-agents.** The delegation chain is
@@ -477,8 +494,8 @@ from the invoking prompt: <instructions, or "none">.
   raw `git status`. Without its built-in exclusion, your own state writes
   read as a dirty tree in repos that track the namespace.
 - **Never fabricate work.** Every commit this session makes must trace to
-  either a backlog entry processed in Phase 3, or a pre-existing
-  dirty-tree change disposed of in Phase 4 step 0. If the backlog is
+  either a backlog entry processed in Phase 4, or a pre-existing
+  dirty-tree change disposed of in Phase 5 step 0. If the backlog is
   missing, empty, or exhausted, that is a stop condition, not an invitation
   to find something useful to do.
 - **Never treat "no work found" as a problem to solve by inventing a
