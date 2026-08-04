@@ -72,6 +72,7 @@ check_lib_script "radin-namespace.sh" "$CLAUDE_DIR/.radin/lib/radin-namespace.sh
 check_lib_script "radin-backlog.sh" "$CLAUDE_DIR/.radin/lib/radin-backlog.sh"
 check_lib_script "radin-state.sh" "$CLAUDE_DIR/.radin/lib/radin-state.sh"
 check_file "radin-prioritization.md" "$CLAUDE_DIR/.radin/lib/radin-prioritization.md"
+check_file "radin-execute-prompts.md" "$CLAUDE_DIR/.radin/lib/radin-execute-prompts.md"
 check_lib_script "radin-doctor.sh" "$CLAUDE_DIR/.radin/lib/radin-doctor.sh"
 check_lib_script "radin-uninstall.sh" "$CLAUDE_DIR/.radin/lib/radin-uninstall.sh"
 

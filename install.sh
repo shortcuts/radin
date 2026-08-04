@@ -126,6 +126,7 @@ cp "$RADIN_ROOT"/lib/radin-namespace.sh "$HOME/.claude/.radin/lib/"
 cp "$RADIN_ROOT"/lib/radin-backlog.sh "$HOME/.claude/.radin/lib/"
 cp "$RADIN_ROOT"/lib/radin-state.sh "$HOME/.claude/.radin/lib/"
 cp "$RADIN_ROOT"/lib/radin-prioritization.md "$HOME/.claude/.radin/lib/"
+cp "$RADIN_ROOT"/lib/radin-execute-prompts.md "$HOME/.claude/.radin/lib/"
 cp "$RADIN_ROOT"/lib/radin-doctor.sh "$HOME/.claude/.radin/lib/"
 cp "$RADIN_ROOT"/lib/radin-uninstall.sh "$HOME/.claude/.radin/lib/"
 cp "$RADIN_ROOT"/agents/*.md "$HOME/.claude/agents/"
@@ -353,6 +354,7 @@ cat >"$MANIFEST_FILE" <<EOF
     "radin-backlog.sh",
     "radin-state.sh",
     "radin-prioritization.md",
+    "radin-execute-prompts.md",
     "radin-doctor.sh",
     "radin-uninstall.sh"
   ],

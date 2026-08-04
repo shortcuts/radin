@@ -75,6 +75,8 @@ Both `BACKLOG_STEPS.json` and `completed.json` JSONL (one compact object per lin
 
 `radin-execute` and `radin-plan` skill also share `lib/radin-prioritization.md`, single source of truth for backlog parsing rules, task priority criteria, state-file JSON schema. Both read via `$HOME/.claude/.radin/lib/radin-prioritization.md` — `radin-execute` at start of Phase 1, `radin-plan` at start of its Step 2 — instead of embedding own copy. `radin-execute` uses all of it, prioritize/order whole backlog. `radin-plan` uses only parsing section: scoped to single entry caller points at, not whole backlog, so nothing to prioritize, no state file of own.
 
+`radin-execute` alone reads `lib/radin-execute-prompts.md`, the two verbatim sub-agent prompts (planning for Step 4a, execution for Step 4b). It reads them at start of Phase 4, not inline in agent file. A session that stops at Phase 2 (common first turn) never reaches Phase 4, so never loads them — keeps that turn's context lean.
+
 `radin-plan` is skill, not agent: runs inline in whichever context invokes it. In user's own conversation, judges whether its one scoped entry should split into independent sub-plans, confirms with user directly before splitting, writes plan file + `**Plan:**` pointer per resulting sub-task. For any task reaching Phase 3 with no `**Plan:**` line yet, `radin-execute` delegates planning to dedicated planning sub-agent invoking `/radin-plan`. Keeps planning's codebase exploration out of orchestrator's context — plan file on disk = handoff to execution sub-agent. That sub-agent runs non-interactively: where skill would ask confirmation, takes non-destructive path (no split, no overwrite), genuine ambiguity marks task `blocked` for user instead of guessing.
 
 To update radin itself, re-run `install.sh` — plain `curl | bash`, or `./install.sh` from dev clone. Always re-downloads/re-copies `agents/*.md` and `skills/*/`, overwrites what's in `~/.claude/`. Pass `--force` to also re-prompt on companion tools `install.sh` would otherwise skip since already on system.
@@ -114,6 +116,7 @@ radin/
   lib/
     radin-backlog.sh
     radin-doctor.sh
+    radin-execute-prompts.md
     radin-namespace.sh
     radin-prioritization.md
     radin-state.sh
