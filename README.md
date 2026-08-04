@@ -34,7 +34,7 @@ radin itself only copy files. Companion tools pull own stacks, each gated behind
 | For | You need |
 | --- | --- |
 | radin core (agents + skills) | `curl`, `tar`, `bash` |
-| Claude plugins (caveman, ponytail, i-have-adhd) | `claude` CLI |
+| Claude plugins (caveman, ponytail) | `claude` CLI |
 | rtk | [Homebrew](https://brew.sh), or `curl` for rtk's own installer |
 | code-review-graph, headroom | `python3` with `pip3` or [`pipx`](https://pipx.pypa.io) |
 
@@ -185,7 +185,6 @@ own repo stays source of truth.
 | --- | --- |
 | [rtk](https://github.com/rtk-ai/rtk) | CLI proxy reduces LLM token consumption 60-90% on common dev commands. Single Rust binary, zero dependencies |
 | [caveman](https://github.com/JuliusBrussee/caveman) | Why use many token when few token do trick — Claude Code skill cuts 65% of tokens by talking like caveman |
-| [i-have-adhd](https://github.com/ayghri/i-have-adhd) | Skill for your coding agent to stop it burying answer. ADHD-friendly output |
 | [ponytail](https://github.com/DietrichGebert/ponytail) | Makes AI agent think like laziest senior dev in room. Best code is code never written |
 | [code-review-graph](https://github.com/tirth8205/code-review-graph) | Local-first code intelligence graph for MCP and CLI. Builds persistent map of codebase so AI coding tools read only what matters |
 | [headroom](https://github.com/headroomlabs-ai/headroom) | Local-first context-compression stack — proxy/MCP/wrap layer with cross-agent memory and CLAUDE.md-learning. Complements rtk (whole-session wrap vs. rtk's per-command compression), not replacement. Python/pip footprint — install prompts extra confirmation |

@@ -16,8 +16,8 @@
 
 radin gives solo dev on small Claude subscription one install for cost-optimized agentic workflow. Ships backlog-driven execution
 (`radin-execute`, `radin-plan`, `radin-review`), installs companion
-tools (rtk, caveman, code-review-graph, thermo-nuclear, ponytail,
-i-have-adhd) — some unconditional, some only on explicit `y` confirm.
+tools (rtk, caveman, code-review-graph, thermo-nuclear, ponytail) —
+some unconditional, some only on explicit `y` confirm.
 radin never vendors or forks them.
 
 ## Dev loop

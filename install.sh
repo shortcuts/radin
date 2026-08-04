@@ -291,9 +291,6 @@ install_if_confirmed "headroom" "headroom" \
 # the plugin marketplace flow, same as the interactive `/plugin` command.
 install_plugin_if_confirmed "caveman" "caveman@caveman" "JuliusBrussee/caveman"
 
-# i-have-adhd ships as a Claude Code plugin too -- same marketplace flow.
-install_plugin_if_confirmed "i-have-adhd" "i-have-adhd@i-have-adhd" "ayghri/i-have-adhd"
-
 # ponytail ships as a Claude Code plugin too -- same marketplace flow.
 install_plugin_if_confirmed "ponytail" "ponytail@ponytail" "DietrichGebert/ponytail"
 
@@ -363,7 +360,6 @@ cat >"$MANIFEST_FILE" <<EOF
     "code-review-graph": $(json_bool_cmd code-review-graph),
     "headroom": $(json_bool_cmd headroom),
     "caveman": $(json_bool_plugin "caveman@caveman"),
-    "i-have-adhd": $(json_bool_plugin "i-have-adhd@i-have-adhd"),
     "ponytail": $(json_bool_plugin "ponytail@ponytail"),
     "mattpocock-skills": $(json_bool_plugin "mattpocock-skills@claude-plugins-official")
   }

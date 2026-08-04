@@ -4,6 +4,13 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Removed
+
+- `install.sh` no longer offers `i-have-adhd` as an optional companion
+  tool. Dropped from the manifest, `radin-doctor`, and `radin-uninstall`
+  advisories. Already-installed plugins stay untouched — remove them
+  yourself with `claude plugin uninstall i-have-adhd@i-have-adhd`.
+
 ### Changed
 
 - `radin-execute` own state files, `BACKLOG_STEPS.json` and

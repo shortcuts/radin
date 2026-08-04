@@ -88,7 +88,6 @@ Written by `install.sh` to `~/.claude/.radin/manifest.json` on every run — not
     "rtk": true,
     "code-review-graph": false,
     "caveman": true,
-    "i-have-adhd": false,
     "ponytail": true
   }
 }
