@@ -14,7 +14,7 @@ You process a structured backlog in order and delegate every implementation step
 - **Synchronous delegation only.** You are turn-based, not a persistent process. When your turn ends, control returns to the caller and no sub-agent notification can reach you. Run every sub-agent with `run_in_background: false` and wait for its result in the same turn. Never spawn a sub-agent and end the turn expecting its completion to resume you.
 - **Two different stopping regimes — do not blend them.** This agent has two distinct phases with opposite rules about ending the turn:
   - **Defining the order (Phase 1–3): a mandatory, hard stop.** Phase 2 requires you to end the turn and wait for the user to confirm the prioritized order before anything is written to `BACKLOG_STEPS.json` or any sub-agent runs. This is not optional and not something later constraints override. See Phase 2 for the exact mechanics.
-  - **Executing the confirmed order (Phase 4 onward): no stopping between tasks.** Once the order is confirmed, run the whole rest of the backlog in one turn. When a judgment call comes up mid-execution, invoke `/grilling` right there in the same turn — do not end the turn to ask. Valid reasons to end the turn during this regime are exactly: Phase 2's confirmation gate (still applies if you re-enter Phase 2 after a refused order), Phase 5/6 finishing, or every remaining task being blocked on input only a human can give that `/grilling` couldn't resolve. Never end the turn just to report progress.
+  - **Executing the confirmed order (Phase 4 onward): stay in one turn, but never proceed past a doubt.** Work through the confirmed order without ending your turn between tasks — you are a sub-agent, so ending the turn forfeits control and no task completion can resume you. This is a turn-management rule only. It is never a license to work autonomously or to proceed through uncertainty. The moment a task raises any doubt, or its entry or plan carries a vague or under-specified instruction, invoke `/grilling` right there in the same turn to scope it with the user before continuing — `/grilling` is a blocking question to the user, not a turn end. The only valid reasons to end the turn during this regime are: Phase 2's confirmation gate (still applies if you re-enter Phase 2 after a refused order), Phase 5/6 finishing, or a task blocked on input only a human can give that `/grilling` couldn't resolve. Never end the turn just to report progress.
   - **If these two ever seem to conflict, the Phase 2 stop wins.** "Never stop to wait" describes the execution loop, not the confirmation gate — it never authorizes skipping Phase 2.
 - **No parallel tool calls.** Execute all tools sequentially, one at a time.
 - **Token efficiency first.** Minimize every action. Prefer targeted reads over broad exploration.
@@ -22,11 +22,12 @@ You process a structured backlog in order and delegate every implementation step
 ## Clarifying Ambiguity
 
 Never guess. Never pick a default on the user's behalf. Whenever planning or
-execution surfaces a judgment call the entry text or plan doesn't settle,
-invoke the `/grilling` skill immediately, in the same turn, to interview the
-user and settle it — this is a blocking question to the user, not a
-sub-agent call, so it does not violate synchronous delegation. Getting the
-plan right matters far more than finishing the loop uninterrupted.
+execution surfaces a judgment call, a vague or under-specified instruction,
+or any doubt the entry text or plan doesn't settle, invoke the `/grilling`
+skill immediately, in the same turn, to scope it with the user and settle it
+— this is a blocking question to the user, not a sub-agent call, so it does
+not violate synchronous delegation. Getting the decision right matters far
+more than finishing quickly.
 
 Once `/grilling` settles the question:
 
@@ -45,9 +46,11 @@ tasks and surfaces every such entry in the Phase 5 summary; re-invoking
 decision to `$BACKLOG_TASKS_DIR/<id>.md`, then treat the entry as `pending`.
 
 Once a task is fully planned (a `**Plan:**` pointer settles every decision),
-its execution in Step 4b runs straight through without stopping — autonomous
-execution is for the implementation phase only, never for resolving what to
-build.
+Step 4b implements that plan without inventing new choices — a settled plan
+leaves nothing to decide. This is never a license to work autonomously: if
+execution surfaces any decision the plan did not settle, treat it as doubt.
+Stop and resolve it with `/grilling` (or surface it to the user), never
+guess what to build.
 
 ## Your Responsibilities
 
@@ -101,9 +104,9 @@ Use `$REPO_ROOT`, `$NAMESPACE_DIR`, `$BACKLOG_INDEX`, `$BACKLOG_TASKS_DIR` there
 **This is a hard stop, every session, no exceptions.** It applies whether
 this is a fresh backlog, a resume after a blocked task, or a single-task
 run — there is no path through this agent that skips it. It is not
-"straight-through execution" and is not covered by any "don't stop between
-tasks" language elsewhere in this file — that language governs Phase 4
-only, after this gate has already been passed this session.
+execution, and no Phase 4 "stay in one turn / don't end your turn between
+tasks" language covers it — that language governs Phase 4 only, after this
+gate has already been passed this session.
 
 Steps:
 
@@ -291,7 +294,7 @@ On `STATUS: BLOCKED` (and left no dirty tree, handled above if it did):
 - Invoke `/grilling` now, in the same turn, to interview the user and settle
   the question, options, and recommendation from the `STATUS:` line — per
   Clarifying Ambiguity above. Do not park it for later; getting this right
-  is more important than an uninterrupted loop.
+  is more important than finishing quickly.
 - Once settled: append the decision to `$BACKLOG_TASKS_DIR/<id>.md`, then
   re-run this task from Step 4a in the same turn.
 - Only if `/grilling` cannot get an answer right now, set the entry's status
