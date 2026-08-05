@@ -2,6 +2,80 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 1.0.0 (2026-08-05)
+
+
+### Features
+
+* add force mode for updates ([a4fd443](https://github.com/shortcuts/radin/commit/a4fd4434479903d0046e0209dc11f6eeada08f9b))
+* add headroom as optional companion tool ([0d7d5cb](https://github.com/shortcuts/radin/commit/0d7d5cbf25174c715d751765f9424858119b633f))
+* add i-have-adhd ([0e5e5a4](https://github.com/shortcuts/radin/commit/0e5e5a47cdfb48c229fd0b88fa2bf38a745da76d))
+* add openai.yaml agent manifests to radin skills ([7c4047f](https://github.com/shortcuts/radin/commit/7c4047f435e12312e87752bd94732d5c1d6574ac))
+* add ponytail ([1513547](https://github.com/shortcuts/radin/commit/1513547f9fea31f4186c438ffb8def102c8c366d))
+* add radin-doctor install verification command ([74bb980](https://github.com/shortcuts/radin/commit/74bb980319940d2c2d362517c08d3482be47cd30))
+* add radin-record skill ([656fe06](https://github.com/shortcuts/radin/commit/656fe06721949ba74e8a4cfc16fdb22d17dc1601))
+* add radin-show skill to print current project's backlog ([9577a75](https://github.com/shortcuts/radin/commit/9577a75474ae0a8a586d3f3ac47eaba2fbb8c2fc))
+* add radin-state.sh CLI, stop hand-editing execute's state JSON ([8404994](https://github.com/shortcuts/radin/commit/840499476ab6ebf78851abdc54c93641881d3fa6))
+* add radin-stats skill ([3f4e1fd](https://github.com/shortcuts/radin/commit/3f4e1fd9c24491eb4eb1dbe72613b7c5a4170efd))
+* add release-please automation ([532c601](https://github.com/shortcuts/radin/commit/532c601c11761178347ef8e5e53545f801d002ee))
+* allow configuring model on agents ([729b1f7](https://github.com/shortcuts/radin/commit/729b1f7c7e9446fc8d5ca2848d0c81e45afa6793))
+* decide rtk leverage and add sub-agent guidance ([6f6b61c](https://github.com/shortcuts/radin/commit/6f6b61cbb5969d7d24fbe008344f165abcb47fe3))
+* dependency-aware task ordering and drift detection in radin-execute ([3d298b2](https://github.com/shortcuts/radin/commit/3d298b217abf7f35bf862fbacc4acc9c531d123f))
+* gate planning on ponytail, self-review plans before handoff ([543a899](https://github.com/shortcuts/radin/commit/543a899f4125149839eee208c6b6b94e64d07fe2))
+* leverage code-review-graph in radin-plan and radin-execute ([aa1e2f4](https://github.com/shortcuts/radin/commit/aa1e2f4ecf50fbb674496caf1bafabdf1940d17e))
+* **lib:** add radin-backlog.sh CLI for deterministic backlog operations ([477b5ef](https://github.com/shortcuts/radin/commit/477b5efed8e3103a50e07226aefc707b14892bcf))
+* radin stack ([debe84e](https://github.com/shortcuts/radin/commit/debe84e97a8edbe091d0c5148c8e2e0f7ba47e04))
+* **radin-execute:** interactive vs autonomous interaction modes ([cf0eee3](https://github.com/shortcuts/radin/commit/cf0eee315bf1a19eb1741a75428696124cea09d0))
+* **radin-execute:** sync orchestration, blocked status, sub-agent planning ([7a8a338](https://github.com/shortcuts/radin/commit/7a8a338705b0ec9b383a0124affcd1d114113808))
+* **radin-plan:** delegate interview to /grilling, add /research for API facts ([23be4fb](https://github.com/shortcuts/radin/commit/23be4fbd97ed2bcb651d3e81ec6ba72ce6806487))
+* split backlog storage into a JSONL index + one file per task ([192ef30](https://github.com/shortcuts/radin/commit/192ef3009f1556b4a8170270f52cae01b3667bdd))
+* **uninstall:** add radin-uninstall skill and lib script ([2ca05f2](https://github.com/shortcuts/radin/commit/2ca05f26300aad1481581f1f2adb85322ed2e53f))
+* vendor mattpocock-skills as a companion tool ([56c1d9b](https://github.com/shortcuts/radin/commit/56c1d9b80d4d61fbc5b7c77159bc63bd781692e0))
+* write install manifest on every install.sh run ([11c3476](https://github.com/shortcuts/radin/commit/11c3476bfb84168514bacf961c7033aabd0a3f53))
+
+
+### Bug Fixes
+
+* **AGENTS.md:** expand companion-tool list to include all six tools ([dbc126d](https://github.com/shortcuts/radin/commit/dbc126d4ecee99413d024f30ee0fc829dea216d8))
+* **AGENTS.md:** remove outdated repo-root BACKLOG.md section ([7001e00](https://github.com/shortcuts/radin/commit/7001e00479a2c81fd8b80611743c5aaebdccdc92))
+* backlog path simplification ([76cb098](https://github.com/shortcuts/radin/commit/76cb098f36a54f9cb0eda37a73b1652b0339bc94))
+* **BACKLOG:** improve find file logic ([d0070f6](https://github.com/shortcuts/radin/commit/d0070f6123c702ca33520513bb1a5934ace08b32))
+* check namespaced ISSUES_FILE before repo-root fallback ([c1c144f](https://github.com/shortcuts/radin/commit/c1c144ff91cfd6c354f1f3f8019e151816c1b65c))
+* commit orchestrator rename ([0f8f0af](https://github.com/shortcuts/radin/commit/0f8f0afe4f9862ad685ed1ee52521ab846129869))
+* curl | bash install silently dies on read prompts ([f7b037c](https://github.com/shortcuts/radin/commit/f7b037cb7b7c76dd883df672383ecc51bd8c7baa))
+* execute should ask for a confirmation ([ac797c0](https://github.com/shortcuts/radin/commit/ac797c01aba720fce4b7611e6c782df224f3d646))
+* **execute:** force hard stop ([685ee1e](https://github.com/shortcuts/radin/commit/685ee1e7cf3a2b54b8568d01b30615f98f16506f))
+* headroom ([c9ee0d5](https://github.com/shortcuts/radin/commit/c9ee0d5ac1782883e5f948912b25c50762af9f73))
+* install ([dd5bf4b](https://github.com/shortcuts/radin/commit/dd5bf4b18e022ce45d4fefe0ba75b862cc17d3cd))
+* install requirements on python ([49ec94b](https://github.com/shortcuts/radin/commit/49ec94b73ffacda3d06d406ad9a1c734f99484e8))
+* interactive plan ([daf12fa](https://github.com/shortcuts/radin/commit/daf12fa3cdaa927171c6aa693fb3470a944e5185))
+* invoke sub skill ([1abef43](https://github.com/shortcuts/radin/commit/1abef43490bf066adb58cbf6a25e06d3c752c2a3))
+* keep skill when recorded ([f0e1a5d](https://github.com/shortcuts/radin/commit/f0e1a5d2876e31e34e7b02e82a04b307bcff8ae6))
+* less assumptions ([717d6fe](https://github.com/shortcuts/radin/commit/717d6fea075116c75ac861878b5ed8f1fc94ed1e))
+* lib location ([731cb9a](https://github.com/shortcuts/radin/commit/731cb9abab88019f413c730e2550a1d0b926fe45))
+* lint ([f045cfd](https://github.com/shortcuts/radin/commit/f045cfdba064aa62307457cd4fe628bc1bafed14))
+* lint ([fb28845](https://github.com/shortcuts/radin/commit/fb28845c48be9c641fae5d72c758f5e73fd09e87))
+* orchestrator must not leave dirty working tree ([266ef6d](https://github.com/shortcuts/radin/commit/266ef6de5d337c115a28a6398e93e0cc4f56fbda))
+* orphaned backlog items ([51ab430](https://github.com/shortcuts/radin/commit/51ab430e67f8979fc54e74ad81000bdb1d235e65))
+* **plan:** add record autonomously ([1821b8c](https://github.com/shortcuts/radin/commit/1821b8c116a4c262f6c76d62d2f6f85ec58369d0))
+* **radin-execute:** add fallback for caveman-commit when plugin absent ([b01a5f3](https://github.com/shortcuts/radin/commit/b01a5f3eb9d8084fa50bb4b9f4ce487e26df289f))
+* **radin-execute:** close non-interactive gaps in loop, planning, review ([d5edf54](https://github.com/shortcuts/radin/commit/d5edf54e2cf45ec6c4ac1c052ceaa8166a7f903e))
+* **radin-execute:** correct Phase 4/5 references and typo ([3c514a9](https://github.com/shortcuts/radin/commit/3c514a98fb7fb9e4a0d34f952f792b3c2da5a51b))
+* **radin-execute:** forbid inventing work when backlog missing or exhausted ([678da0f](https://github.com/shortcuts/radin/commit/678da0f1eee9f7eee05e3820e97a009339cf0953))
+* **radin-execute:** keep radin namespace out of tree checks, close ask-path gaps ([6c985b8](https://github.com/shortcuts/radin/commit/6c985b8405efe8116563aaf3c3cca14f74498e78))
+* **radin-execute:** remove completed entries from BACKLOG.md immediately ([7a6e4d7](https://github.com/shortcuts/radin/commit/7a6e4d7a85b0107514ab7e7632e2096b2cb7b06e))
+* **radin-execute:** stash dirty trees instead of stranding them, report failures with recovery steps ([ab17ab0](https://github.com/shortcuts/radin/commit/ab17ab0d91051a7bf7d0a5f028af52c905bdfbb6))
+* **radin-execute:** verify backlog existence mechanically, not by inference ([80f90a4](https://github.com/shortcuts/radin/commit/80f90a48722f285fe753e8599f9c889aaeec5943))
+* **README:** correct radin-execute leverage table to show /radin-review ([c551636](https://github.com/shortcuts/radin/commit/c551636a4592f228ee4b6b1ed07c1d7945a3e953))
+* redundant ISSUES.md file ([e07a7af](https://github.com/shortcuts/radin/commit/e07a7afa0c1891c986530208bf455043fb733562))
+* remove orphan items from the backlog ([72027f5](https://github.com/shortcuts/radin/commit/72027f5636b390a17b420a05988649d7722043bc))
+* silent install mode ([948644f](https://github.com/shortcuts/radin/commit/948644ff898e6368b93e6ec4fcc26e0673033d50))
+* stats skill ([c8d037b](https://github.com/shortcuts/radin/commit/c8d037bdbf2c778a3f3d22144b6ad29f6f39c528))
+* stop biasing orchestrator/plan agents toward repo-root ISSUES.md ([582cbbc](https://github.com/shortcuts/radin/commit/582cbbcbe76ac31e0147a882fcddf929e9a404d1))
+* tests ([a803bb6](https://github.com/shortcuts/radin/commit/a803bb6abaadcb6b2ca9d05f0cc27947159f52f2))
+* tests without homebrew ([95bd9b3](https://github.com/shortcuts/radin/commit/95bd9b330c1932cfc7133f8d0bf1533a22e8c7c7))
+* **thermo-nuclear:** allow model invoke ([78d7779](https://github.com/shortcuts/radin/commit/78d777958abe5afa21528c4b07e2717e88df8b16))
+
 ## [Unreleased]
 
 ### Removed
