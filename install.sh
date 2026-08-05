@@ -123,6 +123,7 @@ MANIFEST_VERSION="dev"
 step "Installing agents and skills into ~/.claude"
 mkdir -p "$HOME/.claude/agents" "$HOME/.claude/skills" "$HOME/.claude/.radin/lib"
 cp "$RADIN_ROOT"/lib/radin-namespace.sh "$HOME/.claude/.radin/lib/"
+cp "$RADIN_ROOT"/lib/radin-json.sh "$HOME/.claude/.radin/lib/"
 cp "$RADIN_ROOT"/lib/radin-backlog.sh "$HOME/.claude/.radin/lib/"
 cp "$RADIN_ROOT"/lib/radin-state.sh "$HOME/.claude/.radin/lib/"
 cp "$RADIN_ROOT"/lib/radin-prioritization.md "$HOME/.claude/.radin/lib/"
@@ -348,6 +349,7 @@ cat >"$MANIFEST_FILE" <<EOF
   ],
   "lib": [
     "radin-namespace.sh",
+    "radin-json.sh",
     "radin-backlog.sh",
     "radin-state.sh",
     "radin-prioritization.md",

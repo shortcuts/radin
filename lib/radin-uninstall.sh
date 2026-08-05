@@ -35,6 +35,7 @@ done
 
 printf '\nLib (%s/.radin/lib):\n' "$CLAUDE_DIR"
 remove_path "radin-namespace.sh" "$CLAUDE_DIR/.radin/lib/radin-namespace.sh"
+remove_path "radin-json.sh" "$CLAUDE_DIR/.radin/lib/radin-json.sh"
 remove_path "radin-backlog.sh" "$CLAUDE_DIR/.radin/lib/radin-backlog.sh"
 remove_path "radin-state.sh" "$CLAUDE_DIR/.radin/lib/radin-state.sh"
 remove_path "radin-prioritization.md" "$CLAUDE_DIR/.radin/lib/radin-prioritization.md"

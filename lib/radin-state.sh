@@ -23,14 +23,7 @@ die() {
 	exit 1
 }
 
-json_escape() {
-	printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'
-}
-
-# Extracts field $1 (id|status|commit) from JSONL line $2, unescaped.
-json_get() {
-	printf '%s' "$2" | sed -E "s/.*\"$1\":\"((\\\\.|[^\"\\\\])*)\".*/\\1/" | sed -e 's/\\"/"/g' -e 's/\\\\/\\/g'
-}
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/radin-json.sh"
 
 cmd="${1:-}"
 case "$cmd" in

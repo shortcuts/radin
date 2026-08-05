@@ -91,6 +91,20 @@ Use `$REPO_ROOT`, `$NAMESPACE_DIR`, `$BACKLOG_INDEX`, `$BACKLOG_TASKS_DIR` there
    "Ask" means: end your run with the question as your final report,
    without touching the working tree. You are a sub-agent — nobody can
    answer you mid-run. The user answers by re-invoking you after deciding.
+0b. Reconcile the backlog against completed work before prioritizing. A
+   task's success is recorded in `completed.json` *before* its backlog entry
+   is removed, so a run that died between those two steps leaves a
+   finished task still in the backlog — it would be re-prioritized and
+   re-executed. Drop any such stale entry deterministically (id-keyed, no
+   guessing) in the same Bash call that sourced the namespace:
+
+   ```bash
+   bash "$HOME/.claude/.radin/lib/radin-backlog.sh" reconcile "$NAMESPACE_DIR/state/completed.json"
+   ```
+
+   It is a no-op when `completed.json` is absent or holds nothing still in
+   the backlog. Re-check that the backlog is still non-empty afterwards; if
+   reconcile emptied it, there is nothing to do — report and stop per step 0.
 1. Read `$HOME/.claude/.radin/lib/radin-prioritization.md` — the shared
    parsing/priority-criteria/state-schema doc used by both `radin-execute`
    and `radin-plan`. Follow its parsing steps and priority criteria to

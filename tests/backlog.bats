@@ -130,6 +130,33 @@ cli() {
   [[ "$output" != *"f thing"* ]]
 }
 
+@test "reconcile drops entries whose id is in completed.json, keeps the rest" {
+  cli add fix "done task" <<<"body done"
+  cli add feat "still open" <<<"body open"
+  mkdir -p "$WORK/proj/.claude/.radin/state"
+  printf '{"id":"done-task","commit":"abc123"}\n' > "$WORK/proj/.claude/.radin/state/completed.json"
+  run cli reconcile "$WORK/proj/.claude/.radin/state/completed.json"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"done-task"* ]]
+  [ ! -f "$TASKS/done-task.md" ]
+  [ -f "$TASKS/still-open.md" ]
+  run cat "$INDEX"
+  [[ "$output" != *"done-task"* ]]
+  [[ "$output" == *"still-open"* ]]
+}
+
+@test "reconcile is a no-op when completed.json is absent or lists nothing in the backlog" {
+  cli add feat "keep me" <<<"body"
+  run cli reconcile "$WORK/proj/.claude/.radin/state/completed.json"
+  [ "$status" -eq 0 ]
+  [ -f "$TASKS/keep-me.md" ]
+  mkdir -p "$WORK/proj/.claude/.radin/state"
+  printf '{"id":"never-added","commit":"x"}\n' > "$WORK/proj/.claude/.radin/state/completed.json"
+  run cli reconcile "$WORK/proj/.claude/.radin/state/completed.json"
+  [ "$status" -eq 0 ]
+  [ -f "$TASKS/keep-me.md" ]
+}
+
 @test "works outside a git repo (PWD fallback)" {
   mkdir -p "$WORK/plain"
   run bash -c "cd '$WORK/plain' && bash '$CLI' add chore 'note' <<<'a note'"

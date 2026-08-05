@@ -69,6 +69,7 @@ done
 
 printf '\nLib (%s/.radin/lib):\n' "$CLAUDE_DIR"
 check_lib_script "radin-namespace.sh" "$CLAUDE_DIR/.radin/lib/radin-namespace.sh"
+check_lib_script "radin-json.sh" "$CLAUDE_DIR/.radin/lib/radin-json.sh"
 check_lib_script "radin-backlog.sh" "$CLAUDE_DIR/.radin/lib/radin-backlog.sh"
 check_lib_script "radin-state.sh" "$CLAUDE_DIR/.radin/lib/radin-state.sh"
 check_file "radin-prioritization.md" "$CLAUDE_DIR/.radin/lib/radin-prioritization.md"

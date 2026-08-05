@@ -18,6 +18,7 @@
 #   radin-backlog.sh add <category> <title>      # create task, body read from stdin, prints its id
 #   radin-backlog.sh add-plan <id-or-title> <path>  # append "**Plan:** <path>" to the task's file
 #   radin-backlog.sh remove <id-or-title>        # delete task file + index entry (exact single match required)
+#   radin-backlog.sh reconcile <completed-file>  # drop backlog entries whose id is already in completed.json
 #
 # Categories: feat | fix | chore | refactor (canonical section order, used by `show`).
 # `find` matches an exact id first, then exact title, then case-insensitive
@@ -31,6 +32,7 @@ die() {
 }
 
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$LIB_DIR/radin-json.sh"
 eval "$(bash "$LIB_DIR/radin-namespace.sh")"
 
 require_index() {
@@ -41,15 +43,6 @@ slugify() {
 	printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//'
 }
 
-json_escape() {
-	printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'
-}
-
-# Extracts field $1 (id|category|title|file) from JSONL line $2, unescaped.
-json_get() {
-	printf '%s' "$2" | sed -E "s/.*\"$1\":\"((\\\\.|[^\"\\\\])*)\".*/\\1/" | sed -e 's/\\"/"/g' -e 's/\\\\/\\/g'
-}
-
 # Prints "id<TAB>category<TAB>title<TAB>file" for JSONL line $1.
 fmt_line() {
 	local line="$1" id category title file
@@ -58,6 +51,13 @@ fmt_line() {
 	title="$(json_get title "$line")"
 	file="$(json_get file "$line")"
 	printf '%s\t%s\t%s\t%s\n' "$id" "$category" "$title" "$file"
+}
+
+# Delete a task by id: its body file and its index line.
+remove_by_id() {
+	rm -f "$BACKLOG_TASKS_DIR/$1.md"
+	grep -v -F "\"id\":\"$1\"" "$BACKLOG_INDEX" >"$BACKLOG_INDEX.tmp" || true
+	mv "$BACKLOG_INDEX.tmp" "$BACKLOG_INDEX"
 }
 
 # Matching JSONL lines for query $1: exact id, else exact title, else
@@ -195,13 +195,37 @@ remove)
 	span="$(single_match "$query")"
 	id="$(printf '%s' "$span" | cut -f1)"
 	title="$(printf '%s' "$span" | cut -f3)"
-	rm -f "$BACKLOG_TASKS_DIR/$id.md"
-	grep -v -F "\"id\":\"$id\"" "$BACKLOG_INDEX" >"$BACKLOG_INDEX.tmp" || true
-	mv "$BACKLOG_INDEX.tmp" "$BACKLOG_INDEX"
+	remove_by_id "$id"
 	printf 'removed "%s" (id: %s)\n' "$title" "$id"
 	;;
 
+reconcile)
+	# A task's success is recorded in completed.json (radin-state.sh
+	# completed-add) BEFORE its backlog entry is removed. If the run dies
+	# between those two steps the completed entry stays in the backlog and
+	# looks unstarted next session. Reconcile closes that gap: drop every
+	# backlog entry whose id already sits in completed.json.
+	# ponytail: id-keyed match. A brand-new task that reuses a removed
+	# task's slug (same title) would be dropped too; clear completed.json
+	# between sessions if that ever bites.
+	completed_file="${2:-}"
+	[ -n "$completed_file" ] || die "usage: reconcile <completed-file>"
+	require_index
+	[ -f "$completed_file" ] || { printf 'reconcile: no completed file, nothing to do\n'; exit 0; }
+	removed=""
+	while IFS= read -r cline || [ -n "$cline" ]; do
+		[ -n "$cline" ] || continue
+		cid="$(json_get id "$cline")"
+		[ -n "$cid" ] || continue
+		if grep -qF "\"id\":\"$cid\"" "$BACKLOG_INDEX"; then
+			remove_by_id "$cid"
+			removed="$removed $cid"
+		fi
+	done <"$completed_file"
+	[ -n "$removed" ] && printf 'reconcile: dropped already-completed entries:%s\n' "$removed" || printf 'reconcile: no stale completed entries\n'
+	;;
+
 *)
-	die "unknown command: ${cmd:-<none>} (env|show|list|find|add|add-plan|remove)"
+	die "unknown command: ${cmd:-<none>} (env|show|list|find|add|add-plan|remove|reconcile)"
 	;;
 esac

@@ -121,6 +121,7 @@ run_install_no_companions_answering() {
 @test "installs shared namespace-resolution script into ~/.claude/.radin/lib" {
   run_install_no_companions
   [ -f "$TEST_HOME/.claude/.radin/lib/radin-namespace.sh" ]
+  [ -f "$TEST_HOME/.claude/.radin/lib/radin-json.sh" ]
   [ -f "$TEST_HOME/.claude/.radin/lib/radin-uninstall.sh" ]
 }
 
@@ -155,6 +156,7 @@ run_install_no_companions_answering() {
   grep -q '"radin-execute.md"' "$manifest"
   grep -q '"radin-doctor"' "$manifest"
   grep -q '"radin-namespace.sh"' "$manifest"
+  grep -q '"radin-json.sh"' "$manifest"
   grep -q '"rtk": true' "$manifest"
   grep -q '"code-review-graph": false' "$manifest"
   grep -q '"headroom": false' "$manifest"
