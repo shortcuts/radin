@@ -22,8 +22,7 @@ radin never vendors or forks them.
 
 ## Dev loop
 
-This repo source of truth. Edit `agents/*.md` and `skills/*/SKILL.md`
-directly here — no external fork, no sync step.
+This repo source of truth. Any agent or skills iteration must be done in `agents/*.md` and `skills/*/SKILL.md` respectively.
 
 - **Editing radin's own agents/skills:** edit `agents/*.md` or
   `skills/*/SKILL.md` directly. `thermo-nuclear` one exception — not
@@ -120,6 +119,14 @@ reinvent from scratch.
    installed anywhere yet. If new skill/agent should be verified by
    `radin-doctor`, also add to `lib/radin-doctor.sh`'s expected-file
    list — not derived automatically from `install.sh`'s cp lines.
+
+## radin-execute session preferences
+
+`agents/radin-execute.md` Phase 0.5 asks two questions at start of every
+session, via `AskUserQuestion`: use a git worktree per task (default yes),
+and create a branch per task (default no). Both answers pass to every
+execution sub-agent as `WORKTREE_MODE`/`BRANCH_MODE` through
+`lib/radin-execute-prompts.md`. Keep this prompt when editing either file.
 
 ## Constraints
 
