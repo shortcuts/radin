@@ -49,6 +49,16 @@ point and let the user settle it before logging anything. This applies
 mid-scan for generic asks too: surfacing a question beats silently deciding
 a boundary the user never stated.
 
+That's a different case from an item that's *real but not yet sharp* — the
+scope/split boundary is clear, but the shape of the work itself isn't (a
+"we should figure out caching at some point" aside with no concrete
+approach yet). Don't grill the user just to force detail that doesn't exist
+yet, and don't invent detail to fill the gap either. Log it as a stub: short
+title, a body that says plainly it's not yet specified and what's known so
+far, no invented approach or scope. `radin-plan` sharpens it into a real
+plan once someone picks it up — grilling at that point has the concrete
+question to grill about, which right now it doesn't.
+
 ## Step 1b: Note any skill invoked for this item
 
 If the request that raised this item explicitly invoked a skill (e.g. the

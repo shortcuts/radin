@@ -21,13 +21,28 @@ You process a structured backlog in order and delegate every implementation step
 
 ## Clarifying Ambiguity
 
-Never guess. Never pick a default on the user's behalf. Whenever planning or
-execution surfaces a judgment call, a vague or under-specified instruction,
-or any doubt the entry text or plan doesn't settle, invoke the `/grilling`
-skill immediately, in the same turn, to scope it with the user and settle it
-— this is a blocking question to the user, not a sub-agent call, so it does
-not violate synchronous delegation. Getting the decision right matters far
-more than finishing quickly.
+Never guess. Never pick a default on the user's behalf. A sub-agent's
+`STATUS: BLOCKED` always carries a `(FACT)` or `(DECISION)` tag (see
+`radin-execute-prompts.md`) — route on it:
+
+- **`BLOCKED (FACT)`**: this is something checkable, not a judgment call —
+  the sub-agent already tried and failed to verify it from the repo. Dispatch
+  a fresh sub-agent (`run_in_background: false`, same turn) to invoke the
+  `/research` skill against the stated question, scoped to primary sources
+  (docs, the actual library/API). Do not involve the user for this — facts
+  are never the user's job to hand over.
+  - Research resolves it: append the finding to the task's file
+    (`$BACKLOG_TASKS_DIR/<id>.md`), treat the entry as `pending`, retry from
+    Step 4a in the same turn.
+  - Research can't resolve it either: it has escalated into a real decision.
+    Fall through to the `(DECISION)` handling below, using research's report
+    of what it could and couldn't confirm as context for `/grilling`.
+- **`BLOCKED (DECISION)`**: a genuine judgment call the entry text or plan
+  doesn't settle. Invoke the `/grilling` skill immediately, in the same
+  turn, to scope it with the user and settle it — this is a blocking
+  question to the user, not a sub-agent call, so it does not violate
+  synchronous delegation. Getting the decision right matters far more than
+  finishing quickly.
 
 Once `/grilling` settles the question:
 
@@ -229,10 +244,11 @@ ambiguous in scope still goes through `/radin-plan`.
 
   - On `STATUS: PLANNED`: proceed to Step 4b — the task's file path is
     unchanged by the pointer insertion.
-  - On `STATUS: BLOCKED`: handle exactly like an execution `STATUS: BLOCKED`
-    below — invoke `/grilling` now to settle the question with the user per
-    Clarifying Ambiguity above, append the decision to the task file, then
-    retry Step 4a. Step 4b is skipped for this task until it's planned.
+  - On `STATUS: BLOCKED (FACT)` or `STATUS: BLOCKED (DECISION)`: handle
+    exactly like an execution block below, per Clarifying Ambiguity above —
+    route FACT to a research sub-agent, DECISION to `/grilling` — append the
+    resolution to the task file, then retry Step 4a. Step 4b is skipped for
+    this task until it's planned.
 
 ### Step 4b: Execution Sub-Agent
 
@@ -303,16 +319,20 @@ When the sub-agent reports back, find its `STATUS:` line first. This always driv
   - Report to the user now: `✅ Task <order> '<title>' complete. <STATUS detail>.
     Remaining: <count>.`
 
-On `STATUS: BLOCKED` (and left no dirty tree, handled above if it did):
+On `STATUS: BLOCKED (FACT)` or `STATUS: BLOCKED (DECISION)` (and left no
+dirty tree, handled above if it did):
 
-- Invoke `/grilling` now, in the same turn, to interview the user and settle
-  the question, options, and recommendation from the `STATUS:` line — per
-  Clarifying Ambiguity above. Do not park it for later; getting this right
-  is more important than finishing quickly.
-- Once settled: append the decision to `$BACKLOG_TASKS_DIR/<id>.md`, then
-  re-run this task from Step 4a in the same turn.
-- Only if `/grilling` cannot get an answer right now, set the entry's status
-  via the state CLI, with the note set to the question, options, and
+- Route per Clarifying Ambiguity above: `(FACT)` dispatches a research
+  sub-agent first and only falls through to `(DECISION)` handling if that
+  fails to resolve it. `(DECISION)` invokes `/grilling` now, in the same
+  turn, to interview the user and settle the question, options, and
+  recommendation from the `STATUS:` line. Do not park either for later;
+  getting this right is more important than finishing quickly.
+- Once settled (by research or by `/grilling`): append the resolution to
+  `$BACKLOG_TASKS_DIR/<id>.md`, then re-run this task from Step 4a in the
+  same turn.
+- Only if a `(DECISION)` can't get an answer right now, set the entry's
+  status via the state CLI, with the note set to the question, options, and
   recommendation:
 
   ```bash

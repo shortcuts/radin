@@ -30,8 +30,22 @@ The user passes one argument. It is one of:
   (`git merge-base main HEAD` or `master`, whichever exists), same default `/code-review`
   would use.
 
-The argument is ambiguous (e.g. it could be a commit hash or a directory
-name, or the PR number does not resolve via `gh`) — ask the user. Don't guess.
+The argument looks ambiguous (e.g. it could be a commit hash or a directory
+name, or a PR number that doesn't resolve via `gh`) — check facts before
+asking anyone: `git cat-file -t <arg>` (expect `commit`), `test -d <arg>`,
+`gh pr view <arg>` all settle it without a question. Most "ambiguous"
+arguments resolve this way.
+
+Still ambiguous after checking facts — e.g. it resolves as both a valid
+commit-ish and an existing directory:
+
+- **Invoked interactively** (a live user is in this conversation): ask
+  which one they meant. Don't guess.
+- **Invoked non-interactively** (a sub-agent, e.g. `radin-execute` Phase 6's
+  reviewer sub-agent): there's no one to ask. Stop and report the ambiguity
+  — both readings and why neither resolved — instead of picking one. The
+  caller either passes an unambiguous scope on retry or resolves it with the
+  user itself.
 
 State the resolved scope in one line before proceeding, e.g.:
 `Scope: commit a1b2c3d` or `Scope: PR #123 (algolia/foo)` or `Scope: directory src/auth/`.

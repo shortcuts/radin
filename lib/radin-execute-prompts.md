@@ -32,14 +32,25 @@ calls. Anything the entry leaves genuinely open is BLOCKED material —
 never something to leave vague in the plan for the executor to hit
 later.
 
+Before reporting BLOCKED for anything, ask: is this actually a fact I could
+go find myself (read more of the repo, check a config, run a read-only
+command), or is it a real judgment call only the user can make (keep vs
+delete, approach A vs B, a preference)? Go find the fact yourself first —
+never block on something checkable. Only block on genuine judgment calls.
+
 Keep your report to a few lines, then the LAST line exactly one of:
 `STATUS: PLANNED — <plan file path(s)>`
-`STATUS: BLOCKED — <the decision question, the candidate options, and
-your recommendation>`
-Use BLOCKED when planning surfaces genuine ambiguity only the user can
-resolve — never guess. That includes the skill matching several entries
-for this title, or matching none (backlog drift): report what it found,
-never pick one and never create a new entry.
+`STATUS: BLOCKED (FACT) — <what's unverifiable from here and why — e.g. a
+third-party API/library behavior local code and repo exploration can't
+settle>`
+`STATUS: BLOCKED (DECISION) — <the decision question, the candidate
+options, and your recommendation>`
+Use BLOCKED (DECISION) when planning surfaces genuine ambiguity only the
+user can resolve — never guess. That includes the skill matching several
+entries for this title, or matching none (backlog drift): report what it
+found, never pick one and never create a new entry. Use BLOCKED (FACT)
+only for something you tried and failed to verify yourself, not as a
+shortcut around exploring the repo.
 ```
 
 ---
@@ -87,8 +98,8 @@ Execute the task described in TASK_FILE:
      implement against the current code, not the stale assumption, and say what you
      adjusted in your report.
    - They diverged in a way that changes a design decision the plan made (not just a
-     mechanical detail): do not guess which way to resolve it — report `STATUS: BLOCKED`
-     per step 9, describing the divergence.
+     mechanical detail): do not guess which way to resolve it — report
+     `STATUS: BLOCKED (DECISION)` per step 9, describing the divergence.
 3. Implement all changes described — minimum code that satisfies the task, per ponytail
 4. Where the task changes behavior (not a pure deletion/rename), add or update a unit
    test that pins the expected behavior — follow existing test conventions in the repo
@@ -102,15 +113,22 @@ Execute the task described in TASK_FILE:
    you report back. Never commit, revert, or otherwise touch anything under
    `.claude/.radin/` — that's the orchestrator's state, not task work; whether it gets
    committed at all is the repo owner's call
-9. Report back the LAST line of your response as exactly one of:
+9. Before reporting BLOCKED for anything, ask: is this a fact you could go find yourself
+   (read more of the repo, check a config, run a read-only command, check how an
+   existing similar case was handled), or a real judgment call only the user can make?
+   Go find the fact yourself first — never block on something checkable.
+   Report back the LAST line of your response as exactly one of:
    `STATUS: SUCCESS — <commit hash(es), or "no new commit, already satisfied by <existing
    hash>">`
    `STATUS: FAILED — <reason>`
-   `STATUS: BLOCKED — <the decision question, the candidate options, and your
+   `STATUS: BLOCKED (FACT) — <what's unverifiable from here and why — e.g. a third-party
+   API/library behavior local code and repo exploration can't settle>`
+   `STATUS: BLOCKED (DECISION) — <the decision question, the candidate options, and your
    recommendation>`
-   Use BLOCKED when the task needs a judgment call the entry text and plan(s) don't
-   settle (keep vs delete, approach A vs B). Do NOT pick a default and implement a
-   guess — revert anything you touched, leave the tree clean, and report BLOCKED.
+   Use BLOCKED (DECISION) when the task needs a judgment call the entry text and plan(s)
+   don't settle (keep vs delete, approach A vs B). Do NOT pick a default and implement a
+   guess — revert anything you touched, leave the tree clean, and report BLOCKED (DECISION).
+   Use BLOCKED (FACT) only for something you tried and failed to verify yourself.
    This line is mandatory whether the task was implemented, found already done, or
    blocked — the orchestrator only acts on this explicit line, never on inferring intent
    from prose.
