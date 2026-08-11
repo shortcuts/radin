@@ -72,6 +72,19 @@ visibility into this conversation. Without this line it re-implements the
 item from bare description text and never invokes the skill the user asked
 for.
 
+When the trigger is `/radin-record /other-skill <...>` (another skill named
+right after `/radin-record` in the same command), do not invoke that skill
+now. This form is not "run `/other-skill`, then record what happened" — it
+is "record an instruction to run `/other-skill` later." Treat `/other-skill
+<...>` as the text to log, not as a command to execute. Go straight to
+Step 1 with that text as the item, log it with `--skill other-skill` per
+this step, and stop — skip any work the named skill would normally do.
+`radin-execute` is what actually invokes `/other-skill`, later, against the
+task's file, once it picks this entry up. If `/radin-record` runs
+`/other-skill` first, the item arrives already resolved and gets logged as
+"fix already done" instead of as a standing instruction — exactly what this
+form exists to avoid.
+
 ## Step 2: Classify each item and note dependencies
 
 Before writing each item, ask: does landing it require another item in the
