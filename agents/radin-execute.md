@@ -18,13 +18,13 @@ plan a task's approach yourself — `/radin-plan` is the planner. A task with a
 - **Synchronous delegation.** You are turn-based: when your turn ends, no
   sub-agent notification can reach you. Run every sub-agent with
   `run_in_background: false` and wait for its result in the same turn.
-- **Two stopping regimes.** Phase 2 is a hard stop: end the turn and wait for
-  the user to confirm the order. Phase 4 onward stays in one turn — but the
-  moment a task raises doubt, invoke `/grilling` right there (a blocking
-  question to the user, not a turn end). The only valid turn ends after
-  Phase 2: a re-entered Phase 2 gate, Phase 5/6 finishing, or a block that
-  `/grilling` could not resolve. When the two regimes seem to conflict, the
-  Phase 2 stop wins.
+- **Two stopping regimes.** Phase 2 is a hard gate: ask the confirmation
+  questions via `AskUserQuestion` and do nothing else until answered. Phase 4
+  onward stays in one turn — but the moment a task raises doubt, invoke
+  `/grilling` right there (a blocking question to the user, not a turn end).
+  The only valid turn ends: Phase 5/6 finishing, or a block that `/grilling`
+  could not resolve. When the two regimes seem to conflict, the Phase 2 gate
+  wins.
 - **Sequential tool calls, one at a time.** Never parallel.
 - **Token efficiency.** Targeted reads over broad exploration.
 
@@ -95,8 +95,9 @@ them. Proceed only on `EXISTS`.
 
 Step 4b's prompt needs two session-wide answers: `WORKTREE_MODE` (own git
 worktree per task?) and `BRANCH_MODE` (own branch per task?). If the
-invoking prompt states a preference, use it. Otherwise ask both questions in
-the same message as Phase 2's order confirmation — one turn end covers both.
+invoking prompt states a preference, use it. Otherwise ask both in the same
+`AskUserQuestion` call as Phase 2's order confirmation — one call covers all
+three questions.
 
 ## Phase 1: Read and Prioritize
 
@@ -118,21 +119,38 @@ the same message as Phase 2's order confirmation — one turn end covers both.
    parsing steps and priority criteria to order every task.
 2. Assign a sequential `order` number starting from 1.
 
-## Phase 2: Confirm Execution Order — MANDATORY STOP
+## Phase 2: Confirm Execution Order — MANDATORY GATE
 
 Every session passes through this gate: fresh backlog, resume, or
-single-task run alike. No prior reasoning, and no Phase 4 turn-management
-rule, overrides it.
+single-task run alike. No Phase 4 turn-management rule overrides it.
+Relayed consent counts: if the invoking prompt already confirms the order
+(e.g. "the user approved this order", "proceed without confirmation"),
+treat the gate as passed for that question — do not re-ask. Same for
+Phase 0.5 preferences the prompt states.
+
+For anything still unanswered:
 
 1. Report the prioritized list — `<order>. <title> (id: <id>)`, one line
-   per task. Include Phase 0.5's questions if unanswered.
-2. End your turn with that list and the question. Write nothing to
-   `BACKLOG_STEPS.json`, launch no sub-agent.
-3. Resume on the user's answer:
-   - **Confirmed**: proceed to Phase 3.
-   - **Refused / changes requested**: invoke `/grilling` to refine the
-     order with the user, redo Phase 1 step 2 with the revised order, and
-     return to step 1 of this phase. Repeat until confirmed.
+   per task.
+2. Ask via one `AskUserQuestion` call, fixed choices — no free-text-only
+   prompts:
+   - **Execution order** — "Confirm this order?" Options: `Yes` /
+     `No, I'll explain`.
+   - **Worktree** (if Phase 0.5 unanswered) — "Own git worktree per task?"
+     Options: `Yes` / `No`.
+   - **Branch** (if Phase 0.5 unanswered) — "Own branch per task?"
+     Options: `Yes` / `No`.
+   Write nothing to `BACKLOG_STEPS.json` and launch no sub-agent before
+   the answer arrives.
+3. Route on the order answer:
+   - **Yes**: proceed to Phase 3.
+   - **No, I'll explain** (or "Other" text): invoke `/grilling` to refine
+     the order with the user, redo Phase 1 step 2 with the revised order,
+     and return to step 1 of this phase. Repeat until confirmed.
+
+Only if `AskUserQuestion` is unavailable in this context, fall back to
+ending the turn with the list and the three questions; the user answers by
+re-invoking.
 
 ## Phase 3: Persist Execution Plan
 
