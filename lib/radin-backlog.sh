@@ -15,8 +15,11 @@
 #   radin-backlog.sh show [category]             # print backlog as markdown, or one ## section
 #   radin-backlog.sh list                        # print "id<TAB>category<TAB>title<TAB>file" for every task
 #   radin-backlog.sh find <id-or-title>          # print matching "id<TAB>category<TAB>title<TAB>file" line(s)
-#   radin-backlog.sh add <category> <title>      # create task, body read from stdin, prints its id
+#   radin-backlog.sh count                       # print the number of entries (0 without an index)
+#   radin-backlog.sh add <category> <title> [--skill <name>]...  # create task, body read from stdin, prints its id
 #   radin-backlog.sh add-plan <id-or-title> <path>  # append "**Plan:** <path>" to the task's file
+#   radin-backlog.sh append <id-or-title>        # append text from stdin to the task's file
+#   radin-backlog.sh meta <id-or-title>          # print "plan<TAB><path>" / "skill<TAB><instruction>" lines from the task's file
 #   radin-backlog.sh remove <id-or-title>        # delete task file + index entry (exact single match required)
 #   radin-backlog.sh reconcile <completed-file>  # drop backlog entries whose id is already in completed.json
 #
@@ -32,6 +35,7 @@ die() {
 }
 
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
 . "$LIB_DIR/radin-json.sh"
 eval "$(bash "$LIB_DIR/radin-namespace.sh")"
 
@@ -156,11 +160,24 @@ find)
 add)
 	category="${2:-}"
 	title="${3:-}"
-	[ -n "$title" ] || die "usage: add <category> <title>  (body on stdin)"
+	[ -n "$title" ] || die "usage: add <category> <title> [--skill <name>]...  (body on stdin)"
 	case "$category" in
 	feat | fix | chore | refactor) ;;
 	*) die "category must be feat|fix|chore|refactor, got: $category" ;;
 	esac
+	shift 3
+	skills=""
+	while [ $# -gt 0 ]; do
+		case "$1" in
+		--skill)
+			[ -n "${2:-}" ] || die "--skill needs a name"
+			skills="$skills$2
+"
+			shift 2
+			;;
+		*) die "unknown add option: $1" ;;
+		esac
+	done
 	BODY="$(cat)"
 	[ -n "$BODY" ] || die "entry body is empty (pass it on stdin)"
 	id="$(slugify "$title")"
@@ -172,9 +189,45 @@ add)
 		n=$((n + 1))
 	done
 	printf '%s\n' "$BODY" >"$BACKLOG_TASKS_DIR/$id.md"
+	printf '%s' "$skills" | while IFS= read -r s; do
+		[ -n "$s" ] || continue
+		printf '**Skill:** Invoke %s to tackle this task.\n' "$s" >>"$BACKLOG_TASKS_DIR/$id.md"
+	done
 	printf '{"id":"%s","category":"%s","title":"%s","file":"tasks/%s.md"}\n' \
 		"$id" "$category" "$(json_escape "$title")" "$id" >>"$BACKLOG_INDEX"
 	printf 'added "%s" (id: %s) under %s in %s\n' "$title" "$id" "$category" "$BACKLOG_INDEX"
+	;;
+
+count)
+	if [ -s "$BACKLOG_INDEX" ]; then
+		grep -c . "$BACKLOG_INDEX" || true
+	else
+		printf '0\n'
+	fi
+	;;
+
+meta)
+	[ -n "${2:-}" ] || die "usage: meta <id-or-title>"
+	require_index
+	span="$(single_match "$2")"
+	id="$(printf '%s' "$span" | cut -f1)"
+	while IFS= read -r line || [ -n "$line" ]; do
+		case "$line" in
+		'**Plan:** '*) printf 'plan\t%s\n' "${line#"**Plan:** "}" ;;
+		'**Skill:** '*) printf 'skill\t%s\n' "${line#"**Skill:** "}" ;;
+		esac
+	done <"$BACKLOG_TASKS_DIR/$id.md"
+	;;
+
+append)
+	[ -n "${2:-}" ] || die "usage: append <id-or-title>  (text on stdin)"
+	require_index
+	span="$(single_match "$2")"
+	id="$(printf '%s' "$span" | cut -f1)"
+	BODY="$(cat)"
+	[ -n "$BODY" ] || die "append text is empty (pass it on stdin)"
+	printf '\n%s\n' "$BODY" >>"$BACKLOG_TASKS_DIR/$id.md"
+	printf 'appended to "%s"\n' "$(printf '%s' "$span" | cut -f3)"
 	;;
 
 add-plan)
@@ -211,7 +264,10 @@ reconcile)
 	completed_file="${2:-}"
 	[ -n "$completed_file" ] || die "usage: reconcile <completed-file>"
 	require_index
-	[ -f "$completed_file" ] || { printf 'reconcile: no completed file, nothing to do\n'; exit 0; }
+	[ -f "$completed_file" ] || {
+		printf 'reconcile: no completed file, nothing to do\n'
+		exit 0
+	}
 	removed=""
 	while IFS= read -r cline || [ -n "$cline" ]; do
 		[ -n "$cline" ] || continue
@@ -226,6 +282,6 @@ reconcile)
 	;;
 
 *)
-	die "unknown command: ${cmd:-<none>} (env|show|list|find|add|add-plan|remove|reconcile)"
+	die "unknown command: ${cmd:-<none>} (env|show|list|count|find|add|add-plan|append|meta|remove|reconcile)"
 	;;
 esac

@@ -157,6 +157,60 @@ cli() {
   [ -f "$TASKS/keep-me.md" ]
 }
 
+@test "count prints the entry count, 0 without an index" {
+  run cli count
+  [ "$output" = "0" ]
+  cli add feat "one" <<<"body"
+  cli add fix "two" <<<"body"
+  run cli count
+  [ "$status" -eq 0 ]
+  [ "$output" = "2" ]
+}
+
+@test "add --skill appends a canonical skill line after the body" {
+  run cli add feat "styled thing" --skill /frontend-design <<<"the body"
+  [ "$status" -eq 0 ]
+  run cat "$TASKS/styled-thing.md"
+  [[ "${lines[0]}" == "the body" ]]
+  [[ "${lines[1]}" == "**Skill:** Invoke /frontend-design to tackle this task." ]]
+}
+
+@test "add rejects an unknown option" {
+  run cli add feat "thing" --wat x <<<"body"
+  [ "$status" -ne 0 ]
+}
+
+@test "meta prints plan and skill lines, nothing for a bare task" {
+  cli add feat "rich task" --skill /frontend-design <<<"body"
+  cli add fix "bare task" <<<"body"
+  cli add-plan "rich task" ".claude/.radin/plans/rich-task.md"
+  run cli meta "rich task"
+  [ "$status" -eq 0 ]
+  [[ "${lines[0]}" == "skill"$'\t'"Invoke /frontend-design to tackle this task." ]]
+  [[ "${lines[1]}" == "plan"$'\t'".claude/.radin/plans/rich-task.md" ]]
+  run cli meta "bare task"
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+@test "append adds stdin text to the task's file only" {
+  cli add feat "target" <<<"original body"
+  cli add feat "other" <<<"other body"
+  run cli append target <<<"**Decision:** keep both."
+  [ "$status" -eq 0 ]
+  run cat "$TASKS/target.md"
+  [[ "$output" == *"original body"* ]]
+  [[ "$output" == *"**Decision:** keep both."* ]]
+  run cat "$TASKS/other.md"
+  [[ "$output" != *"Decision"* ]]
+}
+
+@test "append refuses an empty body" {
+  cli add feat "target" <<<"body"
+  run cli append target <<<""
+  [ "$status" -ne 0 ]
+}
+
 @test "works outside a git repo (PWD fallback)" {
   mkdir -p "$WORK/plain"
   run bash -c "cd '$WORK/plain' && bash '$CLI' add chore 'note' <<<'a note'"

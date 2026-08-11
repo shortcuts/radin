@@ -24,6 +24,8 @@ install_all_expected() {
   printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-namespace.sh"
   printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-json.sh"
   printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-backlog.sh"
+  printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-state.sh"
+  printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-scope.sh"
   : > "$TEST_HOME/.claude/.radin/lib/radin-prioritization.md"
   printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-doctor.sh"
   cp "$CLI" "$TEST_HOME/.claude/.radin/lib/radin-uninstall.sh"
@@ -45,6 +47,8 @@ install_all_expected() {
   [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-namespace.sh" ]
   [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-json.sh" ]
   [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-backlog.sh" ]
+  [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-state.sh" ]
+  [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-scope.sh" ]
   [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-prioritization.md" ]
   [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-doctor.sh" ]
   [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-uninstall.sh" ]

@@ -94,3 +94,111 @@ cli() {
   run cli frobnicate
   [ "$status" -ne 0 ]
 }
+
+@test "steps-init writes schema-shaped JSONL from tab-separated stdin" {
+  run cli steps-init "$STEPS" <<EOF
+task-a	1
+task-b	2	task-a,task-c
+EOF
+  [ "$status" -eq 0 ]
+  run cat "$STEPS"
+  [[ "${lines[0]}" == '{"id":"task-a","order":1,"status":"pending","depends_on":[],"note":""}' ]]
+  [[ "${lines[1]}" == '{"id":"task-b","order":2,"status":"pending","depends_on":["task-a","task-c"],"note":""}' ]]
+}
+
+@test "steps-init rejects a non-numeric order and empty stdin" {
+  run cli steps-init "$STEPS" <<EOF
+task-a	first
+EOF
+  [ "$status" -ne 0 ]
+  run cli steps-init "$STEPS" < /dev/null
+  [ "$status" -ne 0 ]
+  [ ! -f "$STEPS" ]
+}
+
+@test "next-pending prints the lowest-order pending entry with its deps csv" {
+  printf '{"id":"b","order":2,"status":"pending","depends_on":["a"],"note":""}\n' > "$STEPS"
+  printf '{"id":"a","order":1,"status":"pending","depends_on":[],"note":""}\n' >> "$STEPS"
+  run cli next-pending "$STEPS"
+  [ "$status" -eq 0 ]
+  [[ "$output" == "a"$'\t'"1"$'\t' ]]
+  cli set-status "$STEPS" a failed "boom"
+  run cli next-pending "$STEPS"
+  [ "$status" -eq 0 ]
+  [[ "$output" == "b"$'\t'"2"$'\t'"a" ]]
+}
+
+@test "next-pending exits 1 when nothing is pending or the file is absent" {
+  printf '{"id":"a","order":1,"status":"failed","depends_on":[],"note":"x"}\n' > "$STEPS"
+  run cli next-pending "$STEPS"
+  [ "$status" -eq 1 ]
+  run cli next-pending "$WORK/nope.json"
+  [ "$status" -eq 1 ]
+}
+
+@test "deps-check prints id/hash pairs when every dependency completed" {
+  printf '{"id":"c","order":2,"status":"pending","depends_on":["a","b"],"note":""}\n' > "$STEPS"
+  cli completed-add "$COMPLETED" a hash-a
+  cli completed-add "$COMPLETED" b hash-b
+  run cli deps-check "$STEPS" "$COMPLETED" c
+  [ "$status" -eq 0 ]
+  [[ "${lines[0]}" == "a"$'\t'"hash-a" ]]
+  [[ "${lines[1]}" == "b"$'\t'"hash-b" ]]
+}
+
+@test "deps-check is silent for an entry with no deps, fails naming an unresolved one" {
+  printf '{"id":"a","order":1,"status":"pending","depends_on":[],"note":""}\n' > "$STEPS"
+  printf '{"id":"c","order":2,"status":"pending","depends_on":["a"],"note":""}\n' >> "$STEPS"
+  run cli deps-check "$STEPS" "$COMPLETED" a
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+  run cli deps-check "$STEPS" "$COMPLETED" c
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"dependency 'a'"* ]]
+  [[ "$output" == *"pending"* ]]
+}
+
+@test "task-done records the commit and removes backlog + steps entries, idempotently" {
+  git init -q "$WORK/repo"
+  ( cd "$WORK/repo" && bash "$REPO_ROOT/lib/radin-backlog.sh" add fix "my task" <<<"body" )
+  NS="$WORK/repo/.claude/.radin"
+  printf '{"id":"my-task","order":1,"status":"pending","depends_on":[],"note":""}\n' > "$NS/state/BACKLOG_STEPS.json"
+  run cli task-done "$NS" my-task deadbeef
+  [ "$status" -eq 0 ]
+  run cli completed-get "$NS/state/completed.json" my-task
+  [ "$output" = "deadbeef" ]
+  [ ! -f "$NS/backlog/tasks/my-task.md" ]
+  run grep my-task "$NS/state/BACKLOG_STEPS.json"
+  [ "$status" -ne 0 ]
+  # A retry after a partial run must not duplicate or fail.
+  run cli task-done "$NS" my-task deadbeef
+  [ "$status" -eq 0 ]
+  [ "$(grep -c my-task "$NS/state/completed.json")" -eq 1 ]
+}
+
+@test "stash parks everything except radin's namespace and prints the ref" {
+  git init -q "$WORK/repo"
+  ( cd "$WORK/repo"
+    git config user.email t@t && git config user.name t
+    printf 'a\n' > tracked.txt && git add -A && git commit -qm init
+    printf 'b\n' > tracked.txt
+    mkdir -p .claude/.radin/state
+    printf 'x\n' > .claude/.radin/state/BACKLOG_STEPS.json )
+  run cli stash "$WORK/repo" "radin-execute: parked"
+  [ "$status" -eq 0 ]
+  [ "$output" = "stash@{0}" ]
+  run git -C "$WORK/repo" stash list
+  [[ "$output" == *"radin-execute: parked"* ]]
+  [ -f "$WORK/repo/.claude/.radin/state/BACKLOG_STEPS.json" ]
+  run cli dirty-check "$WORK/repo"
+  [ -z "$output" ]
+}
+
+@test "stash fails when there is nothing to stash" {
+  git init -q "$WORK/repo"
+  ( cd "$WORK/repo" && git config user.email t@t && git config user.name t \
+    && printf 'a\n' > f.txt && git add -A && git commit -qm init )
+  run cli stash "$WORK/repo" "nothing here"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"nothing to stash"* ]]
+}
