@@ -16,9 +16,9 @@ human said — `radin-review` logs what a diff revealed; `radin-plan` and
 `radin-execute` consume the backlog afterward.
 
 All writes go through the shared CLI at
-`$HOME/.claude/.radin/lib/radin-backlog.sh`. It resolves the per-project
-namespace and appends deterministically. Never hand-edit the index or a
-task file, and never compute their paths yourself.
+`$HOME/.claude/.radin/lib/radin-backlog.sh` — it owns the index's schema and
+resolves the per-project namespace, so never hand-edit a backlog file or
+compute its path yourself.
 
 ## Step 1: Decide what to log
 

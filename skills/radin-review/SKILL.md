@@ -55,8 +55,8 @@ the scope introduced it.
   in-scope change is what makes it wrong, and say which changed line
   causes that.
 
-Never widen scope because the neighbouring code looks reviewable. Never
-log a finding you cannot tie to a specific in-scope line.
+A finding you cannot tie to a specific in-scope line is not a finding here,
+however real the problem is.
 
 ## Step 2: Record backlog baseline
 
@@ -75,25 +75,21 @@ If `code-review-graph` is installed and wired for this repo, use
 risk-scored context beats reading raw diffs cold. Otherwise fall back to
 `git show`/`git diff`/reading files.
 
-Invoke `/thermo-nuclear` against the scope at full strength — its complete
-rubric, not a watered-down pass for this skill.
+Invoke `/thermo-nuclear` against the scope.
 
 Then invoke the ponytail pass over the same scope: `/ponytail-review` for a
 diff scope (commit/PR/range), `/ponytail-audit` for a directory. It hunts a
 different axis — over-engineering, dead flexibility, reinvented
 stdlib/native code — and complements thermo-nuclear.
 
-Both passes default to reviewing whole files, so restate the scope
-discipline above in each invocation and name the exact scope. Both rubrics
-apply at full strength — the constraint narrows what they look at, never
-how hard they look.
+Name the exact scope in each invocation and restate the scope discipline
+above. It narrows what both rubrics look at, never how hard they look.
 
 ## Step 4: Log every finding to backlog
 
-Drop every finding that fails the scope discipline before you classify
-anything. For a diff scope, check each finding's cited line against the diff
-— not in the diff's added/changed lines means not logged, however real the
-problem is.
+For a diff scope, check each finding's cited line against the diff before
+classifying anything — both passes read whole files, so they surface findings
+this skill must drop.
 
 Classify each finding:
 
