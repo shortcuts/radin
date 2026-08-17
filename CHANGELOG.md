@@ -11,6 +11,13 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   advisories. Already-installed plugins stay untouched — remove them
   yourself with `claude plugin uninstall i-have-adhd@i-have-adhd`.
 
+### Added
+
+- `install.sh` asks whether `radin-execute` may run sub-agents in
+  parallel (default no). The agent file itself states no concurrency rule —
+  install's awk substitutes one at a marker line. Manifest records the
+  answer as `parallel_execution`.
+
 ### Changed
 
 - `radin-execute` own state files, `BACKLOG_STEPS.json` and

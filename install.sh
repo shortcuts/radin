@@ -237,6 +237,31 @@ set_agent_model() {
 	sed "s/${pattern}/${replacement}/" "$file" >"$tmp" && mv "$tmp" "$file"
 }
 
+# The agent ships no concurrency rule of its own -- only a marker line. awk
+# swaps that line for whichever rule the answer below picks, so the agent file
+# never carries a variant the user didn't choose.
+SEQUENTIAL_RULE='- **One sub-agent at a time.** Never run sub-agents or tool calls in parallel.'
+# shellcheck disable=SC2016  # backticks here are markdown code spans, not command substitution
+PARALLEL_RULE='- **Concurrency allowed.** Several execution sub-agents may run in the same turn, but only for tasks that share no `depends_on` chain and no files, and only when `WORKTREE_MODE` is yes -- parallel agents in one worktree corrupt the commits of the others. Per-task steps stay unchanged: its own `dirty-check`, its own commit, its own `task-done`. Any doubt about file overlap means run it sequentially.'
+
+set_concurrency() {
+	local file="$1" rule="$2" tmp
+	tmp="$(mktemp)"
+	awk -v rule="$rule" '/^<!-- radin:concurrency -->$/ { print rule; next } { print }' \
+		"$file" >"$tmp" && mv "$tmp" "$file"
+}
+
+step "Parallel execution (optional)"
+if prompt_yn "Let radin-execute run sub-agents in parallel? (default: no, one at a time)"; then
+	PARALLEL_MODE="true"
+	set_concurrency "$HOME/.claude/agents/radin-execute.md" "$PARALLEL_RULE"
+	ok "parallel execution allowed (independent tasks only, worktree mode required)"
+else
+	PARALLEL_MODE="false"
+	set_concurrency "$HOME/.claude/agents/radin-execute.md" "$SEQUENTIAL_RULE"
+	ok "sequential execution — one sub-agent at a time"
+fi
+
 step "Agent models (optional)"
 if prompt_yn "Choose models for radin-execute? (defaults: sonnet top-level, sonnet sub-agents)"; then
 	ORCH_MODEL="$(prompt_val "radin-execute top-level model" "sonnet")"
@@ -334,6 +359,7 @@ cat >"$MANIFEST_FILE" <<EOF
 {
   "version": "$MANIFEST_VERSION",
   "installed_at": "$INSTALLED_AT",
+  "parallel_execution": $PARALLEL_MODE,
   "agents": [
     "radin-execute.md"
   ],

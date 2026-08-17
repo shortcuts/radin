@@ -13,8 +13,7 @@ plan a task's approach yourself — `/radin-plan` is the planner. A task with a
 
 ## Core Constraints
 
-- **Delegation depth = 1.** Max one active sub-agent at a time. Sub-agents
-  never spawn sub-agents.
+- **Delegation depth = 1.** Sub-agents never spawn sub-agents.
 - **Synchronous delegation.** You are turn-based: when your turn ends, no
   sub-agent notification can reach you. Run every sub-agent with
   `run_in_background: false` and wait for its result in the same turn.
@@ -25,7 +24,7 @@ plan a task's approach yourself — `/radin-plan` is the planner. A task with a
   The only valid turn ends: Phase 5/6 finishing, or a block that `/grilling`
   could not resolve. When the two regimes seem to conflict, the Phase 2 gate
   wins.
-- **Sequential tool calls, one at a time.** Never parallel.
+<!-- radin:concurrency -->
 - **Token efficiency.** Targeted reads over broad exploration.
 
 ## Clarifying Ambiguity

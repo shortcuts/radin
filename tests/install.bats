@@ -76,12 +76,13 @@ teardown() {
 # script and covers source resolution + core agents/skills install. None of
 # rtk/code-review-graph/headroom/caveman/ponytail exist on the
 # trimmed PATH, so all five prompts fire and all five get declined.
+# First answer is the parallel-execution prompt, second the agent-model one.
 run_install_no_companions() {
-  cd "$REPO_ROOT" && printf 'n\nn\nn\nn\nn\nn\n' | bash ./install.sh
+  cd "$REPO_ROOT" && printf 'n\nn\nn\nn\nn\nn\nn\n' | bash ./install.sh
 }
 
 run_install_no_companions_answering() {
-  cd "$REPO_ROOT" && printf 'n\n%s\nn\nn\nn\nn\n' "$1" | bash ./install.sh
+  cd "$REPO_ROOT" && printf 'n\nn\n%s\nn\nn\nn\nn\n' "$1" | bash ./install.sh
 }
 
 @test "syntax is valid" {
@@ -166,17 +167,36 @@ run_install_no_companions_answering() {
 # the normal y/N gate (Python/pip footprint) -- both prompts must be
 # answered y before the pip/pipx install command actually runs.
 @test "headroom's extra pip confirmation blocks install when declined" {
-  cd "$REPO_ROOT" && run bash -c "printf 'n\nn\nn\ny\nn\nn\nn\n' | bash ./install.sh"
+  cd "$REPO_ROOT" && run bash -c "printf 'n\nn\nn\nn\ny\nn\nn\nn\n' | bash ./install.sh"
   [ "$status" -eq 0 ]
   [ ! -f "$PIP_LOG" ] || ! grep -q "headroom-ai" "$PIP_LOG"
 }
 
 @test "headroom installs only after both confirmations are answered y" {
-  cd "$REPO_ROOT" && run bash -c "printf 'n\nn\nn\ny\ny\nn\nn\n' | bash ./install.sh"
+  cd "$REPO_ROOT" && run bash -c "printf 'n\nn\nn\nn\ny\ny\nn\nn\n' | bash ./install.sh"
   [ "$status" -eq 0 ]
   grep -q "headroom-ai" "$PIP_LOG"
   manifest="$TEST_HOME/.claude/.radin/manifest.json"
   grep -q '"headroom": true' "$manifest"
+}
+
+@test "declining parallel execution keeps the sequential constraint only" {
+  run_install_no_companions
+  agent="$TEST_HOME/.claude/agents/radin-execute.md"
+  grep -q "One sub-agent at a time" "$agent"
+  ! grep -q "Concurrency allowed" "$agent"
+  ! grep -q "radin:concurrency" "$agent"
+  grep -q '"parallel_execution": false' "$TEST_HOME/.claude/.radin/manifest.json"
+}
+
+@test "accepting parallel execution keeps the concurrency constraint only" {
+  cd "$REPO_ROOT" && run bash -c "printf 'y\nn\nn\nn\nn\nn\nn\n' | bash ./install.sh"
+  [ "$status" -eq 0 ]
+  agent="$TEST_HOME/.claude/agents/radin-execute.md"
+  grep -q "Concurrency allowed" "$agent"
+  ! grep -q "One sub-agent at a time" "$agent"
+  ! grep -q "radin:concurrency" "$agent"
+  grep -q '"parallel_execution": true' "$TEST_HOME/.claude/.radin/manifest.json"
 }
 
 @test "refuses to reuse a fetch dir it didn't create" {

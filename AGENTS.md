@@ -128,6 +128,15 @@ and create a branch per task (default no). Both answers pass to every
 execution sub-agent as `WORKTREE_MODE`/`BRANCH_MODE` through
 `lib/radin-execute-prompts.md`. Keep this prompt when editing either file.
 
+## Concurrency variants in radin-execute
+
+`agents/radin-execute.md` states no concurrency rule. It carries one
+`<!-- radin:concurrency -->` marker line in Core Constraints. `install.sh`
+asks at install time and its awk swaps that line for `$SEQUENTIAL_RULE` or
+`$PARALLEL_RULE` — both defined in `install.sh`, the only place either text
+lives. Keep the marker alone on its line, and edit the rule wording in
+`install.sh`, never in the agent file.
+
 ## Constraints
 
 **Never touch anything in `~/.claude` (`~/.config/.claude`) besides what
