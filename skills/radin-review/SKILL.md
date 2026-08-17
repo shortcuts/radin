@@ -40,6 +40,24 @@ main/master). Route on exit code:
 State the resolved scope in one line before proceeding, e.g.
 `Scope: commit a1b2c3d` or `Scope: directory src/auth/`.
 
+## Scope discipline
+
+The resolved scope is the whole review surface. A finding qualifies only if
+the scope introduced it.
+
+- **Diff scope** (commit, PR, branch, range): only lines the diff adds or
+  changes. Code that already existed and the diff left alone is out of
+  scope, even in a file the diff touches, even when it is worse than what
+  the diff added. Read surrounding code for context, never to find
+  findings.
+- **Directory scope**: every file under that path, nothing outside it.
+- Out-of-scope problem the diff makes worse: report it only when the
+  in-scope change is what makes it wrong, and say which changed line
+  causes that.
+
+Never widen scope because the neighbouring code looks reviewable. Never
+log a finding you cannot tie to a specific in-scope line.
+
 ## Step 2: Record backlog baseline
 
 Backlog writes go through
@@ -65,7 +83,17 @@ diff scope (commit/PR/range), `/ponytail-audit` for a directory. It hunts a
 different axis — over-engineering, dead flexibility, reinvented
 stdlib/native code — and complements thermo-nuclear.
 
+Both passes default to reviewing whole files, so restate the scope
+discipline above in each invocation and name the exact scope. Both rubrics
+apply at full strength — the constraint narrows what they look at, never
+how hard they look.
+
 ## Step 4: Log every finding to backlog
+
+Drop every finding that fails the scope discipline before you classify
+anything. For a diff scope, check each finding's cited line against the diff
+— not in the diff's added/changed lines means not logged, however real the
+problem is.
 
 Classify each finding:
 
@@ -97,6 +125,7 @@ the order produced. Skip cosmetic nits neither skill would raise itself.
 
 - The resolved scope reviewed.
 - Findings logged (net-new vs. the Step 2 baseline).
+- Count of findings dropped as out of scope, if any — one line, no detail.
 - The backlog index path.
 - Zero findings: say the review passed both bars — don't write an empty
   entry to prove the skill ran.
