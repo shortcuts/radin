@@ -36,3 +36,30 @@ existing install paths (brew/npm/cargo). It:
 - Never installs tool without explicit `y` confirmation per tool.
 - Never guarantees companion tool's own install command succeeds — it
   asks and delegates, nothing more.
+
+## Sub-agents cannot reach the user, and cannot be notified
+
+`radin-execute` always runs as sub-agent, and dispatches sub-agents of its own.
+Two limits follow, and both show up as hang -- run stops mid-task, task claimed
+`in_progress`, nothing committed:
+
+- **No prose channel.** Anything sub-agent writes goes to calling session, never
+  to user. Only `AskUserQuestion` is harness-mediated. So no radin agent or
+  prompt may send sub-agent into skill that asks in prose and waits for answer
+  (`/grilling`) -- skill ends its turn, orchestrator sees report with no
+  `STATUS:` line.
+- **No notification.** Turn-based sub-agent cannot receive background-task
+  completion. So every `Task` call runs `run_in_background: false`, and no
+  prompt may route sub-agent into skill that spawns background agent
+  (`/research`). Same rule applies inside parallel mode: several sub-agents in
+  one message, still none in background.
+
+Consequence for both: when radin needs fact, it dispatches own synchronous
+read-only sub-agent (Fact-finding prompt in `lib/radin-execute-prompts.md`) --
+never third-party research skill. When radin needs decision, it asks through
+`AskUserQuestion`, or records entry `blocked` and moves on.
+
+`**Skill:**` pointers user recorded pass through to execution sub-agent
+unfiltered except for this one class. Filtering happens at forward point in
+`agents/radin-execute.md` Step 4b, and dropped skill named in Phase 5 summary
+so user can run it themselves.

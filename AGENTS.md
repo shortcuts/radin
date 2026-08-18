@@ -134,6 +134,14 @@ file pins worktree path to `../<repo>-<task-id>` and branch to
 `radin/<task-id>` — `radin-state.sh triage` derives both from task id to find
 dead sub-agent's leftovers, so keep names in sync with it.
 
+## Sub-agent capability limits
+
+`radin-execute` and every sub-agent it spawns can't reach user in prose and
+can't be notified about background task. Both show up as hang with task
+uncommitted. Rules and reasoning in `docs/technical-constraints.md` -- read
+before you point any radin prompt at new skill, and check that skill doesn't
+ask user anything or spawn own agent.
+
 ## Concurrency variants in radin-execute
 
 `agents/radin-execute.md` states no concurrency rule. It carries one

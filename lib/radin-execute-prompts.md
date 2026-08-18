@@ -1,10 +1,15 @@
 # Shared: radin-execute Sub-Agent Prompts
 
-The two verbatim prompts `radin-execute` hands to its sub-agents. The agent
+The verbatim prompts `radin-execute` hands to its sub-agents. The agent
 reads this file at the start of Phase 4, once per session, and copies the
 relevant prompt into each `Task` call. They live here, not inline in the
 agent, because a session that stops at Phase 2 (the common first turn) never
 reaches Phase 4 and never needs them.
+
+Every one of these runs in a sub-agent, which has no channel to the user and
+cannot be notified about a background task. So no prompt here may send a
+sub-agent into a skill that asks in prose or spawns its own agent — it would
+end its turn with no `STATUS:` line and the orchestrator would see a hang.
 
 Substitute the `UPPERCASE` placeholders before sending. Send every prompt
 with `model: "sonnet"` and `run_in_background: false`.
@@ -69,11 +74,22 @@ session's `yes`/`no` answers from Phase 0.5.
 Execute the task described in TASK_FILE:
 (When exploring the codebase: if `code-review-graph` is installed and wired for this repo, use its MCP tools—`semantic_search_nodes`, `get_impact_radius`, `query_graph`—before Grep/Glob/Read. When running commands: prefer `rtk`-wrapped commands if `command -v rtk` succeeds for token savings.)
 1. Read TASK_FILE to understand the task
-1a. If WORKTREE_MODE is "yes", run
-   `git worktree add ../<repo-dir-name>-<task-id> -b radin/<task-id>` and do
-   all work there. If WORKTREE_MODE is "no", work in the current checkout.
+1a. If WORKTREE_MODE is "yes", work in `../<repo-dir-name>-<task-id>`. An
+   earlier attempt on this task may have died and left it behind, so create it
+   only if it isn't already there:
+   - Directory exists: `cd` into it and use it as-is. Anything uncommitted in
+     it is a previous attempt's leftovers — commit it as part of this task if
+     it belongs, otherwise revert it before you start.
+   - Directory absent, branch `radin/<task-id>` already exists:
+     `git worktree add ../<repo-dir-name>-<task-id> radin/<task-id>` (no `-b`
+     — with `-b` git fails on the existing branch).
+   - Neither exists:
+     `git worktree add ../<repo-dir-name>-<task-id> -b radin/<task-id>`.
+   If WORKTREE_MODE is "no", work in the current checkout.
 1b. If BRANCH_MODE is "yes" and step 1a didn't already put you on a new
-   branch, create and switch to `radin/<task-id>` before making any changes.
+   branch, switch to `radin/<task-id>` before making any changes — `git
+   checkout -b radin/<task-id>`, or plain `git checkout radin/<task-id>` if a
+   dead attempt already created it.
    If BRANCH_MODE is "no" and you're not in a worktree, commit directly on
    the current branch — do not create a task branch.
    Use those exact names, both here and in 1a: if this session dies before
@@ -86,7 +102,12 @@ Execute the task described in TASK_FILE:
    planning — implement directly from the entry text.
 2a. If SKILLS is not "none", invoke each named skill (e.g. `/frontend-design`) before
    implementing. The user chose that skill for this task — invoke it as instructed, do
-   not judge whether it's needed, redundant, or the right fit.
+   not judge whether it's needed, redundant, or the right fit. One exception, and it is
+   about capability, not fit: you cannot reach the user and cannot be notified about a
+   background task. If a skill starts asking you questions it expects a human to answer,
+   or wants to spawn its own agent, stop invoking it, take the non-destructive path, and
+   name it in your report as skipped. Never wait on it — a wait here is a hang the
+   orchestrator cannot break.
 2b. If DEPENDS_ON is not "none", this task's scope/plan was written assuming certain
    other tasks in this backlog would land a certain way. Those tasks already committed
    this session at the listed hashes. Run `git show --stat <hash>` for each and skim
@@ -107,7 +128,9 @@ Execute the task described in TASK_FILE:
 5. Run any required checks (lint, tests, format) per project conventions
 6. Fix any issues before committing
 7. Invoke the `/caveman-commit` skill to draft the commit message, then commit. If `/caveman-commit` is unavailable, write a conventional-commit message yourself.
-8. Run `bash "$HOME/.claude/.radin/lib/radin-state.sh" dirty-check "$(pwd)"` from the repo root.
+8. Run `bash "$HOME/.claude/.radin/lib/radin-state.sh" dirty-check "$(pwd)"` from the root
+   of the tree you worked in — the worktree from step 1a if you created or reused one, so
+   the check covers the files you actually touched.
    If anything is still uncommitted (including changes made incidentally while
    investigating, e.g. formatter/linter auto-fixes), either commit it as part of this
    task's commit or a separate scoped commit — never leave the working tree dirty when
@@ -141,4 +164,34 @@ it turns out to be unnecessary.
 Keep your report brief: at most a few lines on what changed, then the STATUS line.
 The orchestrator acts only on the STATUS line — everything else you write bloats its
 context for the rest of the session.
+```
+
+---
+
+## Fact-finding prompt (Clarifying Ambiguity, `BLOCKED (FACT)`)
+
+Replace `QUESTION` with the sub-agent's stated question, and `TASK_FILE` with
+the task's file. Answers a checkable question in one turn, so the orchestrator
+never waits on a background research agent it cannot be notified about.
+
+```
+Answer one factual question about this codebase or its dependencies, and
+change nothing: QUESTION
+
+Context: the task at TASK_FILE was blocked on it.
+
+Investigate read-only — read the repo, its lockfiles, its vendored
+dependencies, its config; run read-only commands (`--help`, `--version`, a
+query, a dry run). Prefer primary sources already on this machine over
+recollection. Do NOT edit, create, or commit any file. Do NOT invoke a skill
+that asks a human anything or spawns its own agent or background task: you
+cannot reach the user and cannot be notified, so either one hangs you.
+
+Report the answer in a few lines, with the file path, command output, or
+version that establishes it. Then the LAST line exactly one of:
+`STATUS: FOUND — <the answer, one sentence>`
+`STATUS: NOT FOUND — <what you checked, and why it cannot be settled from
+here>`
+Use NOT FOUND only after you have actually looked. A question that turns out
+to need a human's preference rather than a fact is NOT FOUND — say so.
 ```

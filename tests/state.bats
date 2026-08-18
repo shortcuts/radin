@@ -85,6 +85,15 @@ cli() {
   [[ "${lines[2]}" == *'"ts":"20'* ]]
 }
 
+@test "task-dir prefers the task's worktree and falls back to the repo root" {
+  run cli task-dir "$WORK/repo" a
+  [ "$status" -eq 0 ]
+  [ "$output" = "$WORK/repo" ]
+  mkdir -p "$WORK/repo-a"
+  run cli task-dir "$WORK/repo" a
+  [ "$output" = "$WORK/repo-a" ]
+}
+
 @test "triage reports the commits a dead sub-agent left on the task branch" {
   ns="$WORK/repo/.claude/.radin"
   mkdir -p "$ns/state"

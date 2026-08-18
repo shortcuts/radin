@@ -20,7 +20,8 @@
 #   radin-state.sh completed-add <completed-file> <id> <commit-hash>
 #   radin-state.sh completed-get <completed-file> <id>   # prints commit hash, exit 1 if absent
 #   radin-state.sh task-done <namespace-dir> <id> <commit-hash>  # completed-add + backlog remove + steps remove, in crash-safe order
-#   radin-state.sh dirty-check <repo-root>                # git status --porcelain, excluding .claude/.radin
+#   radin-state.sh task-dir <repo-root> <id>              # print the task's worktree if it exists, else <repo-root>
+#   radin-state.sh dirty-check <dir>                      # git status --porcelain, excluding .claude/.radin
 #   radin-state.sh stash <repo-root> <message>            # stash everything except .claude/.radin, print the stash ref
 #   radin-state.sh session-set <namespace-dir> <worktree-mode> <branch-mode>  # persist Phase 0.5 answers
 #   radin-state.sh session-get <namespace-dir>            # print "worktree<TAB>yes" / "branch<TAB>no", exit 1 if unanswered
@@ -246,16 +247,12 @@ triage)
 	else
 		printf 'completed\tnone\n'
 	fi
-	# Worktree path and branch name are derived, never recorded: the
-	# execution prompt pins both to the task id, so a dead session's leftovers
-	# are still findable from the id alone.
 	branch="radin/$id"
-	wt="$repo_root-$id"
-	if [ -d "$wt" ]; then
-		printf 'worktree\t%s\n' "$wt"
-	else
-		wt="$repo_root"
+	wt="$(bash "$LIB_DIR/radin-state.sh" task-dir "$repo_root" "$id")"
+	if [ "$wt" = "$repo_root" ]; then
 		printf 'worktree\tnone\n'
+	else
+		printf 'worktree\t%s\n' "$wt"
 	fi
 	if git -C "$repo_root" rev-parse --verify --quiet "$branch" >/dev/null 2>&1; then
 		printf 'branch\t%s\n' "$branch"
@@ -326,16 +323,29 @@ task-done)
 	printf 'task-done: %s recorded at %s; backlog and steps entries removed\n' "$id" "$hash"
 	;;
 
-dirty-check)
+task-dir)
 	repo_root="${2:-}"
-	[ -n "$repo_root" ] || die "usage: dirty-check <repo-root>"
-	git -C "$repo_root" status --porcelain -- . ':(exclude).claude/.radin'
+	id="${3:-}"
+	[ -n "$repo_root" ] && [ -n "$id" ] || die "usage: task-dir <repo-root> <id>"
+	# Derived, never recorded: the execution prompt pins the worktree to this
+	# path, so the tree a task's sub-agent worked in is findable from its id.
+	if [ -d "$repo_root-$id" ]; then
+		printf '%s\n' "$repo_root-$id"
+	else
+		printf '%s\n' "$repo_root"
+	fi
+	;;
+
+dirty-check)
+	dir="${2:-}"
+	[ -n "$dir" ] || die "usage: dirty-check <dir>"
+	git -C "$dir" status --porcelain -- . ':(exclude).claude/.radin'
 	;;
 
 stash)
 	repo_root="${2:-}"
 	msg="${3:-}"
-	[ -n "$repo_root" ] && [ -n "$msg" ] || die "usage: stash <repo-root> <message>"
+	[ -n "$repo_root" ] && [ -n "$msg" ] || die "usage: stash <dir> <message>"
 	before="$(git -C "$repo_root" stash list | grep -c . || true)"
 	git -C "$repo_root" stash push -u -m "$msg" -- . ':(exclude).claude/.radin' >/dev/null
 	after="$(git -C "$repo_root" stash list | grep -c . || true)"
@@ -379,6 +389,6 @@ journal-tail)
 	;;
 
 *)
-	die "unknown command: ${cmd:-<none>} (steps-init|next-pending|start|stuck|triage|set-status|remove|deps-check|completed-add|completed-get|task-done|dirty-check|stash|session-set|session-get|journal-tail)"
+	die "unknown command: ${cmd:-<none>} (steps-init|next-pending|start|stuck|triage|set-status|remove|deps-check|completed-add|completed-get|task-done|task-dir|dirty-check|stash|session-set|session-get|journal-tail)"
 	;;
 esac
