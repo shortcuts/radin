@@ -17,6 +17,8 @@ All radin state — backlog content, execution state — lives inside target rep
   state/
     BACKLOG_STEPS.json          # radin-execute execution plan
     completed.json               # radin-execute completed-task -> commit log
+    session.json                 # radin-execute worktree/branch answers, one per run
+    journal.jsonl                # append-only log of every state transition
   plans/
     <task-id>.md                # radin-plan output, one file per plan
   reviews/
@@ -62,14 +64,19 @@ Creates `state/`, `plans/`, `reviews/`, `backlog/tasks/` under `$NAMESPACE_DIR`,
 `radin-execute`'s own state files (`BACKLOG_STEPS.json`, `completed.json`) get same treatment as backlog. Sibling CLI, `lib/radin-state.sh`, only way agent mutates either file — never hand-written JSON edit in agent's own prose.
 
 ```bash
-bash "$HOME/.claude/.radin/lib/radin-state.sh" <set-status|remove|completed-add|completed-get|dirty-check>
+bash "$HOME/.claude/.radin/lib/radin-state.sh" <start|stuck|triage|set-status|remove|completed-add|completed-get|dirty-check|session-set|session-get|journal-tail>
 ```
 
-- `set-status <steps-file> <id> <pending|failed|blocked> [note]` — rewrite one entry's `status`/`note` in place, `order`/`depends_on` untouched
+- `start <steps-file> <id>` — claim task before dispatch: `status` `in_progress`, `attempts` +1. Exits 2 having marked entry `blocked` once `attempts` passes `MAX_ATTEMPTS` (3), so crash loop can't burn tokens forever
+- `stuck <steps-file>` — list `in_progress` entries: tasks dispatched by run that died before terminal status. Recovery entry point
+- `triage <namespace-dir> <id>` — facts about what dead sub-agent left: `attempts`, `completed` hash, `worktree`, `branch`, `branch_commit` lines, `dirty_files` count. Prints facts, decides nothing — agent routes on them (see `radin-execute` Phase 1 step 0c). Worktree path and branch name derived from task id, never recorded: execution prompt pins them to `../<repo>-<id>` / `radin/<id>`
+- `set-status <steps-file> <id> <pending|in_progress|failed|blocked> [note]` — rewrite one entry's `status`/`note` in place, `order`/`depends_on`/`attempts` untouched
 - `remove <steps-file> <id>` — delete one completed entry's line
 - `completed-add <completed-file> <id> <hash>` — append completed task's commit, create file if absent
 - `completed-get <completed-file> <id>` — print completed task's commit hash (exit 1 if not recorded), for later task's `depends_on` check
 - `dirty-check <repo-root>` — `git status --porcelain`, `.claude/.radin` excluded so radin's own state writes never read as dirty tree
+- `session-set`/`session-get <namespace-dir>` — persist and read Phase 0.5's worktree/branch answers, so resumed run reuses them instead of asking again and splitting session between worktrees and checkout
+- `journal-tail <namespace-dir> [n]` — last n events from append-only `state/journal.jsonl`, written by every mutation above. Lets agent reconstruct what session already did after context compaction. Forensics only, never control flow
 
 Both `BACKLOG_STEPS.json` and `completed.json` JSONL (one compact object per line), same convention as backlog's `index.jsonl` — single-entry edit never risks another line, model never parses/rewrites bracketed JSON array by hand.
 

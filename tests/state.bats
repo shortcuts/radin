@@ -25,14 +25,104 @@ cli() {
   [ "$status" -eq 0 ]
 }
 
-@test "set-status updates one line, preserving order and depends_on" {
-  printf '{"id":"a","order":1,"status":"pending","depends_on":["b"],"note":""}\n' > "$STEPS"
-  printf '{"id":"c","order":2,"status":"pending","depends_on":[],"note":""}\n' >> "$STEPS"
+@test "set-status updates one line, preserving order, depends_on and attempts" {
+  printf '{"id":"a","order":1,"status":"in_progress","depends_on":["b"],"attempts":2,"note":""}\n' > "$STEPS"
+  printf '{"id":"c","order":2,"status":"pending","depends_on":[],"attempts":0,"note":""}\n' >> "$STEPS"
   run cli set-status "$STEPS" a failed "boom"
   [ "$status" -eq 0 ]
   run cat "$STEPS"
-  [[ "${lines[0]}" == '{"id":"a","order":1,"status":"failed","depends_on":["b"],"note":"boom"}' ]]
-  [[ "${lines[1]}" == '{"id":"c","order":2,"status":"pending","depends_on":[],"note":""}' ]]
+  [[ "${lines[0]}" == '{"id":"a","order":1,"status":"failed","depends_on":["b"],"attempts":2,"note":"boom"}' ]]
+  [[ "${lines[1]}" == '{"id":"c","order":2,"status":"pending","depends_on":[],"attempts":0,"note":""}' ]]
+}
+
+@test "steps-init seeds attempts at 0 and start claims the task" {
+  mkdir -p "$WORK/state"
+  steps="$WORK/state/BACKLOG_STEPS.json"
+  printf 'a\t1\t\nb\t2\ta\n' | cli steps-init "$steps"
+  run cli start "$steps" a
+  [ "$status" -eq 0 ]
+  [ "$output" = "$(printf 'attempts\t1')" ]
+  run cat "$steps"
+  [[ "${lines[0]}" == *'"status":"in_progress"'* ]]
+  [[ "${lines[0]}" == *'"attempts":1'* ]]
+  # in_progress is not pending: the loop must triage it, never pick it up
+  run cli next-pending "$steps"
+  [ "$status" -eq 0 ]
+  [[ "$output" == b* ]]
+}
+
+@test "stuck lists in_progress entries only, exit 1 when none" {
+  printf '{"id":"a","order":1,"status":"pending","depends_on":[],"attempts":0,"note":""}\n' > "$STEPS"
+  run cli stuck "$STEPS"
+  [ "$status" -eq 1 ]
+  cli set-status "$STEPS" a in_progress "" 
+  run cli stuck "$STEPS"
+  [ "$status" -eq 0 ]
+  [ "$output" = "$(printf 'a\t0\t')" ]
+}
+
+@test "start blocks the task once it passes MAX_ATTEMPTS instead of retrying forever" {
+  printf '{"id":"a","order":1,"status":"pending","depends_on":[],"attempts":3,"note":""}\n' > "$STEPS"
+  run cli start "$STEPS" a
+  [ "$status" -eq 2 ]
+  run cat "$STEPS"
+  [[ "$output" == *'"status":"blocked"'* ]]
+  [[ "$output" == *"MAX_ATTEMPTS"* ]] || [[ "$output" == *"3 times"* ]]
+}
+
+@test "every mutation appends a journal event, journal-tail reads them back" {
+  ns="$WORK/repo/.claude/.radin"
+  mkdir -p "$ns/state"
+  steps="$ns/state/BACKLOG_STEPS.json"
+  printf 'a\t1\t\n' | cli steps-init "$steps"
+  cli start "$steps" a
+  cli set-status "$steps" a failed "boom"
+  run cli journal-tail "$ns" 10
+  [ "$status" -eq 0 ]
+  [[ "${lines[0]}" == *'"event":"steps-init"'* ]]
+  [[ "${lines[1]}" == *'"event":"in_progress","id":"a"'* ]]
+  [[ "${lines[2]}" == *'"event":"failed","id":"a","detail":"boom"'* ]]
+  [[ "${lines[2]}" == *'"ts":"20'* ]]
+}
+
+@test "triage reports the commits a dead sub-agent left on the task branch" {
+  ns="$WORK/repo/.claude/.radin"
+  mkdir -p "$ns/state"
+  git init -q "$WORK/repo"
+  git -C "$WORK/repo" config user.email t@t
+  git -C "$WORK/repo" config user.name t
+  echo base > "$WORK/repo/f.txt"
+  git -C "$WORK/repo" add f.txt
+  git -C "$WORK/repo" commit -qm init
+  base="$(git -C "$WORK/repo" rev-parse --abbrev-ref HEAD)"
+  printf 'a\t1\t\n' | cli steps-init "$ns/state/BACKLOG_STEPS.json"
+  cli start "$ns/state/BACKLOG_STEPS.json" a
+  git -C "$WORK/repo" checkout -q -b radin/a
+  echo work > "$WORK/repo/g.txt"
+  git -C "$WORK/repo" add g.txt
+  git -C "$WORK/repo" commit -qm work
+  git -C "$WORK/repo" checkout -q "$base"
+  run cli triage "$ns" a
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"$(printf 'attempts\t1')"* ]]
+  [[ "$output" == *"$(printf 'completed\tnone')"* ]]
+  [[ "$output" == *"$(printf 'branch\tradin/a')"* ]]
+  [[ "$output" == *"branch_commit"* ]]
+  [[ "$output" == *"$(printf 'dirty_files\t0')"* ]]
+}
+
+@test "session-set persists the worktree/branch answers, session-get reads them back" {
+  ns="$WORK/repo/.claude/.radin"
+  mkdir -p "$ns/state"
+  run cli session-get "$ns"
+  [ "$status" -eq 1 ]
+  cli session-set "$ns" yes no
+  run cli session-get "$ns"
+  [ "$status" -eq 0 ]
+  [ "${lines[0]}" = "$(printf 'worktree\tyes')" ]
+  [ "${lines[1]}" = "$(printf 'branch\tno')" ]
+  run cli session-set "$ns" maybe no
+  [ "$status" -ne 0 ]
 }
 
 @test "set-status escapes quotes in the note (shared json_escape)" {
@@ -44,7 +134,7 @@ cli() {
 }
 
 @test "set-status rejects an unknown status and a missing id" {
-  printf '{"id":"a","order":1,"status":"pending","depends_on":[],"note":""}\n' > "$STEPS"
+  printf '{"id":"a","order":1,"status":"pending","depends_on":[],"attempts":0,"note":""}\n' > "$STEPS"
   run cli set-status "$STEPS" a wat ""
   [ "$status" -ne 0 ]
   run cli set-status "$STEPS" nope failed ""
@@ -102,8 +192,8 @@ task-b	2	task-a,task-c
 EOF
   [ "$status" -eq 0 ]
   run cat "$STEPS"
-  [[ "${lines[0]}" == '{"id":"task-a","order":1,"status":"pending","depends_on":[],"note":""}' ]]
-  [[ "${lines[1]}" == '{"id":"task-b","order":2,"status":"pending","depends_on":["task-a","task-c"],"note":""}' ]]
+  [[ "${lines[0]}" == '{"id":"task-a","order":1,"status":"pending","depends_on":[],"attempts":0,"note":""}' ]]
+  [[ "${lines[1]}" == '{"id":"task-b","order":2,"status":"pending","depends_on":["task-a","task-c"],"attempts":0,"note":""}' ]]
 }
 
 @test "steps-init rejects a non-numeric order and empty stdin" {

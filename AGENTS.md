@@ -49,6 +49,8 @@ in one canonical directory at repo root:
   state/
     BACKLOG_STEPS.json          # radin-execute execution plan
     completed.json               # radin-execute completed-task -> commit log
+    session.json                 # radin-execute worktree/branch answers
+    journal.jsonl                # append-only log of every state transition
   plans/
     <task-id>.md                # radin-plan output
   reviews/
@@ -122,11 +124,15 @@ reinvent from scratch.
 
 ## radin-execute session preferences
 
-`agents/radin-execute.md` Phase 0.5 asks two questions at start of every
-session, via `AskUserQuestion`: use a git worktree per task (default yes),
-and create a branch per task (default no). Both answers pass to every
-execution sub-agent as `WORKTREE_MODE`/`BRANCH_MODE` through
-`lib/radin-execute-prompts.md`. Keep this prompt when editing either file.
+`agents/radin-execute.md` Phase 0.5 asks two questions once per backlog run,
+via `AskUserQuestion`: use a git worktree per task (default yes), and create a
+branch per task (default no). Answers persist to `state/session.json`
+(`radin-state.sh session-set`), so resumed run reuses them instead of asking
+again. Both pass to every execution sub-agent as
+`WORKTREE_MODE`/`BRANCH_MODE` through `lib/radin-execute-prompts.md`. That
+file pins worktree path to `../<repo>-<task-id>` and branch to
+`radin/<task-id>` — `radin-state.sh triage` derives both from task id to find
+dead sub-agent's leftovers, so keep names in sync with it.
 
 ## Concurrency variants in radin-execute
 

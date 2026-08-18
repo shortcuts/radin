@@ -86,10 +86,23 @@ them. Proceed only on `EXISTS`.
 ## Phase 0.5: Worktree/Branch Preference
 
 Step 4b's prompt needs two session-wide answers: `WORKTREE_MODE` (own git
-worktree per task?) and `BRANCH_MODE` (own branch per task?). If the
-invoking prompt states a preference, use it. Otherwise ask both in the same
+worktree per task?) and `BRANCH_MODE` (own branch per task?). A resumed run
+must reuse the answers the interrupted one used — otherwise half the tasks
+land in worktrees and half in the checkout. Read them from disk first:
+
+```bash
+bash "$HOME/.claude/.radin/lib/radin-state.sh" session-get "$NAMESPACE_DIR"
+```
+
+Exit 0 prints `worktree<TAB><yes|no>` and `branch<TAB><yes|no>` — use those,
+ask nothing. Exit 1 means no run has answered yet: take the invoking prompt's
+preference if it states one, otherwise ask both in the same
 `AskUserQuestion` call as Phase 2's order confirmation — one call covers all
-three questions.
+three questions. Persist the answers before Phase 4 dispatches anything:
+
+```bash
+bash "$HOME/.claude/.radin/lib/radin-state.sh" session-set "$NAMESPACE_DIR" "<worktree yes|no>" "<branch yes|no>"
+```
 
 ## Phase 1: Read and Prioritize
 
@@ -107,6 +120,36 @@ three questions.
 
    No-op when there is nothing stale. If reconcile emptied the backlog,
    report and stop per step 0.
+0c. Recover tasks an interrupted run left mid-flight:
+
+   ```bash
+   bash "$HOME/.claude/.radin/lib/radin-state.sh" stuck "$NAMESPACE_DIR/state/BACKLOG_STEPS.json"
+   ```
+
+   Exit 1: nothing to recover, continue. Exit 0 prints one
+   `id<TAB>attempts<TAB>note` line per task a previous run dispatched and
+   never got a terminal status for — its sub-agent died with the session, so
+   what it left on disk is unknown. Never re-dispatch one blind. For each id:
+
+   ```bash
+   bash "$HOME/.claude/.radin/lib/radin-state.sh" triage "$NAMESPACE_DIR" "<task id>"
+   ```
+
+   It prints facts only — `attempts`, `completed`, `worktree`, `branch`, each
+   `branch_commit`, `dirty_files` — and decides nothing. Route on them:
+   - `completed` names a hash: the crash hit between the commit and the
+     bookkeeping. Re-run `task-done` with that hash; the CLI skips whatever
+     already happened.
+   - `branch_commit` lines exist: the dead sub-agent committed the work but
+     never reported. Read those commits (`git show`) against the task file.
+     They satisfy the task: run `task-done` with the last hash. They don't:
+     treat the partial work as the user's call — mark the task `blocked`,
+     `note` naming the branch and worktree to inspect.
+   - No commits, `dirty_files` is 0: nothing was left behind. `set-status`
+     back to `pending` and let the loop retry it normally.
+   - No commits but `dirty_files` is non-zero: `stash` the tree it names,
+     then `set-status` `pending` with the stash ref in the `note`.
+   Report every recovery decision in the Phase 5 summary.
 1. Read `$HOME/.claude/.radin/lib/radin-prioritization.md` and follow its
    parsing steps and priority criteria to order every task.
 2. Assign a sequential `order` number starting from 1.
@@ -223,6 +266,17 @@ tweak, mechanical rename)?
 
 ### Step 4b: Execution sub-agent
 
+Claim the task on disk before you dispatch it — a session that dies mid-task
+must be recoverable by Phase 1 step 0c, which only sees what this records:
+
+```bash
+bash "$HOME/.claude/.radin/lib/radin-state.sh" start "$NAMESPACE_DIR/state/BACKLOG_STEPS.json" "<task id>"
+```
+
+Exit 0 prints `attempts<TAB><n>`. Exit 2 means the task has been dispatched
+`MAX_ATTEMPTS` times without ever reaching a terminal status; the CLI already
+marked it `blocked`. Report it and continue to the next task — do not retry.
+
 Re-run `radin-backlog.sh meta "<task id>"` (Step 4a may have added a plan).
 Send the **Execution prompt** from `radin-execute-prompts.md`, substituting:
 
@@ -338,9 +392,12 @@ from the invoking prompt: <instructions, or "none">.
 ## Additional Guardrails
 
 - **Resume**: if `BACKLOG_STEPS.json` already exists at startup, read it,
-  skip completed tasks (already removed), treat `failed` and `blocked`
-  entries as `pending` for retry, and continue — Phase 2's gate still
-  applies.
+  skip completed tasks (already removed), triage `in_progress` entries per
+  Phase 1 step 0c, treat `failed` and `blocked` entries as `pending` for
+  retry, and continue — Phase 2's gate still applies. One exception: a
+  `blocked` entry whose `note` says it hit `MAX_ATTEMPTS` stays blocked. Its
+  `attempts` count persists, so re-dispatching it only trips the cap again —
+  it needs the user to look, not another retry.
 - **Never commit anything under `.claude/.radin/`.** Committing or ignoring
   radin's namespace is the repo owner's call.
 - **Every commit traces to a backlog entry or Phase 5 step 0.** No
@@ -352,3 +409,11 @@ from the invoking prompt: <instructions, or "none">.
 entry's absence means execution is complete. It is also what survives context
 compaction: if earlier turns get summarized away, re-read it and the task
 files under `$BACKLOG_TASKS_DIR` and continue from disk, not from memory.
+
+Every status transition also lands in `state/journal.jsonl` (append-only, one
+timestamped event per line). Read it — `radin-state.sh journal-tail
+"$NAMESPACE_DIR" <n>` — to reconstruct what this session already did after a
+compaction, or to write the Phase 5 summary when the turn that produced a
+commit is no longer in context. Never drive control flow off the journal:
+`BACKLOG_STEPS.json` and `completed.json` are the state, the journal is the
+record of how it got there.

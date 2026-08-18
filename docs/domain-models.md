@@ -47,7 +47,7 @@ Free-form markdown at `$NAMESPACE_DIR/plans/<id>.md`: files to touch, change in 
 JSONL, one compact object per line — same convention as `index.jsonl`, so single-entry update never touches another entry's line:
 
 ```json
-{"id":"add-route-exports","order":1,"status":"pending","depends_on":[],"note":""}
+{"id":"add-route-exports","order":1,"status":"pending","depends_on":[],"attempts":0,"note":""}
 ```
 
 `id` matches task's id in `index.jsonl`. File always `$BACKLOG_TASKS_DIR/<id>.md`, so schema no longer carries line range — task's file path fixed at creation, never goes stale.
@@ -57,10 +57,32 @@ JSONL, one compact object per line — same convention as `index.jsonl`, so sing
 Every mutation goes through `lib/radin-state.sh` (`set-status`/`remove`) — `radin-execute` never hand-edits this file's JSON.
 
 - `depends_on` lists `id`s of other tasks in this file whose result this task's plan or implementation assumes — set during prioritization per `radin-prioritization.md`'s dependency-order criterion (same files, functions, or behavior touched by both). Empty when no overlap.
-- `status` one of `pending`, `failed`, `blocked`. Entry's absence from file means task complete.
+- `status` one of `pending`, `in_progress`, `failed`, `blocked`. Entry's absence from file means task complete.
+- `in_progress` set by `radin-state.sh start` right before orchestrator dispatches execution sub-agent, cleared by task's terminal status. Entry still `in_progress` at startup means previous run died mid-task: `radin-state.sh stuck` lists those, `triage` reports what dead sub-agent left behind (commits on `radin/<id>`, dirty tree, already-recorded hash). Never re-dispatched blind.
+- `attempts` counts `start` calls. `start` exits 2 and marks entry `blocked` once count passes 3, so session that crashes at same task can't retry it forever.
 - `note` optional, empty for `pending` entries. `failed` entries carry short reason plus recovery pointer (e.g. `git stash` ref) — what Phase 4 final summary reports back to user. `blocked` entries carry decision question, candidate options, agent's recommendation — final summary asks user to decide.
 - `failed`/`blocked` entry never blocks execution loop from reaching Phase 4 — loop exits once no `pending` entries remain, not only when file empty.
 - Never stores full task text. `$BACKLOG_TASKS_DIR/<id>.md` stays source of truth for each task's body.
+
+## Session preferences (`session.json`)
+
+Single line, written by `radin-state.sh session-set` when `radin-execute`'s Phase 0.5 resolves worktree/branch questions:
+
+```json
+{"worktree":"yes","branch":"no"}
+```
+
+Read back with `session-get`. Resumed run reads it instead of asking again — mid-run change would put some tasks in worktrees and others in checkout.
+
+## Transition journal (`journal.jsonl`)
+
+Append-only, one event per line, written by every `radin-state.sh` mutation (`steps-init`, `start`, each status write, `removed`, `done`, `stash`, `session`):
+
+```json
+{"ts":"2026-08-18T09:57:13Z","event":"in_progress","id":"add-route-exports","detail":""}
+```
+
+`event` either status just written or verb's own name. `detail` free text (commit hash for `done`, stash message for `stash`, note for status writes). Exists so agent whose context got compacted can reconstruct what session already did (`journal-tail`), and so human can see what happened before crash. Never read for control flow, never truncated by radin — `BACKLOG_STEPS.json` plus `completed.json` stay state; journal only records how it got there.
 
 ## Completed-task log (`completed.json`)
 

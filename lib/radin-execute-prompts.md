@@ -69,15 +69,16 @@ session's `yes`/`no` answers from Phase 0.5.
 Execute the task described in TASK_FILE:
 (When exploring the codebase: if `code-review-graph` is installed and wired for this repo, use its MCP tools—`semantic_search_nodes`, `get_impact_radius`, `query_graph`—before Grep/Glob/Read. When running commands: prefer `rtk`-wrapped commands if `command -v rtk` succeeds for token savings.)
 1. Read TASK_FILE to understand the task
-1a. If WORKTREE_MODE is "yes", create a git worktree for this task (e.g.
-   `git worktree add ../<repo>-<task-id> -b <branch>` — a worktree needs
-   a branch name regardless of BRANCH_MODE, so name it for the task) and
-   do all work there. If WORKTREE_MODE is "no", work in the current
-   checkout.
+1a. If WORKTREE_MODE is "yes", run
+   `git worktree add ../<repo-dir-name>-<task-id> -b radin/<task-id>` and do
+   all work there. If WORKTREE_MODE is "no", work in the current checkout.
 1b. If BRANCH_MODE is "yes" and step 1a didn't already put you on a new
-   branch, create and switch to one named for this task before making any
-   changes. If BRANCH_MODE is "no" and you're not in a worktree, commit
-   directly on the current branch — do not create a task branch.
+   branch, create and switch to `radin/<task-id>` before making any changes.
+   If BRANCH_MODE is "no" and you're not in a worktree, commit directly on
+   the current branch — do not create a task branch.
+   Use those exact names, both here and in 1a: if this session dies before
+   you report, the orchestrator finds your leftovers by deriving the path and
+   branch from the task id alone. A name of your own invention orphans them.
 2. If PLAN_PATHS is not "none", read them in order — plan(s) already written for this
    task by radin-plan. Follow them; do not re-derive an approach from scratch. If
    there's more than one, they cover different parts of the same task — implement all
