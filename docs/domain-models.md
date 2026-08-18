@@ -74,6 +74,8 @@ Single line, written by `radin-state.sh session-set` when `radin-execute`'s Phas
 
 Read back with `session-get`. Resumed run reads it instead of asking again — mid-run change would put some tasks in worktrees and others in checkout.
 
+`radin-state.sh prepare <namespace-dir> <id>` is only consumer that acts on it: reads both fields, creates or reuses `<repo>-<id>` worktree and `radin/<id>` branch as answers require, prints directory sub-agent must work in. Neither orchestrator nor sub-agent gets answers themselves, so neither can talk itself past a `no`.
+
 ## Transition journal (`journal.jsonl`)
 
 Append-only, one event per line, written by every `radin-state.sh` mutation (`steps-init`, `start`, each status write, `removed`, `done`, `stash`, `session`):

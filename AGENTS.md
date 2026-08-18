@@ -128,11 +128,15 @@ reinvent from scratch.
 via `AskUserQuestion`: use a git worktree per task (default yes), and create a
 branch per task (default no). Answers persist to `state/session.json`
 (`radin-state.sh session-set`), so resumed run reuses them instead of asking
-again. Both pass to every execution sub-agent as
-`WORKTREE_MODE`/`BRANCH_MODE` through `lib/radin-execute-prompts.md`. That
-file pins worktree path to `../<repo>-<task-id>` and branch to
-`radin/<task-id>` — `radin-state.sh triage` derives both from task id to find
-dead sub-agent's leftovers, so keep names in sync with it.
+again.
+
+No prompt carries the answers, and no model reads them to decide anything.
+`radin-state.sh prepare <namespace-dir> <id>` is the only place they become
+git commands: each execution sub-agent runs it, gets one path back, and works
+there. Keep it that way — a model that is handed the two answers eventually
+overrides a `no`. `prepare` pins worktree path to `<repo>-<task-id>` and
+branch to `radin/<task-id>`; `task-dir` and `triage` derive the same names from
+task id to find dead sub-agent's leftovers, so keep all three in sync.
 
 ## Sub-agent capability limits
 
@@ -149,7 +153,13 @@ ask user anything or spawn own agent.
 asks at install time and its awk swaps that line for `$SEQUENTIAL_RULE` or
 `$PARALLEL_RULE` — both defined in `install.sh`, the only place either text
 lives. Keep the marker alone on its line, and edit the rule wording in
-`install.sh`, never in the agent file.
+`install.sh`, never in the agent file. `set_concurrency` exits non-zero if
+the marker survives the swap — an agent that ships with neither variant
+invents its own rule.
+
+Sub-agent prompts carry no variant. `lib/radin-execute-prompts.md` states
+the flat rule instead (a sub-agent never spawns a sub-agent), so the
+install-time answer lives in exactly one file.
 
 ## Constraints
 

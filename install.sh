@@ -240,15 +240,22 @@ set_agent_model() {
 # The agent ships no concurrency rule of its own -- only a marker line. awk
 # swaps that line for whichever rule the answer below picks, so the agent file
 # never carries a variant the user didn't choose.
-SEQUENTIAL_RULE='- **One sub-agent at a time.** Never run sub-agents or tool calls in parallel.'
 # shellcheck disable=SC2016  # backticks here are markdown code spans, not command substitution
-PARALLEL_RULE='- **Concurrency allowed.** Several execution sub-agents may run in the same turn, but only for tasks that share no `depends_on` chain and no files, and only when `WORKTREE_MODE` is yes -- parallel agents in one worktree corrupt the commits of the others. Launch them in one message, every one still `run_in_background: false`: a background task cannot notify a sub-agent turn, so you would wait forever. Per-task steps stay unchanged, and each targets that task own tree via `radin-state.sh task-dir` -- its own `dirty-check`, its own commit, its own `task-done`. Never `dirty-check` the shared checkout while another agent is in flight: you would stash a sibling task work out from under it. Any doubt about file overlap means run it sequentially.'
+SEQUENTIAL_RULE='- **One execution sub-agent at a time.** Dispatch one task, wait for its `STATUS:` line, finish its bookkeeping, then dispatch the next. Never put two `Task` calls in one message, however independent the tasks look. Batching other tool calls stays fine -- this rule is about `Task` only.'
+# shellcheck disable=SC2016  # backticks here are markdown code spans, not command substitution
+PARALLEL_RULE='- **Concurrency allowed, and only under these conditions.** Several execution sub-agents may run in the same turn when they share no `depends_on` chain and no files, and only when Phase 0.5 recorded the worktree answer as yes -- parallel agents in one worktree corrupt each other commits. Worktree answer is no, or file overlap is at all unclear: dispatch strictly one at a time. Launch parallel ones in one message, every one still `run_in_background: false`: a background task cannot notify a sub-agent turn, so you would wait forever. Per-task steps stay unchanged, and each targets that task own tree via `radin-state.sh task-dir` -- its own `dirty-check`, its own commit, its own `task-done`. Never `dirty-check` the shared checkout while another agent is in flight: you would stash a sibling task work out from under it.'
 
 set_concurrency() {
 	local file="$1" rule="$2" tmp
 	tmp="$(mktemp)"
 	awk -v rule="$rule" '/^<!-- radin:concurrency -->$/ { print rule; next } { print }' \
 		"$file" >"$tmp" && mv "$tmp" "$file"
+	# A surviving marker means the agent ships with no concurrency rule at all,
+	# and the model then invents one -- louder to fail here than to debug that.
+	if grep -q '^<!-- radin:concurrency -->$' "$file"; then
+		printf "%b\n" "${RED}${RAT} failed to write the concurrency rule into $file.${RESET} Re-run the installer." >&2
+		exit 1
+	fi
 }
 
 step "Parallel execution (optional)"

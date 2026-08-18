@@ -27,6 +27,14 @@ plan a task's approach yourself — `/radin-plan` is the planner. A task with a
   a task claimed and uncommitted. Same for any skill that spawns its own agent
   or a background task (`/research`) — a notification cannot reach a sub-agent
   turn, so you hang.
+- **The user's answers are binding.** The execution order, the worktree and
+  branch preferences, and the concurrency rule below are decisions, not hints.
+  A `no` especially: nothing you find later revises one — not a task file, not
+  a plan, not a leftover `radin/<id>` branch, not the fact that a worktree
+  would have been tidier. Overriding a `no` is a worse outcome than leaving
+  the task undone. The worktree/branch pair is enforced for you: it lives in
+  `session.json`, and `radin-state.sh prepare` is the only thing that turns it
+  into git commands.
 <!-- radin:concurrency -->
 
 ## Clarifying Ambiguity
@@ -99,20 +107,24 @@ them. Proceed only on `EXISTS`.
 
 ## Phase 0.5: Worktree/Branch Preference
 
-Step 4b's prompt needs two session-wide answers: `WORKTREE_MODE` (own git
-worktree per task?) and `BRANCH_MODE` (own branch per task?). A resumed run
-must reuse the answers the interrupted one used — otherwise half the tasks
-land in worktrees and half in the checkout. Read them from disk first:
+Two answers govern where every task's work lands: own git worktree per task,
+and own branch per task. They are recorded once per repo in
+`state/session.json`, and `radin-state.sh prepare` — which each execution
+sub-agent runs in Step 4b — is what acts on them. Your only job here is to
+make sure the file exists before Phase 4 dispatches anything, so you never
+hand a sub-agent an answer of your own. Read it first:
 
 ```bash
 bash "$HOME/.claude/.radin/lib/radin-state.sh" session-get "$NAMESPACE_DIR"
 ```
 
-Exit 0 prints `worktree<TAB><yes|no>` and `branch<TAB><yes|no>` — use those,
-ask nothing. Exit 1 means no run has answered yet: take the invoking prompt's
-preference if it states one, otherwise ask both in the same
-`AskUserQuestion` call as Phase 2's order confirmation — one call covers all
-three questions. Persist the answers before Phase 4 dispatches anything:
+Exit 0 prints `worktree<TAB><yes|no>` and `branch<TAB><yes|no>`: the repo has
+already answered, so ask nothing and change nothing — a mid-run change would
+land half the tasks in worktrees and half in the checkout. Keep the two values
+for Phase 5's summary; nothing else needs them. Exit 1 means no answer is
+recorded yet: take the invoking prompt's preference if it states one,
+otherwise ask both in the same `AskUserQuestion` call as Phase 2's order
+confirmation — one call covers all three questions. Then persist them:
 
 ```bash
 bash "$HOME/.claude/.radin/lib/radin-state.sh" session-set "$NAMESPACE_DIR" "<worktree yes|no>" "<branch yes|no>"
@@ -217,7 +229,7 @@ EOF
 
 The CLI writes the schema itself (every entry `pending`, empty `note`).
 
-## Phase 4: Sequential Task Execution Loop
+## Phase 4: Task Execution Loop
 
 Read `$HOME/.claude/.radin/lib/radin-execute-prompts.md` once now — it holds
 the two verbatim sub-agent prompts (planning, execution) this phase sends.
@@ -294,20 +306,30 @@ Exit 0 prints `attempts<TAB><n>`. Exit 2 means the task has been dispatched
 marked it `blocked`. Report it and continue to the next task — do not retry.
 
 Re-run `radin-backlog.sh meta "<task id>"` (Step 4a may have added a plan).
+Dispatch under the concurrency rule in Core Constraints — it decides whether
+this task's `Task` call may share a message with another's.
 Send the **Execution prompt** from `radin-execute-prompts.md`, substituting:
 
 - `TASK_FILE`: `$BACKLOG_TASKS_DIR/<id>.md`
 - `PLAN_PATHS`: the `plan` paths in printed order, or "none — implement
   directly from the entry" if Step 4a skipped planning
+- `NAMESPACE_DIR`: `$NAMESPACE_DIR`, and `TASK_ID`: the task's id — the
+  sub-agent passes both to `radin-state.sh prepare` to get its working tree.
+  Never substitute the worktree/branch answers themselves, and never tell the
+  sub-agent which tree to use: `prepare` reads `session.json` and decides.
 - `SKILLS`: the `skill` instruction(s), or "none". These are standing
   instructions from the user (`radin-record` captured them) — pass them
   through as-is; never second-guess whether one is needed, redundant, or a
-  good fit. Drop exactly one class: a skill that asks the user in prose or
-  spawns its own agent or background task (`/grilling`, `/research`,
-  `/radin-review`, `/radin-plan`, `/radin-execute`). A sub-agent invoking one
-  ends its turn without a `STATUS:` line and the task hangs claimed. Forward
-  the rest, and name every dropped skill in the Phase 5 summary so the user
-  can run it themselves.
+  good fit. Drop exactly one class, and for one reason only — a sub-agent
+  invoking it ends its turn with no `STATUS:` line, leaving the task hung and
+  claimed:
+  - it asks the user in prose and waits (`/grilling`),
+  - it spawns its own agent or a background task (`/research`),
+  - it is a radin orchestration entry point that would recurse
+    (`/radin-execute`, and `/radin-plan` or `/radin-review`, which you
+    dispatch yourself in Step 4a and Phase 6).
+  Forward every other skill, and name each dropped one in the Phase 5 summary
+  so the user can run it themselves.
 - `DEPENDS_ON`: the Step 4a-0 `<id>: <commit hash>` pairs, or "none"
 
 When the sub-agent reports, its `STATUS:` line drives what happens next —
@@ -376,12 +398,16 @@ Always runs once the loop exits. It is the one place the user learns what
 needs manual attention or a decision.
 
 0. Run `dirty-check "$REPO_ROOT"`. Empty: note "no residual changes". Non-empty: do NOT commit it — unknown changes are the user's call. Park it with `radin-state.sh stash "$REPO_ROOT" "radin-execute: session end, untracked to any task"` and record the ref. Changes under `.claude/.radin/` stay as they are.
-0b. If `WORKTREE_MODE` or `BRANCH_MODE` was yes, every commit this session
-   landed on `radin/<task-id>`, in worktree `$REPO_ROOT-<task-id>` when there
-   was one — nothing merged into the branch the user is sitting on. Say so
-   explicitly, per task, with the merge command. A summary that lists bare
-   hashes reads as "committed to my repo" and the user finds their checkout
-   untouched.
+0b. Report where the commits actually landed, and let the Phase 0.5 answers
+   decide the wording — never the template below:
+   - either answer was yes: every commit sits on
+     `radin/<task-id>`, in worktree `$REPO_ROOT-<task-id>` when there was one,
+     and nothing is merged into the branch the user is sitting on. Say that
+     per task, with the merge command. Bare hashes read as "committed to my
+     repo" and the user finds their checkout untouched.
+   - Both were no: the commits are on the user's current branch in
+     `$REPO_ROOT`. Report `<title> — <hash>` and no merge command; a branch or
+     worktree named here that the user declined is a bug in your report.
 1. Leave failed and blocked backlog entries in place. If `radin-backlog.sh
    list` shows a duplicate id or title from manual edits, flag it in the
    summary rather than guessing which copy to remove.
@@ -392,8 +418,8 @@ needs manual attention or a decision.
 ```
 ✅ Session complete: <N> succeeded, <M> failed, <K> awaiting your decision.
 
-Succeeded (nothing merged — each commit sits on its own branch):
-- <task title> — <commit hash> on <branch> [in <worktree path>]. Merge: git merge <branch>
+Succeeded (per step 0b — drop the branch/worktree/merge parts when both modes were no):
+- <task title> — <commit hash> [on <branch>] [in <worktree path>]. [Merge: git merge <branch>]
 
 Failed (left in the backlog for retry):
 - <task title> — <reason>. Recover: <concrete command(s)>.

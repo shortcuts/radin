@@ -183,7 +183,7 @@ run_install_no_companions_answering() {
 @test "declining parallel execution keeps the sequential constraint only" {
   run_install_no_companions
   agent="$TEST_HOME/.claude/agents/radin-execute.md"
-  grep -q "One sub-agent at a time" "$agent"
+  grep -q "One execution sub-agent at a time" "$agent"
   ! grep -q "Concurrency allowed" "$agent"
   ! grep -q "radin:concurrency" "$agent"
   grep -q '"parallel_execution": false' "$TEST_HOME/.claude/.radin/manifest.json"
@@ -194,7 +194,7 @@ run_install_no_companions_answering() {
   [ "$status" -eq 0 ]
   agent="$TEST_HOME/.claude/agents/radin-execute.md"
   grep -q "Concurrency allowed" "$agent"
-  ! grep -q "One sub-agent at a time" "$agent"
+  ! grep -q "One execution sub-agent at a time" "$agent"
   ! grep -q "radin:concurrency" "$agent"
   grep -q '"parallel_execution": true' "$TEST_HOME/.claude/.radin/manifest.json"
 }

@@ -13,6 +13,28 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- `radin-state.sh prepare <namespace-dir> <id>` creates or reuses a task's
+  worktree and branch from the answers in `session.json` and prints the one
+  directory to work in. The execution sub-agent runs it instead of reading
+  `WORKTREE_MODE`/`BRANCH_MODE` and issuing `git worktree add` /
+  `git checkout -b` itself, so a recorded `no` can no longer be reinterpreted.
+
+### Fixed
+
+- `radin-execute` and its sub-agents now treat the session's answers —
+  execution order, `WORKTREE_MODE`, `BRANCH_MODE`, concurrency — as
+  binding. Phase 5's summary template hard-coded a per-task branch, and
+  Phase 4's title said "Sequential" whatever the install chose, so a `no`
+  answer read as a suggestion.
+- `install.sh` fails loudly when the concurrency marker survives its
+  substitution, instead of shipping an agent with no rule at all.
+- `radin-plan` no longer sends a non-interactive run into `/research`, and
+  `radin-record` no longer claims `radin-execute` resolves facts through
+  it. Both hang a sub-agent, which cannot be notified when a background
+  task finishes.
+
+### Added
+
 - `install.sh` asks whether `radin-execute` may run sub-agents in
   parallel (default no). The agent file itself states no concurrency rule —
   install's awk substitutes one at a marker line. Manifest records the

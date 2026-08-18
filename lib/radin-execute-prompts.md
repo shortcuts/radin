@@ -11,6 +11,12 @@ cannot be notified about a background task. So no prompt here may send a
 sub-agent into a skill that asks in prose or spawns its own agent — it would
 end its turn with no `STATUS:` line and the orchestrator would see a hang.
 
+Delegation stops here too: no prompt may tell a sub-agent to spawn a sub-agent
+of its own. Whether the *orchestrator* runs several of these at once is settled
+by the concurrency rule in `agents/radin-execute.md`, written there at install
+time from the user's answer — never a sub-agent's call, and never restated in
+this file.
+
 Substitute the `UPPERCASE` placeholders before sending. Send every prompt
 with `model: "sonnet"` and `run_in_background: false`.
 
@@ -30,7 +36,10 @@ to that same task file.
 You run non-interactively: where the skill would ask the user for
 confirmation (splitting the entry, overwriting an existing plan), take
 the non-destructive path instead — don't split, don't overwrite. Do NOT
-implement anything.
+implement anything. Do not spawn a sub-agent, and do not invoke a skill
+that spawns one or a background task (`/grilling`, `/research`): you
+cannot be notified when it finishes, so waiting on it hangs the run.
+Something you can only settle that way is BLOCKED material.
 
 The plan must settle every decision: the executor makes no judgment
 calls. Anything the entry leaves genuinely open is BLOCKED material —
@@ -67,34 +76,32 @@ the plan file path(s) in order (or "none — implement directly from the
 entry" if Step 4a skipped planning), `SKILLS` with the collected
 `**Skill:**` name(s) or "none", `DEPENDS_ON` with the list of
 `<id>: <commit hash>` pairs gathered in Step 4a-0 (or "none" if
-`depends_on` was empty), and `WORKTREE_MODE`/`BRANCH_MODE` with the
-session's `yes`/`no` answers from Phase 0.5.
+`depends_on` was empty), `NAMESPACE_DIR` with `$NAMESPACE_DIR`, and
+`TASK_ID` with the task's id. The worktree/branch answers are not
+substituted anywhere: `radin-state.sh prepare` reads them from
+`session.json` itself.
 
 ```
 Execute the task described in TASK_FILE:
+
+Do the task yourself: never spawn a sub-agent, and never invoke a skill that
+spawns one.
+
 (When exploring the codebase: if `code-review-graph` is installed and wired for this repo, use its MCP tools—`semantic_search_nodes`, `get_impact_radius`, `query_graph`—before Grep/Glob/Read. When running commands: prefer `rtk`-wrapped commands if `command -v rtk` succeeds for token savings.)
 1. Read TASK_FILE to understand the task
-1a. If WORKTREE_MODE is "yes", work in `../<repo-dir-name>-<task-id>`. An
-   earlier attempt on this task may have died and left it behind, so create it
-   only if it isn't already there:
-   - Directory exists: `cd` into it and use it as-is. Anything uncommitted in
-     it is a previous attempt's leftovers — commit it as part of this task if
-     it belongs, otherwise revert it before you start.
-   - Directory absent, branch `radin/<task-id>` already exists:
-     `git worktree add ../<repo-dir-name>-<task-id> radin/<task-id>` (no `-b`
-     — with `-b` git fails on the existing branch).
-   - Neither exists:
-     `git worktree add ../<repo-dir-name>-<task-id> -b radin/<task-id>`.
-   If WORKTREE_MODE is "no", work in the current checkout.
-1b. If BRANCH_MODE is "yes" and step 1a didn't already put you on a new
-   branch, switch to `radin/<task-id>` before making any changes — `git
-   checkout -b radin/<task-id>`, or plain `git checkout radin/<task-id>` if a
-   dead attempt already created it.
-   If BRANCH_MODE is "no" and you're not in a worktree, commit directly on
-   the current branch — do not create a task branch.
-   Use those exact names, both here and in 1a: if this session dies before
-   you report, the orchestrator finds your leftovers by deriving the path and
-   branch from the task id alone. A name of your own invention orphans them.
+1a. Set up the tree you will work in. One command decides it, from the
+   worktree/branch preference the user already recorded for this repo:
+   `bash "$HOME/.claude/.radin/lib/radin-state.sh" prepare "NAMESPACE_DIR" "TASK_ID"`.
+   It prints one absolute path on stdout. `cd` there and do every step below
+   in it. Whatever it prints is right — the repo root or a worktree, on a task
+   branch or the branch the user already had checked out. You never decide
+   this: no `git worktree add`, no `git checkout -b`, no `git switch -c`, and
+   no switching onto a `radin/<task-id>` branch you happen to notice. The
+   user's answer may be "no" to either, and this command has already applied
+   it. Non-zero exit: stop and report `STATUS: FAILED` with its message.
+   Anything uncommitted in the tree it hands you is a dead attempt's
+   leftovers — commit it as part of this task if it belongs there, otherwise
+   revert it before you start.
 2. If PLAN_PATHS is not "none", read them in order — plan(s) already written for this
    task by radin-plan. Follow them; do not re-derive an approach from scratch. If
    there's more than one, they cover different parts of the same task — implement all
@@ -128,9 +135,8 @@ Execute the task described in TASK_FILE:
 5. Run any required checks (lint, tests, format) per project conventions
 6. Fix any issues before committing
 7. Invoke the `/caveman-commit` skill to draft the commit message, then commit. If `/caveman-commit` is unavailable, write a conventional-commit message yourself.
-8. Run `bash "$HOME/.claude/.radin/lib/radin-state.sh" dirty-check "$(pwd)"` from the root
-   of the tree you worked in — the worktree from step 1a if you created or reused one, so
-   the check covers the files you actually touched.
+8. Run `bash "$HOME/.claude/.radin/lib/radin-state.sh" dirty-check "$(pwd)"` from the tree
+   step 1a handed you, so the check covers the files you actually touched.
    If anything is still uncommitted (including changes made incidentally while
    investigating, e.g. formatter/linter auto-fixes), either commit it as part of this
    task's commit or a separate scoped commit — never leave the working tree dirty when

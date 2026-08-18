@@ -64,7 +64,7 @@ Creates `state/`, `plans/`, `reviews/`, `backlog/tasks/` under `$NAMESPACE_DIR`,
 `radin-execute`'s own state files (`BACKLOG_STEPS.json`, `completed.json`) get same treatment as backlog. Sibling CLI, `lib/radin-state.sh`, only way agent mutates either file — never hand-written JSON edit in agent's own prose.
 
 ```bash
-bash "$HOME/.claude/.radin/lib/radin-state.sh" <start|stuck|triage|set-status|remove|completed-add|completed-get|task-dir|dirty-check|session-set|session-get|journal-tail>
+bash "$HOME/.claude/.radin/lib/radin-state.sh" <start|stuck|triage|set-status|remove|completed-add|completed-get|task-dir|prepare|dirty-check|session-set|session-get|journal-tail>
 ```
 
 - `start <steps-file> <id>` — claim task before dispatch: `status` `in_progress`, `attempts` +1. Exits 2 having marked entry `blocked` once `attempts` passes `MAX_ATTEMPTS` (3), so crash loop can't burn tokens forever
@@ -75,8 +75,9 @@ bash "$HOME/.claude/.radin/lib/radin-state.sh" <start|stuck|triage|set-status|re
 - `completed-add <completed-file> <id> <hash>` — append completed task's commit, create file if absent
 - `completed-get <completed-file> <id>` — print completed task's commit hash (exit 1 if not recorded), for later task's `depends_on` check
 - `task-dir <repo-root> <id>` — print task's worktree (`<repo-root>-<id>`) when it exists, else repo root. Everything checking or parking one task's files (`dirty-check`, `stash`) goes through it: in worktree mode repo root is not tree sub-agent worked in, and checking wrong one reports clean while work sits uncommitted elsewhere
+- `prepare <namespace-dir> <id>` — read `session.json`, create or reuse `<repo-root>-<id>` worktree and `radin/<id>` branch exactly as recorded answers require, print single directory execution sub-agent works in. Only place those two answers turn into git commands, so a model can't reinterpret `no` into a worktree it prefers. Fails when nothing recorded yet
 - `dirty-check <dir>` — `git status --porcelain`, `.claude/.radin` excluded so radin's own state writes never read as dirty tree
-- `session-set`/`session-get <namespace-dir>` — persist and read Phase 0.5's worktree/branch answers, so resumed run reuses them instead of asking again and splitting session between worktrees and checkout
+- `session-set`/`session-get <namespace-dir>` — persist and read Phase 0.5's worktree/branch answers, so resumed run reuses them instead of asking again and splitting session between worktrees and checkout. `prepare` consumes them; orchestrator only reads them back for its final summary
 - `journal-tail <namespace-dir> [n]` — last n events from append-only `state/journal.jsonl`, written by every mutation above. Lets agent reconstruct what session already did after context compaction. Forensics only, never control flow
 
 Both `BACKLOG_STEPS.json` and `completed.json` JSONL (one compact object per line), same convention as backlog's `index.jsonl` — single-entry edit never risks another line, model never parses/rewrites bracketed JSON array by hand.

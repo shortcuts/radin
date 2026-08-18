@@ -134,6 +134,50 @@ cli() {
   [ "$status" -ne 0 ]
 }
 
+@test "prepare applies the recorded answers instead of trusting a caller" {
+  ns="$WORK/repo/.claude/.radin"
+  mkdir -p "$ns/state"
+  git init -q "$WORK/repo"
+  git -C "$WORK/repo" config user.email t@t
+  git -C "$WORK/repo" config user.name t
+  echo base > "$WORK/repo/f.txt"
+  git -C "$WORK/repo" add f.txt
+  git -C "$WORK/repo" commit -qm init
+  base="$(git -C "$WORK/repo" rev-parse --abbrev-ref HEAD)"
+
+  run cli prepare "$ns" a
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"session.json"* ]]
+
+  # both no: the user's checkout and branch, untouched
+  cli session-set "$ns" no no
+  run cli prepare "$ns" a
+  [ "$status" -eq 0 ]
+  [ "${lines[${#lines[@]}-1]}" = "$WORK/repo" ]
+  [ "$(git -C "$WORK/repo" rev-parse --abbrev-ref HEAD)" = "$base" ]
+  ! git -C "$WORK/repo" rev-parse --verify -q radin/a
+  [ ! -d "$WORK/repo-a" ]
+
+  # branch only: task branch in the same checkout, no worktree
+  cli session-set "$ns" no yes
+  run cli prepare "$ns" b
+  [ "$status" -eq 0 ]
+  [ "${lines[${#lines[@]}-1]}" = "$WORK/repo" ]
+  [ "$(git -C "$WORK/repo" rev-parse --abbrev-ref HEAD)" = "radin/b" ]
+  [ ! -d "$WORK/repo-b" ]
+  git -C "$WORK/repo" checkout -q "$base"
+
+  # worktree: its own tree on its own branch, and reusable after a dead run
+  cli session-set "$ns" yes yes
+  run cli prepare "$ns" c
+  [ "$status" -eq 0 ]
+  [ "${lines[${#lines[@]}-1]}" = "$WORK/repo-c" ]
+  [ "$(git -C "$WORK/repo-c" rev-parse --abbrev-ref HEAD)" = "radin/c" ]
+  run cli prepare "$ns" c
+  [ "$status" -eq 0 ]
+  [ "${lines[${#lines[@]}-1]}" = "$WORK/repo-c" ]
+}
+
 @test "set-status escapes quotes in the note (shared json_escape)" {
   printf '{"id":"a","order":1,"status":"pending","depends_on":[],"note":""}\n' > "$STEPS"
   run cli set-status "$STEPS" a blocked 'keep "x" or drop?'

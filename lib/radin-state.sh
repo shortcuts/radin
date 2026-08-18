@@ -21,6 +21,7 @@
 #   radin-state.sh completed-get <completed-file> <id>   # prints commit hash, exit 1 if absent
 #   radin-state.sh task-done <namespace-dir> <id> <commit-hash>  # completed-add + backlog remove + steps remove, in crash-safe order
 #   radin-state.sh task-dir <repo-root> <id>              # print the task's worktree if it exists, else <repo-root>
+#   radin-state.sh prepare <namespace-dir> <id>           # create/reuse the task's tree and branch per session.json, print the dir to work in
 #   radin-state.sh dirty-check <dir>                      # git status --porcelain, excluding .claude/.radin
 #   radin-state.sh stash <repo-root> <message>            # stash everything except .claude/.radin, print the stash ref
 #   radin-state.sh session-set <namespace-dir> <worktree-mode> <branch-mode>  # persist Phase 0.5 answers
@@ -321,6 +322,45 @@ task-done)
 	fi
 	journal "$ns/state" "done" "$id" "$hash"
 	printf 'task-done: %s recorded at %s; backlog and steps entries removed\n' "$id" "$hash"
+	;;
+
+prepare)
+	# The one place the recorded worktree/branch answers turn into git
+	# commands. A sub-agent only cds to the path this prints, so a "no" the
+	# model would rather ignore never reaches a git invocation.
+	ns="${2:-}"
+	id="${3:-}"
+	[ -n "$ns" ] && [ -n "$id" ] || die "usage: prepare <namespace-dir> <id>"
+	session="$(bash "$LIB_DIR/radin-state.sh" session-get "$ns" 2>/dev/null)" ||
+		die "no recorded worktree/branch preference in $ns/state/session.json -- run session-set first"
+	worktree="$(printf '%s\n' "$session" | sed -n 's/^worktree\t//p')"
+	branch_mode="$(printf '%s\n' "$session" | sed -n 's/^branch\t//p')"
+	repo_root="${ns%/.claude/.radin}"
+	branch="radin/$id"
+	wt="$repo_root-$id"
+	if [ "$worktree" = "yes" ]; then
+		if [ -d "$wt" ]; then
+			: # a dead attempt's tree -- reuse it rather than fail on `worktree add`
+		elif git -C "$repo_root" rev-parse --verify --quiet "$branch" >/dev/null 2>&1; then
+			git -C "$repo_root" worktree add "$wt" "$branch" >&2
+		else
+			git -C "$repo_root" worktree add "$wt" -b "$branch" >&2
+		fi
+		journal "$ns/state" "prepare" "$id" "worktree=$wt branch=$branch"
+		printf '%s\n' "$wt"
+	else
+		if [ "$branch_mode" = "yes" ]; then
+			if git -C "$repo_root" rev-parse --verify --quiet "$branch" >/dev/null 2>&1; then
+				git -C "$repo_root" checkout "$branch" >&2
+			else
+				git -C "$repo_root" checkout -b "$branch" >&2
+			fi
+			journal "$ns/state" "prepare" "$id" "branch=$branch"
+		else
+			journal "$ns/state" "prepare" "$id" "current checkout, current branch"
+		fi
+		printf '%s\n' "$repo_root"
+	fi
 	;;
 
 task-dir)
