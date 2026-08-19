@@ -174,21 +174,133 @@ cp -r "$RADIN_ROOT"/skills/radin-doctor "$HOME/.claude/skills/"
 cp -r "$RADIN_ROOT"/skills/radin-uninstall "$HOME/.claude/skills/"
 ok "agents/ and skills/ installed"
 
-prompt_yn() {
-	# Run from a real file ($0), fd0 is free -- read the answer from stdin
-	# (works for an interactive terminal and for piped/redirected answers
-	# alike). Piped via curl | bash, fd0 is the script itself, so fall back
-	# to /dev/tty. No tty at all (CI, non-interactive) means we can't ask,
-	# so default to no.
-	local msg="$1" ans=""
+_pick_nth() {
+	local want="$1" i=1 opt
+	shift
+	for opt in "$@"; do
+		if [ "$i" = "$want" ]; then
+			printf '%s' "$opt"
+			return
+		fi
+		i=$((i + 1))
+	done
+}
+
+_pick_tui() {
+	# Arrow-key picker on a real terminal. Draws to the tty, never to stdout,
+	# so the caller can still capture the chosen option. Returns 1 when the
+	# device can't be put in raw mode, and the numbered fallback takes over.
+	local dev="$1" msg="$2" sel="$3"
+	shift 3
+	local count=$# saved key rest i opt
+	local esc=$'\033' cr=$'\r' etx=$'\003' eot=$'\004'
+	saved="$(stty -g <"$dev" 2>/dev/null)" || return 1
+	printf "%b\n" "${YELLOW}${RAT} $msg${RESET} ${DIM}(arrows, enter to confirm)${RESET}" >"$dev"
+	stty raw -echo <"$dev" 2>/dev/null || return 1
+	printf '\033[?25l' >"$dev"
+	while :; do
+		i=1
+		for opt in "$@"; do
+			# Raw mode drops the NL->CRNL translation, hence the explicit \r.
+			if [ "$i" = "$sel" ]; then
+				printf '\r\033[K %b\r\n' "${CYAN}>${RESET} ${BOLD}$opt${RESET}" >"$dev"
+			else
+				printf '\r\033[K   %s\r\n' "$opt" >"$dev"
+			fi
+			i=$((i + 1))
+		done
+		IFS= read -r -n1 key <"$dev" || break
+		case "$key" in
+		"$esc")
+			# An arrow key arrives as three bytes at once, so no timeout needed.
+			IFS= read -r -n2 rest <"$dev" || break
+			case "$rest" in
+			'[A' | '[D') sel=$((sel > 1 ? sel - 1 : count)) ;;
+			'[B' | '[C') sel=$((sel < count ? sel + 1 : 1)) ;;
+			esac
+			;;
+		k) sel=$((sel > 1 ? sel - 1 : count)) ;;
+		j) sel=$((sel < count ? sel + 1 : 1)) ;;
+		[1-9])
+			if [ "$key" -le "$count" ]; then
+				sel="$key"
+			fi
+			;;
+		'' | "$cr") break ;;
+		# raw mode turns off ISIG, so Ctrl-C and Ctrl-D arrive as bytes -- honour
+		# them here or the picker becomes unquittable.
+		"$etx" | "$eot")
+			printf '\033[?25h' >"$dev"
+			stty "$saved" <"$dev"
+			printf "\n%b\n" "${RED}${RAT} aborted.${RESET}" >"$dev"
+			exit 130
+			;;
+		esac
+		printf '\033[%dA' "$count" >"$dev"
+	done
+	printf '\033[?25h' >"$dev"
+	stty "$saved" <"$dev"
+	_pick_nth "$sel" "$@"
+}
+
+_pick_numbered() {
+	# Fallback for anything that isn't an interactive terminal: piped answers,
+	# CI, or a tty that rejects raw mode. Anything unparseable takes the
+	# default, so a typo can't be read as a silent "no".
+	local dev="$1" msg="$2" default="$3"
+	shift 3
+	local count=$# ans="" i=1 opt label
+	printf "%b\n" "${YELLOW}${RAT} $msg${RESET}" >&2
+	for opt in "$@"; do
+		if [ "$i" = "$default" ]; then
+			printf "  %b\n" "${BOLD}$i${RESET}) $opt ${DIM}(default)${RESET}" >&2
+		else
+			printf "  %b\n" "${BOLD}$i${RESET}) $opt" >&2
+		fi
+		i=$((i + 1))
+	done
+	label="$(printf "%b" "${YELLOW}${RAT} Pick 1-${count} [${default}]${RESET} ")"
+	if [ "$dev" = "-" ]; then
+		read -r -p "$label" ans || true
+	else
+		read -r -p "$label" ans <"$dev" || true
+	fi
+	case "$ans" in
+	'' | *[!0-9]*) ans="$default" ;;
+	esac
+	if [ "$ans" -lt 1 ] || [ "$ans" -gt "$count" ]; then
+		ans="$default"
+	fi
+	_pick_nth "$ans" "$@"
+}
+
+prompt_pick() {
+	# Interactive stdin (./install.sh from a terminal): arrow-key picker there.
+	# Run from a real file with stdin piped, fd0 carries the answers, so read
+	# them as numbers. Piped via curl | bash, fd0 is the script itself -- the
+	# terminal is only reachable through /dev/tty. Nothing readable at all
+	# (CI, --yes) means we can't ask, so take the default.
+	local msg="$1" default="$2"
+	shift 2
 	if [ -z "$YES" ]; then
-		if [ -f "$0" ]; then
-			read -r -p "$(printf "%b" "${YELLOW}${RAT} $msg [y/N]${RESET} ")" ans || true
+		if [ -t 0 ]; then
+			_pick_tui /dev/tty "$msg" "$default" "$@" && return
+			_pick_numbered /dev/tty "$msg" "$default" "$@"
+			return
+		elif [ -f "$0" ]; then
+			_pick_numbered - "$msg" "$default" "$@"
+			return
 		elif [ -r /dev/tty ]; then
-			read -r -p "$(printf "%b" "${YELLOW}${RAT} $msg [y/N]${RESET} ")" ans </dev/tty || true
+			_pick_tui /dev/tty "$msg" "$default" "$@" && return
+			_pick_numbered /dev/tty "$msg" "$default" "$@"
+			return
 		fi
 	fi
-	[ "$ans" = "y" ] || [ "$ans" = "Y" ]
+	_pick_nth "$default" "$@"
+}
+
+prompt_yn() {
+	[ "$(prompt_pick "$1" 2 "yes" "no")" = "yes" ]
 }
 
 install_if_confirmed() {
@@ -214,19 +326,6 @@ install_plugin_if_confirmed() {
 	prompt_yn "Install $name?" || return 0
 	claude plugin marketplace add "$marketplace_source"
 	claude plugin install "$plugin_id"
-}
-
-prompt_val() {
-	# Same stdin/tty rationale as prompt_yn -- works under curl | bash too.
-	local msg="$1" default="$2" ans=""
-	if [ -z "$YES" ]; then
-		if [ -f "$0" ]; then
-			read -r -p "$(printf "%b" "${YELLOW}${RAT} $msg [$default]${RESET} ")" ans || true
-		elif [ -r /dev/tty ]; then
-			read -r -p "$(printf "%b" "${YELLOW}${RAT} $msg [$default]${RESET} ")" ans </dev/tty || true
-		fi
-	fi
-	printf '%s' "${ans:-$default}"
 }
 
 set_agent_model() {
@@ -259,7 +358,7 @@ set_concurrency() {
 }
 
 step "Parallel execution (optional)"
-if prompt_yn "Let radin-execute run sub-agents in parallel? (default: no, one at a time)"; then
+if [ "$(prompt_pick "How should radin-execute run sub-agents? (parallel only ever applies to independent tasks)" 2 "parallel" "sequential")" = "parallel" ]; then
 	PARALLEL_MODE="true"
 	set_concurrency "$HOME/.claude/agents/radin-execute.md" "$PARALLEL_RULE"
 	ok "parallel execution allowed (independent tasks only, worktree mode required)"
@@ -270,9 +369,13 @@ else
 fi
 
 step "Agent models (optional)"
+MODELS="fable opus sonnet haiku"
+SONNET_INDEX=3
 if prompt_yn "Choose models for radin-execute? (defaults: sonnet top-level, sonnet sub-agents)"; then
-	ORCH_MODEL="$(prompt_val "radin-execute top-level model" "sonnet")"
-	ORCH_SUB_MODEL="$(prompt_val "radin-execute sub-agent model (execution + review)" "sonnet")"
+	# shellcheck disable=SC2086  # word splitting is the point -- one arg per model
+	ORCH_MODEL="$(prompt_pick "radin-execute top-level model" "$SONNET_INDEX" $MODELS)"
+	# shellcheck disable=SC2086
+	ORCH_SUB_MODEL="$(prompt_pick "radin-execute sub-agent model (execution + review)" "$SONNET_INDEX" $MODELS)"
 
 	set_agent_model "$HOME/.claude/agents/radin-execute.md" "^model: sonnet$" "model: ${ORCH_MODEL}"
 	set_agent_model "$HOME/.claude/agents/radin-execute.md" 'model: "sonnet"' "model: \"${ORCH_SUB_MODEL}\""
@@ -314,7 +417,7 @@ install_if_confirmed "code-review-graph" "code-review-graph" \
 
 # headroom is a heavier Python/pip stack than rtk's static binary or
 # code-review-graph -- gets a second confirmation (install_if_confirmed's
-# 4th arg) on top of the normal y/N gate. It complements rtk (whole-session
+# 4th arg) on top of the normal yes/no gate. It complements rtk (whole-session
 # wrap vs per-command output compression), not a replacement -- never
 # phrase this as preferred over rtk.
 install_if_confirmed "headroom" "headroom" \

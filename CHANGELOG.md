@@ -11,6 +11,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   advisories. Already-installed plugins stay untouched — remove them
   yourself with `claude plugin uninstall i-have-adhd@i-have-adhd`.
 
+### Changed
+
+- `install.sh` asks every question through an arrow-key picker instead of a
+  free-text `[y/N]` answer, so a typo can no longer be read as a silent "no".
+  Arrows (or `j`/`k`, or a digit) move, enter confirms, Ctrl-C aborts. Model
+  prompts list `fable`/`opus`/`sonnet`/`haiku` instead of taking a hand-typed
+  model name. Anything that isn't an interactive terminal -- piped answers,
+  CI -- falls back to a numbered prompt, and an unreadable answer takes the
+  default.
+
 ### Added
 
 - `radin-state.sh prepare <namespace-dir> <id>` creates or reuses a task's

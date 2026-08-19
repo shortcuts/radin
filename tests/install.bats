@@ -76,13 +76,15 @@ teardown() {
 # script and covers source resolution + core agents/skills install. None of
 # rtk/code-review-graph/headroom/caveman/ponytail exist on the
 # trimmed PATH, so all five prompts fire and all five get declined.
-# First answer is the parallel-execution prompt, second the agent-model one.
+# Every prompt is a numbered picker: 1 is the first option (parallel / yes),
+# 2 the second (sequential / no). First answer is the parallel-execution
+# prompt, second the agent-model one.
 run_install_no_companions() {
-  cd "$REPO_ROOT" && printf 'n\nn\nn\nn\nn\nn\nn\n' | bash ./install.sh
+  cd "$REPO_ROOT" && printf '2\n2\n2\n2\n2\n2\n2\n' | bash ./install.sh
 }
 
 run_install_no_companions_answering() {
-  cd "$REPO_ROOT" && printf 'n\nn\n%s\nn\nn\nn\nn\n' "$1" | bash ./install.sh
+  cd "$REPO_ROOT" && printf '2\n2\n%s\n2\n2\n2\n2\n' "$1" | bash ./install.sh
 }
 
 @test "syntax is valid" {
@@ -142,14 +144,14 @@ run_install_no_companions_answering() {
   ! grep -q "install rtk" "$BREW_LOG"
 }
 
-@test "companion install commands only run after an explicit y" {
-  run run_install_no_companions_answering "y"
+@test "companion install commands only run after picking yes" {
+  run run_install_no_companions_answering "1"
   [ "$status" -eq 0 ]
   [[ "$(cat "$BREW_LOG")" == *"install rtk"* ]]
 }
 
 @test "writes an install manifest listing installed files and companion tools" {
-  run run_install_no_companions_answering "y"
+  run run_install_no_companions_answering "1"
   [ "$status" -eq 0 ]
   manifest="$TEST_HOME/.claude/.radin/manifest.json"
   [ -f "$manifest" ]
@@ -164,16 +166,16 @@ run_install_no_companions_answering() {
 }
 
 # headroom gets install_if_confirmed's extra 4th-arg confirmation on top of
-# the normal y/N gate (Python/pip footprint) -- both prompts must be
-# answered y before the pip/pipx install command actually runs.
+# the normal yes/no gate (Python/pip footprint) -- both prompts must be
+# answered yes before the pip/pipx install command actually runs.
 @test "headroom's extra pip confirmation blocks install when declined" {
-  cd "$REPO_ROOT" && run bash -c "printf 'n\nn\nn\nn\ny\nn\nn\nn\n' | bash ./install.sh"
+  cd "$REPO_ROOT" && run bash -c "printf '2\n2\n2\n2\n1\n2\n2\n2\n' | bash ./install.sh"
   [ "$status" -eq 0 ]
   [ ! -f "$PIP_LOG" ] || ! grep -q "headroom-ai" "$PIP_LOG"
 }
 
-@test "headroom installs only after both confirmations are answered y" {
-  cd "$REPO_ROOT" && run bash -c "printf 'n\nn\nn\nn\ny\ny\nn\nn\n' | bash ./install.sh"
+@test "headroom installs only after both confirmations pick yes" {
+  cd "$REPO_ROOT" && run bash -c "printf '2\n2\n2\n2\n1\n1\n2\n2\n' | bash ./install.sh"
   [ "$status" -eq 0 ]
   grep -q "headroom-ai" "$PIP_LOG"
   manifest="$TEST_HOME/.claude/.radin/manifest.json"
@@ -190,13 +192,52 @@ run_install_no_companions_answering() {
 }
 
 @test "accepting parallel execution keeps the concurrency constraint only" {
-  cd "$REPO_ROOT" && run bash -c "printf 'y\nn\nn\nn\nn\nn\nn\n' | bash ./install.sh"
+  cd "$REPO_ROOT" && run bash -c "printf '1\n2\n2\n2\n2\n2\n2\n' | bash ./install.sh"
   [ "$status" -eq 0 ]
   agent="$TEST_HOME/.claude/agents/radin-execute.md"
   grep -q "Concurrency allowed" "$agent"
   ! grep -q "One execution sub-agent at a time" "$agent"
   ! grep -q "radin:concurrency" "$agent"
   grep -q '"parallel_execution": true' "$TEST_HOME/.claude/.radin/manifest.json"
+}
+
+# The arrow-key picker only draws on a real terminal, so it gets driven through
+# a pty helper. Extracting the functions from install.sh keeps the picker itself
+# single-sourced there.
+pick_with_keys() {
+  command -v python3 >/dev/null 2>&1 || skip "python3 needed to allocate a pty"
+  local snippet="$TEST_HOME/picker.sh" out="$TEST_HOME/picked"
+  sed -n '/^_pick_nth() {/,/^prompt_yn() {/p' "$REPO_ROOT/install.sh" | sed '$d' > "$snippet"
+  rm -f "$out"
+  PATH="$PATH:/usr/local/bin:/opt/homebrew/bin" python3 "$REPO_ROOT/tests/helpers/pty-drive.py" \
+    "$snippet" "$out" "$1" 1 alpha beta gamma >/dev/null 2>&1 && PICK_STATUS=0 || PICK_STATUS="$?"
+  PICKED="$(cat "$out" 2>/dev/null || true)"
+}
+
+@test "arrow keys move the selection, enter confirms it" {
+  pick_with_keys '\r'
+  [ "$PICKED" = "alpha" ]
+  pick_with_keys '\033[B\r'
+  [ "$PICKED" = "beta" ]
+  pick_with_keys '\033[B\033[B\r'
+  [ "$PICKED" = "gamma" ]
+}
+
+@test "picker wraps at the ends and takes j/k and digits too" {
+  pick_with_keys '\033[A\r'
+  [ "$PICKED" = "gamma" ]
+  pick_with_keys 'j\r'
+  [ "$PICKED" = "beta" ]
+  pick_with_keys '3\r'
+  [ "$PICKED" = "gamma" ]
+}
+
+# Raw mode turns off ISIG: without explicit handling Ctrl-C would be swallowed
+# and the picker would be unquittable.
+@test "Ctrl-C in the picker aborts the install" {
+  pick_with_keys '\003'
+  [ "$PICK_STATUS" -eq 130 ]
+  [ -z "$PICKED" ]
 }
 
 @test "refuses to reuse a fetch dir it didn't create" {
@@ -207,7 +248,7 @@ run_install_no_companions_answering() {
   FETCH_DIR="$TEST_HOME/preexisting"
   mkdir -p "$FETCH_DIR"
   echo "not ours" > "$FETCH_DIR/some_other_file"
-  run bash -c "cd '$FAKE_ROOT' && printf 'n\nn\nn\nn\n' | RADIN_ROOT_OVERRIDE='$FETCH_DIR' bash ./install.sh"
+  run bash -c "cd '$FAKE_ROOT' && printf '2\n2\n2\n2\n' | RADIN_ROOT_OVERRIDE='$FETCH_DIR' bash ./install.sh"
   [ "$status" -ne 0 ]
   [[ "$output" == *"wasn't created by this installer"* ]]
 }

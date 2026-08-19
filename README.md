@@ -29,7 +29,7 @@ Opinionated agentic stack, one script deep, bakes in most efficient (and safe) t
 
 ### Requirements
 
-radin itself only copy files. Companion tools pull own stacks, each gated behind `y` prompt.
+radin itself only copy files. Companion tools pull own stacks, each gated behind explicit pick in arrow-key prompt.
 
 | For | You need |
 | --- | --- |

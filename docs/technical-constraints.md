@@ -33,7 +33,9 @@ constructs before committing script change.
 existing install paths (brew/npm/cargo). It:
 
 - Never vendors or forks their source.
-- Never installs tool without explicit `y` confirmation per tool.
+- Never installs tool without explicit pick of yes option per tool.
+- Every install prompt arrow-key picker on interactive terminal, numbered
+  prompt otherwise. Unreadable answer takes default, never a silent yes.
 - Never guarantees companion tool's own install command succeeds — it
   asks and delegates, nothing more.
 
