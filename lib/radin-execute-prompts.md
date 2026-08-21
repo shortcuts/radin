@@ -36,9 +36,10 @@ to that same task file.
 You run non-interactively: where the skill would ask the user for
 confirmation (splitting the entry, overwriting an existing plan), take
 the non-destructive path instead — don't split, don't overwrite. Do NOT
-implement anything. Do not spawn a sub-agent, and do not invoke a skill
-that spawns one or a background task (`/grilling`, `/research`): you
-cannot be notified when it finishes, so waiting on it hangs the run.
+implement anything. Do not spawn a sub-agent, do not call the Workflow
+tool, and do not invoke a skill that spawns an agent, a background task,
+or a workflow (`/grilling`, `/research`, `/deep-research`): you cannot be
+notified when it finishes, so waiting on it hangs the run.
 Something you can only settle that way is BLOCKED material.
 
 The plan must settle every decision: the executor makes no judgment
@@ -84,8 +85,10 @@ substituted anywhere: `radin-state.sh prepare` reads them from
 ```
 Execute the task described in TASK_FILE:
 
-Do the task yourself: never spawn a sub-agent, and never invoke a skill that
-spawns one.
+Do the task yourself: never spawn a sub-agent, never call the Workflow tool,
+and never invoke a skill or command that spawns either (`/deep-research`, any
+saved workflow command) — a workflow runs in the background and you cannot be
+notified when it finishes.
 
 (When exploring the codebase: if `code-review-graph` is installed and wired for this repo, use its MCP tools—`semantic_search_nodes`, `get_impact_radius`, `query_graph`—before Grep/Glob/Read. When running commands: prefer `rtk`-wrapped commands if `command -v rtk` succeeds for token savings.)
 1. Read TASK_FILE to understand the task
@@ -112,8 +115,8 @@ spawns one.
    not judge whether it's needed, redundant, or the right fit. One exception, and it is
    about capability, not fit: you cannot reach the user and cannot be notified about a
    background task. If a skill starts asking you questions it expects a human to answer,
-   or wants to spawn its own agent, stop invoking it, take the non-destructive path, and
-   name it in your report as skipped. Never wait on it — a wait here is a hang the
+   wants to spawn its own agent, or launches a workflow, stop invoking it, take the
+   non-destructive path, and name it in your report as skipped. Never wait on it — a wait here is a hang the
    orchestrator cannot break.
 2b. If DEPENDS_ON is not "none", this task's scope/plan was written assuming certain
    other tasks in this backlog would land a certain way. Those tasks already committed
@@ -190,8 +193,9 @@ Investigate read-only — read the repo, its lockfiles, its vendored
 dependencies, its config; run read-only commands (`--help`, `--version`, a
 query, a dry run). Prefer primary sources already on this machine over
 recollection. Do NOT edit, create, or commit any file. Do NOT invoke a skill
-that asks a human anything or spawns its own agent or background task: you
-cannot reach the user and cannot be notified, so either one hangs you.
+that asks a human anything or spawns its own agent, background task, or
+workflow (`/deep-research` included): you cannot reach the user and cannot
+be notified, so either one hangs you.
 
 Report the answer in a few lines, with the file path, command output, or
 version that establishes it. Then the LAST line exactly one of:

@@ -25,8 +25,10 @@ plan a task's approach yourself — `/radin-plan` is the planner. A task with a
   for every question. Never invoke an interactive skill (`/grilling` and
   anything else that asks in prose and waits): it ends your turn mid-loop with
   a task claimed and uncommitted. Same for any skill that spawns its own agent
-  or a background task (`/research`) — a notification cannot reach a sub-agent
-  turn, so you hang.
+  or a background task (`/research`), and for anything that launches a
+  workflow — the `Workflow` tool, `/deep-research`, or a saved workflow
+  command — workflows always run in the background, and a notification cannot
+  reach a sub-agent turn, so you hang.
 - **The user's answers are binding.** The execution order, the worktree and
   branch preferences, and the concurrency rule below are decisions, not hints.
   A `no` especially: nothing you find later revises one — not a task file, not
@@ -325,6 +327,9 @@ Send the **Execution prompt** from `radin-execute-prompts.md`, substituting:
   claimed:
   - it asks the user in prose and waits (`/grilling`),
   - it spawns its own agent or a background task (`/research`),
+  - it launches a workflow (`/deep-research`, any saved workflow command
+    from `.claude/workflows/` or `~/.claude/workflows/`) — a workflow always
+    runs in the background,
   - it is a radin orchestration entry point that would recurse
     (`/radin-execute`, and `/radin-plan` or `/radin-review`, which you
     dispatch yourself in Step 4a and Phase 6).

@@ -53,8 +53,11 @@ Two limits follow, and both show up as hang -- run stops mid-task, task claimed
 - **No notification.** Turn-based sub-agent cannot receive background-task
   completion. So every `Task` call runs `run_in_background: false`, and no
   prompt may route sub-agent into skill that spawns background agent
-  (`/research`). Same rule applies inside parallel mode: several sub-agents in
-  one message, still none in background.
+  (`/research`). Workflows same class: `Workflow` tool, `/deep-research`, and
+  any saved workflow command (`.claude/workflows/`, `~/.claude/workflows/`)
+  always run in background — never from radin agent or sub-agent. Same rule
+  applies inside parallel mode: several sub-agents in one message, still none
+  in background.
 
 Consequence for both: when radin needs fact, it dispatches own synchronous
 read-only sub-agent (Fact-finding prompt in `lib/radin-execute-prompts.md`) --
