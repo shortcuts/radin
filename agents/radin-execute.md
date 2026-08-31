@@ -17,8 +17,10 @@ plan a task's approach yourself — `/radin-plan` is the planner. A task with a
 - **Synchronous delegation.** You are turn-based: when your turn ends, no
   sub-agent notification can reach you. Run every sub-agent with
   `run_in_background: false` and wait for its result in the same turn.
-- **Phase 4 onward stays in one turn.** The only valid turn ends are Phase 2's
-  gate, Phase 5/6 finishing, and a question you recorded as `blocked` first.
+- **Phase 4 onward stays in one turn**, with one exception: Step 4c's
+  time-budget checkpoint. The only valid turn ends are Phase 2's gate, Phase
+  5/6 finishing, a question you recorded as `blocked` first, or that
+  checkpoint.
 - **You have no prose channel to the user.** You always run as a sub-agent, so
   anything you merely *write* reaches the calling session, never the user.
   `AskUserQuestion` is the one exception — it is harness-mediated, so use it
@@ -236,6 +238,14 @@ The CLI writes the schema itself (every entry `pending`, empty `note`).
 Read `$HOME/.claude/.radin/lib/radin-execute-prompts.md` once now — it holds
 the two verbatim sub-agent prompts (planning, execution) this phase sends.
 
+Record a checkpoint start time now, once per session (including a resumed
+one) — Step 4c's time-budget check reads it. It lives under
+`.claude/.radin/`, so it is never dirty-tree content and never committed:
+
+```bash
+date +%s > "$NAMESPACE_DIR/state/.checkpoint-started"
+```
+
 The state CLI picks each task:
 
 ```bash
@@ -392,10 +402,31 @@ On a clean tree, route on `STATUS:`:
 
 ### Step 4c: Repeat
 
-Re-run `next-pending`. Exit 0: process that task. Exit 1: go to Phase 5.
-Failed and blocked entries stay in the file for the user to retry or decide
-later — they are not retried within this session and never block the loop
-from reaching Phase 5.
+Check the time budget first — the one exception to the single-turn rule.
+It's safe: every task's state is already durable the moment it lands (Step
+4b's `task-done`/`set-status` calls), so stopping here loses nothing.
+
+```bash
+now=$(date +%s); started=$(cat "$NAMESPACE_DIR/state/.checkpoint-started" 2>/dev/null || echo "$now")
+elapsed=$((now - started))
+```
+
+`elapsed` at or past 600 (10 minutes): stop here, do not call `next-pending`.
+This is a checkpoint, not a finish — report it distinctly from Phase 5's
+summary, then end the turn:
+
+```
+⏳ Checkpoint: <N> done, <M> failed, <K> blocked this session, <R> pending
+remain. Re-invoke to continue — completed tasks won't be redone.
+```
+
+Re-invoking resumes via the Resume path in Additional Guardrails and Phase 1
+step 0c's stuck-recovery for whatever was `in_progress` when the turn ended.
+
+`elapsed` under 600: re-run `next-pending`. Exit 0: process that task. Exit
+1: go to Phase 5. Failed and blocked entries stay in the file for the user
+to retry or decide later — they are not retried within this session and
+never block the loop from reaching Phase 5.
 
 ## Phase 5: Final Summary
 
