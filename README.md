@@ -54,6 +54,8 @@ curl -fsSL https://raw.githubusercontent.com/shortcuts/radin/main/install.sh | b
 
 ## Update
 
+`--force` also updates companion tools already installed.
+
 ```sh
 # macOS · Linux · WSL
 curl -fsSL https://raw.githubusercontent.com/shortcuts/radin/main/install.sh | bash -s -- --force

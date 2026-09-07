@@ -11,7 +11,23 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   advisories. Already-installed plugins stay untouched — remove them
   yourself with `claude plugin uninstall i-have-adhd@i-have-adhd`.
 
+### Fixed
+
+- `install.sh` no longer runs `brew shellenv`. It prepended brew's bin to
+  `PATH`, so the pyexpat preflight probed brew's python3 instead of the
+  version-manager one (mise/pyenv) that pip/pipx would actually use, and
+  refused to install code-review-graph/headroom on a healthy machine.
+
+- A companion tool that fails to install (e.g. a broken Homebrew python
+  bottle failing the pyexpat preflight) now warns and lets `install.sh`
+  finish. `set -e` used to abort radin's own install at that point.
+
 ### Changed
+
+- `install.sh --force` now updates companion tools that are already
+  installed instead of re-running a no-op install: plugins go through
+  `claude plugin update`, brew/pipx/pip installs run as upgrades. Without
+  `--force`, an installed tool is still skipped (message says so).
 
 - `install.sh` asks every question through an arrow-key picker instead of a
   free-text `[y/N]` answer, so a typo can no longer be read as a silent "no".

@@ -39,8 +39,10 @@ printf "%b\n" "${BOLD}${MAGENTA}"
 printf "%s\n" "  🐀 radin — stingy on tokens, generous on backlog throughput"
 printf "%b\n\n" "${RESET}"
 
+# No `brew shellenv` eval: it prepends brew's bin to PATH and would shadow a
+# version-manager python3 (mise/pyenv) with brew's -- probing the wrong
+# interpreter in the pyexpat preflight below. brew itself is called via $BREW.
 BREW="$(command -v brew || true)"
-[ -n "$BREW" ] && eval "$("$BREW" shellenv)"
 
 GITHUB_REPO="shortcuts/radin"
 API_LATEST_RELEASE="https://api.github.com/repos/$GITHUB_REPO/releases/latest"
@@ -305,8 +307,8 @@ prompt_yn() {
 
 install_if_confirmed() {
 	local name="$1" check_cmd="$2" install_cmd="$3" extra_confirm="${4:-}"
-	if [ -z "$FORCE" ] && command -v "$check_cmd" >/dev/null 2>&1; then
-		ok "$name already installed, skipping."
+	if command -v "$check_cmd" >/dev/null 2>&1 && [ -z "$FORCE" ]; then
+		ok "$name already installed, skipping (--force to update)."
 		return
 	fi
 	prompt_yn "Install $name?" || return 0
@@ -314,18 +316,29 @@ install_if_confirmed() {
 		info "$extra_confirm"
 		prompt_yn "Confirm: install $name's Python/pip stack?" || return 0
 	fi
-	eval "$install_cmd"
+	# Companion installs are advisory: a failed one warns, never aborts radin's
+	# own install (set -e would otherwise kill the script here).
+	eval "$install_cmd" || warn "$name install failed -- radin itself is unaffected."
 }
 
 install_plugin_if_confirmed() {
 	local name="$1" plugin_id="$2" marketplace_source="$3"
-	if [ -z "$FORCE" ] && command -v claude >/dev/null 2>&1 && claude plugin list 2>/dev/null | grep -q "$plugin_id"; then
-		ok "$name already installed, skipping."
+	if command -v claude >/dev/null 2>&1 && claude plugin list 2>/dev/null | grep -q "$plugin_id"; then
+		if [ -z "$FORCE" ]; then
+			ok "$name already installed, skipping (--force to update)."
+			return
+		fi
+		{
+			claude plugin marketplace update
+			claude plugin update "$plugin_id"
+		} || warn "$name update failed -- radin itself is unaffected."
 		return
 	fi
 	prompt_yn "Install $name?" || return 0
-	claude plugin marketplace add "$marketplace_source"
-	claude plugin install "$plugin_id"
+	{
+		claude plugin marketplace add "$marketplace_source"
+		claude plugin install "$plugin_id"
+	} || warn "$name install failed -- radin itself is unaffected."
 }
 
 set_agent_model() {
@@ -405,7 +418,7 @@ step "Companion tools (all optional)"
 # installer -- it handles Linux OS/arch detection and checksum verification
 # itself, so radin doesn't reimplement that here.
 if [ -n "$BREW" ]; then
-	RTK_INSTALL_CMD="$BREW install rtk"
+	RTK_INSTALL_CMD="$BREW install rtk || $BREW upgrade rtk"
 else
 	RTK_INSTALL_CMD="curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh | sh"
 fi
@@ -413,7 +426,7 @@ install_if_confirmed "rtk" "rtk" "$RTK_INSTALL_CMD"
 
 # code-review-graph ships on PyPI, not npm -- pipx keeps it in its own venv.
 install_if_confirmed "code-review-graph" "code-review-graph" \
-	"python_ok && { command -v pipx >/dev/null 2>&1 && pipx install code-review-graph || pip3 install --user code-review-graph; }"
+	"python_ok && { command -v pipx >/dev/null 2>&1 && pipx install --force code-review-graph || pip3 install --user --upgrade code-review-graph; }"
 
 # headroom is a heavier Python/pip stack than rtk's static binary or
 # code-review-graph -- gets a second confirmation (install_if_confirmed's
@@ -421,7 +434,7 @@ install_if_confirmed "code-review-graph" "code-review-graph" \
 # wrap vs per-command output compression), not a replacement -- never
 # phrase this as preferred over rtk.
 install_if_confirmed "headroom" "headroom" \
-	"python_ok && { command -v pipx >/dev/null 2>&1 && pipx install headroom-ai || pip3 install --user headroom-ai; }" \
+	"python_ok && { command -v pipx >/dev/null 2>&1 && pipx install --force headroom-ai || pip3 install --user --upgrade headroom-ai; }" \
 	"headroom pulls in a Python/pip stack (proxy, MCP, ML, memory -- heavier than rtk's static binary)."
 
 # caveman ships as a Claude Code plugin (not an npm package) -- installs via

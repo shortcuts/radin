@@ -88,7 +88,7 @@ Both `BACKLOG_STEPS.json` and `completed.json` JSONL (one compact object per lin
 
 `radin-plan` is skill, not agent: runs inline in whichever context invokes it. In user's own conversation, judges whether its one scoped entry should split into independent sub-plans, confirms with user directly before splitting, writes plan file + `**Plan:**` pointer per resulting sub-task. For any task reaching Phase 3 with no `**Plan:**` line yet, `radin-execute` delegates planning to dedicated planning sub-agent invoking `/radin-plan`. Keeps planning's codebase exploration out of orchestrator's context — plan file on disk = handoff to execution sub-agent. That sub-agent runs non-interactively: where skill would ask confirmation, takes non-destructive path (no split, no overwrite), genuine ambiguity marks task `blocked` for user instead of guessing.
 
-To update radin itself, re-run `install.sh` — plain `curl | bash`, or `./install.sh` from dev clone. Always re-downloads/re-copies `agents/*.md` and `skills/*/`, overwrites what's in `~/.claude/`. Pass `--force` to also re-prompt on companion tools `install.sh` would otherwise skip since already on system.
+To update radin itself, re-run `install.sh` — plain `curl | bash`, or `./install.sh` from dev clone. Always re-downloads/re-copies `agents/*.md` and `skills/*/`, overwrites what's in `~/.claude/`. Pass `--force` to also update companion tools already on the system: plugins go through `claude plugin update`, brew/pipx/pip installs re-run as upgrades.
 
 ## Install manifest
 

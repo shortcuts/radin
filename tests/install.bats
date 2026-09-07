@@ -55,8 +55,8 @@ EOF
 #!/bin/sh
 echo "\$@" >> "$PIP_LOG"
 if [ "\$1" = "install" ]; then
-  case "\$2" in
-    headroom-ai*)
+  case "\$*" in
+    *headroom-ai*)
       printf '#!/bin/sh\n' > "$MOCK_BIN/headroom"
       chmod +x "$MOCK_BIN/headroom"
       ;;
@@ -251,4 +251,35 @@ pick_with_keys() {
   run bash -c "cd '$FAKE_ROOT' && printf '2\n2\n2\n2\n' | RADIN_ROOT_OVERRIDE='$FETCH_DIR' bash ./install.sh"
   [ "$status" -ne 0 ]
   [[ "$output" == *"wasn't created by this installer"* ]]
+}
+
+# --force on an already-installed plugin must reach `claude plugin update`,
+# not the install path -- a plain re-install is a no-op and leaves it stale.
+@test "--force updates an already-installed plugin" {
+  CLAUDE_LOG="$TEST_HOME/claude.log"
+  cat > "$MOCK_BIN/claude" <<EOF
+#!/bin/sh
+echo "\$@" >> "$CLAUDE_LOG"
+if [ "\$1" = "plugin" ] && [ "\$2" = "list" ]; then echo "caveman@caveman"; fi
+exit 0
+EOF
+  chmod +x "$MOCK_BIN/claude"
+  cd "$REPO_ROOT" && run bash ./install.sh --force --yes
+  [ "$status" -eq 0 ]
+  grep -q "plugin update caveman@caveman" "$CLAUDE_LOG"
+  ! grep -q "plugin install caveman@caveman" "$CLAUDE_LOG"
+}
+
+# A companion tool that fails to install must not abort radin's own install --
+# set -e used to kill the script the moment a pip/pipx preflight failed.
+@test "a failing companion install warns but completes" {
+  cat > "$MOCK_BIN/brew" <<'EOF'
+#!/bin/sh
+exit 1
+EOF
+  chmod +x "$MOCK_BIN/brew"
+  run run_install_no_companions_answering "1"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"rtk install failed"* ]]
+  [[ "$output" == *"radin installed."* ]]
 }
