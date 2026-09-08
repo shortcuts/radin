@@ -15,16 +15,23 @@ plan a task's approach yourself: `/radin-plan` is the planner. A task with a
 `**Plan:**` pointer goes to the sub-agent as-is; do not re-derive its
 approach.
 
-This skill runs in the user's own thread. You can talk to them, and they can
-interrupt you. Every sub-agent you dispatch is a leaf worker: it exists to
-keep its own reading and editing out of this context, and it hands back one
-`STATUS:` line. The limits in `docs/technical-constraints.md` are theirs, not
-yours.
+Normally you run in the user's own thread: you can talk to them, and they can
+interrupt you. Every sub-agent you dispatch is a leaf worker — it keeps its
+own reading and editing out of this context and hands back one `STATUS:`
+line — and the sub-agent limits in `docs/technical-constraints.md` are its
+concern rather than yours.
+
+One caller changes that: `radin-execute-background` invokes this skill from
+inside a sub-agent, and it says so. Under it, those limits are yours too, and
+it names the two that bite.
 
 ## Core Constraints
 
-- **Delegation depth = 1.** Every sub-agent you dispatch is a leaf. None of
-  them spawns a sub-agent of its own.
+- **Sub-agents never sub-delegate.** Every one you dispatch is a leaf. That
+  is radin's rule, not the harness's — Claude Code allows three layers by
+  default — and `radin-execute-prompts.md` enforces it inside each prompt.
+  Don't restate it as a depth number: you may yourself be running as a
+  sub-agent, and then the numbers shift by one.
 - **You don't choose foreground or background.** Claude Code decides, and in
   an interactive session with fork mode on (the default) it removes the
   `Agent` tool's `run_in_background` parameter outright. So don't set it.
@@ -330,18 +337,16 @@ this task's `Task` call may share a message with another's. Send the
 - `SKILLS`: the `skill` instruction(s), or "none". These are standing
   instructions from the user (`radin-record` captured them), so pass them
   through as-is; never second-guess whether one is needed, redundant, or a
-  good fit. Drop exactly one class, and for one reason only: a sub-agent
-  invoking it ends its turn with no `STATUS:` line, leaving the task hung and
-  claimed:
-  - it asks the user in prose and waits (`/mattpocock-skills:grilling`),
-  - it spawns its own agent or a background task
+  good fit. Drop exactly four classes, never on your own read of fit
+  (`docs/technical-constraints.md` has the why for each):
+  - it asks the user and waits (`/mattpocock-skills:grilling`),
+  - it spawns its own agent or background task and waits
     (`/mattpocock-skills:research`),
   - it launches a workflow (`/deep-research`, any saved workflow command from
-    `.claude/workflows/` or `~/.claude/workflows/`), because a workflow always
-    runs in the background,
-  - it is a radin orchestration entry point that would recurse
-    (`/radin-execute`, and `/radin-plan` or `/radin-review`, which you
-    dispatch yourself in Step 4a and Phase 6).
+    `.claude/workflows/` or `~/.claude/workflows/`),
+  - it is a radin entry point that would recurse (`/radin-execute`, and
+    `/radin-plan` or `/radin-review`, which you dispatch yourself in Step 4a
+    and Phase 6).
   Forward every other skill, and name each dropped one in the Phase 5 summary
   so the user can run it themselves.
 - `DEPENDS_ON`: the Step 4a-0 `<id>: <commit hash>` pairs, or "none"
@@ -392,12 +397,18 @@ On a clean tree, route on `STATUS:`:
   reason from the `STATUS:` line plus any recovery pointer (e.g. a stash
   ref). Report: `❌ Task <order> '<title>' failed: <reason>. Continuing to
   next task.` Continue.
-- **No `STATUS:` line at all** (the sub-agent asked something, hit an
+- **A report that has no `STATUS:` line** (it asked something, hit an
   interactive skill, or died): treat it as `FAILED`, `note` `"sub-agent
   returned no STATUS line, likely an interactive skill or a spawned
   background task; last words: <its final line>"`. Never re-read its prose
   for intent and never re-dispatch it in this turn. The task keeps its bumped
   `attempts`, so the cap still applies.
+- **No report yet.** Not the same thing, and never `FAILED`: the sub-agent is
+  still working, and marking it failed while it is mid-edit sets you racing
+  its commit with the next task's `prepare` and Phase 5's `dirty-check`.
+  Wait. If your turn ends first, leave the entry `in_progress` and stop —
+  Phase 1's stuck-recovery is built for exactly this, and re-invoking picks
+  it up.
 
 ### Step 4c: Repeat
 

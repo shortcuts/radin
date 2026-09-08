@@ -13,10 +13,12 @@ Turn one backlog entry into one or more implementation plans, without
 writing any code. It runs inline in whichever context invokes it. When the
 invoking context cannot reach the user (e.g. radin-execute's planning
 sub-agent), the caller says so, and every question below then takes the
-non-destructive branch marked "non-interactive". Such a run also cannot be
-notified when a background task finishes, so `/mattpocock-skills:grilling`
-and `/mattpocock-skills:research` are interactive-only here: waiting on either hangs the caller. Each
-"non-interactive" branch below says what to do instead.
+non-destructive branch marked "non-interactive". A sub-agent can neither
+reach the user nor call `AskUserQuestion`, so `/mattpocock-skills:grilling`
+is interactive-only here: there is no way for it to get an answer. Same for
+`/mattpocock-skills:research`, which spawns its own agent whose result may
+never come back within the turn. Each "non-interactive" branch below says
+what to do instead.
 
 ## Step 1: Resolve project namespace
 
@@ -95,8 +97,9 @@ re-resolution is needed between sub-tasks. For each sub-task, in order:
    succeeds. If the plan hinges on third-party API or library behavior
    local code can't confirm, invoke `/mattpocock-skills:research` against
    primary sources first, and never guess at external behavior.
-   Non-interactive: `/mattpocock-skills:research` spawns a background agent whose result cannot reach you, so stop and
-   report the unconfirmed external behavior instead of guessing or waiting.
+   Non-interactive: `/mattpocock-skills:research` spawns its own agent whose result
+   you cannot count on receiving, so stop and report the unconfirmed external behavior
+   instead of guessing or waiting.
 3. Invoke `/ponytail:ponytail` and apply its ladder to produce the plan:
    - The minimum files to touch.
    - The concrete change in each file.

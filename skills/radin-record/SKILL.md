@@ -88,8 +88,8 @@ If the request that raised the item explicitly invoked a skill (e.g.
 `/radin-record /frontend-design make the accent color...`, or a skill ran
 earlier and the item continues that work), record it as a standing
 instruction, even if it looks redundant or wrong-fit to you. Nobody
-downstream re-judges it, and `radin-execute`'s sub-agent has no visibility
-into this conversation: without the line it re-implements from bare text
+downstream re-judges it, and radin-execute's execution sub-agent has no
+visibility into this conversation: without the line it re-implements from bare text
 and never invokes the skill the user chose.
 
 `/radin-record /other-skill <...>` means "record an instruction to run
