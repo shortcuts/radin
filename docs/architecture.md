@@ -33,7 +33,7 @@ Replaced earlier `~/.claude/.radin/projects/<repo-slug>/` scheme. That scheme ke
 
 ## Namespace resolution and the backlog CLI
 
-Every one of `agents/radin-execute.md`, `skills/radin-plan/SKILL.md`, `skills/radin-review/SKILL.md`, `skills/radin-record/SKILL.md`, `skills/radin-show/SKILL.md` goes through same shared CLI, `lib/radin-backlog.sh`, for every deterministic backlog op:
+Every one of `skills/radin-execute/SKILL.md`, `skills/radin-plan/SKILL.md`, `skills/radin-review/SKILL.md`, `skills/radin-record/SKILL.md`, `skills/radin-show/SKILL.md` goes through same shared CLI, `lib/radin-backlog.sh`, for every deterministic backlog op:
 
 ```bash
 bash "$HOME/.claude/.radin/lib/radin-backlog.sh" <env|show|find|add|add-plan|remove>
@@ -84,15 +84,30 @@ Both `BACKLOG_STEPS.json` and `completed.json` JSONL (one compact object per lin
 
 `radin-execute` and `radin-plan` skill also share `lib/radin-prioritization.md`, single source of truth for backlog parsing rules, task priority criteria, state-file JSON schema. Both read via `$HOME/.claude/.radin/lib/radin-prioritization.md` — `radin-execute` at start of Phase 1, `radin-plan` at start of its Step 2 — instead of embedding own copy. `radin-execute` uses all of it, prioritize/order whole backlog. `radin-plan` uses only parsing section: scoped to single entry caller points at, not whole backlog, so nothing to prioritize, no state file of own.
 
-`radin-execute` alone reads `lib/radin-execute-prompts.md`, the two verbatim sub-agent prompts (planning for Step 4a, execution for Step 4b). It reads them at start of Phase 4, not inline in agent file. A session that stops at Phase 2 (common first turn) never reaches Phase 4, so never loads them — keeps that turn's context lean.
+`radin-execute` alone reads three on-demand files, none of them inline in `SKILL.md`, because the skill body sits in the user's own context for the rest of the session:
+
+- `lib/radin-execute-prompts.md` — two verbatim sub-agent prompts (planning for Step 4a, execution for Step 4b), read at start of Phase 4. A session that stops at Phase 2 (common first turn) never reaches Phase 4, so never loads them.
+- `lib/radin-execute-recovery.md` — `triage` routing for tasks a dead session left `in_progress`, read only when `radin-state.sh stuck` exits 0. Most runs never load it.
+- `lib/radin-execute-reporting.md` — residual-changes check, commit-location rules, final report template, read at Phase 5.
+
+## Why every entry point is a skill
+
+radin-execute was an agent (`agents/radin-execute.md`) until it became a skill. Two Claude Code capability limits forced the move, both documented in `docs/technical-constraints.md`:
+
+- `AskUserQuestion` removed from **every** sub-agent, foreground and background alike. Agent's Phase 2 gate asks user to confirm execution order, so as agent it could never actually ask — every run fell back to ending its turn with question and waiting to be re-invoked.
+- Sub-agent's prose reaches only calling session, never user. So agent's own report needed re-summarizing by main thread, and every question had to be encoded as `blocked` backlog state instead of asked.
+
+As skill, radin-execute runs in user's own thread: asks directly, gets interrupted, resumes from disk. Sub-agents stay, one layer down, as leaf workers — that's where context isolation earns its keep (planning's codebase exploration, execution's edits, review's diff read), each returning single `STATUS:` line. Same split SOTA skill collections use: orchestrate in main thread, isolate leaf work.
+
+Corollary: radin-execute can't be shipped as agent variant even optionally. Background sub-agents get no `Agent`/`Task` tool at all, and radin-execute's whole job is delegation. To free main thread while backlog runs, start second Claude Code session and run `/radin-execute` there.
 
 `radin-plan` is skill, not agent: runs inline in whichever context invokes it. In user's own conversation, judges whether its one scoped entry should split into independent sub-plans, confirms with user directly before splitting, writes plan file + `**Plan:**` pointer per resulting sub-task. For any task reaching Phase 3 with no `**Plan:**` line yet, `radin-execute` delegates planning to dedicated planning sub-agent invoking `/radin-plan`. Keeps planning's codebase exploration out of orchestrator's context — plan file on disk = handoff to execution sub-agent. That sub-agent runs non-interactively: where skill would ask confirmation, takes non-destructive path (no split, no overwrite), genuine ambiguity marks task `blocked` for user instead of guessing.
 
-To update radin itself, re-run `install.sh` — plain `curl | bash`, or `./install.sh` from dev clone. Always re-downloads/re-copies `agents/*.md` and `skills/*/`, overwrites what's in `~/.claude/`. Pass `--force` to also update companion tools already on the system: plugins go through `claude plugin update`, brew/pipx/pip installs re-run as upgrades.
+To update radin itself, re-run `install.sh` — plain `curl | bash`, or `./install.sh` from dev clone. Always re-downloads/re-copies `skills/*/` and `lib/*`, overwrites what's in `~/.claude/`. Pass `--force` to also update companion tools already on the system: plugins go through `claude plugin update`, brew/pipx/pip installs re-run as upgrades.
 
 ## Install manifest
 
-`install.sh` writes `~/.claude/.radin/manifest.json` every run: generated snapshot of what installed. Records `version` (release tag, or `dev` for local git clone), `installed_at` (UTC timestamp), `agents`/`skills`/`lib` file lists copied, `parallel_execution` (whether install allowed `radin-execute` to fan out sub-agents), `companion_tools` object recording whether each of rtk, code-review-graph, headroom, caveman, ponytail reachable on this machine after confirmation prompts.
+`install.sh` writes `~/.claude/.radin/manifest.json` every run: generated snapshot of what installed. Records `version` (release tag, or `dev` for local git clone), `installed_at` (UTC timestamp), `skills`/`lib` file lists copied, `parallel_execution` (whether install allowed `radin-execute` to fan out sub-agents), `companion_tools` object recording whether each of rtk, code-review-graph, headroom, caveman, ponytail reachable on this machine after confirmation prompts.
 
 Snapshot for external tooling to read, not live source of truth. `radin-doctor.sh` and `radin-uninstall.sh` each keep own independent file list, check filesystem direct, rather than trust manifest. Corrupted or stale manifest must never make either report false "OK" or delete wrong thing.
 
@@ -102,9 +117,9 @@ Snapshot for external tooling to read, not live source of truth. `radin-doctor.s
 radin/
   .claude-plugin/
     plugin.json
-  agents/
-    radin-execute.md
   skills/
+    radin-execute/
+      SKILL.md
     radin-plan/
       SKILL.md
     radin-doctor/
@@ -126,6 +141,8 @@ radin/
     radin-backlog.sh
     radin-doctor.sh
     radin-execute-prompts.md
+    radin-execute-recovery.md
+    radin-execute-reporting.md
     radin-namespace.sh
     radin-prioritization.md
     radin-state.sh
@@ -136,4 +153,4 @@ radin/
 
 ## Authoring vs. distribution
 
-This repo source of truth. `agents/*.md`, `skills/*/SKILL.md` authored/edited direct here — no external fork, no sync step. `install.sh` dist them one-directional into `~/.claude/agents`, `~/.claude/skills`. `thermo-nuclear` not part of this repo at all: `install.sh` downloads its `SKILL.md` straight from cursor/plugins at install time.
+This repo source of truth. `skills/*/SKILL.md` authored/edited direct here — no external fork, no sync step. `install.sh` dist them one-directional into `~/.claude/skills`. radin ships no agents: every entry point is a skill, so it runs in the user's own thread and can talk to them (see "Why every entry point is a skill"). `thermo-nuclear` not part of this repo at all: `install.sh` downloads its `SKILL.md` straight from cursor/plugins at install time.

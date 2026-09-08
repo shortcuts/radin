@@ -8,7 +8,7 @@
 
 | Field | Value |
 | --- | --- |
-| What it is | Claude Code plugin: agents + skills + install glue |
+| What it is | Claude Code plugin: skills + install glue |
 | Runtime language | None — bash only |
 | Target OS | macOS and Linux |
 | Supported architectures | Arch-neutral through Homebrew. Works on macOS's `/opt/homebrew`/`/usr/local` and on Linuxbrew's `/home/linuxbrew/.linuxbrew`. No `uname -m` branching. Branch on `command -v` only where tool itself differs by OS (e.g. `md5` vs `md5sum`). |
@@ -22,17 +22,23 @@ radin never vendors or forks them.
 
 ## Dev loop
 
-This repo source of truth. Any agent or skills iteration must be done in `agents/*.md` and `skills/*/SKILL.md` respectively.
+This repo source of truth. Any skill iteration must be done in `skills/*/SKILL.md`.
 
-- **Editing radin's own agents/skills:** edit `agents/*.md` or
-  `skills/*/SKILL.md` directly. `thermo-nuclear` one exception — not
-  vendored here at all. `install.sh` downloads its `SKILL.md` straight
-  from cursor/plugins at install time, same as any other companion tool.
-  radin only vendors what it wrote itself.
+radin ships **no agents**. Every entry point is a skill, so it runs in the
+user's own thread and can talk to them. Sub-agents exist only as leaf
+workers, dispatched by a skill, for work whose context is worth isolating.
+Don't reintroduce an `agents/` directory — see "Why radin-execute is a
+skill" below for the two capability limits that forbid it.
+
+- **Editing radin's own skills:** edit `skills/*/SKILL.md` directly.
+  `thermo-nuclear` one exception — not vendored here at all. `install.sh`
+  downloads its `SKILL.md` straight from cursor/plugins at install time,
+  same as any other companion tool. radin only vendors what it wrote
+  itself.
 - **Editing `install.sh`, docs, or repo scaffolding:** edit directly, as
   normal.
-- **`install.sh`** installs from this repo into `~/.claude/agents` and
-  `~/.claude/skills`. Only adds or updates files there — one direction,
+- **`install.sh`** installs from this repo into `~/.claude/skills` and
+  `~/.claude/.radin/lib`. Only adds or updates files there — one direction,
   repo to consumer.
 
 ## Storage contract
@@ -62,7 +68,7 @@ This directory only thing radin ever writes into consumer's repo.
 radin never edits consumer's `.gitignore` — committing `.claude/.radin/`
 (shared backlog) or ignoring it (private backlog) is consumer's call.
 
-Every one of `agents/radin-execute.md`, `skills/radin-plan/SKILL.md`,
+Every one of `skills/radin-execute/SKILL.md`, `skills/radin-plan/SKILL.md`,
 `skills/radin-review/SKILL.md`, `skills/radin-record/SKILL.md`, and
 `skills/radin-show/SKILL.md` goes through shared backlog CLI
 (`lib/radin-backlog.sh`) for namespace resolution and every deterministic
@@ -86,18 +92,44 @@ conventional-commit type; no per-entry bracket tag beyond it),
 description, plus optional trailing `**Plan:**` line.
 
 Read schema (and matching section of `docs/domain-models.md`) before
-adding new category, or before writing new skill/agent that writes to
+adding new category, or before writing new skill that writes to
 backlog. Schema reference only — never ships to consumers.
 `lib/radin-backlog.sh` (which does ship) enforces structural half (id
 slugging/dedup, index-line shape, task-file location); each entry-writing
 skill keeps only its body-content guidance inline in own `SKILL.md`.
 
-## Adding new radin skill/agent
+## Why radin-execute is a skill
+
+`radin-execute` was `agents/radin-execute.md` until two Claude Code
+capability limits forced it into `skills/radin-execute/SKILL.md`:
+
+- **`AskUserQuestion` is removed from every sub-agent**, foreground and
+  background alike, even when the `tools` field lists it. radin-execute's
+  Phase 2 gate must ask the user to confirm the execution order, so as an
+  agent it could never satisfy its own gate — every run fell back to ending
+  its turn with the question and waiting to be re-invoked.
+- **Background sub-agents get no `Agent`/`Task` tool at all.** So there is no
+  "run radin-execute in the background and free the main thread" packaging
+  either: its whole job is delegation, and a backgrounded run cannot dispatch
+  a single sub-agent. To free the main thread, start a second Claude Code
+  session and run `/radin-execute` there.
+
+Details and the full background tool list live in
+`docs/technical-constraints.md`. As a skill, radin-execute's body sits in the
+user's own context for the rest of the session, so keep `SKILL.md` to the
+loop and the gates; anything a run needs only sometimes goes in `lib/` and
+gets read on demand (`radin-execute-prompts.md` at Phase 4,
+`radin-execute-recovery.md` only when `radin-state.sh stuck` finds something,
+`radin-execute-reporting.md` at Phase 5).
+
+## Adding new radin skill
 
 Skim existing one first — `skills/radin-review/SKILL.md` shortest
 complete example. Shared conventions below easy to drift from if you
 reinvent from scratch.
 
+0. **It's a skill, never an agent.** See "Why radin-execute is a skill"
+   above. A sub-agent cannot ask the user anything.
 1. **Namespace resolution and backlog I/O.** Go through
    `bash "$HOME/.claude/.radin/lib/radin-backlog.sh"` (see
    `docs/architecture.md`'s "Namespace resolution and backlog CLI"
@@ -105,7 +137,7 @@ reinvent from scratch.
    `BACKLOG_TASKS_DIR`, and `find`/`add`/`add-plan`/`remove` for entry
    operations. Don't re-embed path resolution or index/task-file surgery
    inline — CLI single source of truth for both.
-2. **Backlog writes.** If new skill/agent appends entries, use CLI's
+2. **Backlog writes.** If new skill appends entries, use CLI's
    `add` and classify into existing category
    (feat/fix/chore/refactor) — don't invent fifth. If shape genuinely
    needs to change, update `lib/radin-backlog.sh`,
@@ -115,16 +147,16 @@ reinvent from scratch.
    plugin repo layout and namespace-resolution sentence both need new
    file's name added. README's "Tools you get" table needs new row too —
    drifts silently otherwise, since nothing else forces match to
-   `agents/`/`skills/`.
+   `skills/`.
 4. **`install.sh`.** New skills need `cp -r` line, or `install.sh` never
    distributes them — skill living only in `skills/` in this repo isn't
-   installed anywhere yet. If new skill/agent should be verified by
+   installed anywhere yet. If new skill should be verified by
    `radin-doctor`, also add to `lib/radin-doctor.sh`'s expected-file
    list — not derived automatically from `install.sh`'s cp lines.
 
 ## radin-execute session preferences
 
-`agents/radin-execute.md` Phase 0.5 asks two questions once per backlog run,
+`skills/radin-execute/SKILL.md` Phase 0.5 asks two questions once per backlog run,
 via `AskUserQuestion`: use a git worktree per task (default yes), and create a
 branch per task (default no). Answers persist to `state/session.json`
 (`radin-state.sh session-set`), so resumed run reuses them instead of asking
@@ -136,29 +168,30 @@ git commands: each execution sub-agent runs it, gets one path back, and works
 there. The two answers are not independent: a worktree cannot share the
 checkout's branch, so `worktree: yes` always creates `radin/<task-id>` and the
 `branch` answer changes nothing. `branch` decides only what happens under
-`worktree: no`. `agents/radin-execute.md` Phase 0.5 states this and tells the
-agent to say so when it asks. Keep it that way — a model that is handed the two answers eventually
+`worktree: no`. `skills/radin-execute/SKILL.md` Phase 0.5 states this and tells the
+skill to say so when it asks. Keep it that way — a model that is handed the two answers eventually
 overrides a `no`. `prepare` pins worktree path to `<repo>-<task-id>` and
 branch to `radin/<task-id>`; `task-dir` and `triage` derive the same names from
 task id to find dead sub-agent's leftovers, so keep all three in sync.
 
 ## Sub-agent capability limits
 
-`radin-execute` and every sub-agent it spawns can't reach user in prose and
-can't be notified about background task. Both show up as hang with task
-uncommitted. Rules and reasoning in `docs/technical-constraints.md` -- read
-before you point any radin prompt at new skill, and check that skill doesn't
-ask user anything or spawn own agent.
+Every sub-agent radin spawns can't reach user in prose, can't call
+`AskUserQuestion`, and can't be notified about background task. All three show
+up as hang with task uncommitted. Rules and reasoning in
+`docs/technical-constraints.md` -- read before you point any radin prompt at
+new skill, and check that skill doesn't ask user anything or spawn own agent.
+The skill itself is under no such limit: it runs in the user's thread.
 
 ## Concurrency variants in radin-execute
 
-`agents/radin-execute.md` states no concurrency rule. It carries one
+`skills/radin-execute/SKILL.md` states no concurrency rule. It carries one
 `<!-- radin:concurrency -->` marker line in Core Constraints. `install.sh`
 asks at install time and its awk swaps that line for `$SEQUENTIAL_RULE` or
 `$PARALLEL_RULE` — both defined in `install.sh`, the only place either text
 lives. Keep the marker alone on its line, and edit the rule wording in
-`install.sh`, never in the agent file. `set_concurrency` exits non-zero if
-the marker survives the swap — an agent that ships with neither variant
+`install.sh`, never in the skill file. `set_concurrency` exits non-zero if
+the marker survives the swap — a skill that ships with neither variant
 invents its own rule.
 
 Sub-agent prompts carry no variant. `lib/radin-execute-prompts.md` states
@@ -168,15 +201,16 @@ install-time answer lives in exactly one file.
 ## Constraints
 
 **Never touch anything in `~/.claude` (`~/.config/.claude`) besides what
-radin itself added.** `~/.claude/agents` and `~/.claude/skills` shared
-directories — consumer's other agents/skills/tools live there too.
+radin itself added.** `~/.claude/skills` shared directory — consumer's other
+skills/tools live there too.
 `~/.claude/.radin/lib` radin's own global tool directory (distinct from
 per-repo `<repo-root>/.claude/.radin/` backlog namespace — same `.radin`
 name, different scope: this one holds shared scripts like
 `radin-backlog.sh`, not backlog state). `install.sh` may only `cp`/`cp -r`
-radin's own named files (`agents/*.md` that ship in this repo, radin's own
-`skills/<name>/`, `lib/*` into `~/.claude/.radin/lib/`) and `mkdir -p`. Never
-`rm`. Never wildcard-delete directory. Never overwrite file radin didn't
+radin's own named files (radin's own `skills/<name>/`, `lib/*` into
+`~/.claude/.radin/lib/`) and `mkdir -p`. Never `rm` — a pre-migration
+`~/.claude/agents/radin-execute.md` gets a warning plus the exact `rm` to
+run, never a deletion. Never wildcard-delete directory. Never overwrite file radin didn't
 ship. Call out explicitly on any edit to `install.sh`.
 
 **macOS ships `/bin/bash` 3.2.** Apple froze it before GPLv3 switch.
@@ -210,7 +244,7 @@ Change isn't done until affected docs updated in same commit.
 | `docs/architecture.md` | Storage scheme, namespace resolution, or plugin file layout changes |
 | `docs/domain-models.md` | Backlog entry format, plan-file format, or state-JSON schema changes |
 | `install.sh` companion-tool table (README) | Companion tool added, removed, or renamed |
-| "Tools you get" table (README) | radin-built skill/agent added, removed, or renamed |
+| "Tools you get" table (README) | radin-built skill added, removed, or renamed |
 | `CHANGELOG.md` | Any user-facing change, on every release |
 
 ## Pre-commit checklist

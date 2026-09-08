@@ -4,7 +4,36 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- `radin-execute` is a skill (`skills/radin-execute/SKILL.md`), not an agent.
+  It ran as a sub-agent, and Claude Code removes `AskUserQuestion` from every
+  sub-agent — so its Phase 2 gate could never actually ask, and every run fell
+  back to ending its turn with the question and waiting to be re-invoked. As a
+  skill it runs in your own conversation: it asks you directly, you can
+  interrupt it, and the layer between your prompt and the router is gone. Its
+  sub-agents are unchanged, one layer down, doing the work whose context is
+  worth isolating.
+- `radin-execute` dropped its 10-minute checkpoint. It existed because a
+  sub-agent turn could not be interrupted; a skill's can, and every task's
+  state is already durable when it lands.
+- `install.sh` asks for one model instead of two. `radin-execute`'s own model
+  is whatever you picked with `/model`, so only its sub-agents' model is a
+  question — and the answer now reaches `lib/radin-execute-prompts.md` too,
+  which previously stayed on `sonnet` whatever you chose.
+
+### Added
+
+- `lib/radin-execute-recovery.md` and `lib/radin-execute-reporting.md`:
+  `radin-execute`'s crash-recovery routing and final-report template, read
+  from disk when a run actually needs them. Recovery loads only when
+  `radin-state.sh stuck` finds something, so most runs never pay for it.
+
 ### Removed
+
+- `agents/` is gone — radin ships no agents. `install.sh` reports a
+  pre-migration `~/.claude/agents/radin-execute.md` and prints the `rm` to run
+  (it never deletes anything itself); `/radin-uninstall` removes it for you.
 
 - `install.sh` no longer offers `i-have-adhd` as an optional companion
   tool. Dropped from the manifest, `radin-doctor`, and `radin-uninstall`

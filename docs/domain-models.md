@@ -105,7 +105,6 @@ Written by `install.sh` to `~/.claude/.radin/manifest.json` on every run — not
 {
   "version": "v0.4.0",
   "installed_at": "2026-07-28T00:00:00Z",
-  "agents": ["radin-execute.md"],
   "skills": ["radin-plan", "radin-record", "radin-review", "radin-setup-hooks", "radin-show", "radin-stats", "radin-doctor", "radin-uninstall", "thermo-nuclear"],
   "lib": ["radin-namespace.sh", "radin-backlog.sh", "radin-state.sh", "radin-prioritization.md", "radin-doctor.sh", "radin-uninstall.sh"],
   "companion_tools": {

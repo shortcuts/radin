@@ -59,7 +59,7 @@ resolve_radin_root() {
 	if [ -f "$script_path" ]; then
 		local dir
 		dir="$(cd "$(dirname "$script_path")" && pwd)"
-		if [ -d "$dir/agents" ] && [ -d "$dir/skills" ]; then
+		if [ -d "$dir/skills" ] && [ -d "$dir/lib" ]; then
 			printf '%s' "$dir"
 			return
 		fi
@@ -122,8 +122,8 @@ ok "Using radin source at ${BOLD}$RADIN_ROOT${RESET}"
 MANIFEST_VERSION="dev"
 [ -f "$RADIN_ROOT/.radin-version" ] && MANIFEST_VERSION="$(cat "$RADIN_ROOT/.radin-version")"
 
-step "Installing agents and skills into ~/.claude"
-mkdir -p "$HOME/.claude/agents" "$HOME/.claude/skills" "$HOME/.claude/.radin/lib"
+step "Installing skills into ~/.claude"
+mkdir -p "$HOME/.claude/skills" "$HOME/.claude/.radin/lib"
 cp "$RADIN_ROOT"/lib/radin-namespace.sh "$HOME/.claude/.radin/lib/"
 cp "$RADIN_ROOT"/lib/radin-json.sh "$HOME/.claude/.radin/lib/"
 cp "$RADIN_ROOT"/lib/radin-backlog.sh "$HOME/.claude/.radin/lib/"
@@ -131,9 +131,11 @@ cp "$RADIN_ROOT"/lib/radin-state.sh "$HOME/.claude/.radin/lib/"
 cp "$RADIN_ROOT"/lib/radin-scope.sh "$HOME/.claude/.radin/lib/"
 cp "$RADIN_ROOT"/lib/radin-prioritization.md "$HOME/.claude/.radin/lib/"
 cp "$RADIN_ROOT"/lib/radin-execute-prompts.md "$HOME/.claude/.radin/lib/"
+cp "$RADIN_ROOT"/lib/radin-execute-recovery.md "$HOME/.claude/.radin/lib/"
+cp "$RADIN_ROOT"/lib/radin-execute-reporting.md "$HOME/.claude/.radin/lib/"
 cp "$RADIN_ROOT"/lib/radin-doctor.sh "$HOME/.claude/.radin/lib/"
 cp "$RADIN_ROOT"/lib/radin-uninstall.sh "$HOME/.claude/.radin/lib/"
-cp "$RADIN_ROOT"/agents/*.md "$HOME/.claude/agents/"
+cp -r "$RADIN_ROOT"/skills/radin-execute "$HOME/.claude/skills/"
 cp -r "$RADIN_ROOT"/skills/radin-review "$HOME/.claude/skills/"
 cp -r "$RADIN_ROOT"/skills/radin-record "$HOME/.claude/skills/"
 cp -r "$RADIN_ROOT"/skills/radin-show "$HOME/.claude/skills/"
@@ -174,7 +176,18 @@ cp -r "$RADIN_ROOT"/skills/radin-setup-hooks "$HOME/.claude/skills/"
 cp -r "$RADIN_ROOT"/skills/radin-stats "$HOME/.claude/skills/"
 cp -r "$RADIN_ROOT"/skills/radin-doctor "$HOME/.claude/skills/"
 cp -r "$RADIN_ROOT"/skills/radin-uninstall "$HOME/.claude/skills/"
-ok "agents/ and skills/ installed"
+ok "skills installed"
+
+# radin no longer ships an agent. An install from before the skill migration
+# left ~/.claude/agents/radin-execute.md behind, and that stale agent competes
+# with the skill of the same name. install.sh never removes a file (see
+# AGENTS.md Constraints), so say so and let the user do it.
+STALE_AGENT="$HOME/.claude/agents/radin-execute.md"
+if [ -f "$STALE_AGENT" ]; then
+	warn "found a pre-migration agent at $STALE_AGENT."
+	warn "radin-execute is a skill now; the leftover agent shadows it. Remove with:"
+	warn "  rm \"$STALE_AGENT\""
+fi
 
 _pick_nth() {
 	local want="$1" i=1 opt
@@ -373,28 +386,28 @@ set_concurrency() {
 step "Parallel execution (optional)"
 if [ "$(prompt_pick "How should radin-execute run sub-agents? (parallel only ever applies to independent tasks)" 2 "parallel" "sequential")" = "parallel" ]; then
 	PARALLEL_MODE="true"
-	set_concurrency "$HOME/.claude/agents/radin-execute.md" "$PARALLEL_RULE"
+	set_concurrency "$HOME/.claude/skills/radin-execute/SKILL.md" "$PARALLEL_RULE"
 	ok "parallel execution allowed (independent tasks only, worktree mode required)"
 else
 	PARALLEL_MODE="false"
-	set_concurrency "$HOME/.claude/agents/radin-execute.md" "$SEQUENTIAL_RULE"
+	set_concurrency "$HOME/.claude/skills/radin-execute/SKILL.md" "$SEQUENTIAL_RULE"
 	ok "sequential execution — one sub-agent at a time"
 fi
 
-step "Agent models (optional)"
+step "Sub-agent model (optional)"
+# radin-execute is a skill running in the user's own thread, so its own model
+# is whatever they picked with /model. Only its leaf sub-agents get a choice.
 MODELS="fable opus sonnet haiku"
 SONNET_INDEX=3
-if prompt_yn "Choose models for radin-execute? (defaults: sonnet top-level, sonnet sub-agents)"; then
+if prompt_yn "Choose radin-execute's sub-agent model? (default: sonnet)"; then
 	# shellcheck disable=SC2086  # word splitting is the point -- one arg per model
-	ORCH_MODEL="$(prompt_pick "radin-execute top-level model" "$SONNET_INDEX" $MODELS)"
-	# shellcheck disable=SC2086
-	ORCH_SUB_MODEL="$(prompt_pick "radin-execute sub-agent model (execution + review)" "$SONNET_INDEX" $MODELS)"
+	ORCH_SUB_MODEL="$(prompt_pick "radin-execute sub-agent model (planning + execution + review)" "$SONNET_INDEX" $MODELS)"
 
-	set_agent_model "$HOME/.claude/agents/radin-execute.md" "^model: sonnet$" "model: ${ORCH_MODEL}"
-	set_agent_model "$HOME/.claude/agents/radin-execute.md" 'model: "sonnet"' "model: \"${ORCH_SUB_MODEL}\""
-	ok "agent model configured"
+	set_agent_model "$HOME/.claude/skills/radin-execute/SKILL.md" 'model: "sonnet"' "model: \"${ORCH_SUB_MODEL}\""
+	set_agent_model "$HOME/.claude/.radin/lib/radin-execute-prompts.md" 'model: "sonnet"' "model: \"${ORCH_SUB_MODEL}\""
+	ok "sub-agent model configured"
 else
-	ok "keeping default models (sonnet top-level, sonnet sub-agents)"
+	ok "keeping default sub-agent model (sonnet)"
 fi
 
 # Preflight for the pipx/pip-based tools below. A broken Homebrew python bottle
@@ -483,10 +496,8 @@ cat >"$MANIFEST_FILE" <<EOF
   "version": "$MANIFEST_VERSION",
   "installed_at": "$INSTALLED_AT",
   "parallel_execution": $PARALLEL_MODE,
-  "agents": [
-    "radin-execute.md"
-  ],
   "skills": [
+    "radin-execute",
     "radin-plan",
     "radin-record",
     "radin-review",
@@ -505,6 +516,8 @@ cat >"$MANIFEST_FILE" <<EOF
     "radin-scope.sh",
     "radin-prioritization.md",
     "radin-execute-prompts.md",
+    "radin-execute-recovery.md",
+    "radin-execute-reporting.md",
     "radin-doctor.sh",
     "radin-uninstall.sh"
   ],

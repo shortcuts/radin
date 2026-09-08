@@ -1,10 +1,10 @@
 # Shared: radin-execute Sub-Agent Prompts
 
-The verbatim prompts `radin-execute` hands to its sub-agents. The agent
+The verbatim prompts `radin-execute` hands to its sub-agents. The skill
 reads this file at the start of Phase 4, once per session, and copies the
 relevant prompt into each `Task` call. They live here rather than inline in
-the agent, because a session that stops at Phase 2 (the common first turn)
-never reaches Phase 4 and never needs them.
+`skills/radin-execute/SKILL.md`, because a session that stops at Phase 2 (the
+common first turn) never reaches Phase 4 and never needs them.
 
 Every one of these runs in a sub-agent, which has no channel to the user and
 cannot be notified about a background task. So no prompt here may send a
@@ -14,9 +14,9 @@ Each prompt restates the rule inside its own fence, because a sub-agent
 receives only its own fence and never this narration.
 
 Delegation stops here too: no prompt may tell a sub-agent to spawn a sub-agent
-of its own. Whether the *orchestrator* runs several of these at once is settled
-by the concurrency rule in `agents/radin-execute.md`, written there at install
-time from the user's answer. It is never a sub-agent's call, and never
+of its own. Whether the *router* runs several of these at once is settled by
+the concurrency rule in `skills/radin-execute/SKILL.md`, written there at
+install time from the user's answer. It is never a sub-agent's call, and never
 restated in this file.
 
 Substitute the `UPPERCASE` placeholders before sending. Send every prompt

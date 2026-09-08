@@ -73,12 +73,12 @@ teardown() {
 }
 
 # Declining every companion-tool prompt is the fastest path through the
-# script and covers source resolution + core agents/skills install. None of
+# script and covers source resolution + core skills install. None of
 # rtk/code-review-graph/headroom/caveman/ponytail exist on the
 # trimmed PATH, so all five prompts fire and all five get declined.
 # Every prompt is a numbered picker: 1 is the first option (parallel / yes),
 # 2 the second (sequential / no). First answer is the parallel-execution
-# prompt, second the agent-model one.
+# prompt, second the sub-agent-model one.
 run_install_no_companions() {
   cd "$REPO_ROOT" && printf '2\n2\n2\n2\n2\n2\n2\n' | bash ./install.sh
 }
@@ -104,16 +104,16 @@ run_install_no_companions_answering() {
   [[ "$output" == *"Using radin source at $REPO_ROOT"* ]]
 }
 
-@test "installs all shipped agents into ~/.claude/agents" {
+# radin ships no agents: every entry point is a skill, so it runs in the
+# user's own thread. install.sh must not create ~/.claude/agents at all.
+@test "installs no agents, leaving ~/.claude/agents alone" {
   run_install_no_companions
-  for f in "$REPO_ROOT"/agents/*.md; do
-    name="$(basename "$f")"
-    [ -f "$TEST_HOME/.claude/agents/$name" ]
-  done
+  [ ! -d "$TEST_HOME/.claude/agents" ]
 }
 
 @test "installs radin's own skills, not unrelated skill dirs" {
   run_install_no_companions
+  [ -d "$TEST_HOME/.claude/skills/radin-execute" ]
   [ -d "$TEST_HOME/.claude/skills/radin-review" ]
   [ -d "$TEST_HOME/.claude/skills/radin-record" ]
   [ -d "$TEST_HOME/.claude/skills/radin-setup-hooks" ]
@@ -126,6 +126,8 @@ run_install_no_companions_answering() {
   [ -f "$TEST_HOME/.claude/.radin/lib/radin-namespace.sh" ]
   [ -f "$TEST_HOME/.claude/.radin/lib/radin-json.sh" ]
   [ -f "$TEST_HOME/.claude/.radin/lib/radin-uninstall.sh" ]
+  [ -f "$TEST_HOME/.claude/.radin/lib/radin-execute-recovery.md" ]
+  [ -f "$TEST_HOME/.claude/.radin/lib/radin-execute-reporting.md" ]
 }
 
 @test "downloads thermo-nuclear SKILL.md alongside radin's own skills" {
@@ -156,7 +158,7 @@ run_install_no_companions_answering() {
   manifest="$TEST_HOME/.claude/.radin/manifest.json"
   [ -f "$manifest" ]
   grep -q '"version"' "$manifest"
-  grep -q '"radin-execute.md"' "$manifest"
+  grep -q '"radin-execute"' "$manifest"
   grep -q '"radin-doctor"' "$manifest"
   grep -q '"radin-namespace.sh"' "$manifest"
   grep -q '"radin-json.sh"' "$manifest"
@@ -184,7 +186,7 @@ run_install_no_companions_answering() {
 
 @test "declining parallel execution keeps the sequential constraint only" {
   run_install_no_companions
-  agent="$TEST_HOME/.claude/agents/radin-execute.md"
+  agent="$TEST_HOME/.claude/skills/radin-execute/SKILL.md"
   grep -q "One execution sub-agent at a time" "$agent"
   ! grep -q "Concurrency allowed" "$agent"
   ! grep -q "radin:concurrency" "$agent"
@@ -194,7 +196,7 @@ run_install_no_companions_answering() {
 @test "accepting parallel execution keeps the concurrency constraint only" {
   cd "$REPO_ROOT" && run bash -c "printf '1\n2\n2\n2\n2\n2\n2\n' | bash ./install.sh"
   [ "$status" -eq 0 ]
-  agent="$TEST_HOME/.claude/agents/radin-execute.md"
+  agent="$TEST_HOME/.claude/skills/radin-execute/SKILL.md"
   grep -q "Concurrency allowed" "$agent"
   ! grep -q "One execution sub-agent at a time" "$agent"
   ! grep -q "radin:concurrency" "$agent"
@@ -244,7 +246,7 @@ pick_with_keys() {
   FAKE_ROOT="$TEST_HOME/fake-checkout"
   mkdir -p "$FAKE_ROOT"
   cp "$REPO_ROOT/install.sh" "$FAKE_ROOT/install.sh"
-  # No sibling agents/skills dirs -> forces the download branch.
+  # No sibling skills/lib dirs -> forces the download branch.
   FETCH_DIR="$TEST_HOME/preexisting"
   mkdir -p "$FETCH_DIR"
   echo "not ours" > "$FETCH_DIR/some_other_file"

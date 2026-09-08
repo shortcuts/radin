@@ -33,7 +33,7 @@ radin itself only copy files. Companion tools pull own stacks, each gated behind
 
 | For | You need |
 | --- | --- |
-| radin core (agents + skills) | `curl`, `tar`, `bash` |
+| radin core (skills) | `curl`, `tar`, `bash` |
 | Claude plugins (caveman, ponytail) | `claude` CLI |
 | rtk | [Homebrew](https://brew.sh), or `curl` for rtk's own installer |
 | code-review-graph, headroom | `python3` with `pip3` or [`pipx`](https://pipx.pypa.io) |
@@ -148,6 +148,12 @@ complex go through `/radin-plan` first.
 ```
 
 Result: each entry implemented and committed in its own commit.
+
+Runs in your own conversation, so it asks you to confirm the execution order
+before it starts, and you can interrupt it. Every task's state is on disk, so
+re-running `/radin-execute` resumes where it stopped and never redoes finished
+work. Want your main thread free while backlog runs? Start second Claude Code
+session and run it there.
 Finished entries removed from backlog; failed ones stay, marked
 for retry. At end can optionally run `/thermo-nuclear` review of
 session, log findings back to backlog as new entries.

@@ -25,11 +25,14 @@ remove_path() {
 
 printf 'radin uninstall\n===============\n'
 
-printf '\nAgent (%s/agents):\n' "$CLAUDE_DIR"
+# radin ships no agents any more, but an install from before the skill
+# migration left this one behind -- remove it so no stale copy shadows the
+# skill of the same name.
+printf '\nLegacy agent (%s/agents):\n' "$CLAUDE_DIR"
 remove_path "radin-execute.md" "$CLAUDE_DIR/agents/radin-execute.md"
 
 printf '\nSkills (%s/skills):\n' "$CLAUDE_DIR"
-for name in radin-plan radin-record radin-review radin-setup-hooks radin-show radin-stats radin-doctor radin-uninstall; do
+for name in radin-execute radin-plan radin-record radin-review radin-setup-hooks radin-show radin-stats radin-doctor radin-uninstall; do
 	remove_path "$name" "$CLAUDE_DIR/skills/$name"
 done
 
@@ -41,6 +44,8 @@ remove_path "radin-state.sh" "$CLAUDE_DIR/.radin/lib/radin-state.sh"
 remove_path "radin-scope.sh" "$CLAUDE_DIR/.radin/lib/radin-scope.sh"
 remove_path "radin-prioritization.md" "$CLAUDE_DIR/.radin/lib/radin-prioritization.md"
 remove_path "radin-execute-prompts.md" "$CLAUDE_DIR/.radin/lib/radin-execute-prompts.md"
+remove_path "radin-execute-recovery.md" "$CLAUDE_DIR/.radin/lib/radin-execute-recovery.md"
+remove_path "radin-execute-reporting.md" "$CLAUDE_DIR/.radin/lib/radin-execute-reporting.md"
 remove_path "radin-doctor.sh" "$CLAUDE_DIR/.radin/lib/radin-doctor.sh"
 
 printf '\nLeft untouched:\n'

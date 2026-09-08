@@ -14,13 +14,11 @@ teardown() {
 }
 
 install_all_expected() {
-  mkdir -p "$TEST_HOME/.claude/agents"
   mkdir -p "$TEST_HOME/.claude/.radin/lib"
-  for name in radin-plan radin-record radin-review radin-setup-hooks radin-show radin-stats radin-doctor radin-uninstall thermo-nuclear; do
+  for name in radin-execute radin-plan radin-record radin-review radin-setup-hooks radin-show radin-stats radin-doctor radin-uninstall thermo-nuclear; do
     mkdir -p "$TEST_HOME/.claude/skills/$name"
     : > "$TEST_HOME/.claude/skills/$name/SKILL.md"
   done
-  : > "$TEST_HOME/.claude/agents/radin-execute.md"
   printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-namespace.sh"
   printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-json.sh"
   printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-backlog.sh"
@@ -28,6 +26,8 @@ install_all_expected() {
   printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-scope.sh"
   : > "$TEST_HOME/.claude/.radin/lib/radin-prioritization.md"
   : > "$TEST_HOME/.claude/.radin/lib/radin-execute-prompts.md"
+  : > "$TEST_HOME/.claude/.radin/lib/radin-execute-recovery.md"
+  : > "$TEST_HOME/.claude/.radin/lib/radin-execute-reporting.md"
   printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-doctor.sh"
   printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-uninstall.sh"
 }
@@ -45,12 +45,12 @@ install_all_expected() {
   [[ "$output" == *"All expected files present."* ]]
 }
 
-@test "exits 1 and reports MISSING for an absent agent file" {
+@test "exits 1 and reports MISSING for an absent on-demand lib file" {
   install_all_expected
-  rm "$TEST_HOME/.claude/agents/radin-execute.md"
+  rm "$TEST_HOME/.claude/.radin/lib/radin-execute-recovery.md"
   run env HOME="$TEST_HOME" bash "$CLI"
   [ "$status" -eq 1 ]
-  [[ "$output" == *"MISSING  radin-execute.md"* ]]
+  [[ "$output" == *"MISSING  radin-execute-recovery.md"* ]]
 }
 
 @test "exits 1 and reports MISSING for an absent skill" {

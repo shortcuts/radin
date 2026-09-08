@@ -59,11 +59,8 @@ check_plugin() {
 
 printf 'radin doctor\n============\n'
 
-printf '\nAgents (%s/agents):\n' "$CLAUDE_DIR"
-check_file "radin-execute.md" "$CLAUDE_DIR/agents/radin-execute.md"
-
 printf '\nSkills (%s/skills):\n' "$CLAUDE_DIR"
-for name in radin-plan radin-record radin-review radin-setup-hooks radin-show radin-stats radin-doctor radin-uninstall thermo-nuclear; do
+for name in radin-execute radin-plan radin-record radin-review radin-setup-hooks radin-show radin-stats radin-doctor radin-uninstall thermo-nuclear; do
 	check_file "$name" "$CLAUDE_DIR/skills/$name/SKILL.md"
 done
 
@@ -75,6 +72,8 @@ check_lib_script "radin-state.sh" "$CLAUDE_DIR/.radin/lib/radin-state.sh"
 check_lib_script "radin-scope.sh" "$CLAUDE_DIR/.radin/lib/radin-scope.sh"
 check_file "radin-prioritization.md" "$CLAUDE_DIR/.radin/lib/radin-prioritization.md"
 check_file "radin-execute-prompts.md" "$CLAUDE_DIR/.radin/lib/radin-execute-prompts.md"
+check_file "radin-execute-recovery.md" "$CLAUDE_DIR/.radin/lib/radin-execute-recovery.md"
+check_file "radin-execute-reporting.md" "$CLAUDE_DIR/.radin/lib/radin-execute-reporting.md"
 check_lib_script "radin-doctor.sh" "$CLAUDE_DIR/.radin/lib/radin-doctor.sh"
 check_lib_script "radin-uninstall.sh" "$CLAUDE_DIR/.radin/lib/radin-uninstall.sh"
 

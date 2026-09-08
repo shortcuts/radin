@@ -14,7 +14,7 @@ teardown() {
 install_all_expected() {
   mkdir -p "$TEST_HOME/.claude/agents"
   mkdir -p "$TEST_HOME/.claude/.radin/lib"
-  for name in radin-plan radin-record radin-review radin-setup-hooks radin-show radin-stats radin-doctor radin-uninstall; do
+  for name in radin-execute radin-plan radin-record radin-review radin-setup-hooks radin-show radin-stats radin-doctor radin-uninstall; do
     mkdir -p "$TEST_HOME/.claude/skills/$name"
     : > "$TEST_HOME/.claude/skills/$name/SKILL.md"
   done
@@ -27,6 +27,9 @@ install_all_expected() {
   printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-state.sh"
   printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-scope.sh"
   : > "$TEST_HOME/.claude/.radin/lib/radin-prioritization.md"
+  : > "$TEST_HOME/.claude/.radin/lib/radin-execute-prompts.md"
+  : > "$TEST_HOME/.claude/.radin/lib/radin-execute-recovery.md"
+  : > "$TEST_HOME/.claude/.radin/lib/radin-execute-reporting.md"
   printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-doctor.sh"
   cp "$CLI" "$TEST_HOME/.claude/.radin/lib/radin-uninstall.sh"
 }
@@ -36,12 +39,14 @@ install_all_expected() {
   [ "$status" -eq 0 ]
 }
 
-@test "removes every expected agent, skill, and lib file" {
+# The agents/ entry is the pre-migration leftover: radin ships no agents any
+# more, but an install from before the skill migration left one behind.
+@test "removes every expected skill and lib file, plus the legacy agent" {
   install_all_expected
   run env HOME="$TEST_HOME" bash "$TEST_HOME/.claude/.radin/lib/radin-uninstall.sh"
   [ "$status" -eq 0 ]
   [ ! -e "$TEST_HOME/.claude/agents/radin-execute.md" ]
-  for name in radin-plan radin-record radin-review radin-setup-hooks radin-show radin-stats radin-doctor radin-uninstall; do
+  for name in radin-execute radin-plan radin-record radin-review radin-setup-hooks radin-show radin-stats radin-doctor radin-uninstall; do
     [ ! -e "$TEST_HOME/.claude/skills/$name" ]
   done
   [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-namespace.sh" ]
@@ -50,6 +55,9 @@ install_all_expected() {
   [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-state.sh" ]
   [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-scope.sh" ]
   [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-prioritization.md" ]
+  [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-execute-prompts.md" ]
+  [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-execute-recovery.md" ]
+  [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-execute-reporting.md" ]
   [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-doctor.sh" ]
   [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-uninstall.sh" ]
 }
