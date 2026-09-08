@@ -130,6 +130,10 @@ without inventing a choice? An entry passes by carrying its decisions, or
 by naming plainly what stays open (an open fact, a deferred decision, a
 stub). If it fails and the gap is grillable, return to Step 2.
 
+It also fails when the ask carried literal content — an error string, a path,
+a snippet, an explicit constraint — and the entry has no `**Raised as:**`
+quote of it. Add the quote before appending.
+
 **Generic ask**: show the finalized list (title + category per item) and
 confirm before running the CLI — a session scan is a guess about what the
 user wants captured; don't let the guess become entries unchecked.
@@ -143,6 +147,12 @@ bash "$HOME/.claude/.radin/lib/radin-backlog.sh" add <category> "<short title>" 
 worked on when this came up, the item close to how the user stated it, and
 why it matters. radin-execute/radin-plan act on this entry with no other
 session context — don't compress it to one line.>
+
+<a `**Raised as:**` block quoting the triggering text verbatim — the user's
+words, plus any error string, path, or snippet they pasted. Quote, don't
+summarize: the executor cannot see this conversation, so your paraphrase is
+the only version that survives. Omit the block only when the ask carried no
+literal content to quote.>
 
 <one `**Decision:** <question — settled answer>` line per Step 2 answer —
 the same marker radin-execute appends when it settles one, so downstream
