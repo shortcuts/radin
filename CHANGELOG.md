@@ -13,6 +13,22 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- `radin-execute` Phase 0 no longer stops on an empty backlog, which made
+  Phase 1's "create an empty backlog or stop" branch unreachable. Phase 1
+  step 1 owns that question.
+
+- `radin-execute` gives `radin-state.sh set-status` a copy-pasteable
+  signature. Six call sites referenced it in prose only, leaving the agent
+  to invent the state-file path and the `note` quoting.
+
+- `radin-execute` settles Phase 6 before printing Phase 5's summary. Phase 6
+  told the agent to append a line to a report Phase 5 had already sent.
+
+- `radin-execute` Phase 0.5 now states that `worktree: yes` always creates a
+  `radin/<task-id>` branch, so the `branch` answer applies only under
+  `worktree: no`, and tells the agent to say so when it asks. `prepare`
+  always behaved this way.
+
 - `install.sh` no longer runs `brew shellenv`. It prepended brew's bin to
   `PATH`, so the pyexpat preflight probed brew's python3 instead of the
   version-manager one (mise/pyenv) that pip/pipx would actually use, and
@@ -23,6 +39,13 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   finish. `set -e` used to abort radin's own install at that point.
 
 ### Changed
+
+- Every skill and agent prompt is rewritten in plain prose. Five short
+  skills (`radin-show`, `radin-doctor`, `radin-uninstall`, `radin-stats`,
+  `radin-setup-hooks`) shipped article-dropped text that read as a statement
+  where an instruction was meant. Numbered steps in `radin-execute` Phase 1
+  and Phase 5, and `radin-plan`'s `Step 4.5`, are renumbered to plain
+  sequences.
 
 - `install.sh --force` now updates companion tools that are already
   installed instead of re-running a no-op install: plugins go through

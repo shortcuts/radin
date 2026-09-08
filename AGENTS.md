@@ -133,7 +133,11 @@ again.
 No prompt carries the answers, and no model reads them to decide anything.
 `radin-state.sh prepare <namespace-dir> <id>` is the only place they become
 git commands: each execution sub-agent runs it, gets one path back, and works
-there. Keep it that way — a model that is handed the two answers eventually
+there. The two answers are not independent: a worktree cannot share the
+checkout's branch, so `worktree: yes` always creates `radin/<task-id>` and the
+`branch` answer changes nothing. `branch` decides only what happens under
+`worktree: no`. `agents/radin-execute.md` Phase 0.5 states this and tells the
+agent to say so when it asks. Keep it that way — a model that is handed the two answers eventually
 overrides a `no`. `prepare` pins worktree path to `<repo>-<task-id>` and
 branch to `radin/<task-id>`; `task-dir` and `triage` derive the same names from
 task id to find dead sub-agent's leftovers, so keep all three in sync.

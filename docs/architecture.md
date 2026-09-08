@@ -69,7 +69,7 @@ bash "$HOME/.claude/.radin/lib/radin-state.sh" <start|stuck|triage|set-status|re
 
 - `start <steps-file> <id>` — claim task before dispatch: `status` `in_progress`, `attempts` +1. Exits 2 having marked entry `blocked` once `attempts` passes `MAX_ATTEMPTS` (3), so crash loop can't burn tokens forever
 - `stuck <steps-file>` — list `in_progress` entries: tasks dispatched by run that died before terminal status. Recovery entry point
-- `triage <namespace-dir> <id>` — facts about what dead sub-agent left: `attempts`, `completed` hash, `worktree`, `branch`, `branch_commit` lines, `dirty_files` count. Prints facts, decides nothing — agent routes on them (see `radin-execute` Phase 1 step 0c). Worktree path and branch name derived from task id, never recorded: execution prompt pins them to `../<repo>-<id>` / `radin/<id>`
+- `triage <namespace-dir> <id>` — facts about what dead sub-agent left: `attempts`, `completed` hash, `worktree`, `branch`, `branch_commit` lines, `dirty_files` count. Prints facts, decides nothing — agent routes on them (see `radin-execute` Phase 1 step 3). Worktree path and branch name derived from task id, never recorded: execution prompt pins them to `../<repo>-<id>` / `radin/<id>`
 - `set-status <steps-file> <id> <pending|in_progress|failed|blocked> [note]` — rewrite one entry's `status`/`note` in place, `order`/`depends_on`/`attempts` untouched
 - `remove <steps-file> <id>` — delete one completed entry's line
 - `completed-add <completed-file> <id> <hash>` — append completed task's commit, create file if absent
