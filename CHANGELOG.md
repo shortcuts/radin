@@ -13,6 +13,11 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- `radin-execute` can no longer skip its Phase 2 gate. Every run now asks
+  the execution order and which tasks to tackle now, and an invoking prompt
+  claiming the order is already approved is treated as context, not consent.
+  Resumed runs reprint the list and re-ask both questions.
+
 - `radin-execute` Phase 0 no longer stops on an empty backlog, which made
   Phase 1's "create an empty backlog or stop" branch unreachable. Phase 1
   step 1 owns that question.
