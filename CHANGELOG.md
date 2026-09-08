@@ -24,6 +24,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- `radin-execute-detached`, opt-in at install time (`install.sh` asks,
+  default no): the same backlog run in a background thread you visit
+  yourself, so your own thread stays free. It invokes `/radin-execute` and
+  overrides exactly one step — a background agent gets no `Agent`/`Task`
+  tool, so it implements each task itself instead of delegating. That means
+  one long context rather than a fresh one per task, and it asks you things
+  in its own transcript. The alternative that needs no install: a second
+  Claude Code session running `/radin-execute`.
 - `lib/radin-execute-recovery.md` and `lib/radin-execute-reporting.md`:
   `radin-execute`'s crash-recovery routing and final-report template, read
   from disk when a run actually needs them. Recovery loads only when
@@ -31,9 +39,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Removed
 
-- `agents/` is gone — radin ships no agents. `install.sh` reports a
-  pre-migration `~/.claude/agents/radin-execute.md` and prints the `rm` to run
-  (it never deletes anything itself); `/radin-uninstall` removes it for you.
+- `agents/radin-execute.md` — it's `skills/radin-execute/SKILL.md` now.
+  `install.sh` reports a pre-migration copy at
+  `~/.claude/agents/radin-execute.md` and prints the `rm` to run (it never
+  deletes anything itself); `/radin-uninstall` removes it for you.
 
 - `install.sh` no longer offers `i-have-adhd` as an optional companion
   tool. Dropped from the manifest, `radin-doctor`, and `radin-uninstall`

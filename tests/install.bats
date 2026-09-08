@@ -77,14 +77,15 @@ teardown() {
 # rtk/code-review-graph/headroom/caveman/ponytail exist on the
 # trimmed PATH, so all five prompts fire and all five get declined.
 # Every prompt is a numbered picker: 1 is the first option (parallel / yes),
-# 2 the second (sequential / no). First answer is the parallel-execution
-# prompt, second the sub-agent-model one.
+# 2 the second (sequential / no). Order: 1 parallel-execution,
+# 2 sub-agent-model, 3 detached-agent, then one per companion tool starting
+# with rtk at 4. run_install_no_companions_answering puts its answer on rtk.
 run_install_no_companions() {
-  cd "$REPO_ROOT" && printf '2\n2\n2\n2\n2\n2\n2\n' | bash ./install.sh
+  cd "$REPO_ROOT" && printf '2\n2\n2\n2\n2\n2\n2\n2\n' | bash ./install.sh
 }
 
 run_install_no_companions_answering() {
-  cd "$REPO_ROOT" && printf '2\n2\n%s\n2\n2\n2\n2\n' "$1" | bash ./install.sh
+  cd "$REPO_ROOT" && printf '2\n2\n2\n%s\n2\n2\n2\n2\n' "$1" | bash ./install.sh
 }
 
 @test "syntax is valid" {
@@ -104,11 +105,31 @@ run_install_no_companions_answering() {
   [[ "$output" == *"Using radin source at $REPO_ROOT"* ]]
 }
 
-# radin ships no agents: every entry point is a skill, so it runs in the
-# user's own thread. install.sh must not create ~/.claude/agents at all.
-@test "installs no agents, leaving ~/.claude/agents alone" {
+# Every entry point is a skill, so it runs in the user's own thread. The one
+# agent radin ships is opt-in, and declining must not even create the dir.
+@test "declining the detached agent leaves ~/.claude/agents alone" {
   run_install_no_companions
   [ ! -d "$TEST_HOME/.claude/agents" ]
+  grep -q '"detached_agent": false' "$TEST_HOME/.claude/.radin/manifest.json"
+}
+
+@test "accepting the detached agent installs just that one agent" {
+  cd "$REPO_ROOT" && run bash -c "printf '2\n2\n1\n2\n2\n2\n2\n2\n' | bash ./install.sh"
+  [ "$status" -eq 0 ]
+  [ -f "$TEST_HOME/.claude/agents/radin-execute-detached.md" ]
+  [ ! -e "$TEST_HOME/.claude/agents/radin-execute.md" ]
+  grep -q '"detached_agent": true' "$TEST_HOME/.claude/.radin/manifest.json"
+}
+
+# Declining is not a removal: install.sh never deletes a file, so it has to
+# name the leftover instead of quietly leaving a shadowed copy behind.
+@test "declining names a previously-installed detached agent instead of removing it" {
+  mkdir -p "$TEST_HOME/.claude/agents"
+  : > "$TEST_HOME/.claude/agents/radin-execute-detached.md"
+  run run_install_no_companions
+  [ "$status" -eq 0 ]
+  [ -f "$TEST_HOME/.claude/agents/radin-execute-detached.md" ]
+  [[ "$output" == *"an earlier install left"* ]]
 }
 
 @test "installs radin's own skills, not unrelated skill dirs" {
@@ -171,13 +192,13 @@ run_install_no_companions_answering() {
 # the normal yes/no gate (Python/pip footprint) -- both prompts must be
 # answered yes before the pip/pipx install command actually runs.
 @test "headroom's extra pip confirmation blocks install when declined" {
-  cd "$REPO_ROOT" && run bash -c "printf '2\n2\n2\n2\n1\n2\n2\n2\n' | bash ./install.sh"
+  cd "$REPO_ROOT" && run bash -c "printf '2\n2\n2\n2\n2\n1\n2\n2\n2\n' | bash ./install.sh"
   [ "$status" -eq 0 ]
   [ ! -f "$PIP_LOG" ] || ! grep -q "headroom-ai" "$PIP_LOG"
 }
 
 @test "headroom installs only after both confirmations pick yes" {
-  cd "$REPO_ROOT" && run bash -c "printf '2\n2\n2\n2\n1\n1\n2\n2\n' | bash ./install.sh"
+  cd "$REPO_ROOT" && run bash -c "printf '2\n2\n2\n2\n2\n1\n1\n2\n2\n' | bash ./install.sh"
   [ "$status" -eq 0 ]
   grep -q "headroom-ai" "$PIP_LOG"
   manifest="$TEST_HOME/.claude/.radin/manifest.json"
@@ -194,7 +215,7 @@ run_install_no_companions_answering() {
 }
 
 @test "accepting parallel execution keeps the concurrency constraint only" {
-  cd "$REPO_ROOT" && run bash -c "printf '1\n2\n2\n2\n2\n2\n2\n' | bash ./install.sh"
+  cd "$REPO_ROOT" && run bash -c "printf '1\n2\n2\n2\n2\n2\n2\n2\n' | bash ./install.sh"
   [ "$status" -eq 0 ]
   agent="$TEST_HOME/.claude/skills/radin-execute/SKILL.md"
   grep -q "Concurrency allowed" "$agent"

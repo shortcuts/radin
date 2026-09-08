@@ -25,10 +25,11 @@ remove_path() {
 
 printf 'radin uninstall\n===============\n'
 
-# radin ships no agents any more, but an install from before the skill
-# migration left this one behind -- remove it so no stale copy shadows the
-# skill of the same name.
-printf '\nLegacy agent (%s/agents):\n' "$CLAUDE_DIR"
+# radin-execute-detached is opt-in, so it is often absent. radin-execute.md
+# is the pre-migration leftover: that one is a skill now, and a stale agent
+# copy shadows it.
+printf '\nAgents (%s/agents):\n' "$CLAUDE_DIR"
+remove_path "radin-execute-detached.md" "$CLAUDE_DIR/agents/radin-execute-detached.md"
 remove_path "radin-execute.md" "$CLAUDE_DIR/agents/radin-execute.md"
 
 printf '\nSkills (%s/skills):\n' "$CLAUDE_DIR"

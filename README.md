@@ -97,6 +97,7 @@ Typical flow:
 | `radin-setup-hooks` | Wires up per-repo hooks/MCP config for companion tools |
 | `radin-stats` | Shows each installed companion tool's own stats/gain output, side by side |
 | `radin-uninstall` | Removes everything `install.sh` added to `~/.claude` |
+| `radin-execute-detached` | Same backlog run, in a background thread you visit yourself. Opt-in at install time |
 
 Some delegate to other skills instead of reimplementing review or
 style logic themselves:
@@ -152,8 +153,18 @@ Result: each entry implemented and committed in its own commit.
 Runs in your own conversation, so it asks you to confirm the execution order
 before it starts, and you can interrupt it. Every task's state is on disk, so
 re-running `/radin-execute` resumes where it stopped and never redoes finished
-work. Want your main thread free while backlog runs? Start second Claude Code
-session and run it there.
+work.
+
+Want your thread free while the backlog runs? Two ways:
+
+- Say yes to `radin-execute-detached` at install time, then ask for the
+  backlog to run in the background. It works the same backlog in its own
+  thread, and you go there to read its reports and answer its questions. It
+  implements each task itself rather than delegating (a background agent has
+  no way to spawn one), so it holds one long context — expect to re-dispatch
+  it for a big backlog.
+- Or start a second Claude Code session and run `/radin-execute` there. Full
+  delegation, full interactivity, nothing to install.
 Finished entries removed from backlog; failed ones stay, marked
 for retry. At end can optionally run `/thermo-nuclear` review of
 session, log findings back to backlog as new entries.

@@ -8,7 +8,7 @@
 
 | Field | Value |
 | --- | --- |
-| What it is | Claude Code plugin: skills + install glue |
+| What it is | Claude Code plugin: skills + one opt-in agent + install glue |
 | Runtime language | None — bash only |
 | Target OS | macOS and Linux |
 | Supported architectures | Arch-neutral through Homebrew. Works on macOS's `/opt/homebrew`/`/usr/local` and on Linuxbrew's `/home/linuxbrew/.linuxbrew`. No `uname -m` branching. Branch on `command -v` only where tool itself differs by OS (e.g. `md5` vs `md5sum`). |
@@ -24,21 +24,22 @@ radin never vendors or forks them.
 
 This repo source of truth. Any skill iteration must be done in `skills/*/SKILL.md`.
 
-radin ships **no agents**. Every entry point is a skill, so it runs in the
-user's own thread and can talk to them. Sub-agents exist only as leaf
-workers, dispatched by a skill, for work whose context is worth isolating.
-Don't reintroduce an `agents/` directory — see "Why radin-execute is a
-skill" below for the two capability limits that forbid it.
+Every entry point is a skill, so it runs in the user's own thread and can
+talk to them. Sub-agents exist only as leaf workers, dispatched by a skill,
+for work whose context is worth isolating. One exception ships as an agent,
+`agents/radin-execute-detached.md`, and it is opt-in at install time — see
+"Why radin-execute is a skill" below before you add a second.
 
-- **Editing radin's own skills:** edit `skills/*/SKILL.md` directly.
+- **Editing radin's own skills:** edit `skills/*/SKILL.md` directly, and
+  `agents/radin-execute-detached.md` for the one agent.
   `thermo-nuclear` one exception — not vendored here at all. `install.sh`
   downloads its `SKILL.md` straight from cursor/plugins at install time,
   same as any other companion tool. radin only vendors what it wrote
   itself.
 - **Editing `install.sh`, docs, or repo scaffolding:** edit directly, as
   normal.
-- **`install.sh`** installs from this repo into `~/.claude/skills` and
-  `~/.claude/.radin/lib`. Only adds or updates files there — one direction,
+- **`install.sh`** installs from this repo into `~/.claude/skills`,
+  `~/.claude/.radin/lib`, and (on an explicit yes only) `~/.claude/agents`. Only adds or updates files there — one direction,
   repo to consumer.
 
 ## Storage contract
@@ -114,6 +115,37 @@ capability limits forced it into `skills/radin-execute/SKILL.md`:
   a single sub-agent. To free the main thread, start a second Claude Code
   session and run `/radin-execute` there.
 
+### The one agent: `radin-execute-detached`
+
+`agents/radin-execute-detached.md` exists for the user who wants the backlog
+run out of the way, in a background thread they visit themselves. It is
+opt-in (`install.sh` asks; default no) and it is deliberately thin: it
+invokes `/radin-execute` and overrides exactly one step.
+
+That override is forced, not stylistic. A background sub-agent has no
+`Agent`/`Task` tool, so Step 4b's "dispatch an execution sub-agent" is the
+single instruction it cannot follow. So it is a **worker, not a router**: it
+implements each task itself, in its own context. Consequences to keep in
+mind when editing either file:
+
+- The skill stays the source of truth for every phase, the gate, the CLI
+  calls, recovery and reporting. Don't copy phase logic into the agent — add
+  to the skill, and the agent inherits it.
+- No per-task context isolation. Every task's reading and editing
+  accumulates in that one thread, so long backlogs need more than one
+  dispatch.
+- No `AskUserQuestion` either, so it asks in prose and ends its turn. That is
+  correct *only* there, because the user is reading that transcript. Every
+  other radin context treats a turn ending on a question as a hang.
+- Phase 2's gate still binds it, and the dispatching session cannot consent
+  on the user's behalf.
+
+Its `description` tells the calling model to dispatch it with
+`run_in_background: true`. That is the only lever: the user cannot choose
+foreground/background at @-mention time, the caller does. Foreground would
+block the very thread the agent exists to keep free, and would still lack
+`AskUserQuestion`.
+
 Details and the full background tool list live in
 `docs/technical-constraints.md`. As a skill, radin-execute's body sits in the
 user's own context for the rest of the session, so keep `SKILL.md` to the
@@ -128,8 +160,10 @@ Skim existing one first — `skills/radin-review/SKILL.md` shortest
 complete example. Shared conventions below easy to drift from if you
 reinvent from scratch.
 
-0. **It's a skill, never an agent.** See "Why radin-execute is a skill"
-   above. A sub-agent cannot ask the user anything.
+0. **Make it a skill.** See "Why radin-execute is a skill" above: a
+   sub-agent cannot ask the user anything. `radin-execute-detached` is the
+   one exception, and it earns it by being opt-in and by inheriting its
+   phases from a skill rather than restating them.
 1. **Namespace resolution and backlog I/O.** Go through
    `bash "$HOME/.claude/.radin/lib/radin-backlog.sh"` (see
    `docs/architecture.md`'s "Namespace resolution and backlog CLI"
@@ -207,10 +241,11 @@ skills/tools live there too.
 per-repo `<repo-root>/.claude/.radin/` backlog namespace — same `.radin`
 name, different scope: this one holds shared scripts like
 `radin-backlog.sh`, not backlog state). `install.sh` may only `cp`/`cp -r`
-radin's own named files (radin's own `skills/<name>/`, `lib/*` into
-`~/.claude/.radin/lib/`) and `mkdir -p`. Never `rm` — a pre-migration
-`~/.claude/agents/radin-execute.md` gets a warning plus the exact `rm` to
-run, never a deletion. Never wildcard-delete directory. Never overwrite file radin didn't
+radin's own named files (radin's own `skills/<name>/`,
+`agents/radin-execute-detached.md`, `lib/*` into `~/.claude/.radin/lib/`) and
+`mkdir -p`. Never `rm` — a pre-migration `~/.claude/agents/radin-execute.md`,
+or a `radin-execute-detached.md` the user has since declined, gets a warning
+plus the exact `rm` to run, never a deletion. Never wildcard-delete directory. Never overwrite file radin didn't
 ship. Call out explicitly on any edit to `install.sh`.
 
 **macOS ships `/bin/bash` 3.2.** Apple froze it before GPLv3 switch.

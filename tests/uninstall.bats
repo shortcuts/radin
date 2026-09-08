@@ -21,6 +21,7 @@ install_all_expected() {
   mkdir -p "$TEST_HOME/.claude/skills/thermo-nuclear"
   : > "$TEST_HOME/.claude/skills/thermo-nuclear/SKILL.md"
   : > "$TEST_HOME/.claude/agents/radin-execute.md"
+  : > "$TEST_HOME/.claude/agents/radin-execute-detached.md"
   printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-namespace.sh"
   printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-json.sh"
   printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-backlog.sh"
@@ -39,13 +40,14 @@ install_all_expected() {
   [ "$status" -eq 0 ]
 }
 
-# The agents/ entry is the pre-migration leftover: radin ships no agents any
-# more, but an install from before the skill migration left one behind.
-@test "removes every expected skill and lib file, plus the legacy agent" {
+# Two agents/ entries: radin-execute-detached is opt-in and may be absent,
+# and radin-execute.md is the pre-migration leftover.
+@test "removes every expected skill and lib file, plus both agents" {
   install_all_expected
   run env HOME="$TEST_HOME" bash "$TEST_HOME/.claude/.radin/lib/radin-uninstall.sh"
   [ "$status" -eq 0 ]
   [ ! -e "$TEST_HOME/.claude/agents/radin-execute.md" ]
+  [ ! -e "$TEST_HOME/.claude/agents/radin-execute-detached.md" ]
   for name in radin-execute radin-plan radin-record radin-review radin-setup-hooks radin-show radin-stats radin-doctor radin-uninstall; do
     [ ! -e "$TEST_HOME/.claude/skills/$name" ]
   done

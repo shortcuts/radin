@@ -105,7 +105,9 @@ Written by `install.sh` to `~/.claude/.radin/manifest.json` on every run — not
 {
   "version": "v0.4.0",
   "installed_at": "2026-07-28T00:00:00Z",
-  "skills": ["radin-plan", "radin-record", "radin-review", "radin-setup-hooks", "radin-show", "radin-stats", "radin-doctor", "radin-uninstall", "thermo-nuclear"],
+  "parallel_execution": false,
+  "detached_agent": false,
+  "skills": ["radin-execute", "radin-plan", "radin-record", "radin-review", "radin-setup-hooks", "radin-show", "radin-stats", "radin-doctor", "radin-uninstall", "thermo-nuclear"],
   "lib": ["radin-namespace.sh", "radin-backlog.sh", "radin-state.sh", "radin-prioritization.md", "radin-doctor.sh", "radin-uninstall.sh"],
   "companion_tools": {
     "rtk": true,
@@ -117,6 +119,7 @@ Written by `install.sh` to `~/.claude/.radin/manifest.json` on every run — not
 ```
 
 - `version` `dev` when installed from local git clone (no downloaded release tarball, no `.radin-version` file to read).
-- `agents`/`skills`/`lib` static lists matching exactly what `install.sh` copies, what `radin-doctor.sh` checks for — not derived from manifest at runtime by either script (see `docs/architecture.md` "Install manifest").
+- `skills`/`lib` static lists matching exactly what `install.sh` copies, what `radin-doctor.sh` checks for — not derived from manifest at runtime by either script (see `docs/architecture.md` "Install manifest").
+- `parallel_execution` records which concurrency rule `install.sh` wrote into `skills/radin-execute/SKILL.md`. `detached_agent` records whether user opted into `agents/radin-execute-detached.md` — no `agents` list, since that one file is the only agent and its presence is the whole answer.
 - `companion_tools` values reflect final reachable state after this install.sh run (already present, just installed, or skipped not distinguished — only "is it there now").
 - Regenerated wholesale on every `install.sh` run; never partially updated, never read back by `install.sh` itself.

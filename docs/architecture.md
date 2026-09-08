@@ -99,15 +99,23 @@ radin-execute was an agent (`agents/radin-execute.md`) until it became a skill. 
 
 As skill, radin-execute runs in user's own thread: asks directly, gets interrupted, resumes from disk. Sub-agents stay, one layer down, as leaf workers — that's where context isolation earns its keep (planning's codebase exploration, execution's edits, review's diff read), each returning single `STATUS:` line. Same split SOTA skill collections use: orchestrate in main thread, isolate leaf work.
 
-Corollary: radin-execute can't be shipped as agent variant even optionally. Background sub-agents get no `Agent`/`Task` tool at all, and radin-execute's whole job is delegation. To free main thread while backlog runs, start second Claude Code session and run `/radin-execute` there.
+### `radin-execute-detached`
+
+One agent still ships, opt-in at install time (`install.sh` asks, default no): `agents/radin-execute-detached.md`, for the user who wants the backlog run in a background thread they visit themselves. It invokes `/radin-execute` and overrides exactly one step, so the skill stays the source of truth for every phase.
+
+Override is forced by tool pool, not preference. Background sub-agent gets no `Agent`/`Task` tool, so Step 4b's dispatch is the one instruction it can't follow. It's a **worker, not a router**: implements each task itself, in its own context. Costs: no per-task context isolation (one long thread, so long backlogs need more than one dispatch), and no `AskUserQuestion`, so it asks in prose and ends its turn — correct only there, because user is reading that transcript. Phase 2's gate still binds it.
+
+Its `description` instructs the calling model to dispatch it `run_in_background: true`. Only lever available: user can't pick foreground/background at @-mention time, caller does. Foreground would block the very thread it exists to free, and still lacks `AskUserQuestion`.
+
+Alternative needing no agent at all: start second Claude Code session and run `/radin-execute` there. Full tool set, full interactivity, real delegation.
 
 `radin-plan` is skill, not agent: runs inline in whichever context invokes it. In user's own conversation, judges whether its one scoped entry should split into independent sub-plans, confirms with user directly before splitting, writes plan file + `**Plan:**` pointer per resulting sub-task. For any task reaching Phase 3 with no `**Plan:**` line yet, `radin-execute` delegates planning to dedicated planning sub-agent invoking `/radin-plan`. Keeps planning's codebase exploration out of orchestrator's context — plan file on disk = handoff to execution sub-agent. That sub-agent runs non-interactively: where skill would ask confirmation, takes non-destructive path (no split, no overwrite), genuine ambiguity marks task `blocked` for user instead of guessing.
 
-To update radin itself, re-run `install.sh` — plain `curl | bash`, or `./install.sh` from dev clone. Always re-downloads/re-copies `skills/*/` and `lib/*`, overwrites what's in `~/.claude/`. Pass `--force` to also update companion tools already on the system: plugins go through `claude plugin update`, brew/pipx/pip installs re-run as upgrades.
+To update radin itself, re-run `install.sh` — plain `curl | bash`, or `./install.sh` from dev clone. Always re-downloads/re-copies `skills/*/` and `lib/*`, overwrites what's in `~/.claude/`. Re-asks the detached-agent opt-in, and declining never removes an earlier copy — it names it instead. Pass `--force` to also update companion tools already on the system: plugins go through `claude plugin update`, brew/pipx/pip installs re-run as upgrades.
 
 ## Install manifest
 
-`install.sh` writes `~/.claude/.radin/manifest.json` every run: generated snapshot of what installed. Records `version` (release tag, or `dev` for local git clone), `installed_at` (UTC timestamp), `skills`/`lib` file lists copied, `parallel_execution` (whether install allowed `radin-execute` to fan out sub-agents), `companion_tools` object recording whether each of rtk, code-review-graph, headroom, caveman, ponytail reachable on this machine after confirmation prompts.
+`install.sh` writes `~/.claude/.radin/manifest.json` every run: generated snapshot of what installed. Records `version` (release tag, or `dev` for local git clone), `installed_at` (UTC timestamp), `skills`/`lib` file lists copied, `parallel_execution` (whether install allowed `radin-execute` to fan out sub-agents), `detached_agent` (whether user opted into `radin-execute-detached`), `companion_tools` object recording whether each of rtk, code-review-graph, headroom, caveman, ponytail reachable on this machine after confirmation prompts.
 
 Snapshot for external tooling to read, not live source of truth. `radin-doctor.sh` and `radin-uninstall.sh` each keep own independent file list, check filesystem direct, rather than trust manifest. Corrupted or stale manifest must never make either report false "OK" or delete wrong thing.
 
@@ -117,6 +125,8 @@ Snapshot for external tooling to read, not live source of truth. `radin-doctor.s
 radin/
   .claude-plugin/
     plugin.json
+  agents/
+    radin-execute-detached.md
   skills/
     radin-execute/
       SKILL.md
@@ -153,4 +163,4 @@ radin/
 
 ## Authoring vs. distribution
 
-This repo source of truth. `skills/*/SKILL.md` authored/edited direct here — no external fork, no sync step. `install.sh` dist them one-directional into `~/.claude/skills`. radin ships no agents: every entry point is a skill, so it runs in the user's own thread and can talk to them (see "Why every entry point is a skill"). `thermo-nuclear` not part of this repo at all: `install.sh` downloads its `SKILL.md` straight from cursor/plugins at install time.
+This repo source of truth. `skills/*/SKILL.md` and `agents/radin-execute-detached.md` authored/edited direct here — no external fork, no sync step. `install.sh` dist them one-directional into `~/.claude/skills` and `~/.claude/agents`. Every entry point is a skill, so it runs in the user's own thread and can talk to them (see "Why every entry point is a skill"); the one agent is opt-in and inherits its phases from that skill. `thermo-nuclear` not part of this repo at all: `install.sh` downloads its `SKILL.md` straight from cursor/plugins at install time.

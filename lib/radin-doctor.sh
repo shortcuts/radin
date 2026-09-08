@@ -64,6 +64,13 @@ for name in radin-execute radin-plan radin-record radin-review radin-setup-hooks
 	check_file "$name" "$CLAUDE_DIR/skills/$name/SKILL.md"
 done
 
+printf '\nOptional agent (%s/agents):\n' "$CLAUDE_DIR"
+if [ -f "$CLAUDE_DIR/agents/radin-execute-detached.md" ]; then
+	printf '  %-20s installed\n' "radin-execute-detached"
+else
+	printf '  %-20s not installed (opt-in at install time)\n' "radin-execute-detached"
+fi
+
 printf '\nLib (%s/.radin/lib):\n' "$CLAUDE_DIR"
 check_lib_script "radin-namespace.sh" "$CLAUDE_DIR/.radin/lib/radin-namespace.sh"
 check_lib_script "radin-json.sh" "$CLAUDE_DIR/.radin/lib/radin-json.sh"
