@@ -55,14 +55,12 @@ sub-agents, and all show up as hang -- run stops mid-task, task claimed
   way to ask anything at all. This is why radin-execute is skill rather than
   agent: its Phase 2 gate must ask, so as agent it could never satisfy own
   gate.
-- **No notification.** Turn-based sub-agent cannot receive background-task
-  completion. So every `Task` call runs `run_in_background: false`, and no
-  prompt may route sub-agent into skill that spawns background agent
-  (`/research`). Workflows same class: `Workflow` tool, `/deep-research`, and
-  any saved workflow command (`.claude/workflows/`, `~/.claude/workflows/`)
-  always run in background — never from radin skill's sub-agent. Same rule
-  applies inside parallel mode: several sub-agents in one message, still none
-  in background.
+- **No workflows, and nothing that waits on one.** `Workflow` tool is in
+  first filter, removed from every sub-agent. So no prompt may route
+  sub-agent into skill that launches one (`/deep-research`, any saved
+  workflow command under `.claude/workflows/` or `~/.claude/workflows/`), nor
+  into skill that spawns own background agent and waits (`/research`) --
+  sub-agent's turn ends with no `STATUS:` line either way.
 
 Consequence: when radin needs fact, it dispatches own synchronous read-only
 sub-agent (Fact-finding prompt in `lib/radin-execute-prompts.md`) -- never
@@ -74,16 +72,36 @@ unfiltered except for this one class. Filtering happens at forward point in
 `skills/radin-execute/SKILL.md` Step 4b, and dropped skill named in Phase 5
 summary so user can run it themselves.
 
-## Background sub-agents get no `Agent` tool
+## Background sub-agents keep a smaller built-in tool set
 
-Background sub-agent keeps every MCP tool but only these built-ins: `Read`,
-`Grep`, `Glob`, `Bash`, `PowerShell`, `Edit`, `Write`, `NotebookEdit`,
-`WebFetch`, `WebSearch`, `TodoWrite`, `Skill`, `ToolSearch`, `EnterWorktree`,
-`ExitWorktree`, `Monitor`, `TaskStop`, `SendMessage`, `Artifact`. No
-`Agent`/`Task`.
+Second filter cuts background sub-agent's built-ins to: `Read`, `Grep`,
+`Glob`, `Bash`, `PowerShell`, `Edit`, `Write`, `NotebookEdit`, `WebFetch`,
+`WebSearch`, `TodoWrite`, `Skill`, `ToolSearch`, `EnterWorktree`,
+`ExitWorktree`, `Monitor`, `TaskStop`, `SendMessage`, `Artifact`, plus every
+MCP tool.
 
-So radin-execute can never run backgrounded, under any packaging: whole job is
-delegation, and backgrounded run cannot dispatch single sub-agent. To free main
-thread while backlog runs, start second Claude Code session and run
-`/radin-execute` there -- worktree-per-task answer already keeps two sessions
-off each other's checkout.
+`Agent` is **not** cut by that filter. Docs carve it out explicitly: "Apart
+from `Agent` and `ExitPlanMode`, which follow the first filter's conditions
+wherever the sub-agent runs". First filter drops `Agent` only at depth limit
+(default 3) or in fork. So background sub-agent at depth 1 delegates
+normally -- that's what `agents/radin-execute-background.md` relies on.
+Don't read `Agent`'s absence from second filter's list as removal.
+
+## Nobody picks foreground or background
+
+Fork mode is on by default in interactive session (v2.1.232+), and it removes
+`Agent` tool's `run_in_background` parameter. So no radin prompt may tell a
+model to set it. Background sub-agent's result arrives as completion
+notification in later turn. Router waits for it, never reports task outcome
+before it lands, and treats a dispatch that returns nothing as unfinished --
+`attempts` is already bumped and Phase 1's stuck-recovery owns it next run.
+
+## Freeing the user's thread needs no radin agent
+
+`claude agents` (agent view) dispatches full Claude Code background sessions:
+whole tool pool, working `AskUserQuestion`, peek/reply/attach. `/bg` sends
+current conversation there. `/radin-execute` runs unchanged in one, so that's
+the no-install route. `agents/radin-execute-background.md` is the in-session
+convenience for same goal, and second `claude` session in another terminal
+works too -- worktree-per-task answer keeps concurrent sessions off each
+other's checkout.

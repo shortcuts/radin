@@ -117,37 +117,35 @@ capability limits forced it into `skills/radin-execute/SKILL.md`:
 
 ### The one agent: `radin-execute-background`
 
-`agents/radin-execute-background.md` exists for the user who wants the backlog
-run out of the way, in a background thread they visit themselves. It is
-opt-in (`install.sh` asks; default no) and it is deliberately thin: it
-invokes `/radin-execute` and overrides exactly one step.
+`agents/radin-execute-background.md` exists for the user who wants the
+backlog run out of the way, in a thread they visit themselves. It is opt-in
+(`install.sh` asks; default no) and deliberately thin: it invokes
+`/radin-execute` and follows every phase as written, sub-agent dispatch
+included. It **is** the router the skill describes.
 
-That override is forced, not stylistic. A background sub-agent has no
-`Agent`/`Task` tool, so Step 4b's "dispatch an execution sub-agent" is the
-single instruction it cannot follow. So it is a **worker, not a router**: it
-implements each task itself, in its own context. Consequences to keep in
-mind when editing either file:
+Only two things differ, both from being a sub-agent:
 
-- The skill stays the source of truth for every phase, the gate, the CLI
-  calls, recovery and reporting. Don't copy phase logic into the agent — add
-  to the skill, and the agent inherits it.
-- No per-task context isolation. Every task's reading and editing
-  accumulates in that one thread, so long backlogs need more than one
-  dispatch.
-- No `AskUserQuestion` either, so it asks in prose and ends its turn. That is
-  correct *only* there, because the user is reading that transcript. Every
-  other radin context treats a turn ending on a question as a hang.
-- Phase 2's gate still binds it, and the dispatching session cannot consent
-  on the user's behalf.
+- No `AskUserQuestion`, so it asks in prose and ends its turn. Correct *only*
+  there, because the user is reading that transcript. Every other radin
+  context treats a turn ending on a question as a hang. Phase 2's gate still
+  binds it, and the dispatching session cannot consent on the user's behalf.
+- A dispatched sub-agent's result may not land in the same turn, so it
+  reports what has landed and ends rather than re-dispatching.
 
-Its `description` tells the calling model to dispatch it with
-`run_in_background: true`. That is the only lever: the user cannot choose
-foreground/background at @-mention time, the caller does. Foreground would
-block the very thread the agent exists to keep free, and would still lack
-`AskUserQuestion`.
+Keep it that thin. The skill is the source of truth for every phase, the
+gate, the CLI calls, recovery and reporting — add there, and the agent
+inherits it. Don't copy phase logic into the agent file.
 
-Details and the full background tool list live in
-`docs/technical-constraints.md`. As a skill, radin-execute's body sits in the
+Two claims about background sub-agents are easy to get backwards, and both
+are settled in `docs/technical-constraints.md`: they **do** keep `Agent`
+(the second filter carves it out; its absence from that filter's list is not
+removal), and **nobody** picks foreground or background — fork mode removes
+`run_in_background` from the `Agent` tool, so no radin prompt may tell a
+model to set it.
+
+`claude agents` (agent view) reaches the same goal with nothing installed:
+full background sessions, whole tool pool, working `AskUserQuestion`, and
+`/radin-execute` runs unchanged in one. As a skill, radin-execute's body sits in the
 user's own context for the rest of the session, so keep `SKILL.md` to the
 loop and the gates; anything a run needs only sometimes goes in `lib/` and
 gets read on demand (`radin-execute-prompts.md` at Phase 4,
@@ -162,8 +160,9 @@ reinvent from scratch.
 
 0. **Make it a skill.** See "Why radin-execute is a skill" above: a
    sub-agent cannot ask the user anything. `radin-execute-background` is the
-   one exception, and it earns it by being opt-in and by inheriting its
-   phases from a skill rather than restating them.
+   one exception, and it earns it by being opt-in, by inheriting every phase
+   from the skill rather than restating them, and by asking in a transcript
+   the user is already reading.
 1. **Namespace resolution and backlog I/O.** Go through
    `bash "$HOME/.claude/.radin/lib/radin-backlog.sh"` (see
    `docs/architecture.md`'s "Namespace resolution and backlog CLI"

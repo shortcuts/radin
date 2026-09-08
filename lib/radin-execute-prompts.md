@@ -7,11 +7,11 @@ relevant prompt into each `Task` call. They live here rather than inline in
 common first turn) never reaches Phase 4 and never needs them.
 
 Every one of these runs in a sub-agent, which has no channel to the user and
-cannot be notified about a background task. So no prompt here may send a
-sub-agent into a skill that asks in prose or spawns its own agent: it would
-end its turn with no `STATUS:` line and the orchestrator would see a hang.
-Each prompt restates the rule inside its own fence, because a sub-agent
-receives only its own fence and never this narration.
+no `AskUserQuestion`. So no prompt here may send a sub-agent into a skill
+that asks in prose or spawns its own agent: it would end its turn with no
+`STATUS:` line and the router would see a hang. Each prompt restates the rule
+inside its own fence, because a sub-agent receives only its own fence and
+never this narration.
 
 Delegation stops here too: no prompt may tell a sub-agent to spawn a sub-agent
 of its own. Whether the *router* runs several of these at once is settled by
@@ -20,7 +20,10 @@ install time from the user's answer. It is never a sub-agent's call, and never
 restated in this file.
 
 Substitute the `UPPERCASE` placeholders before sending. Send every prompt
-with `model: "sonnet"` and `run_in_background: false`.
+with `model: "sonnet"`. Don't set `run_in_background`: Claude Code picks
+foreground or background itself, and with fork mode on (the default in an
+interactive session) it removes that parameter from the `Agent` tool
+entirely.
 
 ---
 

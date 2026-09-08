@@ -411,15 +411,16 @@ else
 fi
 
 step "Background backlog runs (optional)"
-# The only agent radin ships, and only on an explicit yes. A background
-# sub-agent has no Agent/Task tool, so this one implements each task itself
-# instead of routing -- see agents/radin-execute-background.md.
+# The only agent radin ships, and only on an explicit yes. It invokes the
+# skill and delegates exactly like it -- see
+# agents/radin-execute-background.md. `claude agents` reaches the same goal
+# with nothing installed, hence the default no.
 BACKGROUND_AGENT="false"
-if prompt_yn "Install radin-execute-background, to run the backlog in a background thread? (default: no)"; then
+if prompt_yn "Install radin-execute-background, to run the backlog in its own agent thread? ('claude agents' does this without it) (default: no)"; then
 	BACKGROUND_AGENT="true"
 	mkdir -p "$HOME/.claude/agents"
 	cp "$RADIN_ROOT"/agents/radin-execute-background.md "$HOME/.claude/agents/"
-	ok "radin-execute-background installed -- dispatch it with run_in_background: true"
+	ok "radin-execute-background installed -- ask for the backlog to run in the background"
 else
 	ok "no background agent -- run /radin-execute in your own thread"
 	# install.sh never removes a file (see AGENTS.md Constraints), so a

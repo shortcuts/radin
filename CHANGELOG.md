@@ -17,6 +17,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `radin-execute` dropped its 10-minute checkpoint. It existed because a
   sub-agent turn could not be interrupted; a skill's can, and every task's
   state is already durable when it lands.
+- Corrected two claims radin had wrong about sub-agents. They **do** keep the
+  `Agent` tool in the background — the second tool filter carves it out, and
+  its absence from that filter's list is not removal — so nothing about
+  delegation changes when a radin router runs as one. And nobody picks
+  foreground or background: fork mode, on by default in interactive
+  sessions, removes `run_in_background` from the `Agent` tool, so
+  `radin-execute` and the shared sub-agent prompts no longer tell anyone to
+  set it. A dispatched sub-agent's result may now arrive in a later turn, and
+  the loop waits for it instead of reporting early.
 - `install.sh` asks for one model instead of two. `radin-execute`'s own model
   is whatever you picked with `/model`, so only its sub-agents' model is a
   question — and the answer now reaches `lib/radin-execute-prompts.md` too,
@@ -25,13 +34,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 
 - `radin-execute-background`, opt-in at install time (`install.sh` asks,
-  default no): the same backlog run in a background thread you visit
+  default no): the same backlog run in its own agent thread you visit
   yourself, so your own thread stays free. It invokes `/radin-execute` and
-  overrides exactly one step — a background agent gets no `Agent`/`Task`
-  tool, so it implements each task itself instead of delegating. That means
-  one long context rather than a fresh one per task, and it asks you things
-  in its own transcript. The alternative that needs no install: a second
-  Claude Code session running `/radin-execute`.
+  follows every phase as written, sub-agent dispatch included. The one
+  difference is that it asks you things in prose rather than with a picker,
+  since a sub-agent has no `AskUserQuestion`. Default is no because
+  `claude agents` reaches the same goal with nothing installed — a background
+  session there is a full conversation, and `/radin-execute` runs unchanged
+  in one.
 - `lib/radin-execute-recovery.md` and `lib/radin-execute-reporting.md`:
   `radin-execute`'s crash-recovery routing and final-report template, read
   from disk when a run actually needs them. Recovery loads only when

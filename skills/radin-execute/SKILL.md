@@ -25,9 +25,14 @@ yours.
 
 - **Delegation depth = 1.** Every sub-agent you dispatch is a leaf. None of
   them spawns a sub-agent of its own.
-- **Every `Task` call runs `run_in_background: false`.** Wait for the
-  `STATUS:` line in the same turn you dispatched it. A backgrounded leaf can
-  finish while you are mid-loop, and its task sits claimed until you notice.
+- **You don't choose foreground or background.** Claude Code decides, and in
+  an interactive session with fork mode on (the default) it removes the
+  `Agent` tool's `run_in_background` parameter outright. So don't set it.
+  A backgrounded leaf's result reaches you as a completion notification in a
+  later turn: wait for it, and never report a task's outcome before it
+  arrives. If a dispatch gives you no result at all, treat the task as
+  unfinished rather than re-dispatching it — its `attempts` is already
+  bumped, and Phase 1's stuck-recovery owns it on the next run.
 - **The user's answers are binding.** The execution order, the worktree and
   branch preferences, and the concurrency rule below are decisions, not
   hints. A `no` especially: nothing you find later revises one, not a task
@@ -423,7 +428,7 @@ template.
   session's work, run /radin-review with scope: <commit hashes recorded in
   Phase 4>.`
 
-Reviewer sub-agent (`model: "sonnet"`, `run_in_background: false`). The
+Reviewer sub-agent (`model: "sonnet"`). The
 `radin-review` skill already owns the review-and-log flow, so send exactly:
 
 ```
