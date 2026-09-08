@@ -410,24 +410,24 @@ else
 	ok "keeping default sub-agent model (sonnet)"
 fi
 
-step "Detached backlog runs (optional)"
+step "Background backlog runs (optional)"
 # The only agent radin ships, and only on an explicit yes. A background
 # sub-agent has no Agent/Task tool, so this one implements each task itself
-# instead of routing -- see agents/radin-execute-detached.md.
-DETACHED_AGENT="false"
-if prompt_yn "Install radin-execute-detached, to run the backlog in a background thread? (default: no)"; then
-	DETACHED_AGENT="true"
+# instead of routing -- see agents/radin-execute-background.md.
+BACKGROUND_AGENT="false"
+if prompt_yn "Install radin-execute-background, to run the backlog in a background thread? (default: no)"; then
+	BACKGROUND_AGENT="true"
 	mkdir -p "$HOME/.claude/agents"
-	cp "$RADIN_ROOT"/agents/radin-execute-detached.md "$HOME/.claude/agents/"
-	ok "radin-execute-detached installed -- dispatch it with run_in_background: true"
+	cp "$RADIN_ROOT"/agents/radin-execute-background.md "$HOME/.claude/agents/"
+	ok "radin-execute-background installed -- dispatch it with run_in_background: true"
 else
-	ok "no detached agent -- run /radin-execute in your own thread"
+	ok "no background agent -- run /radin-execute in your own thread"
 	# install.sh never removes a file (see AGENTS.md Constraints), so a
 	# previously-installed copy has to be named rather than deleted.
-	if [ -f "$HOME/.claude/agents/radin-execute-detached.md" ]; then
-		warn "an earlier install left $HOME/.claude/agents/radin-execute-detached.md."
+	if [ -f "$HOME/.claude/agents/radin-execute-background.md" ]; then
+		warn "an earlier install left $HOME/.claude/agents/radin-execute-background.md."
 		warn "Declining here does not remove it. Remove with:"
-		warn "  rm \"$HOME/.claude/agents/radin-execute-detached.md\""
+		warn "  rm \"$HOME/.claude/agents/radin-execute-background.md\""
 	fi
 fi
 
@@ -517,7 +517,7 @@ cat >"$MANIFEST_FILE" <<EOF
   "version": "$MANIFEST_VERSION",
   "installed_at": "$INSTALLED_AT",
   "parallel_execution": $PARALLEL_MODE,
-  "detached_agent": $DETACHED_AGENT,
+  "background_agent": $BACKGROUND_AGENT,
   "skills": [
     "radin-execute",
     "radin-plan",

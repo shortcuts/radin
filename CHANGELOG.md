@@ -24,7 +24,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
-- `radin-execute-detached`, opt-in at install time (`install.sh` asks,
+- `radin-execute-background`, opt-in at install time (`install.sh` asks,
   default no): the same backlog run in a background thread you visit
   yourself, so your own thread stays free. It invokes `/radin-execute` and
   overrides exactly one step — a background agent gets no `Agent`/`Task`

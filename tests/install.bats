@@ -78,7 +78,7 @@ teardown() {
 # trimmed PATH, so all five prompts fire and all five get declined.
 # Every prompt is a numbered picker: 1 is the first option (parallel / yes),
 # 2 the second (sequential / no). Order: 1 parallel-execution,
-# 2 sub-agent-model, 3 detached-agent, then one per companion tool starting
+# 2 sub-agent-model, 3 background-agent, then one per companion tool starting
 # with rtk at 4. run_install_no_companions_answering puts its answer on rtk.
 run_install_no_companions() {
   cd "$REPO_ROOT" && printf '2\n2\n2\n2\n2\n2\n2\n2\n' | bash ./install.sh
@@ -107,28 +107,28 @@ run_install_no_companions_answering() {
 
 # Every entry point is a skill, so it runs in the user's own thread. The one
 # agent radin ships is opt-in, and declining must not even create the dir.
-@test "declining the detached agent leaves ~/.claude/agents alone" {
+@test "declining the background agent leaves ~/.claude/agents alone" {
   run_install_no_companions
   [ ! -d "$TEST_HOME/.claude/agents" ]
-  grep -q '"detached_agent": false' "$TEST_HOME/.claude/.radin/manifest.json"
+  grep -q '"background_agent": false' "$TEST_HOME/.claude/.radin/manifest.json"
 }
 
-@test "accepting the detached agent installs just that one agent" {
+@test "accepting the background agent installs just that one agent" {
   cd "$REPO_ROOT" && run bash -c "printf '2\n2\n1\n2\n2\n2\n2\n2\n' | bash ./install.sh"
   [ "$status" -eq 0 ]
-  [ -f "$TEST_HOME/.claude/agents/radin-execute-detached.md" ]
+  [ -f "$TEST_HOME/.claude/agents/radin-execute-background.md" ]
   [ ! -e "$TEST_HOME/.claude/agents/radin-execute.md" ]
-  grep -q '"detached_agent": true' "$TEST_HOME/.claude/.radin/manifest.json"
+  grep -q '"background_agent": true' "$TEST_HOME/.claude/.radin/manifest.json"
 }
 
 # Declining is not a removal: install.sh never deletes a file, so it has to
 # name the leftover instead of quietly leaving a shadowed copy behind.
-@test "declining names a previously-installed detached agent instead of removing it" {
+@test "declining names a previously-installed background agent instead of removing it" {
   mkdir -p "$TEST_HOME/.claude/agents"
-  : > "$TEST_HOME/.claude/agents/radin-execute-detached.md"
+  : > "$TEST_HOME/.claude/agents/radin-execute-background.md"
   run run_install_no_companions
   [ "$status" -eq 0 ]
-  [ -f "$TEST_HOME/.claude/agents/radin-execute-detached.md" ]
+  [ -f "$TEST_HOME/.claude/agents/radin-execute-background.md" ]
   [[ "$output" == *"an earlier install left"* ]]
 }
 

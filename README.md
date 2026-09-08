@@ -97,7 +97,7 @@ Typical flow:
 | `radin-setup-hooks` | Wires up per-repo hooks/MCP config for companion tools |
 | `radin-stats` | Shows each installed companion tool's own stats/gain output, side by side |
 | `radin-uninstall` | Removes everything `install.sh` added to `~/.claude` |
-| `radin-execute-detached` | Same backlog run, in a background thread you visit yourself. Opt-in at install time |
+| `radin-execute-background` | Same backlog run, in a background thread you visit yourself. Opt-in at install time |
 
 Some delegate to other skills instead of reimplementing review or
 style logic themselves:
@@ -157,7 +157,7 @@ work.
 
 Want your thread free while the backlog runs? Two ways:
 
-- Say yes to `radin-execute-detached` at install time, then ask for the
+- Say yes to `radin-execute-background` at install time, then ask for the
   backlog to run in the background. It works the same backlog in its own
   thread, and you go there to read its reports and answer its questions. It
   implements each task itself rather than delegating (a background agent has

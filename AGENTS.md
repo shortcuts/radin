@@ -27,11 +27,11 @@ This repo source of truth. Any skill iteration must be done in `skills/*/SKILL.m
 Every entry point is a skill, so it runs in the user's own thread and can
 talk to them. Sub-agents exist only as leaf workers, dispatched by a skill,
 for work whose context is worth isolating. One exception ships as an agent,
-`agents/radin-execute-detached.md`, and it is opt-in at install time — see
+`agents/radin-execute-background.md`, and it is opt-in at install time — see
 "Why radin-execute is a skill" below before you add a second.
 
 - **Editing radin's own skills:** edit `skills/*/SKILL.md` directly, and
-  `agents/radin-execute-detached.md` for the one agent.
+  `agents/radin-execute-background.md` for the one agent.
   `thermo-nuclear` one exception — not vendored here at all. `install.sh`
   downloads its `SKILL.md` straight from cursor/plugins at install time,
   same as any other companion tool. radin only vendors what it wrote
@@ -115,9 +115,9 @@ capability limits forced it into `skills/radin-execute/SKILL.md`:
   a single sub-agent. To free the main thread, start a second Claude Code
   session and run `/radin-execute` there.
 
-### The one agent: `radin-execute-detached`
+### The one agent: `radin-execute-background`
 
-`agents/radin-execute-detached.md` exists for the user who wants the backlog
+`agents/radin-execute-background.md` exists for the user who wants the backlog
 run out of the way, in a background thread they visit themselves. It is
 opt-in (`install.sh` asks; default no) and it is deliberately thin: it
 invokes `/radin-execute` and overrides exactly one step.
@@ -161,7 +161,7 @@ complete example. Shared conventions below easy to drift from if you
 reinvent from scratch.
 
 0. **Make it a skill.** See "Why radin-execute is a skill" above: a
-   sub-agent cannot ask the user anything. `radin-execute-detached` is the
+   sub-agent cannot ask the user anything. `radin-execute-background` is the
    one exception, and it earns it by being opt-in and by inheriting its
    phases from a skill rather than restating them.
 1. **Namespace resolution and backlog I/O.** Go through
@@ -242,9 +242,9 @@ per-repo `<repo-root>/.claude/.radin/` backlog namespace — same `.radin`
 name, different scope: this one holds shared scripts like
 `radin-backlog.sh`, not backlog state). `install.sh` may only `cp`/`cp -r`
 radin's own named files (radin's own `skills/<name>/`,
-`agents/radin-execute-detached.md`, `lib/*` into `~/.claude/.radin/lib/`) and
+`agents/radin-execute-background.md`, `lib/*` into `~/.claude/.radin/lib/`) and
 `mkdir -p`. Never `rm` — a pre-migration `~/.claude/agents/radin-execute.md`,
-or a `radin-execute-detached.md` the user has since declined, gets a warning
+or a `radin-execute-background.md` the user has since declined, gets a warning
 plus the exact `rm` to run, never a deletion. Never wildcard-delete directory. Never overwrite file radin didn't
 ship. Call out explicitly on any edit to `install.sh`.
 
