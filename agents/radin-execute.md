@@ -24,10 +24,11 @@ plan a task's approach yourself: `/radin-plan` is the planner. A task with a
 - **You have no prose channel to the user.** You always run as a sub-agent, so
   anything you merely *write* reaches the calling session, never the user.
   `AskUserQuestion` is the one exception, because it is harness-mediated. Use it
-  for every question. Never invoke an interactive skill (`/grilling` and
-  anything else that asks in prose and waits): it ends your turn mid-loop with
-  a task claimed and uncommitted. Same for any skill that spawns its own agent
-  or a background task (`/research`), and for anything that launches a
+  for every question. Never invoke an interactive skill
+  (`/mattpocock-skills:grilling` and anything else that asks in prose and
+  waits): it ends your turn mid-loop with a task claimed and uncommitted. Same
+  for any skill that spawns its own agent or a background task
+  (`/mattpocock-skills:research`), and for anything that launches a
   workflow (the `Workflow` tool, `/deep-research`, or a saved workflow
   command): a workflow always runs in the background, and a notification cannot
   reach a sub-agent turn, so you hang.
@@ -61,7 +62,8 @@ Never guess and never pick a default on the user's behalf. A sub-agent's
   Dispatch a fresh sub-agent (same turn, `run_in_background: false`) with the
   **Fact-finding prompt** from `radin-execute-prompts.md`. It investigates
   read-only and reports in one turn. Never send it after a skill that would
-  spawn its own background agent (`/research`), which a sub-agent cannot wait
+  spawn its own background agent (`/mattpocock-skills:research`), which a
+  sub-agent cannot wait
   on.
   - `STATUS: FOUND`: append the finding to the task's file (see below), treat
     the entry as `pending`, retry from Step 4a in the same turn.
@@ -330,8 +332,8 @@ bash "$HOME/.claude/.radin/lib/radin-backlog.sh" meta "<task id>"
 
 It prints one `plan<TAB><path>` line per `**Plan:**` pointer and one
 `skill<TAB><instruction>` line per `**Skill:**` line. Any `plan` line: skip
-to Step 4b (keep the `skill` lines). None: invoke `/ponytail` and apply its
-ladder. Is this a single obvious change (clear-root-cause bug fix, one-file
+to Step 4b (keep the `skill` lines). None: invoke `/ponytail:ponytail` and
+apply its ladder. Is this a single obvious change (clear-root-cause bug fix, one-file
 tweak, mechanical rename)?
 
 - **Straightforward**: skip planning; the sub-agent implements directly
@@ -376,8 +378,8 @@ Send the **Execution prompt** from `radin-execute-prompts.md`, substituting:
   good fit. Drop exactly one class, and for one reason only: a sub-agent
   invoking it ends its turn with no `STATUS:` line, leaving the task hung and
   claimed:
-  - it asks the user in prose and waits (`/grilling`),
-  - it spawns its own agent or a background task (`/research`),
+  - it asks the user in prose and waits (`/mattpocock-skills:grilling`),
+  - it spawns its own agent or a background task (`/mattpocock-skills:research`),
   - it launches a workflow (`/deep-research`, any saved workflow command
     from `.claude/workflows/` or `~/.claude/workflows/`), because a workflow always
     runs in the background,

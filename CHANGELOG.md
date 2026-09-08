@@ -13,6 +13,19 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Every companion-tool skill is now named with its plugin prefix in
+  `radin-execute`, `radin-plan`, `radin-record`, `radin-review`,
+  `radin-stats`, and the shared sub-agent prompts:
+  `/mattpocock-skills:grilling`, `/ponytail:ponytail-review`,
+  `/caveman:caveman-commit`, and so on. A bare `/grilling` also reads as an
+  agent name, and radin's prompts got answered by a spawned agent, which
+  cannot ask the user anything.
+
+- The sub-agent prompt no longer lists `/mattpocock-skills:grilling` among
+  skills that spawn an agent or a background task. It spawns neither. The
+  prompt now skips it for its real reason: it asks the user in prose, and a
+  sub-agent has no channel to the user.
+
 - `radin-execute` can no longer skip its Phase 2 gate. Every run now asks
   the execution order and which tasks to tackle now, and an invoking prompt
   claiming the order is already approved is treated as context, not consent.

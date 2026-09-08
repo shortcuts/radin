@@ -40,8 +40,10 @@ confirmation (splitting the entry, overwriting an existing plan), take
 the non-destructive path instead: don't split, and don't overwrite. Do NOT
 implement anything. Do not spawn a sub-agent, do not call the Workflow
 tool, and do not invoke a skill that spawns an agent, a background task,
-or a workflow (`/grilling`, `/research`, `/deep-research`): you cannot be
-notified when it finishes, so waiting on it hangs the run. Anything you could
+or a workflow (`/mattpocock-skills:research`, `/deep-research`): you cannot be
+notified when it finishes, so waiting on it hangs the run. Skip
+`/mattpocock-skills:grilling` for the other reason: it asks the user in prose,
+and you have no channel to the user. Anything you could
 only settle that way is BLOCKED material.
 
 The plan must settle every decision: the executor makes no judgment
@@ -139,7 +141,7 @@ notified when it finishes.
    test that pins the expected behavior, following existing test conventions in the repo
 5. Run any required checks (lint, tests, format) per project conventions
 6. Fix any issues before committing
-7. Invoke the `/caveman-commit` skill to draft the commit message, then commit. If `/caveman-commit` is unavailable, write a conventional-commit message yourself.
+7. Invoke the `/caveman:caveman-commit` skill to draft the commit message, then commit. If `/caveman:caveman-commit` is unavailable, write a conventional-commit message yourself.
 8. Run `bash "$HOME/.claude/.radin/lib/radin-state.sh" dirty-check "$(pwd)"` from the tree
    step 1a handed you, so the check covers the files you actually touched.
    If anything is still uncommitted (including changes made incidentally while

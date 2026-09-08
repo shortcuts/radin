@@ -39,8 +39,9 @@ limiting on top of new auth middleware" needs the middleware first). Log
 each piece as its own entry, split by the work's shape rather than the user's
 phrasing.
 
-When scope or split is genuinely unclear, invoke `/grilling` on that point
-and let the user settle it before logging, mid-scan too. Distinguish that
+When scope or split is genuinely unclear, invoke
+`/mattpocock-skills:grilling` on that point and let the user settle it before
+logging, mid-scan too. Distinguish that
 from an item that is *real but not yet sharp* (clear boundary, fuzzy work,
 as in "figure out caching at some point"): log it as a stub with a short
 title and a body saying plainly it's unspecified and what's known so far.
@@ -62,11 +63,11 @@ to decide that the conversation didn't settle. Tag each question:
   `radin-execute` resolves facts AFK by dispatching its own read-only
   fact-finding sub-agent.
 - **Decision**: a judgment call only the user can make (tradeoff, scope
-  boundary, behavior choice). Invoke `/grilling` on these NOW, before moving
-  to the next item, one question at a time. Do not batch decisions across
-  items into a single end-of-scan question, and do not summarize the
-  decision yourself and ask the user to confirm your summary. `/grilling`
-  asks the actual question. Keep every settled answer for Step 5's body.
+  boundary, behavior choice). Invoke `/mattpocock-skills:grilling` on these
+  NOW, before moving to the next item, one question at a time. Do not batch
+  decisions across items into a single end-of-scan question, and do not
+  summarize the decision yourself and ask the user to confirm your summary.
+  Grilling asks the actual question. Keep every settled answer for Step 5's body.
 
 One test decides whether an item may skip this step: what would an executor
 with no session context have to guess to land it without asking anyone? Name
