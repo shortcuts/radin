@@ -6,6 +6,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- `radin-review` no longer logs findings on its own. It prints the in-scope
+  findings, then gates on the user: log the ones it recommends, log all, or
+  let the user pick by number. It then offers a per-finding refinement pass
+  that sends each kept finding through `/mattpocock-skills:grilling`, one at a
+  time, so a wrong scope, remedy, or priority gets corrected before the entry
+  is written instead of after.
+  A non-interactive caller (radin-execute's reviewer sub-agent has no
+  `AskUserQuestion`) keeps the old log-everything behavior and says so in its
+  report.
+
 - `radin-execute` is a skill (`skills/radin-execute/SKILL.md`), not an agent.
   It ran as a sub-agent, and Claude Code removes `AskUserQuestion` from every
   sub-agent — so its Phase 2 gate could never actually ask, and every run fell

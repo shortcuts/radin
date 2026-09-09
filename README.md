@@ -79,8 +79,9 @@ Typical flow:
    want planned ahead of time.
 3. **Execute.** Run `radin-execute` work through backlog,
    entry by entry, committing as it goes.
-4. **Review.** Run `radin-review` against commit, PR, or directory. Every
-   finding become new backlog entry, ready for next pass of step 3.
+4. **Review.** Run `radin-review` against commit, PR, or directory. It shows
+   findings, asks which to keep, then each kept one become new backlog entry,
+   ready for next pass of step 3.
 
 ## Tools you get
 
@@ -90,7 +91,7 @@ Typical flow:
 | --- | --- |
 | `radin-execute` | Chews through backlog, one task at time, commits as it goes |
 | `radin-plan` | Writes plan for one backlog entry you point it at, instead of touching code |
-| `radin-review` | Strict code-quality pass, findings logged straight back into backlog |
+| `radin-review` | Strict code-quality pass, findings triaged with you then logged into backlog |
 | `radin-record` | Logs feedback/bugs/ideas raised mid-session as backlog entries |
 | `radin-show` | Prints current project's backlog |
 | `radin-doctor` | Checks radin's own install complete, reports which companion tools reachable |
@@ -178,15 +179,18 @@ session, log findings back to backlog as new entries.
 
 #### `radin-review`
 
-Run strict quality review over chosen scope, log findings to
-backlog instead of printing to terminal.
+Run strict quality review over chosen scope, then log findings to
+backlog instead of printing to terminal. Nothing logged without your
+agreement: skill lists findings, asks which to keep (its picks, all, or
+yours), then offers refinement pass that grills each kept finding via
+`/mattpocock-skills:grilling` before write.
 
 ```
 /radin-review #123
 ```
 
 Also accepts commit hash, directory path, or natural-language range
-like `"commits since Monday"`. Result: one backlog task per finding,
+like `"commits since Monday"`. Result: one backlog task per kept finding,
 classified as `fix` (real bug) or `refactor` (structural).
 
 #### `radin-setup-hooks`
@@ -215,7 +219,7 @@ own repo stays source of truth.
 | [code-review-graph](https://github.com/tirth8205/code-review-graph) | Local-first code intelligence graph for MCP and CLI. Builds persistent map of codebase so AI coding tools read only what matters |
 | [headroom](https://github.com/headroomlabs-ai/headroom) | Local-first context-compression stack — proxy/MCP/wrap layer with cross-agent memory and CLAUDE.md-learning. Complements rtk (whole-session wrap vs. rtk's per-command compression), not replacement. Python/pip footprint — install prompts extra confirmation |
 | [thermo-nuclear](https://github.com/cursor/plugins/tree/main/cursor-team-kit/skills/thermo-nuclear-code-quality-review) | Code quality review skill, vendored from cursor/plugins at install time via [vercel-labs/skills](https://github.com/vercel-labs/skills) CLI |
-| [mattpocock-skills](https://github.com/mattpocock/skills) | Engineering skills plugin (`claude-plugins-official` marketplace) — `radin-plan` delegates interview step to `/grilling`, API/library fact-checking to `/research` instead of reimplementing them |
+| [mattpocock-skills](https://github.com/mattpocock/skills) | Engineering skills plugin (`claude-plugins-official` marketplace) — `radin-plan` and `radin-review` delegate interview step to `/grilling`, `radin-plan` sends API/library fact-checking to `/research` instead of reimplementing them |
 
 ---
 
