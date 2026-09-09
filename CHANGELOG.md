@@ -4,6 +4,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- `radin-review` ends with one question: leave the logged findings in the
+  backlog, or run `/radin-execute` right away. The entries are written either
+  way; the question only decides whether the run starts now.
+
 ### Changed
 
 - `radin-review` no longer logs findings on its own. It prints the in-scope
