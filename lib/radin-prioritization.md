@@ -14,7 +14,7 @@ its own.
 1. Don't parse entries yourself — the backlog CLI resolves them:
 
    ```bash
-   bash "$HOME/.claude/.radin/lib/radin-backlog.sh" list
+   radin backlog list
    ```
 
    One `id<TAB>category<TAB>title<TAB>file` line per task, across all
@@ -60,7 +60,7 @@ another line:
 Never write this JSON by hand. `radin-state.sh steps-init` creates the file
 from `id<TAB>order<TAB>depends-on-csv` lines on stdin, and every later
 mutation (marking an entry `blocked`/`failed`, recording a completed task
-via `task-done`) goes through `radin-state.sh` too. See its own usage
+via `task-done`) goes through `radin state` too. See its own usage
 comment for the full command list.
 
 Ensure:

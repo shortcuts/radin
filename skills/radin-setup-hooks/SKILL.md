@@ -18,7 +18,7 @@ another companion tool that needs wiring, extend this skill and
 
 **Never run `code-review-graph install`.** Upstream's installer replaces the
 whole `hooks` key in settings.json, destroying any hooks the user already
-has. `radin-crg-hooks.sh` replicates its three writes merge-only, and skips
+has. `radin crg-hooks` replicates its three writes merge-only, and skips
 any entry the target already defines — an existing definition, whatever its
 shape, is never redefined.
 
@@ -34,10 +34,12 @@ shape, is never redefined.
 3. On yes:
 
    ```bash
-   bash "$HOME/.claude/.radin/lib/radin-crg-hooks.sh" all
+   radin crg-hooks all
    ```
 
-4. On no: stop, write nothing.
+(`radin` not on PATH? Call `"$HOME/.claude/.radin/bin/radin"` instead.)
+
+1. On no: stop, write nothing.
 
 ## Report
 

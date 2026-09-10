@@ -119,7 +119,7 @@ command fail rather than run: don't reach for them.
    and that is deliberate: no other task's material reaches you.
 1a. Set up the tree you will work in. One command decides it, from the
    worktree/branch preference the user already recorded for this repo:
-   `bash "$HOME/.claude/.radin/lib/radin-state.sh" prepare "NAMESPACE_DIR" "TASK_ID"`.
+   `radin state prepare "NAMESPACE_DIR" "TASK_ID"`.
    It prints one absolute path on stdout. `cd` there and do every step below
    in it. Whatever it prints is right, whether that is the repo root or a
    worktree, on a task branch or on the branch the user already had checked
@@ -164,7 +164,7 @@ command fail rather than run: don't reach for them.
 5. Run any required checks (lint, tests, format) per project conventions
 6. Fix any issues before committing
 7. Invoke the `/caveman:caveman-commit` skill to draft the commit message, then commit. If `/caveman:caveman-commit` is unavailable, write a conventional-commit message yourself.
-8. Run `bash "$HOME/.claude/.radin/lib/radin-state.sh" dirty-check "$(pwd)"` from the tree
+8. Run `radin state dirty-check "$(pwd)"` from the tree
    step 1a handed you, so the check covers the files you actually touched.
    If anything is still uncommitted (including changes made incidentally while
    investigating, e.g. formatter/linter auto-fixes), either commit it as part of this

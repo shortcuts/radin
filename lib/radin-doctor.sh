@@ -65,6 +65,14 @@ for name in radin-execute radin-plan radin-record radin-review radin-setup-hooks
 done
 
 printf '\nLib (%s/.radin/lib):\n' "$CLAUDE_DIR"
+printf '\nCLI (%s/.radin/bin):\n' "$CLAUDE_DIR"
+check_lib_script "radin (dispatcher)" "$CLAUDE_DIR/.radin/bin/radin"
+if [ "$(readlink "$HOME/.local/bin/radin" 2>/dev/null)" = "$CLAUDE_DIR/.radin/bin/radin" ]; then
+	printf '  %-20s symlinked into ~/.local/bin\n' "radin (PATH)"
+else
+	printf '  %-20s not on PATH (optional; skills fall back to the full path)\n' "radin (PATH)"
+fi
+
 check_lib_script "radin-namespace.sh" "$CLAUDE_DIR/.radin/lib/radin-namespace.sh"
 check_lib_script "radin-json.sh" "$CLAUDE_DIR/.radin/lib/radin-json.sh"
 check_lib_script "radin-backlog.sh" "$CLAUDE_DIR/.radin/lib/radin-backlog.sh"

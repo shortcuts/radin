@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# radin CLI dispatcher: one command on PATH instead of long
+# `bash ~/.claude/.radin/lib/radin-<name>.sh` invocations in every skill.
+# Installed to ~/.claude/.radin/bin/radin and symlinked into ~/.local/bin
+# by install.sh. Must stay bash-3.2-compatible (macOS /bin/bash).
+set -euo pipefail
+
+LIB="$HOME/.claude/.radin/lib"
+
+cmd="${1:-}"
+case "$cmd" in
+backlog | state | scope | crg-hooks | doctor | uninstall)
+	shift
+	exec bash "$LIB/radin-$cmd.sh" "$@"
+	;;
+*)
+	printf 'usage: radin <backlog|state|scope|crg-hooks|doctor|uninstall> [args]\n' >&2
+	printf 'Each subcommand prints its own usage when run with no arguments.\n' >&2
+	exit 1
+	;;
+esac

@@ -18,8 +18,10 @@ are currently reachable. It never mutates anything, which mirrors
 ## Step 1: Run it
 
 ```bash
-bash "$HOME/.claude/.radin/lib/radin-doctor.sh"
+radin doctor
 ```
+
+(`radin` not on PATH? Call `"$HOME/.claude/.radin/bin/radin"` instead.)
 
 ## Step 2: Report it
 

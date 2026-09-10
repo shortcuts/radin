@@ -38,7 +38,7 @@ Replaced earlier `~/.claude/.radin/projects/<repo-slug>/` scheme. That scheme ke
 Every one of `skills/radin-execute/SKILL.md`, `skills/radin-plan/SKILL.md`, `skills/radin-review/SKILL.md`, `skills/radin-record/SKILL.md`, `skills/radin-show/SKILL.md` goes through same shared CLI, `lib/radin-backlog.sh`, for every deterministic backlog op:
 
 ```bash
-bash "$HOME/.claude/.radin/lib/radin-backlog.sh" <env|show|find|add|add-plan|remove>
+radin backlog <env|show|find|add|add-plan|remove>   # dispatcher at ~/.claude/.radin/bin/radin, symlinked into ~/.local/bin
 ```
 
 - `env` — namespace resolution (delegates to `lib/radin-namespace.sh`, single source of truth for path logic; prints `REPO_ROOT`, `NAMESPACE_DIR`, `BACKLOG_INDEX`, `BACKLOG_TASKS_DIR`)
@@ -51,7 +51,7 @@ bash "$HOME/.claude/.radin/lib/radin-backlog.sh" <env|show|find|add|add-plan|rem
 
 Point: offloading. Id assignment, task lookup, plan-pointer insertion — deterministic ops model used to re-derive from prose rules every run. CLI does them exact; agents/skills supply only judgment (what to log, how to classify, what to plan). Task's file path always `$BACKLOG_TASKS_DIR/<id>.md`, never computed from stored line number — nothing here goes stale as backlog shape changes.
 
-`install.sh` copies `lib/radin-namespace.sh`, `lib/radin-backlog.sh`, `lib/radin-state.sh` to `~/.claude/.radin/lib/`. Consumer install never has this repo's `lib/` directly, so all three scripts dist like any other radin file.
+`install.sh` copies `lib/radin-namespace.sh`, `lib/radin-backlog.sh`, `lib/radin-state.sh` to `~/.claude/.radin/lib/`, and `bin/radin` — a dispatcher mapping `radin <backlog|state|scope|crg-hooks|doctor|uninstall>` to those scripts — to `~/.claude/.radin/bin/`, with an optional `~/.local/bin/radin` symlink (default yes; an existing non-radin file there is named, never replaced). Consumer install never has this repo's `lib/` directly, so the scripts dist like any other radin file.
 
 Inside script:
 
@@ -66,7 +66,7 @@ Creates `state/`, `plans/`, `reviews/`, `backlog/tasks/` under `$NAMESPACE_DIR`,
 `radin-execute`'s own state files (`BACKLOG_STEPS.json`, `completed.json`) get same treatment as backlog. Sibling CLI, `lib/radin-state.sh`, only way agent mutates either file — never hand-written JSON edit in agent's own prose.
 
 ```bash
-bash "$HOME/.claude/.radin/lib/radin-state.sh" <start|stuck|triage|set-status|remove|completed-add|completed-get|task-dir|prepare|dirty-check|session-set|session-get|journal-tail>
+radin state <start|stuck|triage|set-status|remove|completed-add|completed-get|task-dir|prepare|dirty-check|session-set|session-get|journal-tail>
 ```
 
 - `start <steps-file> <id>` — claim task before dispatch: `status` `in_progress`, `attempts` +1. Exits 2 having marked entry `blocked` once `attempts` passes `MAX_ATTEMPTS` (3), so crash loop can't burn tokens forever
@@ -141,6 +141,8 @@ radin/
     radin-uninstall/
       SKILL.md
   docs/
+  bin/
+    radin
   lib/
     radin-backlog.sh
     radin-crg-hooks.sh

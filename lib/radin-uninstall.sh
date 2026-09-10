@@ -30,6 +30,14 @@ for name in radin-execute radin-plan radin-record radin-review radin-setup-hooks
 	remove_path "$name" "$CLAUDE_DIR/skills/$name"
 done
 
+printf '\nCLI (%s/.radin/bin):\n' "$CLAUDE_DIR"
+# The ~/.local/bin symlink is removed only when it points at radin's own
+# dispatcher -- anything else there is not ours to delete.
+if [ "$(readlink "$HOME/.local/bin/radin" 2>/dev/null)" = "$CLAUDE_DIR/.radin/bin/radin" ]; then
+	remove_path "radin (~/.local/bin symlink)" "$HOME/.local/bin/radin"
+fi
+remove_path "radin (dispatcher)" "$CLAUDE_DIR/.radin/bin/radin"
+
 printf '\nLib (%s/.radin/lib):\n' "$CLAUDE_DIR"
 remove_path "radin-namespace.sh" "$CLAUDE_DIR/.radin/lib/radin-namespace.sh"
 remove_path "radin-json.sh" "$CLAUDE_DIR/.radin/lib/radin-json.sh"

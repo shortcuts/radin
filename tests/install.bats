@@ -237,6 +237,34 @@ run_install_no_companions_answering() {
   grep -q '"claude_md_guidance": true' "$TEST_HOME/.claude/.radin/manifest.json"
 }
 
+# The CLI symlink prompt is last and defaults to yes, so a fully-defaulted
+# run gets the dispatcher on PATH.
+@test "installs the radin CLI dispatcher and the ~/.local/bin symlink" {
+  run_install_no_companions
+  [ -x "$TEST_HOME/.claude/.radin/bin/radin" ]
+  [ -L "$TEST_HOME/.local/bin/radin" ]
+  [ "$(readlink "$TEST_HOME/.local/bin/radin")" = "$TEST_HOME/.claude/.radin/bin/radin" ]
+  grep -q '"cli_on_path": true' "$TEST_HOME/.claude/.radin/manifest.json"
+}
+
+@test "the dispatcher routes subcommands to the installed lib scripts" {
+  run_install_no_companions
+  run env HOME="$TEST_HOME" bash "$TEST_HOME/.claude/.radin/bin/radin" backlog count
+  [ "$status" -eq 0 ]
+  [ "$output" = "0" ]
+  run env HOME="$TEST_HOME" bash "$TEST_HOME/.claude/.radin/bin/radin" nope
+  [ "$status" -ne 0 ]
+}
+
+@test "an existing non-radin ~/.local/bin/radin is named, never replaced" {
+  mkdir -p "$TEST_HOME/.local/bin"
+  echo "someone else's" > "$TEST_HOME/.local/bin/radin"
+  run run_install_no_companions
+  [ "$status" -eq 0 ]
+  [ "$(cat "$TEST_HOME/.local/bin/radin")" = "someone else's" ]
+  [[ "$output" == *"isn't radin's"* ]]
+}
+
 @test "declining per-task verification keeps the no-refuter rule only" {
   run_install_no_companions
   agent="$TEST_HOME/.claude/skills/radin-execute/SKILL.md"

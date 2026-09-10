@@ -128,7 +128,7 @@ installs nothing for it: full background sessions, whole tool pool, working
 user's own context for the rest of the session, so keep `SKILL.md` to the
 loop and the gates; anything a run needs only sometimes goes in `lib/` and
 gets read on demand (`radin-execute-prompts.md` at Phase 4,
-`radin-execute-recovery.md` only when `radin-state.sh stuck` finds something,
+`radin-execute-recovery.md` only when `radin state stuck` finds something,
 `radin-execute-reporting.md` at Phase 5).
 
 ## Adding new radin skill
@@ -140,7 +140,7 @@ reinvent from scratch.
 0. **Make it a skill.** See "Why radin-execute is a skill" above: a
    sub-agent cannot ask the user anything.
 1. **Namespace resolution and backlog I/O.** Go through
-   `bash "$HOME/.claude/.radin/lib/radin-backlog.sh"` (see
+   the `radin backlog` CLI (dispatcher `bin/radin`; see
    `docs/architecture.md`'s "Namespace resolution and backlog CLI"
    section): `env` for `REPO_ROOT`/`NAMESPACE_DIR`/`BACKLOG_INDEX`/
    `BACKLOG_TASKS_DIR`, and `find`/`add`/`add-plan`/`remove` for entry

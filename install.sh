@@ -138,6 +138,9 @@ for s in radin-execute radin-review radin-record radin-show radin-plan \
 	radin-setup-hooks radin-stats radin-doctor radin-uninstall; do
 	cp -r "$RADIN_ROOT/skills/$s" "$HOME/.claude/skills/"
 done
+mkdir -p "$HOME/.claude/.radin/bin"
+cp "$RADIN_ROOT/bin/radin" "$HOME/.claude/.radin/bin/"
+chmod +x "$HOME/.claude/.radin/bin/radin"
 # thermo-nuclear is vendored via the vercel-labs/skills CLI (agentskills.io
 # spec), not a Claude Code plugin -- cursor/plugins isn't a plugin marketplace
 # repo, just a SKILL.md at this subpath. Falls back to a raw curl of the file
@@ -313,8 +316,18 @@ install_if_confirmed() {
 		prompt_yn "Confirm: install $name's Python/pip stack?" || return 0
 	fi
 	# Companion installs are advisory: a failed one warns, never aborts radin's
-	# own install (set -e would otherwise kill the script here).
-	eval "$install_cmd" || warn "$name install failed -- radin itself is unaffected."
+	# own install (set -e would otherwise kill the script here). Their output
+	# is noise on success (pip dependency walls, brew hints) -- log it, show
+	# the tail only when the install fails.
+	local log
+	log="$(mktemp)"
+	if eval "$install_cmd" >"$log" 2>&1; then
+		ok "$name installed."
+	else
+		tail -n 20 "$log" >&2
+		warn "$name install failed -- radin itself is unaffected."
+	fi
+	rm -f "$log"
 }
 
 install_plugin_if_confirmed() {
@@ -324,17 +337,33 @@ install_plugin_if_confirmed() {
 			ok "$name already installed, skipping (--force to update)."
 			return
 		fi
-		{
+		local log
+		log="$(mktemp)"
+		if {
 			claude plugin marketplace update
 			claude plugin update "$plugin_id"
-		} || warn "$name update failed -- radin itself is unaffected."
+		} >"$log" 2>&1; then
+			ok "$name updated."
+		else
+			tail -n 20 "$log" >&2
+			warn "$name update failed -- radin itself is unaffected."
+		fi
+		rm -f "$log"
 		return
 	fi
 	prompt_yn "Install $name?" || return 0
-	{
+	local log
+	log="$(mktemp)"
+	if {
 		claude plugin marketplace add "$marketplace_source"
 		claude plugin install "$plugin_id"
-	} || warn "$name install failed -- radin itself is unaffected."
+	} >"$log" 2>&1; then
+		ok "$name installed."
+	else
+		tail -n 20 "$log" >&2
+		warn "$name install failed -- radin itself is unaffected."
+	fi
+	rm -f "$log"
 }
 
 # Every sub-agent role ships a distinct RADIN_MODEL_<ROLE> token instead of a
@@ -485,7 +514,7 @@ step "Companion tools (all optional)"
 # installer -- it handles Linux OS/arch detection and checksum verification
 # itself, so radin doesn't reimplement that here.
 if [ -n "$BREW" ]; then
-	RTK_INSTALL_CMD="$BREW install rtk || $BREW upgrade rtk"
+	RTK_INSTALL_CMD="HOMEBREW_NO_AUTO_UPDATE=1 $BREW install rtk || HOMEBREW_NO_AUTO_UPDATE=1 $BREW upgrade rtk"
 else
 	RTK_INSTALL_CMD="curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh | sh"
 fi
@@ -493,7 +522,7 @@ install_if_confirmed "rtk" "rtk" "$RTK_INSTALL_CMD"
 
 # code-review-graph ships on PyPI, not npm -- pipx keeps it in its own venv.
 install_if_confirmed "code-review-graph" "code-review-graph" \
-	"python_ok && { command -v pipx >/dev/null 2>&1 && pipx install --force code-review-graph || pip3 install --user --upgrade code-review-graph; }"
+	"python_ok && { pipx --version >/dev/null 2>&1 && pipx install --force code-review-graph || pip3 install --user --upgrade code-review-graph; }"
 
 # headroom is a heavier Python/pip stack than rtk's static binary or
 # code-review-graph -- gets a second confirmation (install_if_confirmed's
@@ -501,7 +530,7 @@ install_if_confirmed "code-review-graph" "code-review-graph" \
 # wrap vs per-command output compression), not a replacement -- never
 # phrase this as preferred over rtk.
 install_if_confirmed "headroom" "headroom" \
-	"python_ok && { command -v pipx >/dev/null 2>&1 && pipx install --force headroom-ai || pip3 install --user --upgrade headroom-ai; }" \
+	"python_ok && { pipx --version >/dev/null 2>&1 && pipx install --force headroom-ai || pip3 install --user --upgrade headroom-ai; }" \
 	"headroom pulls in a Python/pip stack (proxy, MCP, ML, memory -- heavier than rtk's static binary)."
 
 # caveman ships as a Claude Code plugin (not an npm package) -- installs via
@@ -558,6 +587,32 @@ else
 	ok "no CLAUDE.md edit -- agents discover radin through its skill descriptions"
 fi
 
+step "radin CLI on PATH (optional)"
+# One `radin <backlog|state|scope|crg-hooks|doctor|uninstall>` command instead
+# of long lib paths in every Bash call. The dispatcher always lands in
+# ~/.claude/.radin/bin; this only symlinks it into ~/.local/bin. Never
+# overwrites: an existing non-radin `radin` there is named and left alone.
+CLI_ON_PATH="false"
+if prompt_pick "Symlink the radin CLI into ~/.local/bin? (default: yes)" 1 "yes" "no" | grep -qx yes; then
+	CLI_TARGET="$HOME/.claude/.radin/bin/radin"
+	CLI_LINK="$HOME/.local/bin/radin"
+	if [ -e "$CLI_LINK" ] && [ "$(readlink "$CLI_LINK" 2>/dev/null)" != "$CLI_TARGET" ]; then
+		warn "$CLI_LINK exists and isn't radin's -- leaving it alone."
+		warn "Skills fall back to \"\$HOME/.claude/.radin/bin/radin\"."
+	else
+		mkdir -p "$HOME/.local/bin"
+		ln -sf "$CLI_TARGET" "$CLI_LINK"
+		CLI_ON_PATH="true"
+		ok "radin CLI linked at ${BOLD}$CLI_LINK${RESET}"
+		case ":$PATH:" in
+		*":$HOME/.local/bin:"*) ;;
+		*) warn "\$HOME/.local/bin is not on your PATH -- add it, or skills fall back to the full path." ;;
+		esac
+	fi
+else
+	ok "no symlink -- skills use \"\$HOME/.claude/.radin/bin/radin\" directly"
+fi
+
 step "Writing install manifest"
 # ponytail: three independent copies of this file list already exist
 # (install.sh's own cp lines above, radin-doctor.sh, radin-uninstall.sh) --
@@ -588,6 +643,7 @@ cat >"$MANIFEST_FILE" <<EOF
   "parallel_execution": $PARALLEL_MODE,
   "refuter_pass": $REFUTER_PASS,
   "claude_md_guidance": $CLAUDE_MD_GUIDANCE,
+  "cli_on_path": $CLI_ON_PATH,
   "skills": [
     "radin-execute",
     "radin-plan",

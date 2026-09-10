@@ -12,7 +12,8 @@ teardown() {
 }
 
 install_all_expected() {
-  mkdir -p "$TEST_HOME/.claude/.radin/lib"
+  mkdir -p "$TEST_HOME/.claude/.radin/lib" "$TEST_HOME/.claude/.radin/bin"
+  printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/bin/radin"
   for name in radin-execute radin-plan radin-record radin-review radin-setup-hooks radin-show radin-stats radin-doctor radin-uninstall; do
     mkdir -p "$TEST_HOME/.claude/skills/$name"
     : > "$TEST_HOME/.claude/skills/$name/SKILL.md"
@@ -45,6 +46,7 @@ printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-crg-
   for name in radin-execute radin-plan radin-record radin-review radin-setup-hooks radin-show radin-stats radin-doctor radin-uninstall; do
     [ ! -e "$TEST_HOME/.claude/skills/$name" ]
   done
+  [ ! -e "$TEST_HOME/.claude/.radin/bin/radin" ]
   [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-namespace.sh" ]
   [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-json.sh" ]
   [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-backlog.sh" ]

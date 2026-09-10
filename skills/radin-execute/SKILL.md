@@ -86,7 +86,7 @@ Once settled, append the resolution to the task's file. Planning and
 execution sub-agents read that file, so the answer must live there:
 
 ```bash
-bash "$HOME/.claude/.radin/lib/radin-backlog.sh" append "<task id>" <<'EOF'
+radin backlog append "<task id>" <<'EOF'
 **Decision:** <the settled answer>
 EOF
 ```
@@ -105,7 +105,7 @@ its `note`. Every status change this skill makes goes through one command,
 and this is its only signature:
 
 ```bash
-bash "$HOME/.claude/.radin/lib/radin-state.sh" set-status \
+radin state set-status \
   "$NAMESPACE_DIR/state/BACKLOG_STEPS.json" "<task id>" \
   <pending|in_progress|failed|blocked> "<note>"
 ```
@@ -125,15 +125,17 @@ decision, ask or record it `blocked`. Never leave it hanging.
 ## Phase 0: Resolve Project Namespace
 
 All radin state lives in `<repo-root>/.claude/.radin/`. Two CLIs own it:
-`radin-backlog.sh` (backlog index + task files) and `radin-state.sh`
+`radin backlog` (backlog index + task files) and `radin state`
 (`BACKLOG_STEPS.json` / `completed.json`). They own those files' schema, so
 never hand-edit or hand-parse one. Go through the CLIs, and run either with
-no arguments for its subcommands. Resolve the namespace and verify a backlog
-exists in the **same Bash call** (shell state does not persist across calls):
+no arguments for its subcommands. `radin` is symlinked into `~/.local/bin` at
+install time; if it is not on PATH, call `"$HOME/.claude/.radin/bin/radin"`
+instead. Resolve the namespace and verify a backlog exists in the **same Bash
+call** (shell state does not persist across calls):
 
 ```bash
-source <(bash "$HOME/.claude/.radin/lib/radin-backlog.sh" env --export)
-bash "$HOME/.claude/.radin/lib/radin-backlog.sh" count
+source <(radin backlog env --export)
+radin backlog count
 ```
 
 Use `$REPO_ROOT`, `$NAMESPACE_DIR`, `$BACKLOG_INDEX`, `$BACKLOG_TASKS_DIR`
@@ -156,7 +158,7 @@ answer changes nothing. `branch` decides only what happens under
 `worktree: no`. Say so when you ask. Read the recorded answers first:
 
 ```bash
-bash "$HOME/.claude/.radin/lib/radin-state.sh" session-get "$NAMESPACE_DIR"
+radin state session-get "$NAMESPACE_DIR"
 ```
 
 Exit 0 prints `worktree<TAB><yes|no>` and `branch<TAB><yes|no>`: the repo has
@@ -168,7 +170,7 @@ otherwise ask both in the same `AskUserQuestion` call as Phase 2's order
 confirmation, so one call covers all three questions. Then persist them:
 
 ```bash
-bash "$HOME/.claude/.radin/lib/radin-state.sh" session-set "$NAMESPACE_DIR" "<worktree yes|no>" "<branch yes|no>"
+radin state session-set "$NAMESPACE_DIR" "<worktree yes|no>" "<branch yes|no>"
 ```
 
 ## Phase 1: Read and Prioritize
@@ -181,7 +183,7 @@ bash "$HOME/.claude/.radin/lib/radin-state.sh" session-set "$NAMESPACE_DIR" "<wo
    success and removing the entry leaves a finished task in the backlog:
 
    ```bash
-   bash "$HOME/.claude/.radin/lib/radin-backlog.sh" reconcile "$NAMESPACE_DIR/state/completed.json"
+   radin backlog reconcile "$NAMESPACE_DIR/state/completed.json"
    ```
 
    No-op when there is nothing stale. If reconcile emptied the backlog,
@@ -189,7 +191,7 @@ bash "$HOME/.claude/.radin/lib/radin-state.sh" session-set "$NAMESPACE_DIR" "<wo
 3. Recover tasks an interrupted run left mid-flight:
 
    ```bash
-   bash "$HOME/.claude/.radin/lib/radin-state.sh" stuck "$NAMESPACE_DIR/state/BACKLOG_STEPS.json"
+   radin state stuck "$NAMESPACE_DIR/state/BACKLOG_STEPS.json"
    ```
 
    Exit 1: nothing to recover, continue to step 4. Exit 0 prints one
@@ -249,7 +251,7 @@ Feed the confirmed order to the state CLI, one
 `radin-prioritization.md`'s dependency criterion; empty when none):
 
 ```bash
-bash "$HOME/.claude/.radin/lib/radin-state.sh" steps-init "$NAMESPACE_DIR/state/BACKLOG_STEPS.json" <<'EOF'
+radin state steps-init "$NAMESPACE_DIR/state/BACKLOG_STEPS.json" <<'EOF'
 <id> <order> <comma-separated depends_on ids, or empty>
 EOF
 ```
@@ -265,7 +267,7 @@ refuting, debugging.
 The state CLI picks each task:
 
 ```bash
-bash "$HOME/.claude/.radin/lib/radin-state.sh" next-pending "$NAMESPACE_DIR/state/BACKLOG_STEPS.json"
+radin state next-pending "$NAMESPACE_DIR/state/BACKLOG_STEPS.json"
 ```
 
 Exit 0 prints the next task as `id<TAB>order<TAB>depends-on-csv`. Exit 1
@@ -274,7 +276,7 @@ means no pending entry remains, so go to Phase 5.
 ### Step 4a-0: Check dependencies
 
 ```bash
-bash "$HOME/.claude/.radin/lib/radin-state.sh" deps-check "$NAMESPACE_DIR/state/BACKLOG_STEPS.json" "$NAMESPACE_DIR/state/completed.json" "<task id>"
+radin state deps-check "$NAMESPACE_DIR/state/BACKLOG_STEPS.json" "$NAMESPACE_DIR/state/completed.json" "<task id>"
 ```
 
 - Exit 0: prints one `<id><TAB><commit hash>` line per dependency. Keep the
@@ -291,7 +293,7 @@ bash "$HOME/.claude/.radin/lib/radin-state.sh" deps-check "$NAMESPACE_DIR/state/
 Confirm the entry still exists (the backlog may have drifted since Phase 3):
 
 ```bash
-bash "$HOME/.claude/.radin/lib/radin-backlog.sh" find "<task id>"
+radin backlog find "<task id>"
 ```
 
 Zero matches (it errors) or several: mark the task `blocked` with the CLI's
@@ -301,7 +303,7 @@ file is `$BACKLOG_TASKS_DIR/<id>.md`, a path that never goes stale.
 Check for existing plan and skill pointers:
 
 ```bash
-bash "$HOME/.claude/.radin/lib/radin-backlog.sh" meta "<task id>"
+radin backlog meta "<task id>"
 ```
 
 It prints one `plan<TAB><path>` line per `**Plan:**` pointer and one
@@ -327,7 +329,7 @@ Claim the task on disk before you dispatch it. A session that dies mid-task
 must be recoverable by Phase 1 step 3, which only sees what this records:
 
 ```bash
-bash "$HOME/.claude/.radin/lib/radin-state.sh" start "$NAMESPACE_DIR/state/BACKLOG_STEPS.json" "<task id>"
+radin state start "$NAMESPACE_DIR/state/BACKLOG_STEPS.json" "<task id>"
 ```
 
 Exit 0 prints `attempts<TAB><n>`. Exit 2 means the task has been dispatched
@@ -369,8 +371,8 @@ sub-agent actually worked in. In worktree mode that is not `$REPO_ROOT`, and
 checking the wrong one reports clean while work sits uncommitted elsewhere:
 
 ```bash
-TASK_DIR="$(bash "$HOME/.claude/.radin/lib/radin-state.sh" task-dir "$REPO_ROOT" "<task id>")"
-bash "$HOME/.claude/.radin/lib/radin-state.sh" dirty-check "$TASK_DIR"
+TASK_DIR="$(radin state task-dir "$REPO_ROOT" "<task id>")"
+radin state dirty-check "$TASK_DIR"
 ```
 
 `dirty-check`'s built-in exclusion of `.claude/.radin/` matters: your own
@@ -380,7 +382,7 @@ violated the no-dirty-tree contract regardless of its `STATUS:`:
 - Park the work (same exclusion applied; prints the stash ref):
 
   ```bash
-  bash "$HOME/.claude/.radin/lib/radin-state.sh" stash "$TASK_DIR" "radin-execute: task <order> '<title>' left uncommitted (sub-agent reported <STATUS value>)"
+  radin state stash "$TASK_DIR" "radin-execute: task <order> '<title>' left uncommitted (sub-agent reported <STATUS value>)"
   ```
 
 - Mark the task `failed`, `note`: `"sub-agent left uncommitted changes in
@@ -400,7 +402,7 @@ On a clean tree, route on `STATUS:`:
   crash-safe order:
 
   ```bash
-  bash "$HOME/.claude/.radin/lib/radin-state.sh" task-done "$NAMESPACE_DIR" "<task id>" "<commit hash>"
+  radin state task-done "$NAMESPACE_DIR" "<task id>" "<commit hash>"
   ```
 
   Report: `✅ Task <order> '<title>' complete. <STATUS detail>. Remaining: <count>.`

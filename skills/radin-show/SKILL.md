@@ -15,8 +15,10 @@ it.
 ## Step 1: Print it
 
 ```bash
-bash "$HOME/.claude/.radin/lib/radin-backlog.sh" show
+radin backlog show
 ```
+
+(`radin` not on PATH? Call `"$HOME/.claude/.radin/bin/radin"` instead.)
 
 The CLI renders the backlog from the JSONL index plus each task's own file.
 Never read those files directly. If the user narrows the scope to one

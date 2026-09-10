@@ -80,7 +80,7 @@ curl -fsSL https://raw.githubusercontent.com/shortcuts/radin/main/install.sh | b
 
 Repo's backlog live inside repo, at `.claude/.radin/backlog/`
 from repo root: index file plus one markdown file per task. Every
-radin tool read from or write to it through radin's own CLI, never need look inside. Run `/radin-show` read it as plain markdown.
+radin tool read from or write to it through radin's own CLI (`radin backlog`, `radin state`, ... — symlinked into `~/.local/bin` at install), never need look inside. Run `/radin-show` read it as plain markdown.
 Commit `.claude/.radin/` share backlog with team, or add to
 `.gitignore` keep private. Radin never touch your `.gitignore`
 either way.
