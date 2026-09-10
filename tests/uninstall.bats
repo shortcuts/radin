@@ -84,5 +84,5 @@ printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-crg-
   run env HOME="$TEST_HOME" bash "$CLI"
   [ "$status" -eq 0 ]
   [[ "$output" != *"REMOVED"* ]]
-  [[ "$output" == *"ABSENT   radin-execute.md"* ]]
+  [[ "$output" == *"ABSENT   radin-backlog.sh"* ]]
 }
