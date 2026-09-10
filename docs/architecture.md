@@ -143,6 +143,7 @@ radin/
   docs/
   lib/
     radin-backlog.sh
+    radin-crg-hooks.sh
     radin-doctor.sh
     radin-execute-prompts.md
     radin-execute-recovery.md

@@ -9,7 +9,7 @@ install-force:
 test:
 	bats tests/
 
-SH_FILES = install.sh lib/radin-namespace.sh lib/radin-json.sh lib/radin-backlog.sh lib/radin-state.sh lib/radin-scope.sh lib/radin-doctor.sh lib/radin-uninstall.sh
+SH_FILES = install.sh lib/radin-namespace.sh lib/radin-json.sh lib/radin-backlog.sh lib/radin-state.sh lib/radin-scope.sh lib/radin-crg-hooks.sh lib/radin-doctor.sh lib/radin-uninstall.sh
 
 lint:
 	bash -n $(SH_FILES)

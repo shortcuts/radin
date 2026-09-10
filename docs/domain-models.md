@@ -129,7 +129,7 @@ Written by `install.sh` to `~/.claude/.radin/manifest.json` on every run — not
   "refuter_pass": false,
   "claude_md_guidance": false,
   "skills": ["radin-execute", "radin-plan", "radin-record", "radin-review", "radin-setup-hooks", "radin-show", "radin-stats", "radin-doctor", "radin-uninstall", "thermo-nuclear"],
-  "lib": ["radin-namespace.sh", "radin-backlog.sh", "radin-state.sh", "radin-prioritization.md", "radin-doctor.sh", "radin-uninstall.sh"],
+  "lib": ["radin-namespace.sh", "radin-backlog.sh", "radin-state.sh", "radin-prioritization.md", "radin-crg-hooks.sh", "radin-doctor.sh", "radin-uninstall.sh"],
   "companion_tools": {
     "rtk": true,
     "code-review-graph": false,

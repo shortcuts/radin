@@ -188,16 +188,19 @@ classified as `fix` (real bug) or `refactor` (structural).
 
 #### `radin-setup-hooks`
 
-Wire up per-repo config for companion tools — currently just
-`code-review-graph`'s MCP registration and hooks.
+Wire code-review-graph into Claude Code: graph section in
+`~/.claude/CLAUDE.md`, update/status hooks in `~/.claude/settings.json`,
+MCP server entry in repo's `.mcp.json`.
 
 ```
 /radin-setup-hooks
 ```
 
-Run once per project, right after `install.sh`, in repo you want
-wired. Previews exact files it will touch, asks confirmation
-before writing anything.
+Run once per project, right after `install.sh`, in repo you want wired.
+Names exact writes, asks confirmation first. Never runs
+`code-review-graph install` — upstream installer overwrites existing
+settings.json hooks. radin's own script merge-only: anything already
+defined never redefined.
 
 ### Vendored in *(optional)*
 

@@ -133,6 +133,7 @@ cp "$RADIN_ROOT"/lib/radin-prioritization.md "$HOME/.claude/.radin/lib/"
 cp "$RADIN_ROOT"/lib/radin-execute-prompts.md "$HOME/.claude/.radin/lib/"
 cp "$RADIN_ROOT"/lib/radin-execute-recovery.md "$HOME/.claude/.radin/lib/"
 cp "$RADIN_ROOT"/lib/radin-execute-reporting.md "$HOME/.claude/.radin/lib/"
+cp "$RADIN_ROOT"/lib/radin-crg-hooks.sh "$HOME/.claude/.radin/lib/"
 cp "$RADIN_ROOT"/lib/radin-doctor.sh "$HOME/.claude/.radin/lib/"
 cp "$RADIN_ROOT"/lib/radin-uninstall.sh "$HOME/.claude/.radin/lib/"
 cp -r "$RADIN_ROOT"/skills/radin-execute "$HOME/.claude/skills/"
@@ -544,9 +545,10 @@ install_plugin_if_confirmed "ponytail" "ponytail@ponytail" "DietrichGebert/ponyt
 install_plugin_if_confirmed "mattpocock-skills" "mattpocock-skills@claude-plugins-official" "anthropics/claude-plugins-official"
 
 if command -v code-review-graph >/dev/null 2>&1; then
-	info "code-review-graph binary installed. To wire its MCP server and hooks"
-	info "into a specific project, run the radin-setup-hooks skill from inside"
-	info "that project (it edits that repo's .mcp.json / CLAUDE.md, not this one)."
+	info "code-review-graph binary installed. To wire its hooks, CLAUDE.md section"
+	info "and MCP server, run the radin-setup-hooks skill from inside a project."
+	info "(radin never runs 'code-review-graph install': it overwrites existing"
+	info "settings.json hooks. radin's own script only adds what is missing.)"
 fi
 
 step "Agent guidance (optional)"
@@ -636,6 +638,7 @@ cat >"$MANIFEST_FILE" <<EOF
     "radin-execute-prompts.md",
     "radin-execute-recovery.md",
     "radin-execute-reporting.md",
+    "radin-crg-hooks.sh",
     "radin-doctor.sh",
     "radin-uninstall.sh"
   ],
