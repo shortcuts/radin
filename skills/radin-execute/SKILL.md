@@ -439,7 +439,7 @@ template.
   session's work, run /radin-review with scope: <commit hashes recorded in
   Phase 4>.`
 
-Reviewer sub-agent (`model: "sonnet"`). The
+Reviewer sub-agent (`model: "RADIN_MODEL_REVIEW"`). The
 `radin-review` skill already owns the review-and-log flow, so send exactly:
 
 ```

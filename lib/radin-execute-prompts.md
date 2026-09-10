@@ -28,8 +28,9 @@ the concurrency rule in `skills/radin-execute/SKILL.md`, written there at
 install time from the user's answer. It is never a sub-agent's call, and never
 restated in this file.
 
-Substitute the `UPPERCASE` placeholders before sending. Send every prompt
-with `model: "sonnet"`. Don't set `run_in_background`: Claude Code picks
+Substitute the `UPPERCASE` placeholders before sending. Each prompt below
+names its own model, written in at install time from the user's answer — send
+it with exactly that one. Don't set `run_in_background`: Claude Code picks
 foreground or background itself, and with fork mode on (the default in an
 interactive session) it removes that parameter from the `Agent` tool
 entirely.
@@ -38,7 +39,8 @@ entirely.
 
 ## Planning prompt (Step 4a)
 
-Replace `TASK_ID` with the task's id.
+Replace `TASK_ID` with the task's id. Send it with
+`model: "RADIN_MODEL_PLANNING"`.
 
 ```
 Invoke the `/radin-plan` skill scoped to the backlog task with id
@@ -94,7 +96,8 @@ entry" if Step 4a skipped planning), `SKILLS` with the collected
 `**Skill:**` name(s) or "none", `DEPENDS_ON` with the list of
 `<id>: <commit hash>` pairs gathered in Step 4a-0 (or "none" if
 `depends_on` was empty), `NAMESPACE_DIR` with `$NAMESPACE_DIR`, and
-`TASK_ID` with the task's id. The worktree/branch answers are not
+`TASK_ID` with the task's id. Send it with
+`model: "RADIN_MODEL_EXECUTION"`. The worktree/branch answers are not
 substituted anywhere: `radin-state.sh prepare` reads them from
 `session.json` itself.
 
@@ -196,7 +199,8 @@ its context for the rest of the session.
 ## Fact-finding prompt (Clarifying Ambiguity, `BLOCKED (FACT)`)
 
 Replace `QUESTION` with the sub-agent's stated question, and `TASK_FILE` with
-the task's file. It answers a checkable question in one turn.
+the task's file. It answers a checkable question in one turn. Send it with
+`model: "RADIN_MODEL_FACTFIND"`.
 
 ```
 Answer one factual question about this codebase or its dependencies, and

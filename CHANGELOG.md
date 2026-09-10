@@ -12,6 +12,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- `install.sh` now asks for a model per sub-agent role — planning, execution,
+  review, fact-finding, and the background agent — instead of one model for
+  all of them. No radin file names a model any more; each role carries a
+  token the installer fills in.
+- The fact-finding sub-agent defaults to `haiku` instead of `sonnet`. Its
+  prompt already requires the answer to cite the file path, command output, or
+  version that establishes it, so the router can reject a wrong answer without
+  spending a frontier model on retrieval. Every other role still defaults to
+  `sonnet`.
 - `radin-review` no longer logs findings on its own. It prints the in-scope
   findings, then gates on the user: log the ones it recommends, log all, or
   let the user pick by number. It then offers a per-finding refinement pass

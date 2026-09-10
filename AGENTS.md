@@ -231,6 +231,22 @@ Sub-agent prompts carry no variant. `lib/radin-execute-prompts.md` states
 the flat rule instead (a sub-agent never spawns a sub-agent), so the
 install-time answer lives in exactly one file.
 
+## Sub-agent models in radin-execute
+
+No radin file names a model. Each sub-agent role carries a
+`RADIN_MODEL_<ROLE>` token instead — `PLANNING`, `EXECUTION`, `FACTFIND` in
+`lib/radin-execute-prompts.md`, `REVIEW` in `skills/radin-execute/SKILL.md`,
+`BACKGROUND` in `agents/radin-execute-background.md`. `install.sh` asks per
+role and its `set_role_models` sed writes the answers in. Defaults are sonnet,
+except fact-finding: it retrieves a checkable fact and its prompt already
+demands the evidence that establishes it, so haiku is enough and the router
+can reject a wrong answer.
+
+Don't hardcode a model name back into any of those files, and don't add a role
+without a token — `set_role_models` exits non-zero if a token survives, but it
+cannot notice a literal that was never a token. New role: add the token, a
+`MODEL_<ROLE>` default, a picker, and a `-e` clause in `set_role_models`.
+
 ## Constraints
 
 **Never touch anything in `~/.claude` (`~/.config/.claude`) besides what

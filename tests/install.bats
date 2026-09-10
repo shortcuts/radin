@@ -121,6 +121,32 @@ run_install_no_companions_answering() {
   grep -q '"background_agent": true' "$TEST_HOME/.claude/.radin/manifest.json"
 }
 
+# A surviving RADIN_MODEL_ token would reach Claude as a literal model name and
+# every dispatch would fail, so no installed file may keep one.
+@test "writes a model into every sub-agent role, leaving no marker behind" {
+  run_install_no_companions
+  ! grep -rq 'RADIN_MODEL_' "$TEST_HOME/.claude/skills" "$TEST_HOME/.claude/.radin/lib"
+  grep -q 'model: "sonnet"' "$TEST_HOME/.claude/skills/radin-execute/SKILL.md"
+  grep -q 'model: "haiku"' "$TEST_HOME/.claude/.radin/lib/radin-execute-prompts.md"
+}
+
+# The per-role gate at prompt 2: yes, then one pick per role (fable/opus/
+# sonnet/haiku), then background-agent no, then the companion tools.
+@test "per-role model picks land in the right file" {
+  cd "$REPO_ROOT" && run bash -c "printf '2\n1\n2\n1\n4\n3\n2\n2\n2\n2\n2\n2\n' | bash ./install.sh"
+  [ "$status" -eq 0 ]
+  ! grep -rq 'RADIN_MODEL_' "$TEST_HOME/.claude/skills" "$TEST_HOME/.claude/.radin/lib"
+  grep -q 'model: "opus"' "$TEST_HOME/.claude/.radin/lib/radin-execute-prompts.md"
+  grep -q 'model: "fable"' "$TEST_HOME/.claude/.radin/lib/radin-execute-prompts.md"
+  grep -q 'model: "haiku"' "$TEST_HOME/.claude/skills/radin-execute/SKILL.md"
+}
+
+@test "the background agent gets its own model" {
+  cd "$REPO_ROOT" && run bash -c "printf '2\n1\n3\n3\n3\n3\n4\n1\n2\n2\n2\n2\n2\n' | bash ./install.sh"
+  [ "$status" -eq 0 ]
+  grep -q '^model: haiku$' "$TEST_HOME/.claude/agents/radin-execute-background.md"
+}
+
 # Declining is not a removal: install.sh never deletes a file, so it has to
 # name the leftover instead of quietly leaving a shadowed copy behind.
 @test "declining names a previously-installed background agent instead of removing it" {

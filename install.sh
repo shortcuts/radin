@@ -354,12 +354,34 @@ install_plugin_if_confirmed() {
 	} || warn "$name install failed -- radin itself is unaffected."
 }
 
-set_agent_model() {
+# Every sub-agent role ships a distinct RADIN_MODEL_<ROLE> token instead of a
+# model name, so no model is forced and each role is set independently below.
+MODEL_PLANNING="sonnet"
+MODEL_EXECUTION="sonnet"
+MODEL_REVIEW="sonnet"
+# Fact-finding retrieves a checkable fact and its prompt requires the evidence
+# that establishes it, so the cheapest tier is the default: the router reads
+# that evidence and can reject a wrong answer.
+MODEL_FACTFIND="haiku"
+MODEL_BACKGROUND="sonnet"
+
+set_role_models() {
 	# No `sed -i`: BSD sed (macOS) and GNU sed (Linux) take incompatible forms
 	# of it. Temp-file-plus-mv avoids the divergence entirely.
-	local file="$1" pattern="$2" replacement="$3" tmp
+	local file="$1" tmp
 	tmp="$(mktemp)"
-	sed "s/${pattern}/${replacement}/" "$file" >"$tmp" && mv "$tmp" "$file"
+	sed -e "s/RADIN_MODEL_PLANNING/${MODEL_PLANNING}/g" \
+		-e "s/RADIN_MODEL_EXECUTION/${MODEL_EXECUTION}/g" \
+		-e "s/RADIN_MODEL_REVIEW/${MODEL_REVIEW}/g" \
+		-e "s/RADIN_MODEL_FACTFIND/${MODEL_FACTFIND}/g" \
+		-e "s/RADIN_MODEL_BACKGROUND/${MODEL_BACKGROUND}/g" \
+		"$file" >"$tmp" && mv "$tmp" "$file"
+	# A surviving token reaches the model as a literal model name and every
+	# dispatch fails -- louder to stop here than to debug that.
+	if grep -q 'RADIN_MODEL_' "$file"; then
+		printf "%b\n" "${RED}${RAT} failed to write the sub-agent models into $file.${RESET} Re-run the installer." >&2
+		exit 1
+	fi
 }
 
 # The agent ships no concurrency rule of its own -- only a marker line. awk
@@ -394,21 +416,30 @@ else
 	ok "sequential execution — one sub-agent at a time"
 fi
 
-step "Sub-agent model (optional)"
+step "Sub-agent models (optional)"
 # radin-execute is a skill running in the user's own thread, so its own model
-# is whatever they picked with /model. Only its leaf sub-agents get a choice.
+# is whatever they picked with /model. Only its leaf sub-agents get a choice,
+# and each role gets its own: they don't cost the same work.
 MODELS="fable opus sonnet haiku"
 SONNET_INDEX=3
-if prompt_yn "Choose radin-execute's sub-agent model? (default: sonnet)"; then
+HAIKU_INDEX=4
+if prompt_yn "Choose radin-execute's sub-agent model per role? (defaults: sonnet, haiku for fact-finding)"; then
 	# shellcheck disable=SC2086  # word splitting is the point -- one arg per model
-	ORCH_SUB_MODEL="$(prompt_pick "radin-execute sub-agent model (planning + execution + review)" "$SONNET_INDEX" $MODELS)"
-
-	set_agent_model "$HOME/.claude/skills/radin-execute/SKILL.md" 'model: "sonnet"' "model: \"${ORCH_SUB_MODEL}\""
-	set_agent_model "$HOME/.claude/.radin/lib/radin-execute-prompts.md" 'model: "sonnet"' "model: \"${ORCH_SUB_MODEL}\""
-	ok "sub-agent model configured"
+	MODEL_PLANNING="$(prompt_pick "planning sub-agent (writes the plan for one task)" "$SONNET_INDEX" $MODELS)"
+	# shellcheck disable=SC2086
+	MODEL_EXECUTION="$(prompt_pick "execution sub-agent (implements and commits one task)" "$SONNET_INDEX" $MODELS)"
+	# shellcheck disable=SC2086
+	MODEL_REVIEW="$(prompt_pick "review sub-agent (reviews the session's commits)" "$SONNET_INDEX" $MODELS)"
+	# shellcheck disable=SC2086
+	MODEL_FACTFIND="$(prompt_pick "fact-finding sub-agent (answers one checkable question)" "$HAIKU_INDEX" $MODELS)"
+	# shellcheck disable=SC2086
+	MODEL_BACKGROUND="$(prompt_pick "radin-execute-background agent, if you install it below" "$SONNET_INDEX" $MODELS)"
+	ok "sub-agent models: plan $MODEL_PLANNING, exec $MODEL_EXECUTION, review $MODEL_REVIEW, facts $MODEL_FACTFIND, background $MODEL_BACKGROUND"
 else
-	ok "keeping default sub-agent model (sonnet)"
+	ok "keeping default sub-agent models (sonnet; haiku for fact-finding)"
 fi
+set_role_models "$HOME/.claude/skills/radin-execute/SKILL.md"
+set_role_models "$HOME/.claude/.radin/lib/radin-execute-prompts.md"
 
 step "Background backlog runs (optional)"
 # The only agent radin ships, and only on an explicit yes. It invokes the
@@ -420,6 +451,7 @@ if prompt_yn "Install radin-execute-background, to run the backlog in its own ag
 	BACKGROUND_AGENT="true"
 	mkdir -p "$HOME/.claude/agents"
 	cp "$RADIN_ROOT"/agents/radin-execute-background.md "$HOME/.claude/agents/"
+	set_role_models "$HOME/.claude/agents/radin-execute-background.md"
 	ok "radin-execute-background installed -- ask for the backlog to run in the background"
 else
 	ok "no background agent -- run /radin-execute in your own thread"
