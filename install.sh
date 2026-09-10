@@ -37,7 +37,8 @@ step() { printf "\n%b\n" "${BOLD}${MAGENTA}${RAT} $*${RESET}"; }
 
 printf "%b\n" "${BOLD}${MAGENTA}"
 printf "%s\n" "  🐀 radin — stingy on tokens, generous on backlog throughput"
-printf "%b\n\n" "${RESET}"
+printf "%b\n" "${RESET}${DIM}  Installs backlog-workflow skills into ~/.claude, then offers a curated"
+printf "%b\n\n" "  set of optional token-saving companion tools. Nothing installs without a yes.${RESET}"
 
 # No `brew shellenv` eval: it prepends brew's bin to PATH and would shadow a
 # version-manager python3 (mise/pyenv) with brew's -- probing the wrong

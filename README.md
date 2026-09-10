@@ -23,7 +23,22 @@
 
 ---
 
-Opinionated agentic stack, one script deep, bakes in most efficient (and safe) token-reduction tools around.
+## What is radin
+
+radin is a Claude Code plugin for the solo dev on a small Claude
+subscription. One `curl | bash` installs two things:
+
+1. **A backlog-driven workflow.** Skills that record tasks as files in your
+   repo, plan them, execute them one commit at a time, and review the result.
+   Every task survives past the conversation, every run resumes where it
+   stopped.
+2. **A curated set of token-reduction tools.** rtk, caveman, ponytail,
+   code-review-graph, headroom — each optional, each installed only on your
+   explicit yes, each its own project. radin never forks or vendors them; it
+   shops.
+
+The goal: stretch a small subscription further. Fewer tokens per task, and
+agent runs that are resumable and verifiable instead of fire-and-forget.
 
 ## Install
 
