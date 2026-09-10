@@ -3,7 +3,7 @@ name: radin-doctor
 description: |
   Check that radin's own install under ~/.claude is complete and its
   optional companion tools are reachable. Use for /radin-doctor, "check my
-  radin install", "is radin installed correctly", "RADIN_CLI doctor", "verify
+  radin install", "is radin installed correctly", "radin doctor", "verify
   radin install".
 ---
 # Doctor

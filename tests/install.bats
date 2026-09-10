@@ -208,21 +208,19 @@ run_install_no_companions_answering() {
   grep -q '"headroom": false' "$manifest"
 }
 
-# headroom gets install_if_confirmed's extra 4th-arg confirmation on top of
-# the normal yes/no gate (Python/pip footprint) -- both prompts must be
-# answered yes before the pip/pipx install command actually runs.
-@test "headroom's extra pip confirmation blocks install when declined" {
+# headroom's heavier footprint is named in its single prompt -- one yes
+# installs, one no skips.
+@test "headroom installs on a single yes" {
   cd "$REPO_ROOT" && run bash -c "printf '2\n2\n2\n2\n2\n1\n2\n2\n2\n' | bash ./install.sh"
-  [ "$status" -eq 0 ]
-  [ ! -f "$PIP_LOG" ] || ! grep -q "headroom-ai" "$PIP_LOG"
-}
-
-@test "headroom installs only after both confirmations pick yes" {
-  cd "$REPO_ROOT" && run bash -c "printf '2\n2\n2\n2\n2\n1\n1\n2\n2\n' | bash ./install.sh"
   [ "$status" -eq 0 ]
   grep -q "headroom-ai" "$PIP_LOG"
   manifest="$TEST_HOME/.claude/.radin/manifest.json"
   grep -q '"headroom": true' "$manifest"
+}
+
+@test "headroom declined installs nothing" {
+  run_install_no_companions
+  [ ! -f "$PIP_LOG" ] || ! grep -q "headroom-ai" "$PIP_LOG"
 }
 
 # The guidance prompt comes last, after the companion tools; every earlier

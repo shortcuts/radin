@@ -305,16 +305,13 @@ prompt_yn() {
 }
 
 install_if_confirmed() {
-	local name="$1" check_cmd="$2" install_cmd="$3" extra_confirm="${4:-}"
+	local name="$1" check_cmd="$2" install_cmd="$3"
+	local prompt="${4:-Install $name?}"
 	if command -v "$check_cmd" >/dev/null 2>&1 && [ -z "$FORCE" ]; then
 		ok "$name already installed, skipping (--force to update)."
 		return
 	fi
-	prompt_yn "Install $name?" || return 0
-	if [ -n "$extra_confirm" ]; then
-		info "$extra_confirm"
-		prompt_yn "Confirm: install $name's Python/pip stack?" || return 0
-	fi
+	prompt_yn "$prompt" || return 0
 	# Companion installs are advisory: a failed one warns, never aborts radin's
 	# own install (set -e would otherwise kill the script here). Their output
 	# is noise on success (pip dependency walls, brew hints) -- log it, show
@@ -552,14 +549,12 @@ install_if_confirmed "rtk" "rtk" "$RTK_INSTALL_CMD"
 install_if_confirmed "code-review-graph" "code-review-graph" \
 	"python_ok && { pipx --version >/dev/null 2>&1 && pipx install --force code-review-graph || pip3 install --user --upgrade code-review-graph; }"
 
-# headroom is a heavier Python/pip stack than rtk's static binary or
-# code-review-graph -- gets a second confirmation (install_if_confirmed's
-# 4th arg) on top of the normal yes/no gate. It complements rtk (whole-session
-# wrap vs per-command output compression), not a replacement -- never
-# phrase this as preferred over rtk.
+# headroom complements rtk (whole-session wrap vs per-command output
+# compression), not a replacement -- never phrase this as preferred over rtk.
+# Its heavier footprint is named in the one prompt instead of a second gate.
 install_if_confirmed "headroom" "headroom" \
 	"python_ok && { pipx --version >/dev/null 2>&1 && pipx install --force headroom-ai || pip3 install --user --upgrade headroom-ai; }" \
-	"headroom pulls in a Python/pip stack (proxy, MCP, ML, memory -- heavier than rtk's static binary)."
+	"Install headroom? (heavier Python/pip stack: proxy, MCP, ML, memory)"
 
 # caveman ships as a Claude Code plugin (not an npm package) -- installs via
 # the plugin marketplace flow, same as the interactive `/plugin` command.
