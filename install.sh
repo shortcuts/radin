@@ -398,6 +398,22 @@ set_role_models() {
 	fi
 }
 
+# Skills carry a RADIN_CLI token instead of a hardcoded invocation -- same
+# contract as RADIN_MODEL_<ROLE>. set_cli writes in either the bare `radin`
+# (symlinked onto PATH below) or the full dispatcher path, so no skill knows
+# which the user picked.
+set_cli() {
+	local file="$1" cli="$2" tmp
+	tmp="$(mktemp)"
+	sed 's|RADIN_CLI|'"$cli"'|g' "$file" >"$tmp" && mv "$tmp" "$file"
+	# A surviving token reaches the model as a literal command and every CLI
+	# call fails -- louder to stop here than to debug that.
+	if grep -q 'RADIN_CLI' "$file"; then
+		printf "%b\n" "${RED}${RAT} failed to write the CLI invocation into $file.${RESET} Re-run the installer." >&2
+		exit 1
+	fi
+}
+
 # The agent ships no concurrency rule of its own -- only a marker line. awk
 # swaps that line for whichever rule the answer below picks, so the agent file
 # never carries a variant the user didn't choose.
@@ -564,6 +580,47 @@ if command -v code-review-graph >/dev/null 2>&1; then
 	info "settings.json hooks. radin's own script only adds what is missing.)"
 fi
 
+step "radin CLI on PATH (optional)"
+# One `radin <backlog|state|scope|crg-hooks|doctor|uninstall>` command instead
+# of long lib paths in every Bash call. The dispatcher always lands in
+# ~/.claude/.radin/bin; this only symlinks it into ~/.local/bin. Never
+# overwrites: an existing non-radin `radin` there is named and left alone.
+CLI_ON_PATH="false"
+# Skills get whichever invocation actually works here: bare `radin` only when
+# the symlink exists AND ~/.local/bin is on PATH; the full dispatcher path
+# otherwise. Written into the RADIN_CLI token by set_cli below.
+# shellcheck disable=SC2016  # $HOME must stay literal in the installed file
+RADIN_CLI_VALUE='"$HOME/.claude/.radin/bin/radin"'
+if [ "$(prompt_pick "Symlink the radin CLI into ~/.local/bin? (default: yes)" 1 "yes" "no")" = "yes" ]; then
+	CLI_TARGET="$HOME/.claude/.radin/bin/radin"
+	CLI_LINK="$HOME/.local/bin/radin"
+	if [ -e "$CLI_LINK" ] && [ "$(readlink "$CLI_LINK" 2>/dev/null)" != "$CLI_TARGET" ]; then
+		warn "$CLI_LINK exists and isn't radin's -- leaving it alone; skills use the full path."
+	else
+		mkdir -p "$HOME/.local/bin"
+		ln -sf "$CLI_TARGET" "$CLI_LINK"
+		CLI_ON_PATH="true"
+		ok "radin CLI linked at ${BOLD}$CLI_LINK${RESET}"
+		case ":$PATH:" in
+		*":$HOME/.local/bin:"*)
+			RADIN_CLI_VALUE='radin'
+			;;
+		*)
+			warn "\$HOME/.local/bin is not on your PATH -- skills use the full path until it is."
+			;;
+		esac
+	fi
+else
+	ok "no symlink -- skills call the dispatcher by its full path"
+fi
+for f in radin-execute radin-plan radin-record radin-review radin-show \
+	radin-doctor radin-uninstall radin-setup-hooks radin-stats; do
+	set_cli "$HOME/.claude/skills/$f/SKILL.md" "$RADIN_CLI_VALUE"
+done
+set_cli "$HOME/.claude/.radin/lib/radin-execute-prompts.md" "$RADIN_CLI_VALUE"
+set_cli "$HOME/.claude/.radin/lib/radin-execute-recovery.md" "$RADIN_CLI_VALUE"
+set_cli "$HOME/.claude/.radin/lib/radin-prioritization.md" "$RADIN_CLI_VALUE"
+
 step "Agent guidance (optional)"
 # A short section in ~/.claude/CLAUDE.md telling Claude when to reach for
 # radin's skills (same pattern code-review-graph uses). Kept between
@@ -581,7 +638,7 @@ survive past one conversation. Reach for it instead of ad-hoc task tracking:
 - A bug, idea, or follow-up comes up mid-session: record it with `/radin-record`.
 - The user asks what is pending: `/radin-show`. One entry needs a plan first: `/radin-plan`.
 - The user wants the backlog worked through: `/radin-execute`. A code review whose findings should become tasks: `/radin-review`.
-- Never hand-edit files under `.claude/.radin/` -- every backlog operation goes through `bash ~/.claude/.radin/lib/radin-backlog.sh`.
+- Never hand-edit files under `.claude/.radin/` -- every backlog operation goes through the `'"$RADIN_CLI_VALUE"' backlog` CLI.
 <!-- radin:end -->'
 if prompt_yn "Append a short radin section to ~/.claude/CLAUDE.md, so agents know when to use the backlog? (default: no)"; then
 	CLAUDE_MD_GUIDANCE="true"
@@ -597,32 +654,6 @@ if prompt_yn "Append a short radin section to ~/.claude/CLAUDE.md, so agents kno
 	ok "radin section written to ${BOLD}$CLAUDE_MD${RESET} (between radin:begin/end markers)"
 else
 	ok "no CLAUDE.md edit -- agents discover radin through its skill descriptions"
-fi
-
-step "radin CLI on PATH (optional)"
-# One `radin <backlog|state|scope|crg-hooks|doctor|uninstall>` command instead
-# of long lib paths in every Bash call. The dispatcher always lands in
-# ~/.claude/.radin/bin; this only symlinks it into ~/.local/bin. Never
-# overwrites: an existing non-radin `radin` there is named and left alone.
-CLI_ON_PATH="false"
-if prompt_pick "Symlink the radin CLI into ~/.local/bin? (default: yes)" 1 "yes" "no" | grep -qx yes; then
-	CLI_TARGET="$HOME/.claude/.radin/bin/radin"
-	CLI_LINK="$HOME/.local/bin/radin"
-	if [ -e "$CLI_LINK" ] && [ "$(readlink "$CLI_LINK" 2>/dev/null)" != "$CLI_TARGET" ]; then
-		warn "$CLI_LINK exists and isn't radin's -- leaving it alone."
-		warn "Skills fall back to \"\$HOME/.claude/.radin/bin/radin\"."
-	else
-		mkdir -p "$HOME/.local/bin"
-		ln -sf "$CLI_TARGET" "$CLI_LINK"
-		CLI_ON_PATH="true"
-		ok "radin CLI linked at ${BOLD}$CLI_LINK${RESET}"
-		case ":$PATH:" in
-		*":$HOME/.local/bin:"*) ;;
-		*) warn "\$HOME/.local/bin is not on your PATH -- add it, or skills fall back to the full path." ;;
-		esac
-	fi
-else
-	ok "no symlink -- skills use \"\$HOME/.claude/.radin/bin/radin\" directly"
 fi
 
 step "Writing install manifest"

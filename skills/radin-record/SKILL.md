@@ -16,7 +16,7 @@ human said. `radin-review` logs what a diff revealed, and `radin-plan` and
 `radin-execute` consume the backlog afterward.
 
 All writes go through the shared CLI at
-the `radin backlog` CLI. It owns the index's schema and
+the `RADIN_CLI backlog` CLI. It owns the index's schema and
 resolves the per-project namespace, so never hand-edit a backlog file or
 compute its path yourself.
 
@@ -139,7 +139,7 @@ user wants captured; don't let the guess become entries unchecked.
 For each confirmed item:
 
 ```bash
-radin backlog add <category> "<short title>" [--skill <skill-name>] <<'EOF'
+RADIN_CLI backlog add <category> "<short title>" [--skill <skill-name>] <<'EOF'
 <as exhaustive a description as the situation warrants: what was being
 worked on when this came up, the item close to how the user stated it, and
 why it matters. radin-execute/radin-plan act on this entry with no other
@@ -157,8 +157,6 @@ readers see one vocabulary. Then any open facts or deferred decisions, in
 plain prose.>
 EOF
 ```
-
-(`radin` not on PATH? Call `"$HOME/.claude/.radin/bin/radin"` instead.)
 
 Pass Step 3's skill(s) as `--skill <skill-name>` (repeatable). The CLI
 appends the canonical `**Skill:**` instruction line itself; never write it

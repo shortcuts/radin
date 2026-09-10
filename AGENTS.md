@@ -241,6 +241,17 @@ and fact-finding dispatches write no repo code, so Core Constraints allows
 them in parallel unconditionally, and both rule texts in `install.sh` say so.
 Don't let either variant grow into a rule about those.
 
+## The radin CLI and its token
+
+Skills never hardcode how the CLI is invoked. Every CLI call in
+`skills/*/SKILL.md` and the shipped `lib/*.md` prompt files is written as
+`RADIN_CLI <backlog|state|scope|crg-hooks|doctor|uninstall> ...`; `install.sh`'s
+`set_cli` resolves the token to bare `radin` (when the `~/.local/bin` symlink
+exists and that directory is on PATH) or to the full dispatcher path
+(`"$HOME/.claude/.radin/bin/radin"`) otherwise. Same contract as the model
+tokens: don't write either literal form into a skill, and `set_cli` exits
+non-zero if a token survives. The dispatcher itself is `bin/radin`.
+
 ## Sub-agent models in radin-execute
 
 No radin file names a model. Each sub-agent role carries a

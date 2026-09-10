@@ -21,10 +21,8 @@ repo. That backlog is the user's own data, so deleting it is not radin's call.
 ## Step 1: Run it
 
 ```bash
-radin uninstall
+RADIN_CLI uninstall
 ```
-
-(`radin` not on PATH? Call `"$HOME/.claude/.radin/bin/radin"` instead.)
 
 ## Step 2: Report it
 

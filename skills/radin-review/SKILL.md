@@ -20,10 +20,8 @@ Resolve the argument (or its absence) via the shared CLI. Don't probe
 git/gh by hand:
 
 ```bash
-radin scope [<arg>]
+RADIN_CLI scope [<arg>]
 ```
-
-(`radin` not on PATH? Call `"$HOME/.claude/.radin/bin/radin"` instead.)
 
 It settles commit hashes, PR references, directory paths, and the
 no-argument default (working branch's diff against its merge-base with
@@ -64,11 +62,11 @@ however real the problem is.
 ## Step 2: Record backlog baseline
 
 Backlog writes go through
-the `radin backlog` CLI. Never hand-edit the index or
+the `RADIN_CLI backlog` CLI. Never hand-edit the index or
 task files. Record the baseline for the end-of-run count:
 
 ```bash
-radin backlog count
+RADIN_CLI backlog count
 ```
 
 ## Step 3: Run reviews
@@ -142,7 +140,7 @@ next finding. Drop a finding the user argues away, and say so.
 Append each via the CLI:
 
 ```bash
-radin backlog add <fix|refactor> "<short title>" <<'EOF'
+RADIN_CLI backlog add <fix|refactor> "<short title>" <<'EOF'
 **Scope:** <what was reviewed, from Step 1>
 **Location:** <file path(s) and function/line if applicable>
 **Finding:**

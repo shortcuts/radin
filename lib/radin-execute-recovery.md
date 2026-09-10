@@ -8,7 +8,7 @@ A stuck task's sub-agent died with the session, so what it left on disk is
 unknown. Never re-dispatch one blind. For each id `stuck` printed:
 
 ```bash
-radin state triage "$NAMESPACE_DIR" "<task id>"
+RADIN_CLI state triage "$NAMESPACE_DIR" "<task id>"
 ```
 
 It prints facts only (`attempts`, `completed`, `worktree`, `branch`, each

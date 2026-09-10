@@ -236,9 +236,9 @@ run_install_no_companions_answering() {
 @test "accepting the CLAUDE.md guidance appends one marked block, idempotently" {
   mkdir -p "$TEST_HOME/.claude"
   echo "user content stays" > "$TEST_HOME/.claude/CLAUDE.md"
-  cd "$REPO_ROOT" && run bash -c "printf '2\n2\n2\n2\n2\n2\n2\n2\n2\n1\n' | bash ./install.sh"
+  cd "$REPO_ROOT" && run bash -c "printf '2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n1\n' | bash ./install.sh"
   [ "$status" -eq 0 ]
-  cd "$REPO_ROOT" && run bash -c "printf '2\n2\n2\n2\n2\n2\n2\n2\n2\n1\n' | bash ./install.sh"
+  cd "$REPO_ROOT" && run bash -c "printf '2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n1\n' | bash ./install.sh"
   [ "$status" -eq 0 ]
   claude_md="$TEST_HOME/.claude/CLAUDE.md"
   grep -q "user content stays" "$claude_md"
@@ -256,6 +256,47 @@ run_install_no_companions_answering() {
   [ -L "$TEST_HOME/.local/bin/radin" ]
   [ "$(readlink "$TEST_HOME/.local/bin/radin")" = "$TEST_HOME/.claude/.radin/bin/radin" ]
   grep -q '"cli_on_path": true' "$TEST_HOME/.claude/.radin/manifest.json"
+}
+
+# Skills carry a RADIN_CLI token; set_cli resolves it to whichever invocation
+# works. The test PATH lacks ~/.local/bin, so even with the symlink the full
+# dispatcher path is written -- bare `radin` would break every skill here.
+@test "RADIN_CLI resolves to the full path when ~/.local/bin is off PATH" {
+  run_install_no_companions
+  ! grep -rq 'RADIN_CLI' "$TEST_HOME/.claude/skills" "$TEST_HOME/.claude/.radin/lib"
+  grep -q '"$HOME/.claude/.radin/bin/radin" backlog' "$TEST_HOME/.claude/skills/radin-execute/SKILL.md"
+}
+
+@test "RADIN_CLI resolves to bare radin when ~/.local/bin is on PATH" {
+  cd "$REPO_ROOT" && printf '2
+2
+2
+2
+2
+2
+2
+2
+' | PATH="$TEST_HOME/.local/bin:$PATH" bash ./install.sh
+  ! grep -rq 'RADIN_CLI' "$TEST_HOME/.claude/skills" "$TEST_HOME/.claude/.radin/lib"
+  grep -q 'radin backlog count' "$TEST_HOME/.claude/skills/radin-execute/SKILL.md"
+  ! grep -q '.radin/bin/radin" backlog' "$TEST_HOME/.claude/skills/radin-execute/SKILL.md"
+}
+
+@test "declining the symlink writes the full dispatcher path into skills" {
+  cd "$REPO_ROOT" && printf '2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+' | bash ./install.sh
+  [ ! -e "$TEST_HOME/.local/bin/radin" ]
+  grep -q '"cli_on_path": false' "$TEST_HOME/.claude/.radin/manifest.json"
+  grep -q '"$HOME/.claude/.radin/bin/radin" backlog' "$TEST_HOME/.claude/skills/radin-execute/SKILL.md"
 }
 
 @test "the dispatcher routes subcommands to the installed lib scripts" {
