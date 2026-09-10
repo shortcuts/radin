@@ -246,9 +246,10 @@ Don't let either variant grow into a rule about those.
 No radin file names a model. Each sub-agent role carries a
 `RADIN_MODEL_<ROLE>` token instead — `PLANNING`, `EXECUTION`, `REFUTE`,
 `DEBUG`, `FACTFIND` in `lib/radin-execute-prompts.md`, `REVIEW` in
-`skills/radin-execute/SKILL.md`. `install.sh` asks per
-role (only for roles the install enabled — a declined refuter pass gets no
-refuter-model question) and its `set_role_models` sed writes the answers in.
+`skills/radin-execute/SKILL.md`. `install.sh` asks — one pick for every
+role by default, or per role (only for roles the install enabled: a declined
+refuter pass gets no refuter-model question) — and its `set_role_models` sed
+writes the answers in.
 Defaults are sonnet,
 except fact-finding: it retrieves a checkable fact and its prompt already
 demands the evidence that establishes it, so haiku is enough and the router

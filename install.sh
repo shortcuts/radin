@@ -469,23 +469,35 @@ step "Sub-agent models (optional)"
 MODELS="fable opus sonnet haiku"
 SONNET_INDEX=3
 HAIKU_INDEX=4
-if prompt_yn "Choose radin-execute's sub-agent model per role? (defaults: sonnet, haiku for fact-finding)"; then
-	# shellcheck disable=SC2086  # word splitting is the point -- one arg per model
-	MODEL_PLANNING="$(prompt_pick "planning sub-agent (writes the plan for one task)" "$SONNET_INDEX" $MODELS)"
-	# shellcheck disable=SC2086
-	MODEL_EXECUTION="$(prompt_pick "execution sub-agent (implements and commits one task)" "$SONNET_INDEX" $MODELS)"
-	# shellcheck disable=SC2086
-	MODEL_REVIEW="$(prompt_pick "review sub-agent (reviews the session's commits)" "$SONNET_INDEX" $MODELS)"
-	# Roles the install didn't enable get no question -- the token still gets
-	# its default so the prompts file never ships a literal RADIN_MODEL_.
-	if [ "$REFUTER_PASS" = "true" ]; then
+if prompt_yn "Choose radin-execute's sub-agent models? (defaults: sonnet, haiku for fact-finding)"; then
+	# One pick covers the common case; the per-role walk is 5-6 pickers deep.
+	if [ "$(prompt_pick "Same model for every role? (default: yes)" 1 "yes" "no")" = "yes" ]; then
+		# shellcheck disable=SC2086  # word splitting is the point -- one arg per model
+		MODEL_ALL="$(prompt_pick "model for every sub-agent role" "$SONNET_INDEX" $MODELS)"
+		MODEL_PLANNING="$MODEL_ALL"
+		MODEL_EXECUTION="$MODEL_ALL"
+		MODEL_REVIEW="$MODEL_ALL"
+		MODEL_REFUTE="$MODEL_ALL"
+		MODEL_DEBUG="$MODEL_ALL"
+		MODEL_FACTFIND="$MODEL_ALL"
+	else
 		# shellcheck disable=SC2086
-		MODEL_REFUTE="$(prompt_pick "refuter sub-agent (verifies one task's commit)" "$SONNET_INDEX" $MODELS)"
+		MODEL_PLANNING="$(prompt_pick "planning sub-agent (writes the plan for one task)" "$SONNET_INDEX" $MODELS)"
+		# shellcheck disable=SC2086
+		MODEL_EXECUTION="$(prompt_pick "execution sub-agent (implements and commits one task)" "$SONNET_INDEX" $MODELS)"
+		# shellcheck disable=SC2086
+		MODEL_REVIEW="$(prompt_pick "review sub-agent (reviews the session's commits)" "$SONNET_INDEX" $MODELS)"
+		# Roles the install didn't enable get no question -- the token still gets
+		# its default so the prompts file never ships a literal RADIN_MODEL_.
+		if [ "$REFUTER_PASS" = "true" ]; then
+			# shellcheck disable=SC2086
+			MODEL_REFUTE="$(prompt_pick "refuter sub-agent (verifies one task's commit)" "$SONNET_INDEX" $MODELS)"
+		fi
+		# shellcheck disable=SC2086
+		MODEL_DEBUG="$(prompt_pick "debug sub-agent (diagnoses one failed task)" "$SONNET_INDEX" $MODELS)"
+		# shellcheck disable=SC2086
+		MODEL_FACTFIND="$(prompt_pick "fact-finding sub-agent (answers one checkable question)" "$HAIKU_INDEX" $MODELS)"
 	fi
-	# shellcheck disable=SC2086
-	MODEL_DEBUG="$(prompt_pick "debug sub-agent (diagnoses one failed task)" "$SONNET_INDEX" $MODELS)"
-	# shellcheck disable=SC2086
-	MODEL_FACTFIND="$(prompt_pick "fact-finding sub-agent (answers one checkable question)" "$HAIKU_INDEX" $MODELS)"
 	ok "sub-agent models: plan $MODEL_PLANNING, exec $MODEL_EXECUTION, review $MODEL_REVIEW, refute $MODEL_REFUTE, debug $MODEL_DEBUG, facts $MODEL_FACTFIND"
 else
 	ok "keeping default sub-agent models (sonnet; haiku for fact-finding)"

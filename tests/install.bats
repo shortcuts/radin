@@ -122,11 +122,11 @@ run_install_no_companions_answering() {
   grep -q 'model: "haiku"' "$TEST_HOME/.claude/.radin/lib/radin-execute-prompts.md"
 }
 
-# The per-role gate at prompt 3: yes, then one pick per role (fable/opus/
-# sonnet/haiku) -- no refuter pick, since the refuter pass was declined --
-# then the companion tools.
+# The model gate at prompt 3: yes, then "same model for every role?" no, then
+# one pick per role (fable/opus/sonnet/haiku) -- no refuter pick, since the
+# refuter pass was declined -- then the companion tools.
 @test "per-role model picks land in the right file" {
-  cd "$REPO_ROOT" && run bash -c "printf '2\n2\n1\n2\n1\n4\n3\n3\n2\n2\n2\n2\n2\n2\n' | bash ./install.sh"
+  cd "$REPO_ROOT" && run bash -c "printf '2\n2\n1\n2\n2\n1\n4\n3\n3\n2\n2\n2\n2\n2\n2\n' | bash ./install.sh"
   [ "$status" -eq 0 ]
   ! grep -rq 'RADIN_MODEL_' "$TEST_HOME/.claude/skills" "$TEST_HOME/.claude/.radin/lib"
   grep -q 'model: "opus"' "$TEST_HOME/.claude/.radin/lib/radin-execute-prompts.md"
@@ -135,8 +135,19 @@ run_install_no_companions_answering() {
 }
 
 # The refuter role only gets a model question when the refuter pass is on.
+# "Same model for every role?" defaults to yes: one pick sets all six tokens,
+# fact-finding's haiku default included.
+@test "one same-model pick covers every role" {
+  cd "$REPO_ROOT" && run bash -c "printf '2\n2\n1\n1\n2\n2\n2\n2\n2\n2\n2\n' | bash ./install.sh"
+  [ "$status" -eq 0 ]
+  ! grep -rq 'RADIN_MODEL_' "$TEST_HOME/.claude/skills" "$TEST_HOME/.claude/.radin/lib"
+  grep -q 'model: "opus"' "$TEST_HOME/.claude/skills/radin-execute/SKILL.md"
+  grep -q 'model: "opus"' "$TEST_HOME/.claude/.radin/lib/radin-execute-prompts.md"
+  ! grep -q 'model: "haiku"' "$TEST_HOME/.claude/.radin/lib/radin-execute-prompts.md"
+}
+
 @test "refuter model pick is asked when the refuter pass is enabled" {
-  cd "$REPO_ROOT" && run bash -c "printf '2\n1\n1\n3\n3\n3\n1\n3\n3\n2\n2\n2\n2\n2\n2\n' | bash ./install.sh"
+  cd "$REPO_ROOT" && run bash -c "printf '2\n1\n1\n2\n3\n3\n3\n1\n3\n3\n2\n2\n2\n2\n2\n2\n' | bash ./install.sh"
   [ "$status" -eq 0 ]
   grep -q 'model: "fable"' "$TEST_HOME/.claude/.radin/lib/radin-execute-prompts.md"
 }
