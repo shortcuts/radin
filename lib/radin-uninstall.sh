@@ -58,6 +58,11 @@ printf '  %-20s advisory install, remove with: claude plugin uninstall caveman@c
 printf '  %-20s advisory install, remove with: claude plugin uninstall ponytail@ponytail\n' "ponytail"
 printf '  %-20s advisory install, remove with: claude plugin uninstall mattpocock-skills@claude-plugins-official\n' "mattpocock-skills"
 printf '  %s\n' "Any <repo-root>/.claude/.radin/ backlog directory -- your data, your call"
+# The guidance block is inside a file radin doesn't own, so it is named, not
+# edited out.
+if [ -f "$CLAUDE_DIR/CLAUDE.md" ] && grep -q '^<!-- radin:begin -->$' "$CLAUDE_DIR/CLAUDE.md"; then
+	printf '  %s\n' "$CLAUDE_DIR/CLAUDE.md keeps a radin section -- delete the lines between <!-- radin:begin --> and <!-- radin:end -->"
+fi
 
 printf '\nradin removed from ~/.claude.\n'
 

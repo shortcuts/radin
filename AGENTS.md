@@ -270,10 +270,14 @@ skills/tools live there too.
 per-repo `<repo-root>/.claude/.radin/` backlog namespace — same `.radin`
 name, different scope: this one holds shared scripts like
 `radin-backlog.sh`, not backlog state). `install.sh` may only `cp`/`cp -r`
-radin's own named files (radin's own `skills/<name>/`,
-`agents/radin-execute-background.md`, `lib/*` into `~/.claude/.radin/lib/`) and
-`mkdir -p`. Never `rm` — a pre-migration `~/.claude/agents/radin-execute.md`,
-or a `radin-execute-background.md` the user has since declined, gets a warning
+radin's own named files (radin's own `skills/<name>/`, `lib/*` into
+`~/.claude/.radin/lib/`) and `mkdir -p`. One exception, on an explicit yes
+only: it rewrites the block between `<!-- radin:begin -->` and
+`<!-- radin:end -->` in `~/.claude/CLAUDE.md` (agent guidance on when to use
+radin). Only that block — everything outside the markers passes through
+untouched. Never `rm` — a pre-migration
+`~/.claude/agents/radin-execute.md`, or a `radin-execute-background.md` left
+by an earlier install, gets a warning
 plus the exact `rm` to run, never a deletion. Never wildcard-delete directory. Never overwrite file radin didn't
 ship. Call out explicitly on any edit to `install.sh`.
 

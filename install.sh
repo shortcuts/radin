@@ -549,6 +549,41 @@ if command -v code-review-graph >/dev/null 2>&1; then
 	info "that project (it edits that repo's .mcp.json / CLAUDE.md, not this one)."
 fi
 
+step "Agent guidance (optional)"
+# A short section in ~/.claude/CLAUDE.md telling Claude when to reach for
+# radin's skills (same pattern code-review-graph uses). Kept between
+# radin:begin/end markers: a re-run replaces only that block, the rest of the
+# user's file is never touched. Default no -- it edits a file radin doesn't
+# own, so it needs an explicit yes.
+CLAUDE_MD_GUIDANCE="false"
+# shellcheck disable=SC2016  # backticks here are markdown code spans, not command substitution
+RADIN_GUIDANCE='<!-- radin:begin -->
+## radin
+
+radin keeps a per-repo backlog in `<repo-root>/.claude/.radin/` so tasks
+survive past one conversation. Reach for it instead of ad-hoc task tracking:
+
+- A bug, idea, or follow-up comes up mid-session: record it with `/radin-record`.
+- The user asks what is pending: `/radin-show`. One entry needs a plan first: `/radin-plan`.
+- The user wants the backlog worked through: `/radin-execute`. A code review whose findings should become tasks: `/radin-review`.
+- Never hand-edit files under `.claude/.radin/` -- every backlog operation goes through `bash ~/.claude/.radin/lib/radin-backlog.sh`.
+<!-- radin:end -->'
+if prompt_yn "Append a short radin section to ~/.claude/CLAUDE.md, so agents know when to use the backlog? (default: no)"; then
+	CLAUDE_MD_GUIDANCE="true"
+	CLAUDE_MD="$HOME/.claude/CLAUDE.md"
+	touch "$CLAUDE_MD"
+	GUIDANCE_TMP="$(mktemp)"
+	# Strip any previous radin block, then append the current one -- idempotent
+	# across re-runs, and the surrounding content passes through untouched.
+	awk '/^<!-- radin:begin -->$/ { skip = 1 } !skip { print } /^<!-- radin:end -->$/ { skip = 0 }' \
+		"$CLAUDE_MD" >"$GUIDANCE_TMP"
+	printf '\n%s\n' "$RADIN_GUIDANCE" >>"$GUIDANCE_TMP"
+	mv "$GUIDANCE_TMP" "$CLAUDE_MD"
+	ok "radin section written to ${BOLD}$CLAUDE_MD${RESET} (between radin:begin/end markers)"
+else
+	ok "no CLAUDE.md edit -- agents discover radin through its skill descriptions"
+fi
+
 step "Writing install manifest"
 # ponytail: three independent copies of this file list already exist
 # (install.sh's own cp lines above, radin-doctor.sh, radin-uninstall.sh) --
@@ -578,6 +613,7 @@ cat >"$MANIFEST_FILE" <<EOF
   "installed_at": "$INSTALLED_AT",
   "parallel_execution": $PARALLEL_MODE,
   "refuter_pass": $REFUTER_PASS,
+  "claude_md_guidance": $CLAUDE_MD_GUIDANCE,
   "skills": [
     "radin-execute",
     "radin-plan",

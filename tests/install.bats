@@ -225,6 +225,29 @@ run_install_no_companions_answering() {
   grep -q '"headroom": true' "$manifest"
 }
 
+# The guidance prompt comes last, after the companion tools; every earlier
+# sequence leaves it to its default no via EOF.
+@test "declining the CLAUDE.md guidance never creates the file" {
+  run_install_no_companions
+  [ ! -f "$TEST_HOME/.claude/CLAUDE.md" ]
+  grep -q '"claude_md_guidance": false' "$TEST_HOME/.claude/.radin/manifest.json"
+}
+
+@test "accepting the CLAUDE.md guidance appends one marked block, idempotently" {
+  mkdir -p "$TEST_HOME/.claude"
+  echo "user content stays" > "$TEST_HOME/.claude/CLAUDE.md"
+  cd "$REPO_ROOT" && run bash -c "printf '2\n2\n2\n2\n2\n2\n2\n2\n2\n1\n' | bash ./install.sh"
+  [ "$status" -eq 0 ]
+  cd "$REPO_ROOT" && run bash -c "printf '2\n2\n2\n2\n2\n2\n2\n2\n2\n1\n' | bash ./install.sh"
+  [ "$status" -eq 0 ]
+  claude_md="$TEST_HOME/.claude/CLAUDE.md"
+  grep -q "user content stays" "$claude_md"
+  [ "$(grep -c '<!-- radin:begin -->' "$claude_md")" -eq 1 ]
+  [ "$(grep -c '<!-- radin:end -->' "$claude_md")" -eq 1 ]
+  grep -q '/radin-record' "$claude_md"
+  grep -q '"claude_md_guidance": true' "$TEST_HOME/.claude/.radin/manifest.json"
+}
+
 @test "declining per-task verification keeps the no-refuter rule only" {
   run_install_no_companions
   agent="$TEST_HOME/.claude/skills/radin-execute/SKILL.md"

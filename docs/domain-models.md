@@ -127,6 +127,7 @@ Written by `install.sh` to `~/.claude/.radin/manifest.json` on every run — not
   "installed_at": "2026-07-28T00:00:00Z",
   "parallel_execution": false,
   "refuter_pass": false,
+  "claude_md_guidance": false,
   "skills": ["radin-execute", "radin-plan", "radin-record", "radin-review", "radin-setup-hooks", "radin-show", "radin-stats", "radin-doctor", "radin-uninstall", "thermo-nuclear"],
   "lib": ["radin-namespace.sh", "radin-backlog.sh", "radin-state.sh", "radin-prioritization.md", "radin-doctor.sh", "radin-uninstall.sh"],
   "companion_tools": {
@@ -140,6 +141,6 @@ Written by `install.sh` to `~/.claude/.radin/manifest.json` on every run — not
 
 - `version` `dev` when installed from local git clone (no downloaded release tarball, no `.radin-version` file to read).
 - `skills`/`lib` static lists matching exactly what `install.sh` copies, what `radin-doctor.sh` checks for — not derived from manifest at runtime by either script (see `docs/architecture.md` "Install manifest").
-- `parallel_execution` records which concurrency rule `install.sh` wrote into `skills/radin-execute/SKILL.md`, and covers execution sub-agents only — read-only dispatches always run in parallel. `refuter_pass` records which verification rule it wrote into the same file.
+- `parallel_execution` records which concurrency rule `install.sh` wrote into `skills/radin-execute/SKILL.md`, and covers execution sub-agents only — read-only dispatches always run in parallel. `refuter_pass` records which verification rule it wrote into the same file. `claude_md_guidance` records whether the user opted into the marked radin section in `~/.claude/CLAUDE.md`.
 - `companion_tools` values reflect final reachable state after this install.sh run (already present, just installed, or skipped not distinguished — only "is it there now").
 - Regenerated wholesale on every `install.sh` run; never partially updated, never read back by `install.sh` itself.
