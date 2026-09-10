@@ -19,6 +19,14 @@ cli() {
   (cd "$WORK/proj" && bash "$CLI" "$@")
 }
 
+@test "env --export prints source-able export lines" {
+  cd "$WORK/proj"
+  run bash "$CLI" env --export
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"export REPO_ROOT="* ]]
+  [[ "$output" == *"export BACKLOG_INDEX="* ]]
+}
+
 @test "add creates an index line and a task file" {
   run cli add fix "broken auth" <<<"Auth times out after 5s."
   [ "$status" -eq 0 ]

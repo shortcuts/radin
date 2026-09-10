@@ -11,7 +11,7 @@
 # nothing here is ever addressed by line number.
 #
 # Usage:
-#   radin-backlog.sh env                        # print REPO_ROOT/NAMESPACE_DIR/BACKLOG_INDEX/BACKLOG_TASKS_DIR
+#   radin-backlog.sh env [--export]             # print REPO_ROOT/NAMESPACE_DIR/BACKLOG_INDEX/BACKLOG_TASKS_DIR (--export: source-able with export)
 #   radin-backlog.sh show [category]             # print backlog as markdown, or one ## section
 #   radin-backlog.sh list                        # print "id<TAB>category<TAB>title<TAB>file" for every task
 #   radin-backlog.sh find <id-or-title>          # print matching "id<TAB>category<TAB>title<TAB>file" line(s)
@@ -114,7 +114,11 @@ $found"
 cmd="${1:-}"
 case "$cmd" in
 env)
-	bash "$LIB_DIR/radin-namespace.sh"
+	if [ "${2:-}" = "--export" ]; then
+		bash "$LIB_DIR/radin-namespace.sh" | sed 's/^/export /'
+	else
+		bash "$LIB_DIR/radin-namespace.sh"
+	fi
 	;;
 
 show)

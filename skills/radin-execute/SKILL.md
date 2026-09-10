@@ -132,14 +132,14 @@ no arguments for its subcommands. Resolve the namespace and verify a backlog
 exists in the **same Bash call** (shell state does not persist across calls):
 
 ```bash
-source <(bash "$HOME/.claude/.radin/lib/radin-backlog.sh" env | sed 's/^/export /')
-test -s "$BACKLOG_INDEX" && echo EXISTS || echo MISSING
+source <(bash "$HOME/.claude/.radin/lib/radin-backlog.sh" env --export)
+bash "$HOME/.claude/.radin/lib/radin-backlog.sh" count
 ```
 
 Use `$REPO_ROOT`, `$NAMESPACE_DIR`, `$BACKLOG_INDEX`, `$BACKLOG_TASKS_DIR`
 thereafter, and re-run the `source` line in any later Bash call that needs
-them. On `EXISTS`, continue to Phase 0.5. `MISSING` is not a stop here:
-Phase 1 step 1 owns that branch.
+them. On a non-zero count, continue to Phase 0.5. A count of `0` is not a
+stop here: Phase 1 step 1 owns that branch.
 
 ## Phase 0.5: Worktree/Branch Preference
 
