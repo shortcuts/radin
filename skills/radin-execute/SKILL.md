@@ -21,10 +21,6 @@ own reading and editing out of this context and hands back one `STATUS:`
 line — and the sub-agent limits in `docs/technical-constraints.md` are its
 concern rather than yours.
 
-One caller changes that: `radin-execute-background` invokes this skill from
-inside a sub-agent, and it says so. Under it, those limits are yours too, and
-it names the two that bite.
-
 ## Core Constraints
 
 - **Sub-agents never sub-delegate.** Every one you dispatch is a leaf. That

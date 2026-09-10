@@ -77,15 +77,15 @@ teardown() {
 # rtk/code-review-graph/headroom/caveman/ponytail exist on the
 # trimmed PATH, so all five prompts fire and all five get declined.
 # Every prompt is a numbered picker: 1 is the first option (parallel / yes),
-# 2 the second (sequential / no). Order: 1 parallel-execution,
-# 2 sub-agent-model, 3 background-agent, then one per companion tool starting
-# with rtk at 4. run_install_no_companions_answering puts its answer on rtk.
+# 2 the second (sequential / no). Order: 1 parallel-execution, 2 refuter,
+# 3 sub-agent-model, then one per companion tool starting with rtk at 4.
+# run_install_no_companions_answering puts its answer on rtk.
 run_install_no_companions() {
-  cd "$REPO_ROOT" && printf '2\n2\n2\n2\n2\n2\n2\n2\n2\n' | bash ./install.sh
+  cd "$REPO_ROOT" && printf '2\n2\n2\n2\n2\n2\n2\n2\n' | bash ./install.sh
 }
 
 run_install_no_companions_answering() {
-  cd "$REPO_ROOT" && printf '2\n2\n2\n2\n%s\n2\n2\n2\n2\n' "$1" | bash ./install.sh
+  cd "$REPO_ROOT" && printf '2\n2\n2\n%s\n2\n2\n2\n2\n' "$1" | bash ./install.sh
 }
 
 @test "syntax is valid" {
@@ -105,20 +105,12 @@ run_install_no_companions_answering() {
   [[ "$output" == *"Using radin source at $REPO_ROOT"* ]]
 }
 
-# Every entry point is a skill, so it runs in the user's own thread. The one
-# agent radin ships is opt-in, and declining must not even create the dir.
-@test "declining the background agent leaves ~/.claude/agents alone" {
+# Every entry point is a skill, so it runs in the user's own thread. radin
+# ships no agent: an install must never create ~/.claude/agents.
+@test "install creates no ~/.claude/agents" {
   run_install_no_companions
   [ ! -d "$TEST_HOME/.claude/agents" ]
-  grep -q '"background_agent": false' "$TEST_HOME/.claude/.radin/manifest.json"
-}
-
-@test "accepting the background agent installs just that one agent" {
-  cd "$REPO_ROOT" && run bash -c "printf '2\n2\n2\n1\n2\n2\n2\n2\n2\n' | bash ./install.sh"
-  [ "$status" -eq 0 ]
-  [ -f "$TEST_HOME/.claude/agents/radin-execute-background.md" ]
-  [ ! -e "$TEST_HOME/.claude/agents/radin-execute.md" ]
-  grep -q '"background_agent": true' "$TEST_HOME/.claude/.radin/manifest.json"
+  ! grep -q 'background_agent' "$TEST_HOME/.claude/.radin/manifest.json"
 }
 
 # A surviving RADIN_MODEL_ token would reach Claude as a literal model name and
@@ -131,9 +123,10 @@ run_install_no_companions_answering() {
 }
 
 # The per-role gate at prompt 3: yes, then one pick per role (fable/opus/
-# sonnet/haiku), then background-agent no, then the companion tools.
+# sonnet/haiku) -- no refuter pick, since the refuter pass was declined --
+# then the companion tools.
 @test "per-role model picks land in the right file" {
-  cd "$REPO_ROOT" && run bash -c "printf '2\n2\n1\n2\n1\n4\n3\n3\n3\n2\n2\n2\n2\n2\n2\n' | bash ./install.sh"
+  cd "$REPO_ROOT" && run bash -c "printf '2\n2\n1\n2\n1\n4\n3\n3\n2\n2\n2\n2\n2\n2\n' | bash ./install.sh"
   [ "$status" -eq 0 ]
   ! grep -rq 'RADIN_MODEL_' "$TEST_HOME/.claude/skills" "$TEST_HOME/.claude/.radin/lib"
   grep -q 'model: "opus"' "$TEST_HOME/.claude/.radin/lib/radin-execute-prompts.md"
@@ -141,15 +134,16 @@ run_install_no_companions_answering() {
   grep -q 'model: "haiku"' "$TEST_HOME/.claude/skills/radin-execute/SKILL.md"
 }
 
-@test "the background agent gets its own model" {
-  cd "$REPO_ROOT" && run bash -c "printf '2\n2\n1\n3\n3\n3\n3\n3\n3\n4\n1\n2\n2\n2\n2\n2\n' | bash ./install.sh"
+# The refuter role only gets a model question when the refuter pass is on.
+@test "refuter model pick is asked when the refuter pass is enabled" {
+  cd "$REPO_ROOT" && run bash -c "printf '2\n1\n1\n3\n3\n3\n1\n3\n3\n2\n2\n2\n2\n2\n2\n' | bash ./install.sh"
   [ "$status" -eq 0 ]
-  grep -q '^model: haiku$' "$TEST_HOME/.claude/agents/radin-execute-background.md"
+  grep -q 'model: "fable"' "$TEST_HOME/.claude/.radin/lib/radin-execute-prompts.md"
 }
 
-# Declining is not a removal: install.sh never deletes a file, so it has to
-# name the leftover instead of quietly leaving a shadowed copy behind.
-@test "declining names a previously-installed background agent instead of removing it" {
+# install.sh never deletes a file, so a background agent left by an earlier
+# radin version has to be named instead of removed.
+@test "a leftover background agent is named, not removed" {
   mkdir -p "$TEST_HOME/.claude/agents"
   : > "$TEST_HOME/.claude/agents/radin-execute-background.md"
   run run_install_no_companions
@@ -218,13 +212,13 @@ run_install_no_companions_answering() {
 # the normal yes/no gate (Python/pip footprint) -- both prompts must be
 # answered yes before the pip/pipx install command actually runs.
 @test "headroom's extra pip confirmation blocks install when declined" {
-  cd "$REPO_ROOT" && run bash -c "printf '2\n2\n2\n2\n2\n2\n1\n2\n2\n2\n' | bash ./install.sh"
+  cd "$REPO_ROOT" && run bash -c "printf '2\n2\n2\n2\n2\n1\n2\n2\n2\n' | bash ./install.sh"
   [ "$status" -eq 0 ]
   [ ! -f "$PIP_LOG" ] || ! grep -q "headroom-ai" "$PIP_LOG"
 }
 
 @test "headroom installs only after both confirmations pick yes" {
-  cd "$REPO_ROOT" && run bash -c "printf '2\n2\n2\n2\n2\n2\n1\n1\n2\n2\n' | bash ./install.sh"
+  cd "$REPO_ROOT" && run bash -c "printf '2\n2\n2\n2\n2\n1\n1\n2\n2\n' | bash ./install.sh"
   [ "$status" -eq 0 ]
   grep -q "headroom-ai" "$PIP_LOG"
   manifest="$TEST_HOME/.claude/.radin/manifest.json"
@@ -240,7 +234,7 @@ run_install_no_companions_answering() {
 }
 
 @test "accepting per-task verification keeps the refuter rule only" {
-  cd "$REPO_ROOT" && run bash -c "printf '2\n1\n2\n2\n2\n2\n2\n2\n2\n' | bash ./install.sh"
+  cd "$REPO_ROOT" && run bash -c "printf '2\n1\n2\n2\n2\n2\n2\n2\n' | bash ./install.sh"
   [ "$status" -eq 0 ]
   agent="$TEST_HOME/.claude/skills/radin-execute/SKILL.md"
   grep -q "Verify a .SUCCESS. before you record it" "$agent"
@@ -258,7 +252,7 @@ run_install_no_companions_answering() {
 }
 
 @test "accepting parallel execution keeps the concurrency constraint only" {
-  cd "$REPO_ROOT" && run bash -c "printf '1\n2\n2\n2\n2\n2\n2\n2\n2\n' | bash ./install.sh"
+  cd "$REPO_ROOT" && run bash -c "printf '1\n2\n2\n2\n2\n2\n2\n2\n' | bash ./install.sh"
   [ "$status" -eq 0 ]
   agent="$TEST_HOME/.claude/skills/radin-execute/SKILL.md"
   grep -q "Concurrency allowed" "$agent"

@@ -84,8 +84,7 @@ MCP tool.
 from `Agent` and `ExitPlanMode`, which follow the first filter's conditions
 wherever the sub-agent runs". First filter drops `Agent` only at depth limit
 (default 3) or in fork. So background sub-agent at depth 1 delegates
-normally -- that's what `agents/radin-execute-background.md` relies on.
-Don't read `Agent`'s absence from second filter's list as removal.
+normally. Don't read `Agent`'s absence from second filter's list as removal.
 
 ## Nobody picks foreground or background
 
@@ -101,7 +100,5 @@ before it lands, and treats a dispatch that returns nothing as unfinished --
 `claude agents` (agent view) dispatches full Claude Code background sessions:
 whole tool pool, working `AskUserQuestion`, peek/reply/attach. `/bg` sends
 current conversation there. `/radin-execute` runs unchanged in one, so that's
-the no-install route. `agents/radin-execute-background.md` is the in-session
-convenience for same goal, and second `claude` session in another terminal
-works too -- worktree-per-task answer keeps concurrent sessions off each
-other's checkout.
+the route. Second `claude` session in another terminal works too --
+worktree-per-task answer keeps concurrent sessions off each other's checkout.

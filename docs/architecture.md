@@ -101,23 +101,17 @@ radin-execute was an agent (`agents/radin-execute.md`) until it became a skill. 
 
 As skill, radin-execute runs in user's own thread: asks directly, gets interrupted, resumes from disk. Sub-agents stay, one layer down, as leaf workers — that's where context isolation earns its keep (planning's codebase exploration, execution's edits, review's diff read), each returning single `STATUS:` line. Same split SOTA skill collections use: orchestrate in main thread, isolate leaf work.
 
-### `radin-execute-background`
+### Running the backlog in the background
 
-One agent still ships, opt-in at install time (`install.sh` asks, default no): `agents/radin-execute-background.md`, for the user who wants the backlog run in a thread they visit themselves. It invokes `/radin-execute` and follows every phase as written, sub-agent dispatch included — it *is* the router the skill describes, so the skill stays source of truth and the agent file carries nothing but its own two differences.
-
-Those differences both come from being a sub-agent: no `AskUserQuestion` (so it asks in prose and ends its turn — correct only there, because the user is reading that transcript; Phase 2's gate still binds it), and no guarantee a dispatched sub-agent's result lands in the same turn (so it reports what landed and ends, rather than re-dispatching).
-
-Background sub-agents *do* keep `Agent`: the second tool filter carves it out explicitly, and `Agent` follows the first filter's conditions instead — removed only at the depth limit or in a fork. Nobody picks foreground or background either, since fork mode removes `run_in_background` from the `Agent` tool. Both in `docs/technical-constraints.md`.
-
-Route needing no agent at all: `claude agents` (agent view) dispatches full Claude Code background sessions — whole tool pool, working `AskUserQuestion`, peek/reply/attach — and `/radin-execute` runs unchanged in one. `/bg` sends the current conversation there. A second `claude` session in another terminal works too.
+radin ships no agent for this. `claude agents` (agent view) dispatches full Claude Code background sessions — whole tool pool, working `AskUserQuestion`, peek/reply/attach — and `/radin-execute` runs unchanged in one. `/bg` sends the current conversation there. A second `claude` session in another terminal works too. (An earlier radin shipped an opt-in `radin-execute-background` agent for the same goal; `install.sh` and `radin-uninstall` now name/remove that leftover.)
 
 `radin-plan` is skill, not agent: runs inline in whichever context invokes it. In user's own conversation, judges whether its one scoped entry should split into independent sub-plans, confirms with user directly before splitting, writes plan file + `**Plan:**` pointer per resulting sub-task. For any task reaching Phase 3 with no `**Plan:**` line yet, `radin-execute` delegates planning to dedicated planning sub-agent invoking `/radin-plan`. Keeps planning's codebase exploration out of orchestrator's context — plan file on disk = handoff to execution sub-agent. That sub-agent runs non-interactively: where skill would ask confirmation, takes non-destructive path (no split, no overwrite), genuine ambiguity marks task `blocked` for user instead of guessing.
 
-To update radin itself, re-run `install.sh` — plain `curl | bash`, or `./install.sh` from dev clone. Always re-downloads/re-copies `skills/*/` and `lib/*`, overwrites what's in `~/.claude/`. Re-asks the background-agent opt-in, and declining never removes an earlier copy — it names it instead. Pass `--force` to also update companion tools already on the system: plugins go through `claude plugin update`, brew/pipx/pip installs re-run as upgrades.
+To update radin itself, re-run `install.sh` — plain `curl | bash`, or `./install.sh` from dev clone. Always re-downloads/re-copies `skills/*/` and `lib/*`, overwrites what's in `~/.claude/`. Pass `--force` to also update companion tools already on the system: plugins go through `claude plugin update`, brew/pipx/pip installs re-run as upgrades.
 
 ## Install manifest
 
-`install.sh` writes `~/.claude/.radin/manifest.json` every run: generated snapshot of what installed. Records `version` (release tag, or `dev` for local git clone), `installed_at` (UTC timestamp), `skills`/`lib` file lists copied, `parallel_execution` (whether install allowed `radin-execute` to fan out execution sub-agents), `refuter_pass` (whether every task's commit gets verified by a second sub-agent), `background_agent` (whether user opted into `radin-execute-background`), `companion_tools` object recording whether each of rtk, code-review-graph, headroom, caveman, ponytail reachable on this machine after confirmation prompts.
+`install.sh` writes `~/.claude/.radin/manifest.json` every run: generated snapshot of what installed. Records `version` (release tag, or `dev` for local git clone), `installed_at` (UTC timestamp), `skills`/`lib` file lists copied, `parallel_execution` (whether install allowed `radin-execute` to fan out execution sub-agents), `refuter_pass` (whether every task's commit gets verified by a second sub-agent), `companion_tools` object recording whether each of rtk, code-review-graph, headroom, caveman, ponytail reachable on this machine after confirmation prompts.
 
 Snapshot for external tooling to read, not live source of truth. `radin-doctor.sh` and `radin-uninstall.sh` each keep own independent file list, check filesystem direct, rather than trust manifest. Corrupted or stale manifest must never make either report false "OK" or delete wrong thing.
 
@@ -127,8 +121,6 @@ Snapshot for external tooling to read, not live source of truth. `radin-doctor.s
 radin/
   .claude-plugin/
     plugin.json
-  agents/
-    radin-execute-background.md
   skills/
     radin-execute/
       SKILL.md
@@ -165,4 +157,4 @@ radin/
 
 ## Authoring vs. distribution
 
-This repo source of truth. `skills/*/SKILL.md` and `agents/radin-execute-background.md` authored/edited direct here — no external fork, no sync step. `install.sh` dist them one-directional into `~/.claude/skills` and `~/.claude/agents`. Every entry point is a skill, so it runs in the user's own thread and can talk to them (see "Why every entry point is a skill"); the one agent is opt-in and inherits its phases from that skill. `thermo-nuclear` not part of this repo at all: `install.sh` downloads its `SKILL.md` straight from cursor/plugins at install time.
+This repo source of truth. `skills/*/SKILL.md` authored/edited direct here — no external fork, no sync step. `install.sh` dist them one-directional into `~/.claude/skills`. Every entry point is a skill, so it runs in the user's own thread and can talk to them (see "Why every entry point is a skill"). `thermo-nuclear` not part of this repo at all: `install.sh` downloads its `SKILL.md` straight from cursor/plugins at install time.

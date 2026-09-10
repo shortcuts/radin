@@ -98,7 +98,6 @@ Typical flow:
 | `radin-setup-hooks` | Wires up per-repo hooks/MCP config for companion tools |
 | `radin-stats` | Shows each installed companion tool's own stats/gain output, side by side |
 | `radin-uninstall` | Removes everything `install.sh` added to `~/.claude` |
-| `radin-execute-background` | Same backlog run, in its own agent thread you visit yourself. Opt-in at install time |
 
 Some delegate to other skills instead of reimplementing review or
 style logic themselves:
@@ -156,8 +155,7 @@ before it starts, and you can interrupt it. Every task's state is on disk, so
 re-running `/radin-execute` resumes where it stopped and never redoes finished
 work.
 
-Want your thread free while the backlog runs? Three ways, in order of how
-little there is to set up:
+Want your thread free while the backlog runs? Two ways:
 
 - **`claude agents`** — dispatch `/radin-execute` as a background session,
   then peek, reply, or attach whenever you like. Each one is a full Claude
@@ -165,11 +163,6 @@ little there is to set up:
   conversation you're already in over there instead.
 - **A second `claude` session** in another terminal. Same thing, one window
   per run.
-- **`radin-execute-background`**, if you said yes at install time: ask for
-  the backlog to run in the background and it works the same backlog in its
-  own agent thread, reporting there. It delegates per task like the skill
-  does; the one difference is that it asks you things in prose rather than
-  with a picker, since a sub-agent has no way to show one.
 
 Either way the worktree-per-task answer keeps concurrent runs off each
 other's checkout.

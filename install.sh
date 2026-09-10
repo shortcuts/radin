@@ -365,7 +365,6 @@ MODEL_DEBUG="sonnet"
 # that establishes it, so the cheapest tier is the default: the router reads
 # that evidence and can reject a wrong answer.
 MODEL_FACTFIND="haiku"
-MODEL_BACKGROUND="sonnet"
 
 set_role_models() {
 	# No `sed -i`: BSD sed (macOS) and GNU sed (Linux) take incompatible forms
@@ -378,7 +377,6 @@ set_role_models() {
 		-e "s/RADIN_MODEL_REFUTE/${MODEL_REFUTE}/g" \
 		-e "s/RADIN_MODEL_DEBUG/${MODEL_DEBUG}/g" \
 		-e "s/RADIN_MODEL_FACTFIND/${MODEL_FACTFIND}/g" \
-		-e "s/RADIN_MODEL_BACKGROUND/${MODEL_BACKGROUND}/g" \
 		"$file" >"$tmp" && mv "$tmp" "$file"
 	# A surviving token reaches the model as a literal model name and every
 	# dispatch fails -- louder to stop here than to debug that.
@@ -466,42 +464,31 @@ if prompt_yn "Choose radin-execute's sub-agent model per role? (defaults: sonnet
 	MODEL_EXECUTION="$(prompt_pick "execution sub-agent (implements and commits one task)" "$SONNET_INDEX" $MODELS)"
 	# shellcheck disable=SC2086
 	MODEL_REVIEW="$(prompt_pick "review sub-agent (reviews the session's commits)" "$SONNET_INDEX" $MODELS)"
-	# shellcheck disable=SC2086
-	MODEL_REFUTE="$(prompt_pick "refuter sub-agent (verifies one task's commit, if enabled above)" "$SONNET_INDEX" $MODELS)"
+	# Roles the install didn't enable get no question -- the token still gets
+	# its default so the prompts file never ships a literal RADIN_MODEL_.
+	if [ "$REFUTER_PASS" = "true" ]; then
+		# shellcheck disable=SC2086
+		MODEL_REFUTE="$(prompt_pick "refuter sub-agent (verifies one task's commit)" "$SONNET_INDEX" $MODELS)"
+	fi
 	# shellcheck disable=SC2086
 	MODEL_DEBUG="$(prompt_pick "debug sub-agent (diagnoses one failed task)" "$SONNET_INDEX" $MODELS)"
 	# shellcheck disable=SC2086
 	MODEL_FACTFIND="$(prompt_pick "fact-finding sub-agent (answers one checkable question)" "$HAIKU_INDEX" $MODELS)"
-	# shellcheck disable=SC2086
-	MODEL_BACKGROUND="$(prompt_pick "radin-execute-background agent, if you install it below" "$SONNET_INDEX" $MODELS)"
-	ok "sub-agent models: plan $MODEL_PLANNING, exec $MODEL_EXECUTION, review $MODEL_REVIEW, refute $MODEL_REFUTE, debug $MODEL_DEBUG, facts $MODEL_FACTFIND, background $MODEL_BACKGROUND"
+	ok "sub-agent models: plan $MODEL_PLANNING, exec $MODEL_EXECUTION, review $MODEL_REVIEW, refute $MODEL_REFUTE, debug $MODEL_DEBUG, facts $MODEL_FACTFIND"
 else
 	ok "keeping default sub-agent models (sonnet; haiku for fact-finding)"
 fi
 set_role_models "$HOME/.claude/skills/radin-execute/SKILL.md"
 set_role_models "$HOME/.claude/.radin/lib/radin-execute-prompts.md"
 
-step "Background backlog runs (optional)"
-# The only agent radin ships, and only on an explicit yes. It invokes the
-# skill and delegates exactly like it -- see
-# agents/radin-execute-background.md. `claude agents` reaches the same goal
-# with nothing installed, hence the default no.
-BACKGROUND_AGENT="false"
-if prompt_yn "Install radin-execute-background, to run the backlog in its own agent thread? ('claude agents' does this without it) (default: no)"; then
-	BACKGROUND_AGENT="true"
-	mkdir -p "$HOME/.claude/agents"
-	cp "$RADIN_ROOT"/agents/radin-execute-background.md "$HOME/.claude/agents/"
-	set_role_models "$HOME/.claude/agents/radin-execute-background.md"
-	ok "radin-execute-background installed -- ask for the backlog to run in the background"
-else
-	ok "no background agent -- run /radin-execute in your own thread"
-	# install.sh never removes a file (see AGENTS.md Constraints), so a
-	# previously-installed copy has to be named rather than deleted.
-	if [ -f "$HOME/.claude/agents/radin-execute-background.md" ]; then
-		warn "an earlier install left $HOME/.claude/agents/radin-execute-background.md."
-		warn "Declining here does not remove it. Remove with:"
-		warn "  rm \"$HOME/.claude/agents/radin-execute-background.md\""
-	fi
+# radin no longer ships the radin-execute-background agent -- `claude agents`
+# runs /radin-execute in a background session with nothing installed.
+# install.sh never removes a file (see AGENTS.md Constraints), so a copy from
+# an earlier install has to be named rather than deleted.
+if [ -f "$HOME/.claude/agents/radin-execute-background.md" ]; then
+	warn "an earlier install left $HOME/.claude/agents/radin-execute-background.md."
+	warn "radin no longer ships it -- use 'claude agents' instead. Remove with:"
+	warn "  rm \"$HOME/.claude/agents/radin-execute-background.md\""
 fi
 
 # Preflight for the pipx/pip-based tools below. A broken Homebrew python bottle
@@ -591,7 +578,6 @@ cat >"$MANIFEST_FILE" <<EOF
   "installed_at": "$INSTALLED_AT",
   "parallel_execution": $PARALLEL_MODE,
   "refuter_pass": $REFUTER_PASS,
-  "background_agent": $BACKGROUND_AGENT,
   "skills": [
     "radin-execute",
     "radin-plan",

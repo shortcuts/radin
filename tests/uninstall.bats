@@ -40,7 +40,7 @@ install_all_expected() {
   [ "$status" -eq 0 ]
 }
 
-# Two agents/ entries: radin-execute-background is opt-in and may be absent,
+# Two agents/ entries: both are leftovers from earlier radin versions,
 # and radin-execute.md is the pre-migration leftover.
 @test "removes every expected skill and lib file, plus both agents" {
   install_all_expected

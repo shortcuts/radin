@@ -25,9 +25,9 @@ remove_path() {
 
 printf 'radin uninstall\n===============\n'
 
-# radin-execute-background is opt-in, so it is often absent. radin-execute.md
-# is the pre-migration leftover: that one is a skill now, and a stale agent
-# copy shadows it.
+# Both agents are leftovers from earlier radin versions: radin no longer
+# ships any agent. radin-execute.md is the pre-migration copy that shadows
+# the skill of the same name.
 printf '\nAgents (%s/agents):\n' "$CLAUDE_DIR"
 remove_path "radin-execute-background.md" "$CLAUDE_DIR/agents/radin-execute-background.md"
 remove_path "radin-execute.md" "$CLAUDE_DIR/agents/radin-execute.md"

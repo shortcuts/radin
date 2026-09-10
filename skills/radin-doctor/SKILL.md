@@ -9,7 +9,7 @@ description: |
 # Doctor
 
 A read-only health check for radin's own install under `~/.claude`. It
-confirms that every agent and skill file `install.sh` copies is present,
+confirms that every skill and lib file `install.sh` copies is present,
 checks that radin's own lib shell scripts have valid syntax, and reports
 which optional companion tools (rtk, code-review-graph, caveman, ponytail)
 are currently reachable. It never mutates anything, which mirrors

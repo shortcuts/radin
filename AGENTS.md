@@ -26,20 +26,18 @@ This repo source of truth. Any skill iteration must be done in `skills/*/SKILL.m
 
 Every entry point is a skill, so it runs in the user's own thread and can
 talk to them. Sub-agents exist only as leaf workers, dispatched by a skill,
-for work whose context is worth isolating. One exception ships as an agent,
-`agents/radin-execute-background.md`, and it is opt-in at install time — see
-"Why radin-execute is a skill" below before you add a second.
+for work whose context is worth isolating. radin ships no agent — see
+"Why radin-execute is a skill" below before you add one.
 
-- **Editing radin's own skills:** edit `skills/*/SKILL.md` directly, and
-  `agents/radin-execute-background.md` for the one agent.
+- **Editing radin's own skills:** edit `skills/*/SKILL.md` directly.
   `thermo-nuclear` one exception — not vendored here at all. `install.sh`
   downloads its `SKILL.md` straight from cursor/plugins at install time,
   same as any other companion tool. radin only vendors what it wrote
   itself.
 - **Editing `install.sh`, docs, or repo scaffolding:** edit directly, as
   normal.
-- **`install.sh`** installs from this repo into `~/.claude/skills`,
-  `~/.claude/.radin/lib`, and (on an explicit yes only) `~/.claude/agents`. Only adds or updates files there — one direction,
+- **`install.sh`** installs from this repo into `~/.claude/skills` and
+  `~/.claude/.radin/lib`. Only adds or updates files there — one direction,
   repo to consumer.
 
 ## Storage contract
@@ -117,27 +115,6 @@ capability limits forced it into `skills/radin-execute/SKILL.md`:
   a single sub-agent. To free the main thread, start a second Claude Code
   session and run `/radin-execute` there.
 
-### The one agent: `radin-execute-background`
-
-`agents/radin-execute-background.md` exists for the user who wants the
-backlog run out of the way, in a thread they visit themselves. It is opt-in
-(`install.sh` asks; default no) and deliberately thin: it invokes
-`/radin-execute` and follows every phase as written, sub-agent dispatch
-included. It **is** the router the skill describes.
-
-Only two things differ, both from being a sub-agent:
-
-- No `AskUserQuestion`, so it asks in prose and ends its turn. Correct *only*
-  there, because the user is reading that transcript. Every other radin
-  context treats a turn ending on a question as a hang. Phase 2's gate still
-  binds it, and the dispatching session cannot consent on the user's behalf.
-- A dispatched sub-agent's result may not land in the same turn, so it
-  reports what has landed and ends rather than re-dispatching.
-
-Keep it that thin. The skill is the source of truth for every phase, the
-gate, the CLI calls, recovery and reporting — add there, and the agent
-inherits it. Don't copy phase logic into the agent file.
-
 Two claims about background sub-agents are easy to get backwards, and both
 are settled in `docs/technical-constraints.md`: they **do** keep `Agent`
 (the second filter carves it out; its absence from that filter's list is not
@@ -145,9 +122,11 @@ removal), and **nobody** picks foreground or background — fork mode removes
 `run_in_background` from the `Agent` tool, so no radin prompt may tell a
 model to set it.
 
-`claude agents` (agent view) reaches the same goal with nothing installed:
-full background sessions, whole tool pool, working `AskUserQuestion`, and
-`/radin-execute` runs unchanged in one. As a skill, radin-execute's body sits in the
+To run the backlog out of the way, use `claude agents` (agent view) — radin
+installs nothing for it: full background sessions, whole tool pool, working
+`AskUserQuestion`, and `/radin-execute` runs unchanged in one. (An earlier
+radin shipped an opt-in `radin-execute-background` agent for this; it is
+gone, and installers/uninstallers only name or remove the leftover file.) As a skill, radin-execute's body sits in the
 user's own context for the rest of the session, so keep `SKILL.md` to the
 loop and the gates; anything a run needs only sometimes goes in `lib/` and
 gets read on demand (`radin-execute-prompts.md` at Phase 4,
@@ -161,10 +140,7 @@ complete example. Shared conventions below easy to drift from if you
 reinvent from scratch.
 
 0. **Make it a skill.** See "Why radin-execute is a skill" above: a
-   sub-agent cannot ask the user anything. `radin-execute-background` is the
-   one exception, and it earns it by being opt-in, by inheriting every phase
-   from the skill rather than restating them, and by asking in a transcript
-   the user is already reading.
+   sub-agent cannot ask the user anything.
 1. **Namespace resolution and backlog I/O.** Go through
    `bash "$HOME/.claude/.radin/lib/radin-backlog.sh"` (see
    `docs/architecture.md`'s "Namespace resolution and backlog CLI"
@@ -272,9 +248,10 @@ Don't let either variant grow into a rule about those.
 No radin file names a model. Each sub-agent role carries a
 `RADIN_MODEL_<ROLE>` token instead — `PLANNING`, `EXECUTION`, `REFUTE`,
 `DEBUG`, `FACTFIND` in `lib/radin-execute-prompts.md`, `REVIEW` in
-`skills/radin-execute/SKILL.md`, `BACKGROUND` in
-`agents/radin-execute-background.md`. `install.sh` asks per
-role and its `set_role_models` sed writes the answers in. Defaults are sonnet,
+`skills/radin-execute/SKILL.md`. `install.sh` asks per
+role (only for roles the install enabled — a declined refuter pass gets no
+refuter-model question) and its `set_role_models` sed writes the answers in.
+Defaults are sonnet,
 except fact-finding: it retrieves a checkable fact and its prompt already
 demands the evidence that establishes it, so haiku is enough and the router
 can reject a wrong answer.
