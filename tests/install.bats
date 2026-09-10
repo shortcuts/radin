@@ -81,11 +81,11 @@ teardown() {
 # 2 sub-agent-model, 3 background-agent, then one per companion tool starting
 # with rtk at 4. run_install_no_companions_answering puts its answer on rtk.
 run_install_no_companions() {
-  cd "$REPO_ROOT" && printf '2\n2\n2\n2\n2\n2\n2\n2\n' | bash ./install.sh
+  cd "$REPO_ROOT" && printf '2\n2\n2\n2\n2\n2\n2\n2\n2\n' | bash ./install.sh
 }
 
 run_install_no_companions_answering() {
-  cd "$REPO_ROOT" && printf '2\n2\n2\n%s\n2\n2\n2\n2\n' "$1" | bash ./install.sh
+  cd "$REPO_ROOT" && printf '2\n2\n2\n2\n%s\n2\n2\n2\n2\n' "$1" | bash ./install.sh
 }
 
 @test "syntax is valid" {
@@ -114,7 +114,7 @@ run_install_no_companions_answering() {
 }
 
 @test "accepting the background agent installs just that one agent" {
-  cd "$REPO_ROOT" && run bash -c "printf '2\n2\n1\n2\n2\n2\n2\n2\n' | bash ./install.sh"
+  cd "$REPO_ROOT" && run bash -c "printf '2\n2\n2\n1\n2\n2\n2\n2\n2\n' | bash ./install.sh"
   [ "$status" -eq 0 ]
   [ -f "$TEST_HOME/.claude/agents/radin-execute-background.md" ]
   [ ! -e "$TEST_HOME/.claude/agents/radin-execute.md" ]
@@ -130,10 +130,10 @@ run_install_no_companions_answering() {
   grep -q 'model: "haiku"' "$TEST_HOME/.claude/.radin/lib/radin-execute-prompts.md"
 }
 
-# The per-role gate at prompt 2: yes, then one pick per role (fable/opus/
+# The per-role gate at prompt 3: yes, then one pick per role (fable/opus/
 # sonnet/haiku), then background-agent no, then the companion tools.
 @test "per-role model picks land in the right file" {
-  cd "$REPO_ROOT" && run bash -c "printf '2\n1\n2\n1\n4\n3\n2\n2\n2\n2\n2\n2\n' | bash ./install.sh"
+  cd "$REPO_ROOT" && run bash -c "printf '2\n2\n1\n2\n1\n4\n3\n3\n3\n2\n2\n2\n2\n2\n2\n' | bash ./install.sh"
   [ "$status" -eq 0 ]
   ! grep -rq 'RADIN_MODEL_' "$TEST_HOME/.claude/skills" "$TEST_HOME/.claude/.radin/lib"
   grep -q 'model: "opus"' "$TEST_HOME/.claude/.radin/lib/radin-execute-prompts.md"
@@ -142,7 +142,7 @@ run_install_no_companions_answering() {
 }
 
 @test "the background agent gets its own model" {
-  cd "$REPO_ROOT" && run bash -c "printf '2\n1\n3\n3\n3\n3\n4\n1\n2\n2\n2\n2\n2\n' | bash ./install.sh"
+  cd "$REPO_ROOT" && run bash -c "printf '2\n2\n1\n3\n3\n3\n3\n3\n3\n4\n1\n2\n2\n2\n2\n2\n' | bash ./install.sh"
   [ "$status" -eq 0 ]
   grep -q '^model: haiku$' "$TEST_HOME/.claude/agents/radin-execute-background.md"
 }
@@ -218,17 +218,34 @@ run_install_no_companions_answering() {
 # the normal yes/no gate (Python/pip footprint) -- both prompts must be
 # answered yes before the pip/pipx install command actually runs.
 @test "headroom's extra pip confirmation blocks install when declined" {
-  cd "$REPO_ROOT" && run bash -c "printf '2\n2\n2\n2\n2\n1\n2\n2\n2\n' | bash ./install.sh"
+  cd "$REPO_ROOT" && run bash -c "printf '2\n2\n2\n2\n2\n2\n1\n2\n2\n2\n' | bash ./install.sh"
   [ "$status" -eq 0 ]
   [ ! -f "$PIP_LOG" ] || ! grep -q "headroom-ai" "$PIP_LOG"
 }
 
 @test "headroom installs only after both confirmations pick yes" {
-  cd "$REPO_ROOT" && run bash -c "printf '2\n2\n2\n2\n2\n1\n1\n2\n2\n' | bash ./install.sh"
+  cd "$REPO_ROOT" && run bash -c "printf '2\n2\n2\n2\n2\n2\n1\n1\n2\n2\n' | bash ./install.sh"
   [ "$status" -eq 0 ]
   grep -q "headroom-ai" "$PIP_LOG"
   manifest="$TEST_HOME/.claude/.radin/manifest.json"
   grep -q '"headroom": true' "$manifest"
+}
+
+@test "declining per-task verification keeps the no-refuter rule only" {
+  run_install_no_companions
+  agent="$TEST_HOME/.claude/skills/radin-execute/SKILL.md"
+  grep -q "No refuter pass" "$agent"
+  ! grep -q "Verify a .SUCCESS. before you record it" "$agent"
+  ! grep -q "radin:refute" "$agent"
+}
+
+@test "accepting per-task verification keeps the refuter rule only" {
+  cd "$REPO_ROOT" && run bash -c "printf '2\n1\n2\n2\n2\n2\n2\n2\n2\n' | bash ./install.sh"
+  [ "$status" -eq 0 ]
+  agent="$TEST_HOME/.claude/skills/radin-execute/SKILL.md"
+  grep -q "Verify a .SUCCESS. before you record it" "$agent"
+  ! grep -q "No refuter pass" "$agent"
+  ! grep -q "radin:refute" "$agent"
 }
 
 @test "declining parallel execution keeps the sequential constraint only" {
@@ -241,7 +258,7 @@ run_install_no_companions_answering() {
 }
 
 @test "accepting parallel execution keeps the concurrency constraint only" {
-  cd "$REPO_ROOT" && run bash -c "printf '1\n2\n2\n2\n2\n2\n2\n2\n' | bash ./install.sh"
+  cd "$REPO_ROOT" && run bash -c "printf '1\n2\n2\n2\n2\n2\n2\n2\n2\n' | bash ./install.sh"
   [ "$status" -eq 0 ]
   agent="$TEST_HOME/.claude/skills/radin-execute/SKILL.md"
   grep -q "Concurrency allowed" "$agent"
@@ -297,7 +314,7 @@ pick_with_keys() {
   FETCH_DIR="$TEST_HOME/preexisting"
   mkdir -p "$FETCH_DIR"
   echo "not ours" > "$FETCH_DIR/some_other_file"
-  run bash -c "cd '$FAKE_ROOT' && printf '2\n2\n2\n2\n' | RADIN_ROOT_OVERRIDE='$FETCH_DIR' bash ./install.sh"
+  run bash -c "cd '$FAKE_ROOT' && printf '2\n2\n2\n2\n2\n' | RADIN_ROOT_OVERRIDE='$FETCH_DIR' bash ./install.sh"
   [ "$status" -ne 0 ]
   [[ "$output" == *"wasn't created by this installer"* ]]
 }

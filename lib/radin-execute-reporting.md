@@ -23,14 +23,18 @@ session that never reaches Phase 5 never loads them.
    list` shows a duplicate id or title from manual edits, flag it in the
    summary rather than guessing which copy to remove.
 4. Collect all commit hashes recorded this session, plus every `failed` and
-   `blocked` entry in `BACKLOG_STEPS.json` with its `note`.
+   `blocked` entry in `BACKLOG_STEPS.json` with its `note`. Mark any task the
+   refuter returned `UNVERIFIED` for, so the user knows which commits nothing
+   checked. A refuter's `/radin-review` pass logs its own findings as backlog
+   entries, so don't restate them here: say how many net-new entries this
+   session added, per `radin-backlog.sh count`.
 5. Report. This is the primary deliverable of any session with failures:
 
 ```
 ✅ Session complete: <N> succeeded, <M> failed, <K> awaiting your decision.
 
 Succeeded (per step 2; drop the branch/worktree/merge parts when both modes were no):
-- <task title> — <commit hash> [on <branch>] [in <worktree path>]. [Merge: git merge <branch>]
+- <task title> — <commit hash> [on <branch>] [in <worktree path>]. [Merge: git merge <branch>] [unverified: <why the refuter could not check it>]
 
 Failed (left in the backlog for retry):
 - <task title> — <reason>. Recover: <concrete command(s)>.

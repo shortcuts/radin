@@ -34,6 +34,26 @@ Once `radin-plan` processes task, appends one more line to that task's own file:
 
 `radin-plan` skill, not agent — runs inline in whichever context invokes it. Scoped to single task, not whole backlog; caller points it at one task by id or title. If scope broad enough to split into independent sub-tasks, and user confirms split, appends one `**Plan:**` line per plan, in order, to same file instead of just one.
 
+## Task-file annotations (`radin-execute` appends)
+
+`radin-execute` appends one labeled line per piece of settled material to the task's own file, through `radin-backlog.sh append`. Every label is task-scoped by design: an execution sub-agent reads its task file and nothing else, so no other task's context reaches it.
+
+| Label | Written when | Written by |
+| --- | --- | --- |
+| `**Plan:** <path>` | `radin-plan` produced a plan | `radin-plan` (`add-plan`) |
+| `**Skill:** <instruction>` | user named a skill for this task | `radin-record` |
+| `**Decision:** <answer>` | user settled a `BLOCKED (DECISION)` | `radin-execute` |
+| `**Fact:** <answer>` | fact-finder returned `STATUS: FOUND` | `radin-execute` |
+| `**Root cause:** <cause + fix direction>` | debug sub-agent returned `STATUS: DIAGNOSED` | `radin-execute` |
+| `**Rework:** <must-fixes>` | refuter returned `VERDICT: REWORK` | `radin-execute` |
+| `**Facts:** <path>` | the long form went to `state/facts/<task-id>.md` | `radin-execute` |
+
+Every one of them is binding on the next sub-agent that reads the file, not commentary on it.
+
+## Per-task facts file (`state/facts/<task-id>.md`)
+
+Free-form markdown, one file per task, written only when a fact-finding or debug sub-agent's evidence runs past ~15 lines. Holds command output, file excerpts, and the reasoning that establishes one `**Fact:**` or `**Root cause:**` line. The task file keeps the summary and a `**Facts:**` pointer. There is deliberately no shared, cross-task notes file: a sub-agent gets its own task's material and nothing more.
+
 ## Migration note
 
 Earlier revisions described single monolithic `<repo-root>/.claude/.radin/BACKLOG.md`, addressed by `### title` headings and line-number spans. Before that, bracket-tag scheme used `## [Thermo-Nuclear Review] <title>`/`**Scope:**`/`**Location:**`/`**Finding:**`/`**Preferred remedy:**` fields, plus separate `## [Bug]`/`[Follow-up]`/`[Idea]`/`[Feedback]` scheme for `radin-record`. `index.jsonl` + per-task-file scheme above replaces both: splitting each task into own file means no radin agent/skill ever addresses backlog content by line number again. Existing `BACKLOG.md` files written under earlier scheme not migrated automatically — finish or manually split old-format backlog before upgrading.
@@ -106,6 +126,7 @@ Written by `install.sh` to `~/.claude/.radin/manifest.json` on every run — not
   "version": "v0.4.0",
   "installed_at": "2026-07-28T00:00:00Z",
   "parallel_execution": false,
+  "refuter_pass": false,
   "background_agent": false,
   "skills": ["radin-execute", "radin-plan", "radin-record", "radin-review", "radin-setup-hooks", "radin-show", "radin-stats", "radin-doctor", "radin-uninstall", "thermo-nuclear"],
   "lib": ["radin-namespace.sh", "radin-backlog.sh", "radin-state.sh", "radin-prioritization.md", "radin-doctor.sh", "radin-uninstall.sh"],
@@ -120,6 +141,6 @@ Written by `install.sh` to `~/.claude/.radin/manifest.json` on every run — not
 
 - `version` `dev` when installed from local git clone (no downloaded release tarball, no `.radin-version` file to read).
 - `skills`/`lib` static lists matching exactly what `install.sh` copies, what `radin-doctor.sh` checks for — not derived from manifest at runtime by either script (see `docs/architecture.md` "Install manifest").
-- `parallel_execution` records which concurrency rule `install.sh` wrote into `skills/radin-execute/SKILL.md`. `background_agent` records whether user opted into `agents/radin-execute-background.md` — no `agents` list, since that one file is the only agent and its presence is the whole answer.
+- `parallel_execution` records which concurrency rule `install.sh` wrote into `skills/radin-execute/SKILL.md`, and covers execution sub-agents only — read-only dispatches always run in parallel. `refuter_pass` records which verification rule it wrote into the same file. `background_agent` records whether user opted into `agents/radin-execute-background.md` — no `agents` list, since that one file is the only agent and its presence is the whole answer.
 - `companion_tools` values reflect final reachable state after this install.sh run (already present, just installed, or skipped not distinguished — only "is it there now").
 - Regenerated wholesale on every `install.sh` run; never partially updated, never read back by `install.sh` itself.

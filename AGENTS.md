@@ -58,6 +58,8 @@ in one canonical directory at repo root:
     completed.json               # radin-execute completed-task -> commit log
     session.json                 # radin-execute worktree/branch answers
     journal.jsonl                # append-only log of every state transition
+    facts/
+      <task-id>.md                # long-form evidence for one task, written only when a report won't fit inline
   plans/
     <task-id>.md                # radin-plan output
   reviews/
@@ -216,6 +218,35 @@ up as hang with task uncommitted. Rules and reasoning in
 new skill, and check that skill doesn't ask user anything or spawn own agent.
 The skill itself is under no such limit: it runs in the user's thread.
 
+## Per-task verification in radin-execute
+
+An execution sub-agent's `STATUS: SUCCESS` is a claim, and radin can check it
+before recording it. `skills/radin-execute/SKILL.md` carries one
+`<!-- radin:refute -->` marker line in Step 4b; `install.sh` asks (default no,
+since it costs one sub-agent per successful task) and its awk swaps that line
+for `$REFUTE_ON_RULE` or `$REFUTE_OFF_RULE`. Same contract as the concurrency
+marker: the marker stays alone on its line, both rule texts live only in
+`install.sh`, and `set_refute` exits non-zero if the marker survives.
+
+The refuter never sees the execution sub-agent's report — only the diff, the
+task file, the plan(s), and the checks it reruns itself. That asymmetry is the
+whole point: a summary of a diff is where a wrong "done" hides. Correctness
+belongs in its `VERDICT:` line; structure and taste go to the `/radin-review`
+pass it invokes, which logs its own backlog entries and blocks nothing.
+
+A `STATUS: FAILED` gets the **Debug prompt** instead, once per task per
+session: a retry with no new information fails identically and burns an
+attempt. It diagnoses read-only, the router appends the cause to the task
+file, and Step 4b runs again.
+
+Everything either one learns stays on that one task: a `**Fact:**`,
+`**Root cause:**` or `**Rework:**` line in its task file, with the long form
+in `state/facts/<task-id>.md`. Don't add a shared notes file, a cross-task
+memory, or an `agent-memory` store — a sub-agent's context holds its own task
+and nothing else, which is what keeps it cheap and on-scope. (Claude Code's
+native `memory:` frontmatter field would need radin's leaf roles to ship as
+agent definition files, which the "one agent" rule above rules out.)
+
 ## Concurrency variants in radin-execute
 
 `skills/radin-execute/SKILL.md` states no concurrency rule. It carries one
@@ -231,12 +262,18 @@ Sub-agent prompts carry no variant. `lib/radin-execute-prompts.md` states
 the flat rule instead (a sub-agent never spawns a sub-agent), so the
 install-time answer lives in exactly one file.
 
+The answer covers execution sub-agents only. Planning, refuting, debugging
+and fact-finding dispatches write no repo code, so Core Constraints allows
+them in parallel unconditionally, and both rule texts in `install.sh` say so.
+Don't let either variant grow into a rule about those.
+
 ## Sub-agent models in radin-execute
 
 No radin file names a model. Each sub-agent role carries a
-`RADIN_MODEL_<ROLE>` token instead — `PLANNING`, `EXECUTION`, `FACTFIND` in
-`lib/radin-execute-prompts.md`, `REVIEW` in `skills/radin-execute/SKILL.md`,
-`BACKGROUND` in `agents/radin-execute-background.md`. `install.sh` asks per
+`RADIN_MODEL_<ROLE>` token instead — `PLANNING`, `EXECUTION`, `REFUTE`,
+`DEBUG`, `FACTFIND` in `lib/radin-execute-prompts.md`, `REVIEW` in
+`skills/radin-execute/SKILL.md`, `BACKGROUND` in
+`agents/radin-execute-background.md`. `install.sh` asks per
 role and its `set_role_models` sed writes the answers in. Defaults are sonnet,
 except fact-finding: it retrieves a checkable fact and its prompt already
 demands the evidence that establishes it, so haiku is enough and the router

@@ -13,7 +13,7 @@ REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || true)
 [ -n "$REPO_ROOT" ] || REPO_ROOT="$PWD"
 NAMESPACE_DIR="$REPO_ROOT/.claude/.radin"
 BACKLOG_TASKS_DIR="$NAMESPACE_DIR/backlog/tasks"
-mkdir -p "$NAMESPACE_DIR/state" "$NAMESPACE_DIR/plans" "$NAMESPACE_DIR/reviews" "$BACKLOG_TASKS_DIR"
+mkdir -p "$NAMESPACE_DIR/state/facts" "$NAMESPACE_DIR/plans" "$NAMESPACE_DIR/reviews" "$BACKLOG_TASKS_DIR"
 BACKLOG_INDEX="$NAMESPACE_DIR/backlog/index.jsonl"
 
 # %q keeps the output source-able even when the repo path contains spaces.

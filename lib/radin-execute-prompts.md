@@ -14,7 +14,9 @@ narration:
 - **It cannot ask the user anything.** No prose channel to them, and
   `AskUserQuestion` is removed from every sub-agent. So no prompt may route
   one into a skill that asks and waits (`/mattpocock-skills:grilling`): it
-  would end its turn with no `STATUS:` line.
+  would end its turn with no `STATUS:` line. `/radin-plan` and `/radin-review`
+  are the exception the planning and refuter prompts rely on: each documents a
+  non-interactive path and takes it rather than waiting.
 - **It cannot launch a workflow.** `Workflow` is removed from every sub-agent
   too, so `/deep-research` and any saved workflow command fail rather than
   hang. Same outcome for the router either way: no `STATUS:` line.
@@ -109,7 +111,12 @@ tool is not available to you, so `/deep-research` and any saved workflow
 command fail rather than run: don't reach for them.
 
 (When exploring the codebase: if `code-review-graph` is installed and wired for this repo, use its MCP tools (`semantic_search_nodes`, `get_impact_radius`, `query_graph`) before Grep/Glob/Read. When running commands: prefer `rtk`-wrapped commands if `command -v rtk` succeeds for token savings.)
-1. Read TASK_FILE to understand the task
+1. Read TASK_FILE to understand the task. Anything the router appended to it
+   is part of the task, not commentary: `**Decision:**`, `**Fact:**`,
+   `**Root cause:**`, and `**Rework:**` lines are settled and binding. A
+   `**Facts:**` line points at a file with the long form of one of them; read
+   it. That file and this task file are the only cross-agent context you get,
+   and that is deliberate: no other task's material reaches you.
 1a. Set up the tree you will work in. One command decides it, from the
    worktree/branch preference the user already recorded for this repo:
    `bash "$HOME/.claude/.radin/lib/radin-state.sh" prepare "NAMESPACE_DIR" "TASK_ID"`.
@@ -196,10 +203,104 @@ its context for the rest of the session.
 
 ---
 
+## Refuter prompt (Step 4b, after `STATUS: SUCCESS`)
+
+Replace `TASK_FILE` with `$BACKLOG_TASKS_DIR/<id>.md`, `PLAN_PATHS` with the
+plan path(s) or "none", `COMMITS` with the hash(es) the execution sub-agent
+reported, and `TASK_DIR` with the tree `radin-state.sh task-dir` prints. Send
+it with `model: "RADIN_MODEL_REFUTE"`. Never forward the execution
+sub-agent's report: the diff is the claim under test, and its summary of the
+diff is where the rounding-up happens.
+
+```
+Verify one task's committed work. You did not write it, and you are not
+here to finish it.
+
+Task file: TASK_FILE
+Plan(s): PLAN_PATHS
+Commit(s): COMMITS
+Tree: TASK_DIR
+
+1. Read TASK_FILE, and PLAN_PATHS if it is not "none". Together they are the
+   contract. `**Decision:**`, `**Fact:**`, `**Root cause:**` and `**Rework:**`
+   lines in the task file are part of it.
+2. Run `git -C TASK_DIR show <hash>` for each commit in COMMITS. Judge the
+   diff against that contract, and nothing else.
+3. Run the repo's own checks yourself in TASK_DIR (lint, tests, format, per
+   its conventions). Never accept a result you did not produce. If the repo
+   documents no checks you can find, say so in your report and do not count
+   it against the task.
+4. Quality pass: invoke the `/radin-review` skill with scope: COMMITS. You
+   cannot reach the user and have no `AskUserQuestion`, so it takes its
+   non-interactive path and logs every in-scope finding to the backlog
+   itself. That is where structure, taste, and over-engineering findings
+   belong, and none of them are must-fixes here.
+5. REWORK is for four things only: the diff does not satisfy the task or
+   plan, it changes something the contract never asked for, a check you ran
+   fails, or behavior changed with no test pinning it. Everything else went
+   to step 4.
+
+Change no code, revert nothing, commit nothing, and fix nothing yourself: a
+rework round is another sub-agent's job. Do not spawn a sub-agent, and the
+`Workflow` tool is not available to you, so `/deep-research` and any saved
+workflow command fail rather than run.
+
+Keep your report to a few lines: what you ran, what it printed. Then the
+LAST line exactly one of:
+`VERDICT: ACCEPT — <one line on what you verified>`
+`VERDICT: REWORK — <numbered must-fixes, each naming the file and the change>`
+`VERDICT: UNVERIFIED — <what stopped you, e.g. checks you could not run>`
+Use UNVERIFIED only when you could not test the claim, never as a soft
+REWORK. A must-fix you cannot name a file for is not a must-fix.
+```
+
+---
+
+## Debug prompt (Step 4b, after `STATUS: FAILED`)
+
+Replace `TASK_FILE`, `PLAN_PATHS`, `TASK_DIR` and `TASK_ID` as above,
+`NAMESPACE_DIR` with `$NAMESPACE_DIR`, and `FAILURE` with the reason from the
+execution sub-agent's `STATUS: FAILED` line. Send it with
+`model: "RADIN_MODEL_DEBUG"`. One dispatch per task per session: a retry that
+carries no new information is the thing this replaces.
+
+```
+Diagnose one failed attempt at a task, and change nothing.
+
+Task file: TASK_FILE
+Plan(s): PLAN_PATHS
+Tree: TASK_DIR
+Reported failure: FAILURE
+
+Reproduce it read-only: run the failing check or command again, read the code
+and config around it. Find the root cause, not the symptom — if a shared
+function looks wrong, check its other callers before you name it. Prefer
+primary evidence on this machine (command output, a file's actual contents)
+over recollection.
+
+Write nothing except, if the detail runs past ~15 lines,
+`NAMESPACE_DIR/state/facts/TASK_ID.md` (create the directory if needed);
+report the summary plus that path. Change no repo file, commit nothing,
+revert nothing, and fix nothing: the fix is the next execution sub-agent's
+job. Do not spawn a sub-agent, and the `Workflow` tool is not available to
+you, so `/deep-research` and any saved workflow command fail rather than run.
+You cannot reach the user and have no `AskUserQuestion`.
+
+Keep your report to at most ten lines, with the output or file that
+establishes the cause. Then the LAST line exactly one of:
+`STATUS: DIAGNOSED — <root cause in one sentence, then the concrete fix direction>`
+`STATUS: NOT DIAGNOSED — <what you ruled out, and what is left to check>`
+Use NOT DIAGNOSED after you have actually looked, and never as a guess with a
+hedge in front of it.
+```
+
+---
+
 ## Fact-finding prompt (Clarifying Ambiguity, `BLOCKED (FACT)`)
 
-Replace `QUESTION` with the sub-agent's stated question, and `TASK_FILE` with
-the task's file. It answers a checkable question in one turn. Send it with
+Replace `QUESTION` with the sub-agent's stated question, `TASK_FILE` with
+the task's file, and `NAMESPACE_DIR`/`TASK_ID` with the namespace directory
+and the task's id. It answers a checkable question in one turn. Send it with
 `model: "RADIN_MODEL_FACTFIND"`.
 
 ```
@@ -218,7 +319,10 @@ workflow: you cannot reach the user, you have no `AskUserQuestion`, and the
 workflow command fail rather than run.
 
 Report the answer in a few lines, with the file path, command output, or
-version that establishes it. Then the LAST line exactly one of:
+version that establishes it. If the evidence needs more than ~15 lines, write
+the long form to `NAMESPACE_DIR/state/facts/TASK_ID.md` (create the directory
+if needed; that file is the one thing you may write) and report a three-line
+summary plus that path. Then the LAST line exactly one of:
 `STATUS: FOUND — <the answer, one sentence>`
 `STATUS: NOT FOUND — <what you checked, and why it cannot be settled from
 here>`

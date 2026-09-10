@@ -6,15 +6,35 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- `radin-execute` can verify each task before it records it. `install.sh` asks
+  (default no); when it is on, a refuter sub-agent gets the commit diff, the
+  task file, and the plan — never the execution sub-agent's own report — and
+  reruns the repo's checks itself. It answers `ACCEPT`, `REWORK` with
+  must-fixes (appended to the task file, task re-dispatched), or `UNVERIFIED`,
+  which is recorded and flagged in the final summary. Structure and taste
+  findings go to a `/radin-review` pass it invokes, which logs backlog entries
+  and blocks nothing.
+- A `STATUS: FAILED` task now gets one read-only diagnosis before it is
+  parked. The debug sub-agent reproduces the failure, reports the root cause,
+  and the router appends it to the task file and retries once. A retry with no
+  new information used to just fail the same way and burn an attempt.
+- Long evidence from a fact-finding or debug sub-agent goes to
+  `.claude/.radin/state/facts/<task-id>.md`, with a `**Facts:**` pointer on
+  the task file. Everything stays scoped to the one task that needed it —
+  there is deliberately no shared cross-task notes file.
 - `radin-review` ends with one question: leave the logged findings in the
   backlog, or run `/radin-execute` right away. The entries are written either
   way; the question only decides whether the run starts now.
 
 ### Changed
 
+- Read-only sub-agent dispatches (planning, refuting, debugging,
+  fact-finding) always run in parallel. The install-time concurrency answer
+  now governs execution sub-agents only — the ones that write code and could
+  collide.
 - `install.sh` now asks for a model per sub-agent role — planning, execution,
-  review, fact-finding, and the background agent — instead of one model for
-  all of them. No radin file names a model any more; each role carries a
+  review, refuting, debugging, fact-finding, and the background agent —
+  instead of one model for all of them. No radin file names a model any more; each role carries a
   token the installer fills in.
 - The fact-finding sub-agent defaults to `haiku` instead of `sonnet`. Its
   prompt already requires the answer to cite the file path, command output, or
