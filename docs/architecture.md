@@ -103,7 +103,7 @@ As skill, radin-execute runs in user's own thread: asks directly, gets interrupt
 
 ### Running the backlog in the background
 
-radin ships no agent for this. `claude agents` (agent view) dispatches full Claude Code background sessions — whole tool pool, working `AskUserQuestion`, peek/reply/attach — and `/radin-execute` runs unchanged in one. `/bg` sends the current conversation there. A second `claude` session in another terminal works too. (An earlier radin shipped an opt-in `radin-execute-background` agent for the same goal; `install.sh` and `radin-uninstall` now name/remove that leftover.)
+radin ships no agent for this. `claude agents` (agent view) dispatches full Claude Code background sessions — whole tool pool, working `AskUserQuestion`, peek/reply/attach — and `/radin-execute` runs unchanged in one. `/bg` sends the current conversation there. A second `claude` session in another terminal works too.
 
 `radin-plan` is skill, not agent: runs inline in whichever context invokes it. In user's own conversation, judges whether its one scoped entry should split into independent sub-plans, confirms with user directly before splitting, writes plan file + `**Plan:**` pointer per resulting sub-task. For any task reaching Phase 3 with no `**Plan:**` line yet, `radin-execute` delegates planning to dedicated planning sub-agent invoking `/radin-plan`. Keeps planning's codebase exploration out of orchestrator's context — plan file on disk = handoff to execution sub-agent. That sub-agent runs non-interactively: where skill would ask confirmation, takes non-destructive path (no split, no overwrite), genuine ambiguity marks task `blocked` for user instead of guessing.
 

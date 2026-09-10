@@ -141,17 +141,6 @@ run_install_no_companions_answering() {
   grep -q 'model: "fable"' "$TEST_HOME/.claude/.radin/lib/radin-execute-prompts.md"
 }
 
-# install.sh never deletes a file, so a background agent left by an earlier
-# radin version has to be named instead of removed.
-@test "a leftover background agent is named, not removed" {
-  mkdir -p "$TEST_HOME/.claude/agents"
-  : > "$TEST_HOME/.claude/agents/radin-execute-background.md"
-  run run_install_no_companions
-  [ "$status" -eq 0 ]
-  [ -f "$TEST_HOME/.claude/agents/radin-execute-background.md" ]
-  [[ "$output" == *"an earlier install left"* ]]
-}
-
 @test "installs radin's own skills, not unrelated skill dirs" {
   run_install_no_companions
   [ -d "$TEST_HOME/.claude/skills/radin-execute" ]

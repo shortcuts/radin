@@ -12,7 +12,6 @@ teardown() {
 }
 
 install_all_expected() {
-  mkdir -p "$TEST_HOME/.claude/agents"
   mkdir -p "$TEST_HOME/.claude/.radin/lib"
   for name in radin-execute radin-plan radin-record radin-review radin-setup-hooks radin-show radin-stats radin-doctor radin-uninstall; do
     mkdir -p "$TEST_HOME/.claude/skills/$name"
@@ -20,8 +19,6 @@ install_all_expected() {
   done
   mkdir -p "$TEST_HOME/.claude/skills/thermo-nuclear"
   : > "$TEST_HOME/.claude/skills/thermo-nuclear/SKILL.md"
-  : > "$TEST_HOME/.claude/agents/radin-execute.md"
-  : > "$TEST_HOME/.claude/agents/radin-execute-background.md"
   printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-namespace.sh"
   printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-json.sh"
   printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-backlog.sh"
@@ -41,14 +38,10 @@ printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-crg-
   [ "$status" -eq 0 ]
 }
 
-# Two agents/ entries: both are leftovers from earlier radin versions,
-# and radin-execute.md is the pre-migration leftover.
-@test "removes every expected skill and lib file, plus both agents" {
+@test "removes every expected skill and lib file" {
   install_all_expected
   run env HOME="$TEST_HOME" bash "$TEST_HOME/.claude/.radin/lib/radin-uninstall.sh"
   [ "$status" -eq 0 ]
-  [ ! -e "$TEST_HOME/.claude/agents/radin-execute.md" ]
-  [ ! -e "$TEST_HOME/.claude/agents/radin-execute-background.md" ]
   for name in radin-execute radin-plan radin-record radin-review radin-setup-hooks radin-show radin-stats radin-doctor radin-uninstall; do
     [ ! -e "$TEST_HOME/.claude/skills/$name" ]
   done

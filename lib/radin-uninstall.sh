@@ -25,13 +25,6 @@ remove_path() {
 
 printf 'radin uninstall\n===============\n'
 
-# Both agents are leftovers from earlier radin versions: radin no longer
-# ships any agent. radin-execute.md is the pre-migration copy that shadows
-# the skill of the same name.
-printf '\nAgents (%s/agents):\n' "$CLAUDE_DIR"
-remove_path "radin-execute-background.md" "$CLAUDE_DIR/agents/radin-execute-background.md"
-remove_path "radin-execute.md" "$CLAUDE_DIR/agents/radin-execute.md"
-
 printf '\nSkills (%s/skills):\n' "$CLAUDE_DIR"
 for name in radin-execute radin-plan radin-record radin-review radin-setup-hooks radin-show radin-stats radin-doctor radin-uninstall; do
 	remove_path "$name" "$CLAUDE_DIR/skills/$name"

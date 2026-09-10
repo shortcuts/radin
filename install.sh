@@ -125,23 +125,19 @@ MANIFEST_VERSION="dev"
 
 step "Installing skills into ~/.claude"
 mkdir -p "$HOME/.claude/skills" "$HOME/.claude/.radin/lib"
-cp "$RADIN_ROOT"/lib/radin-namespace.sh "$HOME/.claude/.radin/lib/"
-cp "$RADIN_ROOT"/lib/radin-json.sh "$HOME/.claude/.radin/lib/"
-cp "$RADIN_ROOT"/lib/radin-backlog.sh "$HOME/.claude/.radin/lib/"
-cp "$RADIN_ROOT"/lib/radin-state.sh "$HOME/.claude/.radin/lib/"
-cp "$RADIN_ROOT"/lib/radin-scope.sh "$HOME/.claude/.radin/lib/"
-cp "$RADIN_ROOT"/lib/radin-prioritization.md "$HOME/.claude/.radin/lib/"
-cp "$RADIN_ROOT"/lib/radin-execute-prompts.md "$HOME/.claude/.radin/lib/"
-cp "$RADIN_ROOT"/lib/radin-execute-recovery.md "$HOME/.claude/.radin/lib/"
-cp "$RADIN_ROOT"/lib/radin-execute-reporting.md "$HOME/.claude/.radin/lib/"
-cp "$RADIN_ROOT"/lib/radin-crg-hooks.sh "$HOME/.claude/.radin/lib/"
-cp "$RADIN_ROOT"/lib/radin-doctor.sh "$HOME/.claude/.radin/lib/"
-cp "$RADIN_ROOT"/lib/radin-uninstall.sh "$HOME/.claude/.radin/lib/"
-cp -r "$RADIN_ROOT"/skills/radin-execute "$HOME/.claude/skills/"
-cp -r "$RADIN_ROOT"/skills/radin-review "$HOME/.claude/skills/"
-cp -r "$RADIN_ROOT"/skills/radin-record "$HOME/.claude/skills/"
-cp -r "$RADIN_ROOT"/skills/radin-show "$HOME/.claude/skills/"
-cp -r "$RADIN_ROOT"/skills/radin-plan "$HOME/.claude/skills/"
+# Explicit name lists, not lib/* or skills/* globs: install.sh may only copy
+# files radin itself named (AGENTS.md Constraints), and a stray file in a dev
+# clone must not ship.
+for f in radin-namespace.sh radin-json.sh radin-backlog.sh radin-state.sh \
+	radin-scope.sh radin-prioritization.md radin-execute-prompts.md \
+	radin-execute-recovery.md radin-execute-reporting.md radin-crg-hooks.sh \
+	radin-doctor.sh radin-uninstall.sh; do
+	cp "$RADIN_ROOT/lib/$f" "$HOME/.claude/.radin/lib/"
+done
+for s in radin-execute radin-review radin-record radin-show radin-plan \
+	radin-setup-hooks radin-stats radin-doctor radin-uninstall; do
+	cp -r "$RADIN_ROOT/skills/$s" "$HOME/.claude/skills/"
+done
 # thermo-nuclear is vendored via the vercel-labs/skills CLI (agentskills.io
 # spec), not a Claude Code plugin -- cursor/plugins isn't a plugin marketplace
 # repo, just a SKILL.md at this subpath. Falls back to a raw curl of the file
@@ -174,22 +170,7 @@ if [ -f "$THERMO_SKILL" ]; then
 	grep -v '^disable-model-invocation:' "$THERMO_SKILL" >"$THERMO_TMP"
 	mv "$THERMO_TMP" "$THERMO_SKILL"
 fi
-cp -r "$RADIN_ROOT"/skills/radin-setup-hooks "$HOME/.claude/skills/"
-cp -r "$RADIN_ROOT"/skills/radin-stats "$HOME/.claude/skills/"
-cp -r "$RADIN_ROOT"/skills/radin-doctor "$HOME/.claude/skills/"
-cp -r "$RADIN_ROOT"/skills/radin-uninstall "$HOME/.claude/skills/"
 ok "skills installed"
-
-# radin no longer ships an agent. An install from before the skill migration
-# left ~/.claude/agents/radin-execute.md behind, and that stale agent competes
-# with the skill of the same name. install.sh never removes a file (see
-# AGENTS.md Constraints), so say so and let the user do it.
-STALE_AGENT="$HOME/.claude/agents/radin-execute.md"
-if [ -f "$STALE_AGENT" ]; then
-	warn "found a pre-migration agent at $STALE_AGENT."
-	warn "radin-execute is a skill now; the leftover agent shadows it. Remove with:"
-	warn "  rm \"$STALE_AGENT\""
-fi
 
 _pick_nth() {
 	local want="$1" i=1 opt
@@ -482,16 +463,6 @@ else
 fi
 set_role_models "$HOME/.claude/skills/radin-execute/SKILL.md"
 set_role_models "$HOME/.claude/.radin/lib/radin-execute-prompts.md"
-
-# radin no longer ships the radin-execute-background agent -- `claude agents`
-# runs /radin-execute in a background session with nothing installed.
-# install.sh never removes a file (see AGENTS.md Constraints), so a copy from
-# an earlier install has to be named rather than deleted.
-if [ -f "$HOME/.claude/agents/radin-execute-background.md" ]; then
-	warn "an earlier install left $HOME/.claude/agents/radin-execute-background.md."
-	warn "radin no longer ships it -- use 'claude agents' instead. Remove with:"
-	warn "  rm \"$HOME/.claude/agents/radin-execute-background.md\""
-fi
 
 # Preflight for the pipx/pip-based tools below. A broken Homebrew python bottle
 # (pyexpat linked against Apple's system libexpat, which lacks the symbols brew's

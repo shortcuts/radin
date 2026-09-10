@@ -124,9 +124,7 @@ model to set it.
 
 To run the backlog out of the way, use `claude agents` (agent view) — radin
 installs nothing for it: full background sessions, whole tool pool, working
-`AskUserQuestion`, and `/radin-execute` runs unchanged in one. (An earlier
-radin shipped an opt-in `radin-execute-background` agent for this; it is
-gone, and installers/uninstallers only name or remove the leftover file.) As a skill, radin-execute's body sits in the
+`AskUserQuestion`, and `/radin-execute` runs unchanged in one. As a skill, radin-execute's body sits in the
 user's own context for the rest of the session, so keep `SKILL.md` to the
 loop and the gates; anything a run needs only sometimes goes in `lib/` and
 gets read on demand (`radin-execute-prompts.md` at Phase 4,
@@ -275,11 +273,8 @@ radin's own named files (radin's own `skills/<name>/`, `lib/*` into
 only: it rewrites the block between `<!-- radin:begin -->` and
 `<!-- radin:end -->` in `~/.claude/CLAUDE.md` (agent guidance on when to use
 radin). Only that block — everything outside the markers passes through
-untouched. Never `rm` — a pre-migration
-`~/.claude/agents/radin-execute.md`, or a `radin-execute-background.md` left
-by an earlier install, gets a warning
-plus the exact `rm` to run, never a deletion. Never wildcard-delete directory. Never overwrite file radin didn't
-ship. Call out explicitly on any edit to `install.sh`.
+untouched. Never `rm`. Never wildcard-delete directory. Never overwrite
+file radin didn't ship. Call out explicitly on any edit to `install.sh`.
 
 **macOS ships `/bin/bash` 3.2.** Apple froze it before GPLv3 switch.
 Since scripts run on both macOS and Linux, every script in this repo
