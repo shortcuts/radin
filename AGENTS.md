@@ -270,12 +270,33 @@ Don't let either variant grow into a rule about those.
 
 Skills never hardcode how the CLI is invoked. Every CLI call in
 `skills/*/SKILL.md` and the shipped `lib/*.md` prompt files is written as
-`RADIN_CLI <backlog|state|scope|cbm-hooks|cbm-config|doctor|uninstall> ...`; `install.sh`'s
+`RADIN_CLI <backlog|state|scope|cbm-hooks|cbm-config|update|doctor|uninstall> ...`; `install.sh`'s
 `set_cli` resolves the token to bare `radin` (when the `~/.local/bin` symlink
 exists and that directory is on PATH) or to the full dispatcher path
 (`"$HOME/.claude/.radin/bin/radin"`) otherwise. Same contract as the model
 tokens: don't write either literal form into a skill, and `set_cli` exits
 non-zero if a token survives. The dispatcher itself is `bin/radin`.
+
+## Install, update, uninstall belong to the CLI
+
+Anything deterministic enough to need no model is a CLI subcommand, never a
+skill's job: `radin doctor`, `radin uninstall`, `radin cbm-config`, and
+`radin update`. A skill exists on top of one only as the slash-command
+surface, and it delegates instead of reimplementing.
+
+`radin update` (`lib/radin-update.sh`) refreshes radin plus every companion
+tool in one run. It reads `~/.claude/.radin/install_root` (written by
+`install.sh` each run), `git pull --ff-only`s a dev clone — refusing a dirty
+tree — or downloads the newest `install.sh` from `main`, then re-runs it with
+`--update`.
+
+`--update` implies `--force` and `--yes`, and `install.sh` reads its own
+previous `manifest.json` for `parallel_execution`, `refuter_pass` and the six
+`model_<role>` keys, so an update keeps the recorded answers rather than
+re-asking or silently resetting to defaults. The manifest is the only state
+that survives, so any new install-time question must be recorded there too —
+otherwise the next update resets it. Models are read all-or-nothing: a
+manifest missing one key falls through to the pickers.
 
 ## Sub-agent models in radin-execute
 

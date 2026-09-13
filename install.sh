@@ -24,10 +24,27 @@ fi
 
 FORCE=""
 YES=""
+UPDATE=""
 for arg in "$@"; do
 	[ "$arg" = "--force" ] && FORCE="1"
 	[ "$arg" = "--yes" ] && YES="1"
+	# --update is what `radin update` runs: every companion tool updates, and
+	# no behaviour question is asked again -- the answers come from the
+	# manifest the last install wrote.
+	if [ "$arg" = "--update" ]; then
+		UPDATE="1"
+		FORCE="1"
+		YES="1"
+	fi
 done
+
+MANIFEST_FILE="$HOME/.claude/.radin/manifest.json"
+# Flat `"key": value` lookup in the previous manifest. Prints nothing for a
+# missing key, so every caller keeps its own default.
+manifest_value() {
+	[ -f "$MANIFEST_FILE" ] || return 0
+	sed -n 's/.*"'"$1"'": *"\{0,1\}\([^",]*\)"\{0,1\}.*/\1/p' "$MANIFEST_FILE" | head -1
+}
 
 RAT='🐀'
 info() { printf "%b\n" "${CYAN}${RAT}${RESET} $*"; }
@@ -131,7 +148,7 @@ mkdir -p "$HOME/.claude/skills" "$HOME/.claude/.radin/lib"
 for f in radin-namespace.sh radin-json.sh radin-backlog.sh radin-state.sh \
 	radin-scope.sh radin-prioritization.md radin-execute-prompts.md \
 	radin-execute-recovery.md radin-execute-reporting.md radin-cbm-hooks.sh \
-	radin-cbm-config.sh \
+	radin-cbm-config.sh radin-update.sh \
 	radin-doctor.sh radin-uninstall.sh; do
 	cp "$RADIN_ROOT/lib/$f" "$HOME/.claude/.radin/lib/"
 done
@@ -458,7 +475,18 @@ set_concurrency() {
 }
 
 step "Execution concurrency"
-if [ "$(prompt_pick "How should radin-execute run sub-agents? (parallel only ever applies to independent tasks)" 2 "parallel" "sequential")" = "parallel" ]; then
+CONCURRENCY_ANSWER=""
+if [ -n "$UPDATE" ]; then
+	case "$(manifest_value parallel_execution)" in
+	true) CONCURRENCY_ANSWER="parallel" ;;
+	false) CONCURRENCY_ANSWER="sequential" ;;
+	esac
+	[ -n "$CONCURRENCY_ANSWER" ] && info "keeping the recorded answer: $CONCURRENCY_ANSWER"
+fi
+if [ -z "$CONCURRENCY_ANSWER" ]; then
+	CONCURRENCY_ANSWER="$(prompt_pick "How should radin-execute run sub-agents? (parallel only ever applies to independent tasks)" 2 "parallel" "sequential")"
+fi
+if [ "$CONCURRENCY_ANSWER" = "parallel" ]; then
 	PARALLEL_MODE="true"
 	set_concurrency "$HOME/.claude/skills/radin-execute/SKILL.md" "$PARALLEL_RULE"
 	ok "parallel execution allowed (independent tasks only, worktree mode required)"
@@ -469,8 +497,23 @@ else
 fi
 
 step "Per-task verification"
+REFUTER_ANSWER=""
+if [ -n "$UPDATE" ]; then
+	case "$(manifest_value refuter_pass)" in
+	true) REFUTER_ANSWER="yes" ;;
+	false) REFUTER_ANSWER="no" ;;
+	esac
+	[ -n "$REFUTER_ANSWER" ] && info "keeping the recorded answer: refuter pass $REFUTER_ANSWER"
+fi
+if [ -z "$REFUTER_ANSWER" ]; then
+	if prompt_yn "Verify every task's commit with a second sub-agent? Catches a wrong 'done' claim, costs one more agent per task (default: no)"; then
+		REFUTER_ANSWER="yes"
+	else
+		REFUTER_ANSWER="no"
+	fi
+fi
 REFUTER_PASS="false"
-if prompt_yn "Verify every task's commit with a second sub-agent? Catches a wrong 'done' claim, costs one more agent per task (default: no)"; then
+if [ "$REFUTER_ANSWER" = "yes" ]; then
 	REFUTER_PASS="true"
 	set_refute "$HOME/.claude/skills/radin-execute/SKILL.md" "$REFUTE_ON_RULE"
 	ok "refuter pass on -- each SUCCESS is checked against the task before it is recorded"
@@ -486,7 +529,30 @@ step "Sub-agent models"
 MODELS="fable opus sonnet haiku"
 SONNET_INDEX=3
 HAIKU_INDEX=4
-if prompt_yn "Choose radin-execute's sub-agent models? (defaults: sonnet, haiku for fact-finding)"; then
+MODELS_RECORDED=""
+if [ -n "$UPDATE" ]; then
+	REC_PLANNING="$(manifest_value model_planning)"
+	REC_EXECUTION="$(manifest_value model_execution)"
+	REC_REVIEW="$(manifest_value model_review)"
+	REC_REFUTE="$(manifest_value model_refute)"
+	REC_DEBUG="$(manifest_value model_debug)"
+	REC_FACTFIND="$(manifest_value model_factfind)"
+	# All six or none: a half-read manifest would silently mix recorded picks
+	# with defaults, which is worse than asking.
+	if [ -n "$REC_PLANNING" ] && [ -n "$REC_EXECUTION" ] && [ -n "$REC_REVIEW" ] &&
+		[ -n "$REC_REFUTE" ] && [ -n "$REC_DEBUG" ] && [ -n "$REC_FACTFIND" ]; then
+		MODEL_PLANNING="$REC_PLANNING"
+		MODEL_EXECUTION="$REC_EXECUTION"
+		MODEL_REVIEW="$REC_REVIEW"
+		MODEL_REFUTE="$REC_REFUTE"
+		MODEL_DEBUG="$REC_DEBUG"
+		MODEL_FACTFIND="$REC_FACTFIND"
+		MODELS_RECORDED="1"
+	fi
+fi
+if [ -n "$MODELS_RECORDED" ]; then
+	ok "keeping recorded sub-agent models: plan $MODEL_PLANNING, exec $MODEL_EXECUTION, review $MODEL_REVIEW, refute $MODEL_REFUTE, debug $MODEL_DEBUG, facts $MODEL_FACTFIND"
+elif prompt_yn "Choose radin-execute's sub-agent models? (defaults: sonnet, haiku for fact-finding)"; then
 	# One pick covers the common case; the per-role walk is 5-6 pickers deep.
 	if [ "$(prompt_pick "Same model for every role? (default: yes)" 1 "yes" "no")" = "yes" ]; then
 		# shellcheck disable=SC2086  # word splitting is the point -- one arg per model
@@ -731,7 +797,9 @@ json_bool_plugin() {
 }
 
 mkdir -p "$HOME/.claude/.radin"
-MANIFEST_FILE="$HOME/.claude/.radin/manifest.json"
+# `radin update` reads this to decide between `git pull` in a dev clone and a
+# fresh tarball download.
+printf '%s\n' "$RADIN_ROOT" >"$HOME/.claude/.radin/install_root"
 INSTALLED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 cat >"$MANIFEST_FILE" <<EOF
 {
@@ -739,6 +807,13 @@ cat >"$MANIFEST_FILE" <<EOF
   "installed_at": "$INSTALLED_AT",
   "parallel_execution": $PARALLEL_MODE,
   "refuter_pass": $REFUTER_PASS,
+  "install_root": "$RADIN_ROOT",
+  "model_planning": "$MODEL_PLANNING",
+  "model_execution": "$MODEL_EXECUTION",
+  "model_review": "$MODEL_REVIEW",
+  "model_refute": "$MODEL_REFUTE",
+  "model_debug": "$MODEL_DEBUG",
+  "model_factfind": "$MODEL_FACTFIND",
   "claude_md_guidance": $CLAUDE_MD_GUIDANCE,
   "cbm_agent_config": $CBM_AGENT_CONFIG,
   "cli_on_path": $CLI_ON_PATH,
@@ -766,6 +841,7 @@ cat >"$MANIFEST_FILE" <<EOF
     "radin-execute-reporting.md",
     "radin-cbm-hooks.sh",
     "radin-cbm-config.sh",
+    "radin-update.sh",
     "radin-doctor.sh",
     "radin-uninstall.sh"
   ],
@@ -782,4 +858,9 @@ EOF
 ok "manifest written to ${BOLD}$MANIFEST_FILE${RESET}"
 
 step "Done"
-ok "radin installed. ${DIM}Go be stingy with those tokens.${RESET}"
+if [ -n "$UPDATE" ]; then
+	ok "radin updated. ${DIM}Go be stingy with those tokens.${RESET}"
+else
+	ok "radin installed. ${DIM}Go be stingy with those tokens.${RESET}"
+fi
+info "Update the whole stack later with: ${BOLD}radin update${RESET}"

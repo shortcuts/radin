@@ -83,18 +83,34 @@ curl -fsSL https://raw.githubusercontent.com/shortcuts/radin/main/install.sh | b
 
 ## Update
 
-`--force` also updates companion tools already installed.
+```sh
+radin update
+```
+
+One command for the whole stack: radin's own skills and lib scripts, plus
+every companion tool. It pulls a dev clone (only when clean and
+fast-forwardable) or downloads the newest release, then re-runs `install.sh`
+in update mode. No question is asked again — concurrency, refuter pass and
+sub-agent models come from `~/.claude/.radin/manifest.json`, which the last
+install wrote.
+
+Nothing is deleted: the installer only copies its own files over, companion
+tools go through their own upgrade path, and `radin cbm-config install`
+re-brackets upstream's destructive config write.
+
+Without the CLI on PATH, the same run is:
 
 ```sh
-# macOS · Linux · WSL
-curl -fsSL https://raw.githubusercontent.com/shortcuts/radin/main/install.sh | bash -s -- --force
+curl -fsSL https://raw.githubusercontent.com/shortcuts/radin/main/install.sh | bash -s -- --update
 ```
+
+`--force` updates companion tools but keeps asking the three questions.
 
 ## The backlog lifecycle
 
 Repo's backlog live inside repo, at `.claude/.radin/backlog/`
 from repo root: index file plus one markdown file per task. Every
-radin tool read from or write to it through radin's own CLI (`radin backlog`, `radin state`, ... — symlinked into `~/.local/bin` at install), never need look inside. Run `/radin-show` read it as plain markdown.
+radin tool read from or write to it through radin's own CLI (`radin backlog`, `radin state`, `radin update`, ... — symlinked into `~/.local/bin` at install), never need look inside. Run `/radin-show` read it as plain markdown.
 Commit `.claude/.radin/` share backlog with team, or add to
 `.gitignore` keep private. Radin never touch your `.gitignore`
 either way.

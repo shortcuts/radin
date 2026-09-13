@@ -6,6 +6,17 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- `radin update`: one command updates the whole stack — radin's own skills and
+  lib scripts plus every companion tool. It pulls a dev clone (only when clean
+  and fast-forwardable) or downloads the newest release, then re-runs
+  `install.sh --update`. That mode implies `--force` and `--yes` and reads the
+  previous `manifest.json`, so concurrency, refuter pass and sub-agent models
+  keep their recorded answers instead of being re-asked or reset. Nothing is
+  deleted: files are copied over, companion tools take their own upgrade path,
+  and upstream's destructive `codebase-memory-mcp` config write stays
+  bracketed. `install.sh` now records `install_root` and one
+  `model_<role>` key per sub-agent role in the manifest.
+
 - `radin-execute` can verify each task before it records it. `install.sh` asks
   (default no); when it is on, a refuter sub-agent gets the commit diff, the
   task file, and the plan — never the execution sub-agent's own report — and

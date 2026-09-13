@@ -26,7 +26,9 @@ remove_path() {
 printf 'radin uninstall\n===============\n'
 
 printf '\nSkills (%s/skills):\n' "$CLAUDE_DIR"
-for name in radin-execute radin-plan radin-record radin-review radin-setup-hooks radin-show radin-stats radin-doctor radin-uninstall; do
+# radin-update shipped as a skill before `radin update` took the job; install.sh
+# only adds, so only this script can clear the leftover.
+for name in radin-execute radin-plan radin-record radin-review radin-setup-hooks radin-show radin-stats radin-doctor radin-uninstall radin-update; do
 	remove_path "$name" "$CLAUDE_DIR/skills/$name"
 done
 
@@ -53,6 +55,7 @@ remove_path "radin-prioritization.md" "$CLAUDE_DIR/.radin/lib/radin-prioritizati
 remove_path "radin-execute-prompts.md" "$CLAUDE_DIR/.radin/lib/radin-execute-prompts.md"
 remove_path "radin-execute-recovery.md" "$CLAUDE_DIR/.radin/lib/radin-execute-recovery.md"
 remove_path "radin-execute-reporting.md" "$CLAUDE_DIR/.radin/lib/radin-execute-reporting.md"
+remove_path "radin-update.sh" "$CLAUDE_DIR/.radin/lib/radin-update.sh"
 remove_path "radin-doctor.sh" "$CLAUDE_DIR/.radin/lib/radin-doctor.sh"
 
 printf '\nLeft untouched:\n'

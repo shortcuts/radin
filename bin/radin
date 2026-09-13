@@ -9,12 +9,12 @@ LIB="$HOME/.claude/.radin/lib"
 
 cmd="${1:-}"
 case "$cmd" in
-backlog | state | scope | cbm-hooks | cbm-config | doctor | uninstall)
+backlog | state | scope | cbm-hooks | cbm-config | update | doctor | uninstall)
 	shift
 	exec bash "$LIB/radin-$cmd.sh" "$@"
 	;;
 *)
-	printf 'usage: radin <backlog|state|scope|cbm-hooks|cbm-config|doctor|uninstall> [args]\n' >&2
+	printf 'usage: radin <backlog|state|scope|cbm-hooks|cbm-config|update|doctor|uninstall> [args]\n' >&2
 	printf 'Each subcommand prints its own usage when run with no arguments.\n' >&2
 	exit 1
 	;;

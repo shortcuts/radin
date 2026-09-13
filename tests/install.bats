@@ -398,3 +398,49 @@ EOF
   [[ "$output" == *"rtk install failed"* ]]
   [[ "$output" == *"radin installed."* ]]
 }
+
+# `radin update` runs install.sh --update: no question is asked again, and the
+# answers come from the manifest the previous install wrote.
+@test "--update reuses the recorded behaviour answers instead of asking" {
+  cd "$REPO_ROOT" && printf '1\n1\n1\n1\n1\n' | bash ./install.sh
+  manifest="$TEST_HOME/.claude/.radin/manifest.json"
+  grep -q '"parallel_execution": true' "$manifest"
+  grep -q '"refuter_pass": true' "$manifest"
+  grep -q '"model_planning": "fable"' "$manifest"
+
+  run bash ./install.sh --update
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"keeping the recorded answer: parallel"* ]]
+  [[ "$output" == *"keeping the recorded answer: refuter pass yes"* ]]
+  [[ "$output" == *"keeping recorded sub-agent models: plan fable"* ]]
+  grep -q '"parallel_execution": true' "$manifest"
+  grep -q '"refuter_pass": true' "$manifest"
+  grep -q '"model_planning": "fable"' "$manifest"
+  grep -q 'fable' "$TEST_HOME/.claude/.radin/lib/radin-execute-prompts.md"
+  [[ "$output" == *"radin updated"* ]]
+}
+
+@test "the install records its source root for radin update" {
+  run run_install_defaults
+  [ "$status" -eq 0 ]
+  [ "$(cat "$TEST_HOME/.claude/.radin/install_root")" = "$REPO_ROOT" ]
+}
+
+# --update is non-interactive by design, so with no manifest to read it takes
+# the documented defaults rather than blocking on a question.
+@test "--update with no manifest takes the defaults, never a prompt" {
+  cd "$REPO_ROOT" && run bash ./install.sh --update
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"keeping the recorded answer"* ]]
+  grep -q '"parallel_execution": false' "$TEST_HOME/.claude/.radin/manifest.json"
+  grep -q '"refuter_pass": false' "$TEST_HOME/.claude/.radin/manifest.json"
+}
+
+@test "ships the update script and routes radin update to it" {
+  run run_install_defaults
+  [ "$status" -eq 0 ]
+  [ -f "$TEST_HOME/.claude/.radin/lib/radin-update.sh" ]
+  grep -q '"radin-update.sh"' "$TEST_HOME/.claude/.radin/manifest.json"
+  run env HOME="$TEST_HOME" bash "$TEST_HOME/.claude/.radin/bin/radin"
+  [[ "$output" == *"update"* ]]
+}

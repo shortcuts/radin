@@ -127,11 +127,18 @@ Written by `install.sh` to `~/.claude/.radin/manifest.json` on every run — not
   "installed_at": "2026-07-28T00:00:00Z",
   "parallel_execution": false,
   "refuter_pass": false,
+  "install_root": "/Users/me/.claude/radin",
+  "model_planning": "sonnet",
+  "model_execution": "sonnet",
+  "model_review": "sonnet",
+  "model_refute": "sonnet",
+  "model_debug": "sonnet",
+  "model_factfind": "haiku",
   "claude_md_guidance": false,
   "cbm_agent_config": false,
   "cli_on_path": true,
   "skills": ["radin-execute", "radin-plan", "radin-record", "radin-review", "radin-setup-hooks", "radin-show", "radin-stats", "radin-doctor", "radin-uninstall", "thermo-nuclear"],
-  "lib": ["radin-namespace.sh", "radin-backlog.sh", "radin-state.sh", "radin-prioritization.md", "radin-cbm-hooks.sh", "radin-cbm-config.sh", "radin-doctor.sh", "radin-uninstall.sh"],
+  "lib": ["radin-namespace.sh", "radin-backlog.sh", "radin-state.sh", "radin-prioritization.md", "radin-cbm-hooks.sh", "radin-cbm-config.sh", "radin-update.sh", "radin-doctor.sh", "radin-uninstall.sh"],
   "companion_tools": {
     "rtk": true,
     "codebase-memory-mcp": false,
@@ -145,4 +152,5 @@ Written by `install.sh` to `~/.claude/.radin/manifest.json` on every run — not
 - `skills`/`lib` static lists matching exactly what `install.sh` copies, what `radin-doctor.sh` checks for — not derived from manifest at runtime by either script (see `docs/architecture.md` "Install manifest").
 - `parallel_execution` records which concurrency rule `install.sh` wrote into `skills/radin-execute/SKILL.md`, and covers execution sub-agents only — read-only dispatches always run in parallel. `refuter_pass` records which verification rule it wrote into the same file. `claude_md_guidance` records whether the user opted into the marked radin section in `~/.claude/CLAUDE.md`. `cbm_agent_config` records whether upstream's own `codebase-memory-mcp install` ran (it does whenever the tool installed and `python3` is present; the merge-only wiring is the fallback). `cli_on_path` records whether the `~/.local/bin/radin` symlink was created.
 - `companion_tools` values reflect final reachable state after this install.sh run (already present, just installed, or skipped not distinguished — only "is it there now").
-- Regenerated wholesale on every `install.sh` run; never partially updated, never read back by `install.sh` itself.
+- `install_root` is the resolved source path (dev clone or fetched tarball dir); `model_<role>` records the model written into each `RADIN_MODEL_<ROLE>` token.
+- Regenerated wholesale on every `install.sh` run, never partially updated. Read back in one case only: `install.sh --update` (what `radin update` runs) reads `parallel_execution`, `refuter_pass` and the six `model_<role>` keys so an update keeps the previous answers instead of asking. Missing or unparseable keys fall back to the pickers or, under `--update`, to the defaults.

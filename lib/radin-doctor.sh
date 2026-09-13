@@ -84,6 +84,7 @@ check_file "radin-prioritization.md" "$CLAUDE_DIR/.radin/lib/radin-prioritizatio
 check_file "radin-execute-prompts.md" "$CLAUDE_DIR/.radin/lib/radin-execute-prompts.md"
 check_file "radin-execute-recovery.md" "$CLAUDE_DIR/.radin/lib/radin-execute-recovery.md"
 check_file "radin-execute-reporting.md" "$CLAUDE_DIR/.radin/lib/radin-execute-reporting.md"
+check_lib_script "radin-update.sh" "$CLAUDE_DIR/.radin/lib/radin-update.sh"
 check_lib_script "radin-doctor.sh" "$CLAUDE_DIR/.radin/lib/radin-doctor.sh"
 check_lib_script "radin-uninstall.sh" "$CLAUDE_DIR/.radin/lib/radin-uninstall.sh"
 
