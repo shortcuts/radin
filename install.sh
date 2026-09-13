@@ -599,10 +599,9 @@ if CBM_BIN="$(cbm_bin)"; then
 		warn "could not enable codebase-memory-mcp auto-index -- run: codebase-memory-mcp config set auto_index true"
 	fi
 
-	# One yes installed the whole thing: binary, then upstream's own Claude Code
-	# configuration (its skill, three graph agents, user-scope MCP entry, and
-	# the hooks that route Grep/Glob to the graph). No second question -- half a
-	# tool is not a choice worth offering.
+	# The whole tool: binary, then upstream's own Claude Code configuration (its
+	# skill, three graph agents, user-scope MCP entry, and the hooks that route
+	# Grep/Glob to the graph).
 	# `radin cbm-config install` wraps that write because upstream #1200 (open
 	# through v0.10.8) replaces the whole SessionStart array in settings.json
 	# instead of merging: it snapshots first, runs their installer, then puts
@@ -610,7 +609,13 @@ if CBM_BIN="$(cbm_bin)"; then
 	# entries stay, yours come back, and `codebase-memory-mcp update` can be
 	# followed by `radin cbm-config repair` for the same reason.
 	if python3 -c "" >/dev/null 2>&1; then
-		if bash "$HOME/.claude/.radin/lib/radin-cbm-config.sh" install; then
+		# Its per-step trace (SNAPSHOT paths, the #1722 SYMLINK note) is what a
+		# failure needs and noise on success, so keep it in a log and print only
+		# the RESTORED/INTACT/CBM result lines when it worked.
+		CBM_LOG="$(mktemp)"
+		if bash "$HOME/.claude/.radin/lib/radin-cbm-config.sh" install >"$CBM_LOG" 2>&1; then
+			grep -v '^\(SNAPSHOT\|SYMLINK\) ' "$CBM_LOG" || true
+			rm -f "$CBM_LOG"
 			CBM_AGENT_CONFIG="true"
 			ok "codebase-memory-mcp wired: skill, graph agents, hooks, user-scope MCP."
 			info "Every repo works with no per-project step. Snapshots stay in"
@@ -618,6 +623,8 @@ if CBM_BIN="$(cbm_bin)"; then
 			info "~/.claude/.radin/backups; undo upstream's side with:"
 			info "  codebase-memory-mcp uninstall"
 		else
+			cat "$CBM_LOG" >&2
+			rm -f "$CBM_LOG"
 			warn "codebase-memory-mcp configuration failed -- radin itself is unaffected."
 			info "Your own hooks were restored from the snapshot. Falling back to"
 			info "radin's merge-only wiring:"
