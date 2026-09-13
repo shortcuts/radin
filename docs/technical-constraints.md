@@ -64,6 +64,46 @@ whole tool, name exactly what it writes, and if any of it is known destructive,
 snapshot before and restore after rather than asking the user to choose between
 half a tool and a broken config.
 
+## What radin's codebase-memory-mcp bracket does and does not cover
+
+`radin cbm-config install` runs upstream's own configuration between a
+snapshot and a restore (see `docs/architecture.md`). Its limits are load-
+bearing — read them before changing that script or telling a user they are
+covered.
+
+- **Two files, one client.** The snapshot is `~/.claude/settings.json` and
+  `~/.claude.json`. Upstream configures 45 client surfaces; every other one
+  (Cursor, Codex, Gemini CLI, OpenCode, Kiro...) takes its write unbracketed.
+  Don't claim radin protects a config it never copied.
+- **Restore, not rollback.** The restore adds back entries the snapshot had
+  and the file now lacks. It never deletes an upstream entry, so it cannot
+  undo the configuration — `codebase-memory-mcp uninstall` does that. A hook
+  the user deleted after the snapshot comes back on the next `repair`.
+- **Newest snapshot wins.** `repair` reads the newest `*.bak` pair, which
+  after one successful install already contains upstream's entries. It is the
+  right input after an upstream `update`, and the wrong input for
+  reconstructing a much older config.
+- **`python3` gates the whole path.** No `python3` means binary-only install
+  plus `radin cbm-hooks claude-md`. Never run upstream's configuration without
+  a working restore.
+- **Snapshots are the user's data.** Plain copies under
+  `~/.claude/.radin/backups/`, possibly containing `env` values and hook
+  commands. radin never deletes one, and `radin-uninstall.sh` names the
+  directory instead of removing it.
+- **Uninstall is asymmetric.** `/radin-uninstall` removes radin's files.
+  Upstream's skill, three agents and hooks under `~/.claude` are upstream's to
+  remove.
+- **`radin cbm-hooks mcp` writes a machine-specific path.** The `.mcp.json`
+  entry carries the resolved binary path, so it is wrong in a shared repo on
+  someone else's machine. Say so when a user asks about committing it.
+- **Only names from upstream's MCP Tools table exist.** `semantic_query` and
+  `check_index_coverage` appear in upstream prose but not in that table; they
+  are not safe to name in a prompt. `detect_changes` reads the working tree,
+  not an arbitrary commit.
+- **The bracket survives the fix.** When #1200 closes, the restore finds
+  nothing missing and prints `INTACT`. Leave it in place; the same code keeps
+  covering the next regression in that write.
+
 ## Sub-agents cannot reach the user, and cannot be notified
 
 Every radin entry point is skill, so it runs in user's own thread and can

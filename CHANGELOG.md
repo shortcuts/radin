@@ -74,6 +74,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Plugin installs (caveman, ponytail, mattpocock-skills) are skipped with one
   line when the `claude` CLI is not on PATH, instead of being offered and then
   failing. They install through that CLI and nothing else.
+- The codebase-memory-mcp bracket's limits are documented rather than implied:
+  README gains "Caveats worth knowing" (what to run after an upstream
+  `update`, why `repair` is not an undo, which configs are not covered, that
+  snapshots hold your real settings, that a `.mcp.json` entry is
+  machine-specific), and `docs/technical-constraints.md` gains the same list
+  written for agents.
 - Read-only sub-agent dispatches (planning, refuting, debugging,
   fact-finding) always run in parallel. The install-time concurrency answer
   now governs execution sub-agents only — the ones that write code and could

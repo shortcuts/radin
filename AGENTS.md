@@ -76,10 +76,9 @@ Every one of `skills/radin-execute/SKILL.md`, `skills/radin-plan/SKILL.md`,
 backlog operation (locate, append, remove, plan pointers) — model
 never hand-edits `index.jsonl` or task file directly, never
 addresses backlog content by line number.
-Don't reintroduce monolithic `BACKLOG.md`, a
-`~/.claude/.radin/projects/<slug>` namespace, or `.shortcuts/*.json`
-assumption into any of these files — those exact schemes this one
-replaces.
+Backlog lives only in `<repo-root>/.claude/.radin/`: no monolithic
+`BACKLOG.md`, no `~/.claude`-side per-project namespace, no `.shortcuts/*.json`
+assumption in any of these files.
 
 ## Backlog entry schema
 
@@ -101,26 +100,17 @@ skill keeps only its body-content guidance inline in own `SKILL.md`.
 
 ## Why radin-execute is a skill
 
-`radin-execute` was `agents/radin-execute.md` until two Claude Code
-capability limits forced it into `skills/radin-execute/SKILL.md`:
+`radin-execute` lives in `skills/radin-execute/SKILL.md` because two Claude
+Code capability limits rule out shipping it as an agent:
 
 - **`AskUserQuestion` is removed from every sub-agent**, foreground and
   background alike, even when the `tools` field lists it. radin-execute's
-  Phase 2 gate must ask the user to confirm the execution order, so as an
-  agent it could never satisfy its own gate — every run fell back to ending
-  its turn with the question and waiting to be re-invoked.
-- **Background sub-agents get no `Agent`/`Task` tool at all.** So there is no
-  "run radin-execute in the background and free the main thread" packaging
-  either: its whole job is delegation, and a backgrounded run cannot dispatch
-  a single sub-agent. To free the main thread, start a second Claude Code
-  session and run `/radin-execute` there.
-
-Two claims about background sub-agents are easy to get backwards, and both
-are settled in `docs/technical-constraints.md`: they **do** keep `Agent`
-(the second filter carves it out; its absence from that filter's list is not
-removal), and **nobody** picks foreground or background — fork mode removes
-`run_in_background` from the `Agent` tool, so no radin prompt may tell a
-model to set it.
+  Phase 2 gate must ask the user to confirm the execution order, which an
+  agent can never do.
+- **Nobody picks foreground or background.** Fork mode removes
+  `run_in_background` from the `Agent` tool, so no radin prompt may tell a
+  model to set it. Background sub-agents do keep `Agent` itself — see
+  `docs/technical-constraints.md`, where both tool-filter rules are settled.
 
 To run the backlog out of the way, use `claude agents` (agent view) — radin
 installs nothing for it: full background sessions, whole tool pool, working
@@ -273,9 +263,9 @@ cannot notice a literal that was never a token. New role: add the token, a
 
 ## The code-graph companion (codebase-memory-mcp)
 
-radin's code-intelligence companion is `codebase-memory-mcp`. It replaced
-`code-review-graph` outright — no dual support, no fallback path, no
-`code-review-graph` mention left anywhere. These rules keep it that way:
+`codebase-memory-mcp` is radin's only code-intelligence companion: one MCP
+server, no second graph tool, no fallback to another one. These rules hold it
+in place:
 
 - **One yes installs the whole tool.** `install.sh` installs the binary with
   `--skip-config`, sets `auto_index true`, then runs `radin cbm-config install`
@@ -302,6 +292,13 @@ radin's code-intelligence companion is `codebase-memory-mcp`. It replaced
   JSON surgery. Without it `install.sh` skips upstream's configuration
   entirely and falls back to `radin cbm-hooks claude-md`, because running the
   destructive write with no way to undo it is worse than a smaller install.
+- **The bracket's limits are written down** in
+  `docs/technical-constraints.md`'s "What radin's codebase-memory-mcp bracket
+  does and does not cover" (two files and one client only, restore is not
+  rollback, newest snapshot wins, snapshots are user data, uninstall is
+  asymmetric, `.mcp.json` path is machine-specific). Read it before you tell a
+  user they are covered, and before changing `lib/radin-cbm-config.sh`. The
+  user-facing half of the same list is README's "Caveats worth knowing".
 - **`lib/radin-cbm-hooks.sh` is the fallback wiring**, merge-only: the
   CLAUDE.md section and a repo's `.mcp.json` entry, for the no-`python3` path
   and for anyone who ran `codebase-memory-mcp uninstall` but kept radin. It

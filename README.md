@@ -213,35 +213,64 @@ classified as `fix` (real bug) or `refactor` (structural).
 
 #### `radin-setup-hooks`
 
-Wire codebase-memory-mcp into Claude Code: graph section in
-`~/.claude/CLAUDE.md`, MCP server entry in repo's `.mcp.json`. No hook —
-codebase-memory-mcp's own background watcher keeps graph current, and
-`install.sh` turns on `auto_index` so first connection indexes project.
+Fallback wiring. Most installs never need it: one yes to codebase-memory-mcp
+installs whole tool — its skill, three graph agents, hooks that route
+Grep/Glob to graph, and user-scope MCP entry that makes every repo work with
+no per-project step.
+
+radin wraps that write (`radin cbm-config install`) because upstream
+[#1200](https://github.com/DeusData/codebase-memory-mcp/issues/1200) replaces
+whole `SessionStart` array in `~/.claude/settings.json` instead of merging,
+which drops caveman's and ponytail's own hooks. radin snapshots
+`settings.json` + `~/.claude.json` into `~/.claude/.radin/backups/` first,
+runs their installer, then puts back every entry that write dropped. One
+`RESTORED`/`INTACT` line per item.
 
 ```
 /radin-setup-hooks
 ```
 
-Run once per project, right after `install.sh`, in repo you want wired.
-Names exact writes, asks confirmation first. radin's own script merge-only:
-anything already defined never redefined.
+Run it only when:
 
-Most installs need no `/radin-setup-hooks` at all: one yes to
-codebase-memory-mcp installs whole tool — its skill, three graph agents, hooks
-that route Grep/Glob to graph, and user-scope MCP entry that makes every repo
-work with no per-project step. radin wraps that write (`radin cbm-config
-install`) because upstream
-[#1200](https://github.com/DeusData/codebase-memory-mcp/issues/1200) replaces
-whole `SessionStart` array in `~/.claude/settings.json` instead of merging,
-which drops caveman's and ponytail's own hooks: radin snapshots
-`settings.json` + `~/.claude.json` into `~/.claude/.radin/backups/` first,
-runs their installer, then puts back every entry that write dropped. Prints
-one `RESTORED`/`INTACT` line each. After `codebase-memory-mcp update` reruns
-same write, run `radin cbm-config repair`.
+- `python3` was missing at install time. radin then installs binary only and
+  skips upstream's config, because it cannot restore what that write drops.
+- You ran `codebase-memory-mcp uninstall` but kept radin.
 
-Run `/radin-setup-hooks` only when `python3` was missing at install time (radin
-then skips upstream's config, since it cannot restore afterwards) or when you
-uninstalled upstream's side but kept radin.
+It writes graph section in `~/.claude/CLAUDE.md` plus MCP server entry in
+repo's `.mcp.json`, merge-only: anything already defined never redefined.
+Names exact writes, asks confirmation first.
+
+##### Caveats worth knowing
+
+- **After `codebase-memory-mcp update`, run `radin cbm-config repair`.** Its
+  update reruns same destructive config write. `repair` restores from newest
+  snapshot in `~/.claude/.radin/backups/`.
+- **`repair` restores, it does not undo.** It puts back what newest snapshot
+  held and is now missing. Hook you deliberately deleted after that snapshot
+  comes back. Undo upstream's side with `codebase-memory-mcp uninstall`.
+- **Only Claude Code's two files are bracketed.** Upstream configures 45
+  client surfaces (Cursor, Codex, Gemini CLI, OpenCode...). radin snapshots
+  `~/.claude/settings.json` and `~/.claude.json` only. Other clients' configs
+  get upstream's write unbracketed — back them up yourself first.
+- **Snapshots hold your real config.** `settings.json` can carry `env` values
+  and hook commands. Snapshots are plain copies in
+  `~/.claude/.radin/backups/`, never deleted by radin, never committed
+  anywhere. Delete them yourself when done.
+- **`/radin-uninstall` leaves upstream's side alone.** Its skill, agents and
+  hooks under `~/.claude` are upstream's, not radin's:
+  `codebase-memory-mcp uninstall` removes those.
+- **`.mcp.json` entry written by `radin cbm-hooks mcp` is machine-specific.**
+  It points at resolved binary path (`~/.local/bin/codebase-memory-mcp`).
+  Don't commit it to a shared repo — a teammate on a different path gets a
+  dead MCP server.
+- **First query on a big repo waits for first index.** `auto_index` indexes on
+  first connection; cap it with
+  `codebase-memory-mcp config set auto_index_limit <files>`.
+- **`detect_changes` reads working tree, not arbitrary commit.** For commit or
+  PR scope, check it out (or diff it) first — `/radin-review` says so too.
+- **Graph answer is a pointer, not proof.** Empty result never proves absence.
+  Read file before editing. Every radin prompt that names graph tool repeats
+  this.
 
 ### Vendored in *(optional)*
 

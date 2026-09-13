@@ -14,6 +14,11 @@
 # missing; upstream's own entries stay, and radin adds none of its own. The
 # pre-existing entries go back first, upstream's after, so relative order
 # inside each hook event survives.
+# Scope limits (full list in docs/technical-constraints.md): this covers Claude
+# Code's two files only, while upstream configures 45 client surfaces; it
+# restores rather than rolls back, so it cannot undo the configuration
+# (`codebase-memory-mcp uninstall` does); and `repair` reads the newest
+# snapshot, which after one install already holds upstream's own entries.
 # Installed to ~/.claude/.radin/lib/radin-cbm-config.sh by install.sh.
 # Must stay bash-3.2-compatible (macOS /bin/bash).
 set -euo pipefail
