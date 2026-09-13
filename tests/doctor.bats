@@ -25,7 +25,8 @@ install_all_expected() {
   printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-backlog.sh"
   printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-state.sh"
   printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-scope.sh"
-printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-crg-hooks.sh"
+printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-cbm-hooks.sh"
+  printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-cbm-config.sh"
   : > "$TEST_HOME/.claude/.radin/lib/radin-prioritization.md"
   : > "$TEST_HOME/.claude/.radin/lib/radin-execute-prompts.md"
   : > "$TEST_HOME/.claude/.radin/lib/radin-execute-recovery.md"
@@ -81,7 +82,7 @@ EOF
   run env HOME="$TEST_HOME" bash "$CLI"
   [ "$status" -eq 0 ]
   [[ "$output" == *"rtk"*"found"* ]]
-  [[ "$output" == *"code-review-graph"*"not found"* ]]
+  [[ "$output" == *"codebase-memory-mcp"*"not found"* ]]
 }
 
 @test "does not mutate the filesystem outside HOME/.claude" {

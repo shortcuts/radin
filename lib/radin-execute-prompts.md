@@ -110,7 +110,7 @@ Do the task yourself: never spawn a sub-agent of your own. The `Workflow`
 tool is not available to you, so `/deep-research` and any saved workflow
 command fail rather than run: don't reach for them.
 
-(When exploring the codebase: if `code-review-graph` is installed and wired for this repo, use its MCP tools (`semantic_search_nodes`, `get_impact_radius`, `query_graph`) before Grep/Glob/Read. When running commands: prefer `rtk`-wrapped commands if `command -v rtk` succeeds for token savings.)
+(When exploring the codebase: if `codebase-memory-mcp` is wired for this repo (an `mcpServers.codebase-memory-mcp` entry in `.mcp.json`), use its MCP tools before Grep/Glob/Read — `search_graph` to find a symbol, `trace_path` for its callers and callees before you change it, `get_code_snippet` to read one function, `query_graph` for anything Cypher-shaped after `get_graph_schema`. A graph hit is a pointer: read the file before editing it, and never conclude something doesn't exist from an empty result. When running commands: prefer `rtk`-wrapped commands if `command -v rtk` succeeds for token savings.)
 1. Read TASK_FILE to understand the task. Anything the router appended to it
    is part of the task, not commentary: `**Decision:**`, `**Fact:**`,
    `**Root cause:**`, and `**Rework:**` lines are settled and binding. A
@@ -225,7 +225,10 @@ Tree: TASK_DIR
    contract. `**Decision:**`, `**Fact:**`, `**Root cause:**` and `**Rework:**`
    lines in the task file are part of it.
 2. Run `git -C TASK_DIR show <hash>` for each commit in COMMITS. Judge the
-   diff against that contract, and nothing else.
+   diff against that contract, and nothing else. If `codebase-memory-mcp` is
+   wired for this repo, run `trace_path` on each symbol the diff changed:
+   a caller outside the diff that still assumes the old behavior is exactly
+   the kind of miss a summary hides.
 3. Run the repo's own checks yourself in TASK_DIR (lint, tests, format, per
    its conventions). Never accept a result you did not produce. If the repo
    documents no checks you can find, say so in your report and do not count
@@ -274,7 +277,9 @@ Reported failure: FAILURE
 
 Reproduce it read-only: run the failing check or command again, read the code
 and config around it. Find the root cause, not the symptom — if a shared
-function looks wrong, check its other callers before you name it. Prefer
+function looks wrong, check its other callers before you name it
+(`trace_path` inbound, when `codebase-memory-mcp` is wired for this repo;
+`detect_changes` maps the uncommitted diff to the symbols it touches). Prefer
 primary evidence on this machine (command output, a file's actual contents)
 over recollection.
 

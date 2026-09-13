@@ -44,6 +44,10 @@ remove_path "radin-json.sh" "$CLAUDE_DIR/.radin/lib/radin-json.sh"
 remove_path "radin-backlog.sh" "$CLAUDE_DIR/.radin/lib/radin-backlog.sh"
 remove_path "radin-state.sh" "$CLAUDE_DIR/.radin/lib/radin-state.sh"
 remove_path "radin-scope.sh" "$CLAUDE_DIR/.radin/lib/radin-scope.sh"
+remove_path "radin-cbm-hooks.sh" "$CLAUDE_DIR/.radin/lib/radin-cbm-hooks.sh"
+remove_path "radin-cbm-config.sh" "$CLAUDE_DIR/.radin/lib/radin-cbm-config.sh"
+# Shipped by radin up to the codebase-memory-mcp switch: install.sh only adds,
+# so an update leaves it behind and only this script can clear it.
 remove_path "radin-crg-hooks.sh" "$CLAUDE_DIR/.radin/lib/radin-crg-hooks.sh"
 remove_path "radin-prioritization.md" "$CLAUDE_DIR/.radin/lib/radin-prioritization.md"
 remove_path "radin-execute-prompts.md" "$CLAUDE_DIR/.radin/lib/radin-execute-prompts.md"
@@ -54,7 +58,7 @@ remove_path "radin-doctor.sh" "$CLAUDE_DIR/.radin/lib/radin-doctor.sh"
 printf '\nLeft untouched:\n'
 printf '  %-20s not vendored by radin, remove manually if wanted\n' "thermo-nuclear"
 printf '  %-20s advisory install, remove with: brew uninstall rtk\n' "rtk"
-printf '  %-20s advisory install, remove with: pipx uninstall code-review-graph\n' "code-review-graph"
+printf '  %-20s advisory install, remove with: codebase-memory-mcp uninstall\n' "codebase-memory-mcp"
 printf '  %-20s advisory install, remove with: pipx uninstall headroom-ai\n' "headroom"
 printf '  %-20s advisory install, remove with: claude plugin uninstall caveman@caveman\n' "caveman"
 printf '  %-20s advisory install, remove with: claude plugin uninstall ponytail@ponytail\n' "ponytail"
@@ -64,6 +68,15 @@ printf '  %s\n' "Any <repo-root>/.claude/.radin/ backlog directory -- your data,
 # edited out.
 if [ -f "$CLAUDE_DIR/CLAUDE.md" ] && grep -q '^<!-- radin:begin -->$' "$CLAUDE_DIR/CLAUDE.md"; then
 	printf '  %s\n' "$CLAUDE_DIR/CLAUDE.md keeps a radin section -- delete the lines between <!-- radin:begin --> and <!-- radin:end -->"
+fi
+if [ -f "$CLAUDE_DIR/CLAUDE.md" ] && grep -qF '<!-- codebase-memory-mcp MCP tools -->' "$CLAUDE_DIR/CLAUDE.md"; then
+	printf '  %s\n' "$CLAUDE_DIR/CLAUDE.md keeps the codebase-memory-mcp section written by radin-cbm-hooks.sh -- delete it by hand"
+fi
+printf '  %s\n' "Any <repo-root>/.mcp.json entry for codebase-memory-mcp -- per-repo config, delete it by hand"
+# Copies of the user's own settings.json / .claude.json, taken before upstream
+# rewrote them. Deleting someone's only copy of their config is not radin's call.
+if [ -d "$CLAUDE_DIR/.radin/backups" ]; then
+	printf '  %s\n' "$CLAUDE_DIR/.radin/backups holds copies of your settings.json -- your data, your call"
 fi
 
 printf '\nradin removed from ~/.claude.\n'

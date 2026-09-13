@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Read-only post-install health check for radin. Confirms the files
 # install.sh should have copied are present, and reports which advisory
-# companion tools (rtk, code-review-graph, caveman, ponytail,
+# companion tools (rtk, codebase-memory-mcp, caveman, ponytail,
 # mattpocock-skills) are reachable. Never mutates anything -- mirrors install.sh's own
 # "advisory only" stance on companion tools.
 # Installed to ~/.claude/.radin/lib/radin-doctor.sh by install.sh.
@@ -78,7 +78,8 @@ check_lib_script "radin-json.sh" "$CLAUDE_DIR/.radin/lib/radin-json.sh"
 check_lib_script "radin-backlog.sh" "$CLAUDE_DIR/.radin/lib/radin-backlog.sh"
 check_lib_script "radin-state.sh" "$CLAUDE_DIR/.radin/lib/radin-state.sh"
 check_lib_script "radin-scope.sh" "$CLAUDE_DIR/.radin/lib/radin-scope.sh"
-check_lib_script "radin-crg-hooks.sh" "$CLAUDE_DIR/.radin/lib/radin-crg-hooks.sh"
+check_lib_script "radin-cbm-hooks.sh" "$CLAUDE_DIR/.radin/lib/radin-cbm-hooks.sh"
+check_lib_script "radin-cbm-config.sh" "$CLAUDE_DIR/.radin/lib/radin-cbm-config.sh"
 check_file "radin-prioritization.md" "$CLAUDE_DIR/.radin/lib/radin-prioritization.md"
 check_file "radin-execute-prompts.md" "$CLAUDE_DIR/.radin/lib/radin-execute-prompts.md"
 check_file "radin-execute-recovery.md" "$CLAUDE_DIR/.radin/lib/radin-execute-recovery.md"
@@ -88,11 +89,31 @@ check_lib_script "radin-uninstall.sh" "$CLAUDE_DIR/.radin/lib/radin-uninstall.sh
 
 printf '\nCompanion tools (optional, advisory-only):\n'
 check_path_tool "rtk" "rtk"
-check_path_tool "code-review-graph" "code-review-graph"
+check_path_tool "codebase-memory-mcp" "codebase-memory-mcp"
 check_path_tool "headroom" "headroom"
 check_plugin "caveman" "caveman@caveman"
 check_plugin "ponytail" "ponytail@ponytail"
 check_plugin "mattpocock-skills" "mattpocock-skills@claude-plugins-official"
+
+# Informational, like every companion check: the graph binary can be installed
+# and still answer nothing if its Claude Code wiring never landed.
+if command -v codebase-memory-mcp >/dev/null 2>&1 || [ -x "$HOME/.local/bin/codebase-memory-mcp" ]; then
+	printf '\ncodebase-memory-mcp wiring (informational):\n'
+	if [ -f "$CLAUDE_DIR/settings.json" ] && grep -q 'cbm' "$CLAUDE_DIR/settings.json"; then
+		printf '  OK       hooks in %s/settings.json\n' "$CLAUDE_DIR"
+	else
+		printf '  MISSING  hooks in %s/settings.json (re-run install.sh, or radin cbm-config install)\n' "$CLAUDE_DIR"
+	fi
+	if { [ -f "$HOME/.claude.json" ] && grep -q 'codebase-memory-mcp' "$HOME/.claude.json"; } ||
+		{ [ -f "$PWD/.mcp.json" ] && grep -q 'codebase-memory-mcp' "$PWD/.mcp.json"; }; then
+		printf '  OK       MCP server entry (user scope or this repo)\n'
+	else
+		printf '  MISSING  MCP server entry -- run radin cbm-config install, or radin cbm-hooks mcp here\n'
+	fi
+	if [ -d "$CLAUDE_DIR/.radin/backups" ]; then
+		printf '  OK       config snapshots in %s/.radin/backups\n' "$CLAUDE_DIR"
+	fi
+fi
 
 printf '\n'
 if [ "$MISSING" -eq 0 ]; then

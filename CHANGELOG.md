@@ -28,6 +28,52 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **`codebase-memory-mcp` replaces `code-review-graph` as radin's code graph.**
+  One static binary instead of a `pipx`/`pip3` install, 158 tree-sitter
+  grammars, sub-millisecond queries, and a background watcher that keeps the
+  graph current. `install.sh` installs the binary with `--skip-config`, sets
+  `auto_index true`, then runs the whole tool's own Claude Code configuration:
+  its skill, three graph agents, the user-scope MCP entry, and the
+  `SessionStart`/`SubagentStart`/`PreToolUse` hooks that route Grep/Glob to the
+  graph. One yes, no second question, and no per-project step afterwards.
+  `radin cbm-config install` (new, `lib/radin-cbm-config.sh`) brackets that
+  write. Upstream
+  [#1200](https://github.com/DeusData/codebase-memory-mcp/issues/1200) replaces
+  the whole `SessionStart` array in `~/.claude/settings.json` instead of
+  merging — open and unfixed through v0.10.8, and on a radin machine that array
+  holds caveman's and ponytail's hooks. So radin snapshots `settings.json` and
+  `~/.claude.json` into `~/.claude/.radin/backups/`, runs their installer, then
+  restores every hook entry, top-level key and `mcpServers` entry the write
+  dropped — pre-existing entries first, upstream's after, deep-equal entries
+  never duplicated, one `RESTORED`/`INTACT` line each. A failed upstream
+  install restores too. `radin cbm-config repair` runs the restore alone, for
+  after `codebase-memory-mcp update` reruns the same write. `python3` is
+  required for this path; without it `install.sh` installs the binary, skips
+  upstream's configuration, and falls back to the merge-only wiring. The
+  manifest records which path ran as `cbm_agent_config`.
+  `lib/radin-crg-hooks.sh` becomes `lib/radin-cbm-hooks.sh`, and
+  `radin crg-hooks` becomes `radin cbm-hooks`. It does two merge-only writes,
+  down from three: the CLAUDE.md section and the repo's `.mcp.json` entry. The
+  `settings.json` hook pair is gone with the watcher doing that job, so
+  `radin cbm-hooks settings` no longer exists.
+  `radin-plan`, `radin-review` and the execution, refuter and debug sub-agent
+  prompts now name upstream's own tools (`search_graph`, `trace_path`,
+  `detect_changes`, `get_code_snippet`, `query_graph`, `get_architecture`),
+  and each says a graph hit is a pointer: read the file before editing, and
+  never conclude absence from an empty result.
+  Upgrading: re-run `install.sh`, then restart Claude Code so the MCP server
+  loads. `/radin-setup-hooks` is only for the no-`python3` fallback now. `install.sh`
+  only adds files, so a stale `~/.claude/.radin/lib/radin-crg-hooks.sh` stays
+  until `/radin-uninstall` clears it (it now removes both names). Removing
+  `code-review-graph` itself is your call: `pipx uninstall code-review-graph`,
+  plus its own `~/.claude/settings.json` hooks and `.mcp.json` entries.
+- `install.sh --yes` now takes every companion-tool question as yes, plus the
+  `~/.claude/CLAUDE.md` guidance block, so one non-interactive command
+  reproduces the same stack on another machine. Behaviour questions
+  (concurrency, refuter pass, sub-agent models) keep their documented defaults.
+- Plugin installs (caveman, ponytail, mattpocock-skills) are skipped with one
+  line when the `claude` CLI is not on PATH, instead of being offered and then
+  failing. They install through that CLI and nothing else.
 - Read-only sub-agent dispatches (planning, refuting, debugging,
   fact-finding) always run in parallel. The install-time concurrency answer
   now governs execution sub-agents only — the ones that write code and could

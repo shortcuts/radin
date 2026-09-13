@@ -130,7 +130,8 @@ mkdir -p "$HOME/.claude/skills" "$HOME/.claude/.radin/lib"
 # clone must not ship.
 for f in radin-namespace.sh radin-json.sh radin-backlog.sh radin-state.sh \
 	radin-scope.sh radin-prioritization.md radin-execute-prompts.md \
-	radin-execute-recovery.md radin-execute-reporting.md radin-crg-hooks.sh \
+	radin-execute-recovery.md radin-execute-reporting.md radin-cbm-hooks.sh \
+	radin-cbm-config.sh \
 	radin-doctor.sh radin-uninstall.sh; do
 	cp "$RADIN_ROOT/lib/$f" "$HOME/.claude/.radin/lib/"
 done
@@ -311,7 +312,14 @@ install_if_confirmed() {
 		ok "$name already installed, skipping (--force to update)."
 		return
 	fi
-	prompt_yn "$prompt" || return 0
+	# --yes means "the whole stack, no questions": it is how one command
+	# reproduces this machine on the next one. Behaviour questions keep their
+	# documented defaults; tool questions all become yes.
+	if [ -n "$YES" ]; then
+		info "$name: --yes, installing."
+	else
+		prompt_yn "$prompt" || return 0
+	fi
 	# Companion installs are advisory: a failed one warns, never aborts radin's
 	# own install (set -e would otherwise kill the script here). Their output
 	# is noise on success (pip dependency walls, brew hints) -- log it, show
@@ -329,7 +337,13 @@ install_if_confirmed() {
 
 install_plugin_if_confirmed() {
 	local name="$1" plugin_id="$2" marketplace_source="$3"
-	if command -v claude >/dev/null 2>&1 && claude plugin list 2>/dev/null | grep -q "$plugin_id"; then
+	# Plugins install through the `claude` CLI and nothing else, so on a machine
+	# without it say so once per plugin instead of asking and then failing.
+	if ! command -v claude >/dev/null 2>&1; then
+		warn "$name skipped: the 'claude' CLI is not on PATH. Install Claude Code, then re-run with --force."
+		return 0
+	fi
+	if claude plugin list 2>/dev/null | grep -q "$plugin_id"; then
 		if [ -z "$FORCE" ]; then
 			ok "$name already installed, skipping (--force to update)."
 			return
@@ -348,7 +362,11 @@ install_plugin_if_confirmed() {
 		rm -f "$log"
 		return
 	fi
-	prompt_yn "Install $name?" || return 0
+	if [ -n "$YES" ]; then
+		info "$name: --yes, installing."
+	else
+		prompt_yn "Install $name?" || return 0
+	fi
 	local log
 	log="$(mktemp)"
 	if {
@@ -545,9 +563,15 @@ else
 fi
 install_if_confirmed "rtk" "rtk" "$RTK_INSTALL_CMD"
 
-# code-review-graph ships on PyPI, not npm -- pipx keeps it in its own venv.
-install_if_confirmed "code-review-graph" "code-review-graph" \
-	"python_ok && { pipx --version >/dev/null 2>&1 && pipx install --force code-review-graph || pip3 install --user --upgrade code-review-graph; }"
+# codebase-memory-mcp ships one static binary and its own installer resolves
+# OS/arch and verifies checksums, so radin delegates instead of reimplementing
+# that (same reasoning as rtk's fallback). `--skip-config` is not optional
+# here: without it, upstream writes MCP entries, a skill, three agent
+# definitions and SessionStart/SubagentStart/PreToolUse hooks into ~/.claude
+# across 45 client surfaces. radin owns every ~/.claude write, and
+# `radin cbm-hooks` does the two it wants, merge-only.
+install_if_confirmed "codebase-memory-mcp" "codebase-memory-mcp" \
+	"curl -fsSL https://raw.githubusercontent.com/DeusData/codebase-memory-mcp/main/install.sh | bash -s -- --skip-config"
 
 # headroom complements rtk (whole-session wrap vs per-command output
 # compression), not a replacement -- never phrase this as preferred over rtk.
@@ -568,15 +592,65 @@ install_plugin_if_confirmed "ponytail" "ponytail@ponytail" "DietrichGebert/ponyt
 # rather than reimplementing an interview loop or a research step.
 install_plugin_if_confirmed "mattpocock-skills" "mattpocock-skills@claude-plugins-official" "anthropics/claude-plugins-official"
 
-if command -v code-review-graph >/dev/null 2>&1; then
-	info "code-review-graph binary installed. To wire its hooks, CLAUDE.md section"
-	info "and MCP server, run the radin-setup-hooks skill from inside a project."
-	info "(radin never runs 'code-review-graph install': it overwrites existing"
-	info "settings.json hooks. radin's own script only adds what is missing.)"
+# Its own installer's default target isn't on PATH in every shell, so resolve
+# the just-installed binary by path too.
+cbm_bin() {
+	local bin
+	bin="$(command -v codebase-memory-mcp || true)"
+	[ -n "$bin" ] || bin="$HOME/.local/bin/codebase-memory-mcp"
+	[ -x "$bin" ] || return 1
+	printf '%s' "$bin"
+}
+
+CBM_AGENT_CONFIG="false"
+if CBM_BIN="$(cbm_bin)"; then
+	# auto_index is off upstream, which leaves a wired session querying an empty
+	# graph until someone indexes by hand. Idempotent, so it also fixes an
+	# install that predates this line.
+	if "$CBM_BIN" config set auto_index true >/dev/null 2>&1; then
+		ok "codebase-memory-mcp auto-index enabled (new projects index on first connection)."
+	else
+		warn "could not enable codebase-memory-mcp auto-index -- run: codebase-memory-mcp config set auto_index true"
+	fi
+
+	# One yes installed the whole thing: binary, then upstream's own Claude Code
+	# configuration (its skill, three graph agents, user-scope MCP entry, and
+	# the hooks that route Grep/Glob to the graph). No second question -- half a
+	# tool is not a choice worth offering.
+	# `radin cbm-config install` wraps that write because upstream #1200 (open
+	# through v0.10.8) replaces the whole SessionStart array in settings.json
+	# instead of merging: it snapshots first, runs their installer, then puts
+	# back every pre-existing hook and MCP entry the write dropped. Their
+	# entries stay, yours come back, and `codebase-memory-mcp update` can be
+	# followed by `radin cbm-config repair` for the same reason.
+	if python3 -c "" >/dev/null 2>&1; then
+		if bash "$HOME/.claude/.radin/lib/radin-cbm-config.sh" install; then
+			CBM_AGENT_CONFIG="true"
+			ok "codebase-memory-mcp wired: skill, graph agents, hooks, user-scope MCP."
+			info "Every repo works with no per-project step. Snapshots stay in"
+			# shellcheck disable=SC2088  # literal path in a message, not a path to expand
+			info "~/.claude/.radin/backups; undo upstream's side with:"
+			info "  codebase-memory-mcp uninstall"
+		else
+			warn "codebase-memory-mcp configuration failed -- radin itself is unaffected."
+			info "Your own hooks were restored from the snapshot. Falling back to"
+			info "radin's merge-only wiring:"
+			bash "$HOME/.claude/.radin/lib/radin-cbm-hooks.sh" claude-md || true
+			info "Then run /radin-setup-hooks in each repo for its .mcp.json entry."
+		fi
+	else
+		# The restore step is python3-only, and running upstream's write without
+		# it is how a machine loses caveman's and ponytail's SessionStart hooks.
+		warn "python3 not found -- skipping upstream's own Claude Code configuration:"
+		warn "its write drops other tools' SessionStart hooks (#1200) and radin"
+		warn "needs python3 to put them back. Using the merge-only wiring instead."
+		bash "$HOME/.claude/.radin/lib/radin-cbm-hooks.sh" claude-md || true
+		info "Then run /radin-setup-hooks in each repo for its .mcp.json entry."
+	fi
 fi
 
 step "radin CLI on PATH (optional)"
-# One `radin <backlog|state|scope|crg-hooks|doctor|uninstall>` command instead
+# One `radin <backlog|state|scope|cbm-hooks|doctor|uninstall>` command instead
 # of long lib paths in every Bash call. The dispatcher always lands in
 # ~/.claude/.radin/bin; this only symlinks it into ~/.local/bin. Never
 # overwrites: an existing non-radin `radin` there is named and left alone.
@@ -618,7 +692,7 @@ set_cli "$HOME/.claude/.radin/lib/radin-prioritization.md" "$RADIN_CLI_VALUE"
 
 step "Agent guidance (optional)"
 # A short section in ~/.claude/CLAUDE.md telling Claude when to reach for
-# radin's skills (same pattern code-review-graph uses). Kept between
+# radin's skills (same pattern codebase-memory-mcp uses). Kept between
 # radin:begin/end markers: a re-run replaces only that block, the rest of the
 # user's file is never touched. Default no -- it edits a file radin doesn't
 # own, so it needs an explicit yes.
@@ -635,7 +709,7 @@ survive past one conversation. Reach for it instead of ad-hoc task tracking:
 - The user wants the backlog worked through: `/radin-execute`. A code review whose findings should become tasks: `/radin-review`.
 - Never hand-edit files under `.claude/.radin/` -- every backlog operation goes through the `'"$RADIN_CLI_VALUE"' backlog` CLI.
 <!-- radin:end -->'
-if prompt_yn "Append a short radin section to ~/.claude/CLAUDE.md, so agents know when to use the backlog? (default: no)"; then
+if [ -n "$YES" ] || prompt_yn "Append a short radin section to ~/.claude/CLAUDE.md, so agents know when to use the backlog? (default: no)"; then
 	CLAUDE_MD_GUIDANCE="true"
 	CLAUDE_MD="$HOME/.claude/CLAUDE.md"
 	touch "$CLAUDE_MD"
@@ -681,6 +755,7 @@ cat >"$MANIFEST_FILE" <<EOF
   "parallel_execution": $PARALLEL_MODE,
   "refuter_pass": $REFUTER_PASS,
   "claude_md_guidance": $CLAUDE_MD_GUIDANCE,
+  "cbm_agent_config": $CBM_AGENT_CONFIG,
   "cli_on_path": $CLI_ON_PATH,
   "skills": [
     "radin-execute",
@@ -704,13 +779,14 @@ cat >"$MANIFEST_FILE" <<EOF
     "radin-execute-prompts.md",
     "radin-execute-recovery.md",
     "radin-execute-reporting.md",
-    "radin-crg-hooks.sh",
+    "radin-cbm-hooks.sh",
+    "radin-cbm-config.sh",
     "radin-doctor.sh",
     "radin-uninstall.sh"
   ],
   "companion_tools": {
     "rtk": $(json_bool_cmd rtk),
-    "code-review-graph": $(json_bool_cmd code-review-graph),
+    "codebase-memory-mcp": $(cbm_bin >/dev/null 2>&1 && printf 'true' || printf 'false'),
     "headroom": $(json_bool_cmd headroom),
     "caveman": $(json_bool_plugin "caveman@caveman"),
     "ponytail": $(json_bool_plugin "ponytail@ponytail"),

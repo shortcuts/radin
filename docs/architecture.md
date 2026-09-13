@@ -51,7 +51,7 @@ radin backlog <env|show|find|add|add-plan|remove>   # dispatcher at ~/.claude/.r
 
 Point: offloading. Id assignment, task lookup, plan-pointer insertion — deterministic ops model used to re-derive from prose rules every run. CLI does them exact; agents/skills supply only judgment (what to log, how to classify, what to plan). Task's file path always `$BACKLOG_TASKS_DIR/<id>.md`, never computed from stored line number — nothing here goes stale as backlog shape changes.
 
-`install.sh` copies `lib/radin-namespace.sh`, `lib/radin-backlog.sh`, `lib/radin-state.sh` to `~/.claude/.radin/lib/`, and `bin/radin` — a dispatcher mapping `radin <backlog|state|scope|crg-hooks|doctor|uninstall>` to those scripts — to `~/.claude/.radin/bin/`, with an optional `~/.local/bin/radin` symlink (default yes; an existing non-radin file there is named, never replaced). Consumer install never has this repo's `lib/` directly, so the scripts dist like any other radin file.
+`install.sh` copies `lib/radin-namespace.sh`, `lib/radin-backlog.sh`, `lib/radin-state.sh` to `~/.claude/.radin/lib/`, and `bin/radin` — a dispatcher mapping `radin <backlog|state|scope|cbm-hooks|doctor|uninstall>` to those scripts — to `~/.claude/.radin/bin/`, with an optional `~/.local/bin/radin` symlink (default yes; an existing non-radin file there is named, never replaced). Consumer install never has this repo's `lib/` directly, so the scripts dist like any other radin file.
 
 Inside script:
 
@@ -109,9 +109,31 @@ radin ships no agent for this. `claude agents` (agent view) dispatches full Clau
 
 To update radin itself, re-run `install.sh` — plain `curl | bash`, or `./install.sh` from dev clone. Always re-downloads/re-copies `skills/*/` and `lib/*`, overwrites what's in `~/.claude/`. Pass `--force` to also update companion tools already on the system: plugins go through `claude plugin update`, brew/pipx/pip installs re-run as upgrades.
 
+## Code-graph wiring (codebase-memory-mcp)
+
+`codebase-memory-mcp` is radin's code-intelligence companion: an MCP server that indexes a repo into a persistent knowledge graph, so `radin-plan`, `radin-review` and execution sub-agents ask the graph (`search_graph`, `trace_path`, `get_code_snippet`, `query_graph`, `detect_changes`) instead of grepping files.
+
+Installing it is one yes. `install.sh` installs the binary with **`--skip-config`**, sets `auto_index true`, then runs `radin cbm-config install`, which is upstream's own `codebase-memory-mcp install -y`: its skill, three tiered graph agents (Scout/Verify/Auditor), the user-scope MCP entry in `~/.claude.json`, and the `SessionStart`/`SubagentStart`/`PreToolUse` hooks that route Grep/Glob toward the graph. User-scope MCP is why no per-project step is needed afterwards, and `--skip-config` on the binary install only defers that write so radin can bracket it.
+
+`lib/radin-cbm-config.sh` is the bracket. Upstream [#1200](https://github.com/DeusData/codebase-memory-mcp/issues/1200) — open, maintainer-confirmed, unfixed through v0.10.8 — replaces the whole `SessionStart` array in `~/.claude/settings.json` rather than merging into it, dropping any hook another tool owns. So the script:
+
+1. copies `settings.json` and `~/.claude.json` into `~/.claude/.radin/backups/<name>.<timestamp>.bak` (copies only; radin never deletes one),
+2. runs `codebase-memory-mcp install -y`,
+3. restores, per hook event, every snapshot entry that is now missing — pre-existing entries first, upstream's after — plus any dropped top-level `settings.json` key and any dropped `mcpServers` entry,
+4. prints one `RESTORED`/`INTACT` line per item and a final line saying whether upstream's hooks and MCP entry actually landed.
+
+Entries are compared deep-equal, so re-running restores nothing and reports `INTACT`. A failed upstream install still gets step 3, because its configuration pass is transactional per client, not per file. `radin cbm-config repair` runs steps 3-4 alone against the newest snapshot, which is what to use after `codebase-memory-mcp update` reruns the same write. `python3` is required for this path; without it `install.sh` skips upstream's configuration and falls back to the merge-only wiring, on the grounds that running a destructive write with no restore is worse than a smaller install.
+
+`lib/radin-cbm-hooks.sh` (dispatched as `radin cbm-hooks <claude-md|mcp|all>`, driven by the `radin-setup-hooks` skill) is the fallback for the no-`python3` path, and for anyone who ran `codebase-memory-mcp uninstall` but kept radin. Two writes, merge-only, skipping anything already defined:
+
+- the `codebase-memory-mcp` MCP-tools section in `~/.claude/CLAUDE.md`
+- `mcpServers.codebase-memory-mcp` in `<repo-root>/.mcp.json`, pointing at the resolved binary path
+
+It writes no `settings.json` hook of radin's own: `auto_index` indexes a project on first connection and the background watcher keeps it current, so a `PostToolUse` reindex would pay for nothing. The graph itself lives in `~/.cache/codebase-memory-mcp/`, outside both `~/.claude` and the consumer's repo.
+
 ## Install manifest
 
-`install.sh` writes `~/.claude/.radin/manifest.json` every run: generated snapshot of what installed. Records `version` (release tag, or `dev` for local git clone), `installed_at` (UTC timestamp), `skills`/`lib` file lists copied, `parallel_execution` (whether install allowed `radin-execute` to fan out execution sub-agents), `refuter_pass` (whether every task's commit gets verified by a second sub-agent), `claude_md_guidance` (whether user opted into the radin section in `~/.claude/CLAUDE.md`), `companion_tools` object recording whether each of rtk, code-review-graph, headroom, caveman, ponytail reachable on this machine after confirmation prompts.
+`install.sh` writes `~/.claude/.radin/manifest.json` every run: generated snapshot of what installed. Records `version` (release tag, or `dev` for local git clone), `installed_at` (UTC timestamp), `skills`/`lib` file lists copied, `parallel_execution` (whether install allowed `radin-execute` to fan out execution sub-agents), `refuter_pass` (whether every task's commit gets verified by a second sub-agent), `claude_md_guidance` (whether user opted into the radin section in `~/.claude/CLAUDE.md`), `cbm_agent_config` (whether upstream's own `codebase-memory-mcp install` ran), `companion_tools` object recording whether each of rtk, codebase-memory-mcp, headroom, caveman, ponytail reachable on this machine after confirmation prompts.
 
 Snapshot for external tooling to read, not live source of truth. `radin-doctor.sh` and `radin-uninstall.sh` each keep own independent file list, check filesystem direct, rather than trust manifest. Corrupted or stale manifest must never make either report false "OK" or delete wrong thing.
 
@@ -145,7 +167,7 @@ radin/
     radin
   lib/
     radin-backlog.sh
-    radin-crg-hooks.sh
+    radin-cbm-hooks.sh
     radin-doctor.sh
     radin-execute-prompts.md
     radin-execute-recovery.md

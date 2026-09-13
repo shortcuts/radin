@@ -29,15 +29,40 @@ constructs before committing script change.
 
 ## Companion-tool installs are advisory only
 
-`install.sh` offers rtk, caveman, code-review-graph through their own
-existing install paths (brew/npm/cargo). It:
+`install.sh` offers rtk, caveman, codebase-memory-mcp through their own
+existing install paths (brew/npm/pipx, or the tool's own `curl` installer).
+It:
 
 - Never vendors or forks their source.
-- Never installs tool without explicit pick of yes option per tool.
+- Never installs tool without explicit pick of yes option per tool. The one
+  exception is `--yes`, which the operator typed themselves: it takes every
+  tool question as yes, plus the marker-scoped `~/.claude/CLAUDE.md` guidance
+  block, so one non-interactive command reproduces the same stack on the next
+  machine. Behaviour questions keep their defaults.
 - Every install prompt arrow-key picker on interactive terminal, numbered
   prompt otherwise. Unreadable answer takes default, never a silent yes.
 - Never guarantees companion tool's own install command succeeds — it
   asks and delegates, nothing more.
+
+One exception to "delegates, nothing more": when a companion installer writes
+into `~/.claude` itself, radin brackets that write instead of trusting it.
+`codebase-memory-mcp` installs with `--skip-config`, and `radin cbm-config
+install` then runs upstream's own configuration (`codebase-memory-mcp install
+-y` — skill, three graph agents, user-scope MCP entry, lifecycle hooks) between
+a snapshot and a restore.
+
+The reason is one specific defect, not a general distrust:
+[#1200](https://github.com/DeusData/codebase-memory-mcp/issues/1200) replaces
+the whole `SessionStart` array in `~/.claude/settings.json` instead of merging
+into it, silently dropping other tools' hooks — open and unfixed through
+v0.10.8, on a machine where caveman and ponytail both own entries in that
+array. The restore puts back only what was there before and is now missing, so
+it stays correct when #1200 closes: it reports `INTACT` and changes nothing.
+
+Same test for any future companion with an opinionated installer: install the
+whole tool, name exactly what it writes, and if any of it is known destructive,
+snapshot before and restore after rather than asking the user to choose between
+half a tool and a broken config.
 
 ## Sub-agents cannot reach the user, and cannot be notified
 

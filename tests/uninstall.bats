@@ -25,7 +25,8 @@ install_all_expected() {
   printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-backlog.sh"
   printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-state.sh"
   printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-scope.sh"
-printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-crg-hooks.sh"
+printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-cbm-hooks.sh"
+  printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-cbm-config.sh"
   : > "$TEST_HOME/.claude/.radin/lib/radin-prioritization.md"
   : > "$TEST_HOME/.claude/.radin/lib/radin-execute-prompts.md"
   : > "$TEST_HOME/.claude/.radin/lib/radin-execute-recovery.md"
@@ -52,7 +53,7 @@ printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-crg-
   [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-backlog.sh" ]
   [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-state.sh" ]
   [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-scope.sh" ]
-  [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-crg-hooks.sh" ]
+  [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-cbm-hooks.sh" ]
   [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-prioritization.md" ]
   [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-execute-prompts.md" ]
   [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-execute-recovery.md" ]
@@ -74,7 +75,7 @@ printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-crg-
   run env HOME="$TEST_HOME" bash "$TEST_HOME/.claude/.radin/lib/radin-uninstall.sh"
   [ "$status" -eq 0 ]
   [[ "$output" == *"brew uninstall rtk"* ]]
-  [[ "$output" == *"pipx uninstall code-review-graph"* ]]
+  [[ "$output" == *"codebase-memory-mcp uninstall"* ]]
   [[ "$output" == *"claude plugin uninstall caveman@caveman"* ]]
 }
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 # Exercises install.sh against an isolated $HOME with stubbed brew/curl/claude
 # so the suite runs offline and never touches the real ~/.claude. PATH is
-# reduced to MOCK_BIN + core system dirs so real rtk/code-review-graph/brew
+# reduced to MOCK_BIN + core system dirs so real rtk/codebase-memory-mcp/brew
 # installs on the dev machine can't leak into "not installed" assertions.
 
 setup() {
@@ -74,7 +74,7 @@ teardown() {
 
 # Declining every companion-tool prompt is the fastest path through the
 # script and covers source resolution + core skills install. None of
-# rtk/code-review-graph/headroom/caveman/ponytail exist on the
+# rtk/codebase-memory-mcp/headroom/caveman/ponytail exist on the
 # trimmed PATH, so all five prompts fire and all five get declined.
 # Every prompt is a numbered picker: 1 is the first option (parallel / yes),
 # 2 the second (sequential / no). Order: 1 parallel-execution, 2 refuter,
@@ -204,7 +204,7 @@ run_install_no_companions_answering() {
   grep -q '"radin-namespace.sh"' "$manifest"
   grep -q '"radin-json.sh"' "$manifest"
   grep -q '"rtk": true' "$manifest"
-  grep -q '"code-review-graph": false' "$manifest"
+  grep -q '"codebase-memory-mcp": false' "$manifest"
   grep -q '"headroom": false' "$manifest"
 }
 
@@ -418,6 +418,32 @@ EOF
   [ "$status" -eq 0 ]
   grep -q "plugin update caveman@caveman" "$CLAUDE_LOG"
   ! grep -q "plugin install caveman@caveman" "$CLAUDE_LOG"
+}
+
+# --yes is how one command reproduces this machine on the next one: every
+# companion tool installs with no question asked, behaviour answers stay at
+# their defaults.
+@test "--yes installs the whole companion stack without asking" {
+  cd "$REPO_ROOT" && run bash ./install.sh --yes
+  [ "$status" -eq 0 ]
+  grep -q "install rtk" "$BREW_LOG"
+  grep -q "headroom-ai" "$PIP_LOG"
+  [[ "$output" == *"--yes, installing"* ]]
+  manifest="$TEST_HOME/.claude/.radin/manifest.json"
+  grep -q '"rtk": true' "$manifest"
+  # The guidance block is part of "same stack on the next machine".
+  grep -q '"claude_md_guidance": true' "$manifest"
+  grep -q '<!-- radin:begin -->' "$TEST_HOME/.claude/CLAUDE.md"
+}
+
+# Plugins install through the `claude` CLI and nothing else: without it, say so
+# rather than asking and then failing three times.
+@test "plugins are skipped with one line when the claude CLI is absent" {
+  rm -f "$MOCK_BIN/claude"
+  cd "$REPO_ROOT" && run bash ./install.sh --yes
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"caveman skipped: the 'claude' CLI is not on PATH"* ]]
+  [[ "$output" != *"caveman install failed"* ]]
 }
 
 # A companion tool that fails to install must not abort radin's own install --
