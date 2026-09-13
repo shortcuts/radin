@@ -27,22 +27,25 @@ Easy to break by accident on dev machine w/ newer bash on
 `PATH`. Test against `/bin/bash` directly, or grep for these
 constructs before committing script change.
 
-## Companion-tool installs are advisory only
+## The stack is opinionated, and its installs stay advisory
 
-`install.sh` offers rtk, caveman, codebase-memory-mcp through their own
-existing install paths (brew/npm/pipx, or the tool's own `curl` installer).
+Installing radin installs every companion tool. There is no per-tool
+question: a half-installed stack is the case radin's skills cannot rely on,
+and every skill below delegates to tools it assumes are there. Only
+execution behaviour is asked about (concurrency, refuter pass, sub-agent
+models), because those change what a run does rather than what exists.
+
+`install.sh` reaches each tool through its own existing install path
+(brew/npm/pipx, a plugin marketplace, or the tool's own `curl` installer).
 It:
 
 - Never vendors or forks their source.
-- Never installs tool without explicit pick of yes option per tool. The one
-  exception is `--yes`, which the operator typed themselves: it takes every
-  tool question as yes, plus the marker-scoped `~/.claude/CLAUDE.md` guidance
-  block, so one non-interactive command reproduces the same stack on the next
-  machine. Behaviour questions keep their defaults.
-- Every install prompt arrow-key picker on interactive terminal, numbered
-  prompt otherwise. Unreadable answer takes default, never a silent yes.
-- Never guarantees companion tool's own install command succeeds — it
-  asks and delegates, nothing more.
+- Never guarantees a companion tool's own install command succeeds. A failure
+  warns and the install continues; radin itself is unaffected.
+- Asks the three behaviour questions with an arrow-key picker on an
+  interactive terminal, a numbered prompt otherwise. An unreadable answer
+  takes the documented default. `--yes` skips them entirely, for a
+  non-interactive machine.
 
 One exception to "delegates, nothing more": when a companion installer writes
 into `~/.claude` itself, radin brackets that write instead of trusting it.
@@ -100,6 +103,20 @@ covered.
   `check_index_coverage` appear in upstream prose but not in that table; they
   are not safe to name in a prompt. `detect_changes` reads the working tree,
   not an arbitrary commit.
+- **A symlinked `~/.claude` is handled, not covered.** Upstream refuses
+  writes under a symlinked config directory and exits 0 having configured
+  nothing for Claude Code
+  ([#1722](https://github.com/DeusData/codebase-memory-mcp/issues/1722)).
+  `radin cbm-config install` resolves the link, passes it as
+  `CLAUDE_CONFIG_DIR`, and adopts the MCP entry that override stages at
+  `$CLAUDE_CONFIG_DIR/.claude.json` into `~/.claude.json`. The staged file
+  stays on disk — radin never deletes a file it did not ship. A user who
+  exports their own `CLAUDE_CONFIG_DIR` is left alone entirely.
+- **An upstream exit 0 is not proof of configuration.** `cbm_wired` checks
+  `settings.json` for a `cbm-*` hook and `~/.claude.json` for the MCP entry,
+  and `install` fails when both are absent. It matches on names, so an
+  upstream rename of those shims reads as "absent" until this check is
+  updated.
 - **The bracket survives the fix.** When #1200 closes, the restore finds
   nothing missing and prints `INTACT`. Leave it in place; the same code keeps
   covering the next regression in that write.

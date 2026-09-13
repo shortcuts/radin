@@ -72,20 +72,13 @@ teardown() {
   rm -rf "$TEST_HOME" "$MOCK_BIN"
 }
 
-# Declining every companion-tool prompt is the fastest path through the
-# script and covers source resolution + core skills install. None of
-# rtk/codebase-memory-mcp/headroom/caveman/ponytail exist on the
-# trimmed PATH, so all five prompts fire and all five get declined.
-# Every prompt is a numbered picker: 1 is the first option (parallel / yes),
-# 2 the second (sequential / no). Order: 1 parallel-execution, 2 refuter,
-# 3 sub-agent-model, then one per companion tool starting with rtk at 4.
-# run_install_no_companions_answering puts its answer on rtk.
-run_install_no_companions() {
-  cd "$REPO_ROOT" && printf '2\n2\n2\n2\n2\n2\n2\n2\n' | bash ./install.sh
-}
-
-run_install_no_companions_answering() {
-  cd "$REPO_ROOT" && printf '2\n2\n2\n%s\n2\n2\n2\n2\n' "$1" | bash ./install.sh
+# Only execution behaviour is asked about, in this order: 1 concurrency,
+# 2 refuter pass, 3 sub-agent models. Each is a numbered picker where 1 is the
+# first option (parallel / yes) and 2 the second (sequential / no), so three
+# 2s takes every documented default. Every companion tool installs with no
+# prompt at all -- the stubs on MOCK_BIN absorb those calls.
+run_install_defaults() {
+  cd "$REPO_ROOT" && printf '2\n2\n2\n' | bash ./install.sh
 }
 
 @test "syntax is valid" {
@@ -95,12 +88,12 @@ run_install_no_companions_answering() {
 
 @test "installs fine when brew is missing, falling back to rtk's own installer" {
   rm -f "$MOCK_BIN/brew"
-  run run_install_no_companions
+  run run_install_defaults
   [ "$status" -eq 0 ]
 }
 
 @test "resolves RADIN_ROOT from a real checkout, no tarball download" {
-  run run_install_no_companions
+  run run_install_defaults
   [ "$status" -eq 0 ]
   [[ "$output" == *"Using radin source at $REPO_ROOT"* ]]
 }
@@ -108,7 +101,7 @@ run_install_no_companions_answering() {
 # Every entry point is a skill, so it runs in the user's own thread. radin
 # ships no agent: an install must never create ~/.claude/agents.
 @test "install creates no ~/.claude/agents" {
-  run_install_no_companions
+  run_install_defaults
   [ ! -d "$TEST_HOME/.claude/agents" ]
   ! grep -q 'background_agent' "$TEST_HOME/.claude/.radin/manifest.json"
 }
@@ -116,7 +109,7 @@ run_install_no_companions_answering() {
 # A surviving RADIN_MODEL_ token would reach Claude as a literal model name and
 # every dispatch would fail, so no installed file may keep one.
 @test "writes a model into every sub-agent role, leaving no marker behind" {
-  run_install_no_companions
+  run_install_defaults
   ! grep -rq 'RADIN_MODEL_' "$TEST_HOME/.claude/skills" "$TEST_HOME/.claude/.radin/lib"
   grep -q 'model: "sonnet"' "$TEST_HOME/.claude/skills/radin-execute/SKILL.md"
   grep -q 'model: "haiku"' "$TEST_HOME/.claude/.radin/lib/radin-execute-prompts.md"
@@ -124,9 +117,9 @@ run_install_no_companions_answering() {
 
 # The model gate at prompt 3: yes, then "same model for every role?" no, then
 # one pick per role (fable/opus/sonnet/haiku) -- no refuter pick, since the
-# refuter pass was declined -- then the companion tools.
+# refuter pass was declined.
 @test "per-role model picks land in the right file" {
-  cd "$REPO_ROOT" && run bash -c "printf '2\n2\n1\n2\n2\n1\n4\n3\n3\n2\n2\n2\n2\n2\n2\n' | bash ./install.sh"
+  cd "$REPO_ROOT" && run bash -c "printf '2\n2\n1\n2\n2\n1\n4\n3\n3\n' | bash ./install.sh"
   [ "$status" -eq 0 ]
   ! grep -rq 'RADIN_MODEL_' "$TEST_HOME/.claude/skills" "$TEST_HOME/.claude/.radin/lib"
   grep -q 'model: "opus"' "$TEST_HOME/.claude/.radin/lib/radin-execute-prompts.md"
@@ -138,7 +131,7 @@ run_install_no_companions_answering() {
 # "Same model for every role?" defaults to yes: one pick sets all six tokens,
 # fact-finding's haiku default included.
 @test "one same-model pick covers every role" {
-  cd "$REPO_ROOT" && run bash -c "printf '2\n2\n1\n1\n2\n2\n2\n2\n2\n2\n2\n' | bash ./install.sh"
+  cd "$REPO_ROOT" && run bash -c "printf '2\n2\n1\n1\n2\n' | bash ./install.sh"
   [ "$status" -eq 0 ]
   ! grep -rq 'RADIN_MODEL_' "$TEST_HOME/.claude/skills" "$TEST_HOME/.claude/.radin/lib"
   grep -q 'model: "opus"' "$TEST_HOME/.claude/skills/radin-execute/SKILL.md"
@@ -147,13 +140,13 @@ run_install_no_companions_answering() {
 }
 
 @test "refuter model pick is asked when the refuter pass is enabled" {
-  cd "$REPO_ROOT" && run bash -c "printf '2\n1\n1\n2\n3\n3\n3\n1\n3\n3\n2\n2\n2\n2\n2\n2\n' | bash ./install.sh"
+  cd "$REPO_ROOT" && run bash -c "printf '2\n1\n1\n2\n3\n3\n3\n1\n3\n3\n' | bash ./install.sh"
   [ "$status" -eq 0 ]
   grep -q 'model: "fable"' "$TEST_HOME/.claude/.radin/lib/radin-execute-prompts.md"
 }
 
 @test "installs radin's own skills, not unrelated skill dirs" {
-  run_install_no_companions
+  run_install_defaults
   [ -d "$TEST_HOME/.claude/skills/radin-execute" ]
   [ -d "$TEST_HOME/.claude/skills/radin-review" ]
   [ -d "$TEST_HOME/.claude/skills/radin-record" ]
@@ -163,7 +156,7 @@ run_install_no_companions_answering() {
 }
 
 @test "installs shared namespace-resolution script into ~/.claude/.radin/lib" {
-  run_install_no_companions
+  run_install_defaults
   [ -f "$TEST_HOME/.claude/.radin/lib/radin-namespace.sh" ]
   [ -f "$TEST_HOME/.claude/.radin/lib/radin-json.sh" ]
   [ -f "$TEST_HOME/.claude/.radin/lib/radin-uninstall.sh" ]
@@ -172,29 +165,23 @@ run_install_no_companions_answering() {
 }
 
 @test "downloads thermo-nuclear SKILL.md alongside radin's own skills" {
-  run_install_no_companions
+  run_install_defaults
   [ -f "$TEST_HOME/.claude/skills/thermo-nuclear/SKILL.md" ]
 }
 
-# Regression test for a real bug: install_if_confirmed/install_plugin_if_confirmed
-# used a bare `return` after a failed `[ ]` test, which under `set -e` propagated
-# that nonzero status and killed the whole script the moment anyone declined a
-# companion-tool prompt for a tool they don't already have.
-@test "declining every companion prompt still runs the script to completion" {
-  run run_install_no_companions
+# The stack is opinionated: no tool has a prompt, so a run that answers only
+# the three behaviour questions must still install every companion tool.
+@test "every companion tool installs without a prompt" {
+  run run_install_defaults
   [ "$status" -eq 0 ]
   [[ "$output" == *"radin installed."* ]]
-  ! grep -q "install rtk" "$BREW_LOG"
-}
-
-@test "companion install commands only run after picking yes" {
-  run run_install_no_companions_answering "1"
-  [ "$status" -eq 0 ]
-  [[ "$(cat "$BREW_LOG")" == *"install rtk"* ]]
+  grep -q "install rtk" "$BREW_LOG"
+  grep -q "headroom-ai" "$PIP_LOG"
+  [[ "$output" != *"Install rtk?"* ]]
 }
 
 @test "writes an install manifest listing installed files and companion tools" {
-  run run_install_no_companions_answering "1"
+  run run_install_defaults
   [ "$status" -eq 0 ]
   manifest="$TEST_HOME/.claude/.radin/manifest.json"
   [ -f "$manifest" ]
@@ -205,38 +192,18 @@ run_install_no_companions_answering() {
   grep -q '"radin-json.sh"' "$manifest"
   grep -q '"rtk": true' "$manifest"
   grep -q '"codebase-memory-mcp": false' "$manifest"
-  grep -q '"headroom": false' "$manifest"
-}
-
-# headroom's heavier footprint is named in its single prompt -- one yes
-# installs, one no skips.
-@test "headroom installs on a single yes" {
-  cd "$REPO_ROOT" && run bash -c "printf '2\n2\n2\n2\n2\n1\n2\n2\n2\n' | bash ./install.sh"
-  [ "$status" -eq 0 ]
-  grep -q "headroom-ai" "$PIP_LOG"
-  manifest="$TEST_HOME/.claude/.radin/manifest.json"
   grep -q '"headroom": true' "$manifest"
 }
 
-@test "headroom declined installs nothing" {
-  run_install_no_companions
-  [ ! -f "$PIP_LOG" ] || ! grep -q "headroom-ai" "$PIP_LOG"
-}
-
-# The guidance prompt comes last, after the companion tools; every earlier
-# sequence leaves it to its default no via EOF.
-@test "declining the CLAUDE.md guidance never creates the file" {
-  run_install_no_companions
-  [ ! -f "$TEST_HOME/.claude/CLAUDE.md" ]
-  grep -q '"claude_md_guidance": false' "$TEST_HOME/.claude/.radin/manifest.json"
-}
-
-@test "accepting the CLAUDE.md guidance appends one marked block, idempotently" {
+# The guidance block rewrites only what sits between its own markers, so
+# install.sh writes it unconditionally -- including into a file that already
+# has the user's own content.
+@test "the CLAUDE.md guidance block is written once, idempotently" {
   mkdir -p "$TEST_HOME/.claude"
   echo "user content stays" > "$TEST_HOME/.claude/CLAUDE.md"
-  cd "$REPO_ROOT" && run bash -c "printf '2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n1\n' | bash ./install.sh"
+  run run_install_defaults
   [ "$status" -eq 0 ]
-  cd "$REPO_ROOT" && run bash -c "printf '2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n1\n' | bash ./install.sh"
+  run run_install_defaults
   [ "$status" -eq 0 ]
   claude_md="$TEST_HOME/.claude/CLAUDE.md"
   grep -q "user content stays" "$claude_md"
@@ -246,10 +213,8 @@ run_install_no_companions_answering() {
   grep -q '"claude_md_guidance": true' "$TEST_HOME/.claude/.radin/manifest.json"
 }
 
-# The CLI symlink prompt is last and defaults to yes, so a fully-defaulted
-# run gets the dispatcher on PATH.
 @test "installs the radin CLI dispatcher and the ~/.local/bin symlink" {
-  run_install_no_companions
+  run_install_defaults
   [ -x "$TEST_HOME/.claude/.radin/bin/radin" ]
   [ -L "$TEST_HOME/.local/bin/radin" ]
   [ "$(readlink "$TEST_HOME/.local/bin/radin")" = "$TEST_HOME/.claude/.radin/bin/radin" ]
@@ -260,45 +225,20 @@ run_install_no_companions_answering() {
 # works. The test PATH lacks ~/.local/bin, so even with the symlink the full
 # dispatcher path is written -- bare `radin` would break every skill here.
 @test "RADIN_CLI resolves to the full path when ~/.local/bin is off PATH" {
-  run_install_no_companions
+  run_install_defaults
   ! grep -rq 'RADIN_CLI' "$TEST_HOME/.claude/skills" "$TEST_HOME/.claude/.radin/lib"
   grep -q '"$HOME/.claude/.radin/bin/radin" backlog' "$TEST_HOME/.claude/skills/radin-execute/SKILL.md"
 }
 
 @test "RADIN_CLI resolves to bare radin when ~/.local/bin is on PATH" {
-  cd "$REPO_ROOT" && printf '2
-2
-2
-2
-2
-2
-2
-2
-' | PATH="$TEST_HOME/.local/bin:$PATH" bash ./install.sh
+  cd "$REPO_ROOT" && printf '2\n2\n2\n' | PATH="$TEST_HOME/.local/bin:$PATH" bash ./install.sh
   ! grep -rq 'RADIN_CLI' "$TEST_HOME/.claude/skills" "$TEST_HOME/.claude/.radin/lib"
   grep -q 'radin backlog count' "$TEST_HOME/.claude/skills/radin-execute/SKILL.md"
   ! grep -q '.radin/bin/radin" backlog' "$TEST_HOME/.claude/skills/radin-execute/SKILL.md"
 }
 
-@test "declining the symlink writes the full dispatcher path into skills" {
-  cd "$REPO_ROOT" && printf '2
-2
-2
-2
-2
-2
-2
-2
-2
-2
-' | bash ./install.sh
-  [ ! -e "$TEST_HOME/.local/bin/radin" ]
-  grep -q '"cli_on_path": false' "$TEST_HOME/.claude/.radin/manifest.json"
-  grep -q '"$HOME/.claude/.radin/bin/radin" backlog' "$TEST_HOME/.claude/skills/radin-execute/SKILL.md"
-}
-
 @test "the dispatcher routes subcommands to the installed lib scripts" {
-  run_install_no_companions
+  run_install_defaults
   run env HOME="$TEST_HOME" bash "$TEST_HOME/.claude/.radin/bin/radin" backlog count
   [ "$status" -eq 0 ]
   [ "$output" = "0" ]
@@ -309,14 +249,14 @@ run_install_no_companions_answering() {
 @test "an existing non-radin ~/.local/bin/radin is named, never replaced" {
   mkdir -p "$TEST_HOME/.local/bin"
   echo "someone else's" > "$TEST_HOME/.local/bin/radin"
-  run run_install_no_companions
+  run run_install_defaults
   [ "$status" -eq 0 ]
   [ "$(cat "$TEST_HOME/.local/bin/radin")" = "someone else's" ]
   [[ "$output" == *"isn't radin's"* ]]
 }
 
-@test "declining per-task verification keeps the no-refuter rule only" {
-  run_install_no_companions
+@test "the default keeps the no-refuter rule only" {
+  run_install_defaults
   agent="$TEST_HOME/.claude/skills/radin-execute/SKILL.md"
   grep -q "No refuter pass" "$agent"
   ! grep -q "Verify a .SUCCESS. before you record it" "$agent"
@@ -324,7 +264,7 @@ run_install_no_companions_answering() {
 }
 
 @test "accepting per-task verification keeps the refuter rule only" {
-  cd "$REPO_ROOT" && run bash -c "printf '2\n1\n2\n2\n2\n2\n2\n2\n' | bash ./install.sh"
+  cd "$REPO_ROOT" && run bash -c "printf '2\n1\n2\n' | bash ./install.sh"
   [ "$status" -eq 0 ]
   agent="$TEST_HOME/.claude/skills/radin-execute/SKILL.md"
   grep -q "Verify a .SUCCESS. before you record it" "$agent"
@@ -332,8 +272,8 @@ run_install_no_companions_answering() {
   ! grep -q "radin:refute" "$agent"
 }
 
-@test "declining parallel execution keeps the sequential constraint only" {
-  run_install_no_companions
+@test "the default keeps the sequential constraint only" {
+  run_install_defaults
   agent="$TEST_HOME/.claude/skills/radin-execute/SKILL.md"
   grep -q "One execution sub-agent at a time" "$agent"
   ! grep -q "Concurrency allowed" "$agent"
@@ -342,7 +282,7 @@ run_install_no_companions_answering() {
 }
 
 @test "accepting parallel execution keeps the concurrency constraint only" {
-  cd "$REPO_ROOT" && run bash -c "printf '1\n2\n2\n2\n2\n2\n2\n2\n' | bash ./install.sh"
+  cd "$REPO_ROOT" && run bash -c "printf '1\n2\n2\n' | bash ./install.sh"
   [ "$status" -eq 0 ]
   agent="$TEST_HOME/.claude/skills/radin-execute/SKILL.md"
   grep -q "Concurrency allowed" "$agent"
@@ -398,7 +338,7 @@ pick_with_keys() {
   FETCH_DIR="$TEST_HOME/preexisting"
   mkdir -p "$FETCH_DIR"
   echo "not ours" > "$FETCH_DIR/some_other_file"
-  run bash -c "cd '$FAKE_ROOT' && printf '2\n2\n2\n2\n2\n' | RADIN_ROOT_OVERRIDE='$FETCH_DIR' bash ./install.sh"
+  run bash -c "cd '$FAKE_ROOT' && printf '2\n2\n2\n' | RADIN_ROOT_OVERRIDE='$FETCH_DIR' bash ./install.sh"
   [ "$status" -ne 0 ]
   [[ "$output" == *"wasn't created by this installer"* ]]
 }
@@ -420,15 +360,14 @@ EOF
   ! grep -q "plugin install caveman@caveman" "$CLAUDE_LOG"
 }
 
-# --yes is how one command reproduces this machine on the next one: every
-# companion tool installs with no question asked, behaviour answers stay at
-# their defaults.
-@test "--yes installs the whole companion stack without asking" {
+# --yes is how one command reproduces this machine on the next one: the three
+# behaviour questions take their defaults instead of blocking on a terminal.
+@test "--yes asks nothing and still installs everything" {
   cd "$REPO_ROOT" && run bash ./install.sh --yes
   [ "$status" -eq 0 ]
   grep -q "install rtk" "$BREW_LOG"
   grep -q "headroom-ai" "$PIP_LOG"
-  [[ "$output" == *"--yes, installing"* ]]
+  [[ "$output" != *"Pick 1-"* ]]
   manifest="$TEST_HOME/.claude/.radin/manifest.json"
   grep -q '"rtk": true' "$manifest"
   # The guidance block is part of "same stack on the next machine".
@@ -437,7 +376,7 @@ EOF
 }
 
 # Plugins install through the `claude` CLI and nothing else: without it, say so
-# rather than asking and then failing three times.
+# once per plugin rather than failing three times.
 @test "plugins are skipped with one line when the claude CLI is absent" {
   rm -f "$MOCK_BIN/claude"
   cd "$REPO_ROOT" && run bash ./install.sh --yes
@@ -454,7 +393,7 @@ EOF
 exit 1
 EOF
   chmod +x "$MOCK_BIN/brew"
-  run run_install_no_companions_answering "1"
+  run run_install_defaults
   [ "$status" -eq 0 ]
   [[ "$output" == *"rtk install failed"* ]]
   [[ "$output" == *"radin installed."* ]]

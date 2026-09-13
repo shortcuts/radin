@@ -33,8 +33,10 @@ subscription. One `curl | bash` installs two things:
    Every task survives past the conversation, every run resumes where it
    stopped.
 2. **A curated set of token-reduction tools.** rtk, caveman, ponytail,
-   codebase-memory-mcp, headroom — each optional, each installed only on your
-   explicit yes, each its own project. radin never forks or vendors them; it
+   codebase-memory-mcp, headroom, thermo-nuclear, mattpocock-skills. All of
+   them, no per-tool question. radin's skills delegate to these instead of
+   reimplementing them, so a half-installed stack is the one case they can't
+   rely on. Each stays its own project: radin never forks or vendors them, it
    shops.
 
 The goal: stretch a small subscription further. Fewer tokens per task, and
@@ -44,12 +46,14 @@ agent runs that are resumable and verifiable instead of fire-and-forget.
 
 ### Requirements
 
-radin itself only copy files. Companion tools pull own stacks, each gated behind explicit pick in arrow-key prompt — or all of them at once with `--yes`.
+radin itself only copy files. Companion tools pull own stacks, each through
+its own installer. A tool whose installer fails is reported and skipped.
+radin's own install never aborts for it.
 
 | For | You need |
 | --- | --- |
 | radin core (skills) | `curl`, `tar`, `bash` |
-| Claude plugins (caveman, ponytail) | `claude` CLI |
+| Claude plugins (caveman, ponytail, mattpocock-skills) | `claude` CLI |
 | rtk | [Homebrew](https://brew.sh), or `curl` for rtk's own installer |
 | codebase-memory-mcp | `curl` for its own installer (static binary, no runtime). `python3` to bracket its `~/.claude` write — without it, radin installs binary only |
 | headroom | `python3` with `pip3` or [`pipx`](https://pipx.pypa.io) |
@@ -68,10 +72,10 @@ Homebrew optional. When present, radin use it for `rtk`. Not required on Linux.
 curl -fsSL https://raw.githubusercontent.com/shortcuts/radin/main/install.sh | bash
 ```
 
-Same stack on next machine, no questions: add `--yes`. Every companion tool
-installs, plus radin's guidance block in `~/.claude/CLAUDE.md` (between
-`radin:begin`/`radin:end` markers). Behaviour answers — concurrency, refuter
-pass, sub-agent models — keep their defaults.
+Install asks three questions, all about how `radin-execute` behaves:
+concurrency, refuter pass, sub-agent models. Everything else installs.
+`--yes` skips the three and takes their defaults, for a non-interactive
+machine.
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/shortcuts/radin/main/install.sh | bash -s -- --yes
@@ -129,9 +133,10 @@ style logic themselves:
 
 | Tool | Delegates to |
 | --- | --- |
-| `radin-execute` | `/ponytail` (plan-or-skip gate, per-task implementation), `/radin-plan` (only for tasks judged complex enough), `/caveman-commit` (commit message), `/radin-review` (optional end-of-session review) |
-| `radin-plan` | `/ponytail` (split judgment and plan writing), `/thermo-nuclear` + `/ponytail-review` (reviewing plan itself before handoff) |
-| `radin-review` | `/thermo-nuclear` (code-quality pass), `/ponytail-review` or `/ponytail-audit` (over-engineering pass) |
+| `radin-execute` | `/ponytail` (plan-or-skip gate), `/radin-plan` (tasks judged complex enough), `/caveman:surgical-patch` (a `fix`), `/caveman:safe-refactor` (a `refactor`), `/caveman:lean-build` (a `feat`), `/caveman-commit` (commit message), `/mattpocock-skills:diagnosing-bugs` (a failed attempt), `/radin-review` (end-of-session review) |
+| `radin-plan` | `/ponytail` (split judgment and plan writing), `/mattpocock-skills:codebase-design` (module boundaries), `/mattpocock-skills:research` (third-party behavior), `/thermo-nuclear` + `/ponytail-review` (reviewing plan itself before handoff) |
+| `radin-review` | `/thermo-nuclear` (code-quality pass), `/ponytail-review` or `/ponytail-audit` (over-engineering pass), `/ponytail-debt` (deferred shortcuts, directory scope) |
+| `radin-stats` | `caveman-stats`, `rtk gain`, `headroom savings`, `ponytail-gain`, `ponytail-debt` |
 
 #### `radin-record`
 
@@ -192,8 +197,8 @@ Want your thread free while the backlog runs? Two ways:
 Either way the worktree-per-task answer keeps concurrent runs off each
 other's checkout.
 Finished entries removed from backlog; failed ones stay, marked
-for retry. At end can optionally run `/thermo-nuclear` review of
-session, log findings back to backlog as new entries.
+for retry. Ask for an end-of-session review and it runs `/radin-review` over
+the session's commits, logging findings back to backlog as new entries.
 
 #### `radin-review`
 
@@ -213,7 +218,7 @@ classified as `fix` (real bug) or `refactor` (structural).
 
 #### `radin-setup-hooks`
 
-Fallback wiring. Most installs never need it: one yes to codebase-memory-mcp
+Fallback wiring. Most installs never need it: `install.sh`
 installs whole tool — its skill, three graph agents, hooks that route
 Grep/Glob to graph, and user-scope MCP entry that makes every repo work with
 no per-project step.
@@ -252,6 +257,15 @@ Names exact writes, asks confirmation first.
   client surfaces (Cursor, Codex, Gemini CLI, OpenCode...). radin snapshots
   `~/.claude/settings.json` and `~/.claude.json` only. Other clients' configs
   get upstream's write unbracketed — back them up yourself first.
+- **Symlinked `~/.claude` works, through a workaround.** Upstream refuses every
+  write under a symlinked config directory and exits 0 having configured
+  nothing for Claude Code
+  ([#1722](https://github.com/DeusData/codebase-memory-mcp/issues/1722)).
+  radin resolves the link, passes it as `CLAUDE_CONFIG_DIR`, and moves the MCP
+  entry that override stages in `<real-dir>/.claude.json` into
+  `~/.claude.json`. The staged file is left behind — radin deletes nothing it
+  did not write. If you export your own `CLAUDE_CONFIG_DIR`, radin passes
+  nothing and upstream uses yours.
 - **Snapshots hold your real config.** `settings.json` can carry `env` values
   and hook commands. Snapshots are plain copies in
   `~/.claude/.radin/backups/`, never deleted by radin, never committed
@@ -272,10 +286,10 @@ Names exact writes, asks confirmation first.
   Read file before editing. Every radin prompt that names graph tool repeats
   this.
 
-### Vendored in *(optional)*
+### Shopped for you
 
-`install.sh` just asks if you want them — never forked, never vendored,
-own repo stays source of truth.
+`install.sh` installs every one through its own installer — never forked,
+never vendored, own repo stays source of truth.
 
 | Tool | What it does |
 | --- | --- |
@@ -283,7 +297,7 @@ own repo stays source of truth.
 | [caveman](https://github.com/JuliusBrussee/caveman) | Why use many token when few token do trick — Claude Code skill cuts 65% of tokens by talking like caveman |
 | [ponytail](https://github.com/DietrichGebert/ponytail) | Makes AI agent think like laziest senior dev in room. Best code is code never written |
 | [codebase-memory-mcp](https://github.com/DeusData/codebase-memory-mcp) | Code intelligence MCP server. Indexes repo into persistent knowledge graph (158 tree-sitter grammars, sub-ms queries) so agent asks graph instead of grepping files. Single static binary, no runtime. Installed with `--skip-config` — radin owns every `~/.claude` write |
-| [headroom](https://github.com/headroomlabs-ai/headroom) | Local-first context-compression stack — proxy/MCP/wrap layer with cross-agent memory and CLAUDE.md-learning. Complements rtk (whole-session wrap vs. rtk's per-command compression), not replacement. Python/pip footprint — install prompts extra confirmation |
+| [headroom](https://github.com/headroomlabs-ai/headroom) | Local-first context-compression stack — proxy/MCP/wrap layer with cross-agent memory and CLAUDE.md-learning. Complements rtk (whole-session wrap vs. rtk's per-command compression), not replacement. Python/pip footprint, so `install.sh` probes `python3` first and skips it on a broken one |
 | [thermo-nuclear](https://github.com/cursor/plugins/tree/main/cursor-team-kit/skills/thermo-nuclear-code-quality-review) | Code quality review skill, vendored from cursor/plugins at install time via [vercel-labs/skills](https://github.com/vercel-labs/skills) CLI |
 | [mattpocock-skills](https://github.com/mattpocock/skills) | Engineering skills plugin (`claude-plugins-official` marketplace) — `radin-plan` and `radin-review` delegate interview step to `/grilling`, `radin-plan` sends API/library fact-checking to `/research` instead of reimplementing them |
 

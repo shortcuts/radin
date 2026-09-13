@@ -37,8 +37,8 @@ step() { printf "\n%b\n" "${BOLD}${MAGENTA}${RAT} $*${RESET}"; }
 
 printf "%b\n" "${BOLD}${MAGENTA}"
 printf "%s\n" "  🐀 radin — stingy on tokens, generous on backlog throughput"
-printf "%b\n" "${RESET}${DIM}  Installs backlog-workflow skills into ~/.claude, then offers a curated"
-printf "%b\n\n" "  set of optional token-saving companion tools. Nothing installs without a yes.${RESET}"
+printf "%b\n" "${RESET}${DIM}  Installs backlog-workflow skills into ~/.claude, plus the whole curated"
+printf "%b\n\n" "  token-saving stack. Only execution behaviour is asked about.${RESET}"
 
 # No `brew shellenv` eval: it prepends brew's bin to PATH and would shadow a
 # version-manager python3 (mise/pyenv) with brew's -- probing the wrong
@@ -305,20 +305,11 @@ prompt_yn() {
 	[ "$(prompt_pick "$1" 2 "yes" "no")" = "yes" ]
 }
 
-install_if_confirmed() {
+install_tool() {
 	local name="$1" check_cmd="$2" install_cmd="$3"
-	local prompt="${4:-Install $name?}"
 	if command -v "$check_cmd" >/dev/null 2>&1 && [ -z "$FORCE" ]; then
 		ok "$name already installed, skipping (--force to update)."
 		return
-	fi
-	# --yes means "the whole stack, no questions": it is how one command
-	# reproduces this machine on the next one. Behaviour questions keep their
-	# documented defaults; tool questions all become yes.
-	if [ -n "$YES" ]; then
-		info "$name: --yes, installing."
-	else
-		prompt_yn "$prompt" || return 0
 	fi
 	# Companion installs are advisory: a failed one warns, never aborts radin's
 	# own install (set -e would otherwise kill the script here). Their output
@@ -335,7 +326,7 @@ install_if_confirmed() {
 	rm -f "$log"
 }
 
-install_plugin_if_confirmed() {
+install_plugin() {
 	local name="$1" plugin_id="$2" marketplace_source="$3"
 	# Plugins install through the `claude` CLI and nothing else, so on a machine
 	# without it say so once per plugin instead of asking and then failing.
@@ -361,11 +352,6 @@ install_plugin_if_confirmed() {
 		fi
 		rm -f "$log"
 		return
-	fi
-	if [ -n "$YES" ]; then
-		info "$name: --yes, installing."
-	else
-		prompt_yn "Install $name?" || return 0
 	fi
 	local log
 	log="$(mktemp)"
@@ -471,7 +457,7 @@ set_concurrency() {
 	fi
 }
 
-step "Parallel execution (optional)"
+step "Execution concurrency"
 if [ "$(prompt_pick "How should radin-execute run sub-agents? (parallel only ever applies to independent tasks)" 2 "parallel" "sequential")" = "parallel" ]; then
 	PARALLEL_MODE="true"
 	set_concurrency "$HOME/.claude/skills/radin-execute/SKILL.md" "$PARALLEL_RULE"
@@ -482,7 +468,7 @@ else
 	ok "sequential execution — one sub-agent at a time"
 fi
 
-step "Per-task verification (optional)"
+step "Per-task verification"
 REFUTER_PASS="false"
 if prompt_yn "Verify every task's commit with a second sub-agent? Catches a wrong 'done' claim, costs one more agent per task (default: no)"; then
 	REFUTER_PASS="true"
@@ -493,7 +479,7 @@ else
 	ok "no refuter pass -- review the session at the end with /radin-review"
 fi
 
-step "Sub-agent models (optional)"
+step "Sub-agent models"
 # radin-execute is a skill running in the user's own thread, so its own model
 # is whatever they picked with /model. Only its leaf sub-agents get a choice,
 # and each role gets its own: they don't cost the same work.
@@ -552,7 +538,7 @@ python_ok() {
 	return 1
 }
 
-step "Companion tools (all optional)"
+step "Companion tools"
 # Prefer brew when present (macOS, Linuxbrew). Otherwise delegate to rtk's own
 # installer -- it handles Linux OS/arch detection and checksum verification
 # itself, so radin doesn't reimplement that here.
@@ -561,7 +547,7 @@ if [ -n "$BREW" ]; then
 else
 	RTK_INSTALL_CMD="curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh | sh"
 fi
-install_if_confirmed "rtk" "rtk" "$RTK_INSTALL_CMD"
+install_tool "rtk" "rtk" "$RTK_INSTALL_CMD"
 
 # codebase-memory-mcp ships one static binary and its own installer resolves
 # OS/arch and verifies checksums, so radin delegates instead of reimplementing
@@ -570,27 +556,27 @@ install_if_confirmed "rtk" "rtk" "$RTK_INSTALL_CMD"
 # definitions and SessionStart/SubagentStart/PreToolUse hooks into ~/.claude
 # across 45 client surfaces. radin owns every ~/.claude write, and
 # `radin cbm-hooks` does the two it wants, merge-only.
-install_if_confirmed "codebase-memory-mcp" "codebase-memory-mcp" \
+install_tool "codebase-memory-mcp" "codebase-memory-mcp" \
 	"curl -fsSL https://raw.githubusercontent.com/DeusData/codebase-memory-mcp/main/install.sh | bash -s -- --skip-config"
 
 # headroom complements rtk (whole-session wrap vs per-command output
 # compression), not a replacement -- never phrase this as preferred over rtk.
-# Its heavier footprint is named in the one prompt instead of a second gate.
-install_if_confirmed "headroom" "headroom" \
-	"python_ok && { pipx --version >/dev/null 2>&1 && pipx install --force headroom-ai || pip3 install --user --upgrade headroom-ai; }" \
-	"Install headroom? (heavier Python/pip stack: proxy, MCP, ML, memory)"
+# python_ok gates it: its stack is pip-based, and a broken brew python makes
+# the install die on an opaque traceback instead of a readable skip.
+install_tool "headroom" "headroom" \
+	"python_ok && { pipx --version >/dev/null 2>&1 && pipx install --force headroom-ai || pip3 install --user --upgrade headroom-ai; }"
 
 # caveman ships as a Claude Code plugin (not an npm package) -- installs via
 # the plugin marketplace flow, same as the interactive `/plugin` command.
-install_plugin_if_confirmed "caveman" "caveman@caveman" "JuliusBrussee/caveman"
+install_plugin "caveman" "caveman@caveman" "JuliusBrussee/caveman"
 
 # ponytail ships as a Claude Code plugin too -- same marketplace flow.
-install_plugin_if_confirmed "ponytail" "ponytail@ponytail" "DietrichGebert/ponytail"
+install_plugin "ponytail" "ponytail@ponytail" "DietrichGebert/ponytail"
 
 # mattpocock-skills ships from Anthropic's own official marketplace, not a
 # third-party repo. radin-plan invokes its /grilling and /research skills
 # rather than reimplementing an interview loop or a research step.
-install_plugin_if_confirmed "mattpocock-skills" "mattpocock-skills@claude-plugins-official" "anthropics/claude-plugins-official"
+install_plugin "mattpocock-skills" "mattpocock-skills@claude-plugins-official" "anthropics/claude-plugins-official"
 
 # Its own installer's default target isn't on PATH in every shell, so resolve
 # the just-installed binary by path too.
@@ -649,38 +635,35 @@ if CBM_BIN="$(cbm_bin)"; then
 	fi
 fi
 
-step "radin CLI on PATH (optional)"
-# One `radin <backlog|state|scope|cbm-hooks|doctor|uninstall>` command instead
-# of long lib paths in every Bash call. The dispatcher always lands in
-# ~/.claude/.radin/bin; this only symlinks it into ~/.local/bin. Never
-# overwrites: an existing non-radin `radin` there is named and left alone.
+step "radin CLI on PATH"
+# One `radin <backlog|state|scope|cbm-hooks|cbm-config|doctor|uninstall>`
+# command instead of long lib paths in every Bash call. The dispatcher always
+# lands in ~/.claude/.radin/bin; this only symlinks it into ~/.local/bin.
+# Never overwrites: an existing non-radin `radin` there is named and left
+# alone, and skills then fall back to the full dispatcher path.
 CLI_ON_PATH="false"
 # Skills get whichever invocation actually works here: bare `radin` only when
 # the symlink exists AND ~/.local/bin is on PATH; the full dispatcher path
 # otherwise. Written into the RADIN_CLI token by set_cli below.
 # shellcheck disable=SC2016  # $HOME must stay literal in the installed file
 RADIN_CLI_VALUE='"$HOME/.claude/.radin/bin/radin"'
-if [ "$(prompt_pick "Symlink the radin CLI into ~/.local/bin? (default: yes)" 1 "yes" "no")" = "yes" ]; then
-	CLI_TARGET="$HOME/.claude/.radin/bin/radin"
-	CLI_LINK="$HOME/.local/bin/radin"
-	if [ -e "$CLI_LINK" ] && [ "$(readlink "$CLI_LINK" 2>/dev/null)" != "$CLI_TARGET" ]; then
-		warn "$CLI_LINK exists and isn't radin's -- leaving it alone; skills use the full path."
-	else
-		mkdir -p "$HOME/.local/bin"
-		ln -sf "$CLI_TARGET" "$CLI_LINK"
-		CLI_ON_PATH="true"
-		ok "radin CLI linked at ${BOLD}$CLI_LINK${RESET}"
-		case ":$PATH:" in
-		*":$HOME/.local/bin:"*)
-			RADIN_CLI_VALUE='radin'
-			;;
-		*)
-			warn "\$HOME/.local/bin is not on your PATH -- skills use the full path until it is."
-			;;
-		esac
-	fi
+CLI_TARGET="$HOME/.claude/.radin/bin/radin"
+CLI_LINK="$HOME/.local/bin/radin"
+if [ -e "$CLI_LINK" ] && [ "$(readlink "$CLI_LINK" 2>/dev/null)" != "$CLI_TARGET" ]; then
+	warn "$CLI_LINK exists and isn't radin's -- leaving it alone; skills use the full path."
 else
-	ok "no symlink -- skills call the dispatcher by its full path"
+	mkdir -p "$HOME/.local/bin"
+	ln -sf "$CLI_TARGET" "$CLI_LINK"
+	CLI_ON_PATH="true"
+	ok "radin CLI linked at ${BOLD}$CLI_LINK${RESET}"
+	case ":$PATH:" in
+	*":$HOME/.local/bin:"*)
+		RADIN_CLI_VALUE='radin'
+		;;
+	*)
+		warn "\$HOME/.local/bin is not on your PATH -- skills use the full path until it is."
+		;;
+	esac
 fi
 for f in radin-execute radin-plan radin-record radin-review radin-show \
 	radin-doctor radin-uninstall radin-setup-hooks radin-stats; do
@@ -690,13 +673,13 @@ set_cli "$HOME/.claude/.radin/lib/radin-execute-prompts.md" "$RADIN_CLI_VALUE"
 set_cli "$HOME/.claude/.radin/lib/radin-execute-recovery.md" "$RADIN_CLI_VALUE"
 set_cli "$HOME/.claude/.radin/lib/radin-prioritization.md" "$RADIN_CLI_VALUE"
 
-step "Agent guidance (optional)"
+step "Agent guidance"
 # A short section in ~/.claude/CLAUDE.md telling Claude when to reach for
 # radin's skills (same pattern codebase-memory-mcp uses). Kept between
-# radin:begin/end markers: a re-run replaces only that block, the rest of the
-# user's file is never touched. Default no -- it edits a file radin doesn't
-# own, so it needs an explicit yes.
-CLAUDE_MD_GUIDANCE="false"
+# radin:begin/end markers: a re-run rewrites only that block, everything
+# outside them passes through untouched -- which is what makes writing it
+# unconditionally safe on a file radin doesn't own.
+CLAUDE_MD_GUIDANCE="true"
 # shellcheck disable=SC2016  # backticks here are markdown code spans, not command substitution
 RADIN_GUIDANCE='<!-- radin:begin -->
 ## radin
@@ -709,21 +692,16 @@ survive past one conversation. Reach for it instead of ad-hoc task tracking:
 - The user wants the backlog worked through: `/radin-execute`. A code review whose findings should become tasks: `/radin-review`.
 - Never hand-edit files under `.claude/.radin/` -- every backlog operation goes through the `'"$RADIN_CLI_VALUE"' backlog` CLI.
 <!-- radin:end -->'
-if [ -n "$YES" ] || prompt_yn "Append a short radin section to ~/.claude/CLAUDE.md, so agents know when to use the backlog? (default: no)"; then
-	CLAUDE_MD_GUIDANCE="true"
-	CLAUDE_MD="$HOME/.claude/CLAUDE.md"
-	touch "$CLAUDE_MD"
-	GUIDANCE_TMP="$(mktemp)"
-	# Strip any previous radin block, then append the current one -- idempotent
-	# across re-runs, and the surrounding content passes through untouched.
-	awk '/^<!-- radin:begin -->$/ { skip = 1 } !skip { print } /^<!-- radin:end -->$/ { skip = 0 }' \
-		"$CLAUDE_MD" >"$GUIDANCE_TMP"
-	printf '\n%s\n' "$RADIN_GUIDANCE" >>"$GUIDANCE_TMP"
-	mv "$GUIDANCE_TMP" "$CLAUDE_MD"
-	ok "radin section written to ${BOLD}$CLAUDE_MD${RESET} (between radin:begin/end markers)"
-else
-	ok "no CLAUDE.md edit -- agents discover radin through its skill descriptions"
-fi
+CLAUDE_MD="$HOME/.claude/CLAUDE.md"
+touch "$CLAUDE_MD"
+GUIDANCE_TMP="$(mktemp)"
+# Strip any previous radin block, then append the current one -- idempotent
+# across re-runs.
+awk '/^<!-- radin:begin -->$/ { skip = 1 } !skip { print } /^<!-- radin:end -->$/ { skip = 0 }' \
+	"$CLAUDE_MD" >"$GUIDANCE_TMP"
+printf '\n%s\n' "$RADIN_GUIDANCE" >>"$GUIDANCE_TMP"
+mv "$GUIDANCE_TMP" "$CLAUDE_MD"
+ok "radin section written to ${BOLD}$CLAUDE_MD${RESET} (between radin:begin/end markers)"
 
 step "Writing install manifest"
 # ponytail: three independent copies of this file list already exist

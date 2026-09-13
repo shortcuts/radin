@@ -26,8 +26,41 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   backlog, or run `/radin-execute` right away. The entries are written either
   way; the question only decides whether the run starts now.
 
+### Fixed
+
+- **`codebase-memory-mcp` now installs on a machine whose `~/.claude` is a
+  symlink.** Upstream refuses every write under a symlinked config directory
+  and drops Claude Code from its target list while still exiting 0
+  ([#1722](https://github.com/DeusData/codebase-memory-mcp/issues/1722)), so
+  the install left no skill, no graph agents, no hooks and no MCP entry — and
+  said it was wired. `radin cbm-config install` resolves the link and passes
+  it as `CLAUDE_CONFIG_DIR`, then adopts the MCP entry that override stages in
+  `<real-dir>/.claude.json` into `~/.claude.json`, the file Claude Code reads.
+- **An upstream exit 0 that configured nothing now fails.** `radin cbm-config
+  install` ends non-zero when neither a `cbm-*` hook nor the MCP entry is
+  present afterwards, so `install.sh` falls back to its merge-only wiring
+  instead of printing that the graph is ready.
+
 ### Changed
 
+- **The stack is opinionated: `install.sh` no longer asks about any tool.**
+  Every companion tool, the `~/.local/bin/radin` symlink, and the
+  marker-scoped `~/.claude/CLAUDE.md` guidance block install unconditionally.
+  Three questions remain, all about how `radin-execute` behaves: concurrency,
+  refuter pass, sub-agent models. radin's skills delegate to these tools
+  instead of reimplementing them, and a half-installed stack is the one case
+  that delegation cannot rely on. A tool whose own installer fails is still
+  advisory: it warns and the install continues.
+- **Every skill now reaches for a shipped tool where it used to improvise.**
+  Execution implements through the skill matching the task's category
+  (`/caveman:surgical-patch` for a `fix`, `/caveman:safe-refactor` for a
+  `refactor`, `/caveman:lean-build` for a `feat`); the debug sub-agent follows
+  `/mattpocock-skills:diagnosing-bugs`; `radin-plan` sends module-boundary
+  questions to `/mattpocock-skills:codebase-design`; `radin-review` harvests
+  the `ponytail:` ledger with `/ponytail:ponytail-debt` on a directory scope;
+  `radin-stats` reads `headroom savings`; and every prompt that runs a command
+  or a diff names `rtk` and `headroom`'s structural tools. `AGENTS.md` records
+  the one owner per job, so a delegation lands in one file and not two.
 - **`codebase-memory-mcp` replaces `code-review-graph` as radin's code graph.**
   One static binary instead of a `pipx`/`pip3` install, 158 tree-sitter
   grammars, sub-millisecond queries, and a background watcher that keeps the
@@ -35,7 +68,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `auto_index true`, then runs the whole tool's own Claude Code configuration:
   its skill, three graph agents, the user-scope MCP entry, and the
   `SessionStart`/`SubagentStart`/`PreToolUse` hooks that route Grep/Glob to the
-  graph. One yes, no second question, and no per-project step afterwards.
+  graph. No per-project step afterwards.
   `radin cbm-config install` (new, `lib/radin-cbm-config.sh`) brackets that
   write. Upstream
   [#1200](https://github.com/DeusData/codebase-memory-mcp/issues/1200) replaces
@@ -127,6 +160,19 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   is whatever you picked with `/model`, so only its sub-agents' model is a
   question — and the answer now reaches `lib/radin-execute-prompts.md` too,
   which previously stayed on `sonnet` whatever you chose.
+
+### Fixed
+
+- `radin cbm-config install` now works when `~/.claude` is a symlink. Upstream
+  refuses every write under a symlinked config dir and then drops Claude Code
+  from its target list while still exiting 0
+  ([#1722](https://github.com/DeusData/codebase-memory-mcp/issues/1722), closed
+  unresolved), which left a machine with no skill, no graph agents and no
+  hooks. radin passes the resolved path as `CLAUDE_CONFIG_DIR`, adopts the
+  `mcpServers` entry upstream then stages next to it into `~/.claude.json`
+  where Claude Code reads it, and fails loudly when upstream exits 0 having
+  configured nothing, so `install.sh` falls back to the merge-only wiring
+  instead of claiming the tool is ready.
 
 ### Added
 

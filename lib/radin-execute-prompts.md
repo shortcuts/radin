@@ -94,7 +94,8 @@ shortcut around exploring the repo.
 
 Replace `TASK_FILE` with `$BACKLOG_TASKS_DIR/<id>.md`, `PLAN_PATHS` with
 the plan file path(s) in order (or "none — implement directly from the
-entry" if Step 4a skipped planning), `SKILLS` with the collected
+entry" if Step 4a skipped planning), `CATEGORY` with the entry's category as
+`radin-backlog.sh find` printed it, `SKILLS` with the collected
 `**Skill:**` name(s) or "none", `DEPENDS_ON` with the list of
 `<id>: <commit hash>` pairs gathered in Step 4a-0 (or "none" if
 `depends_on` was empty), `NAMESPACE_DIR` with `$NAMESPACE_DIR`, and
@@ -158,7 +159,17 @@ command fail rather than run: don't reach for them.
    - They diverged in a way that changes a design decision the plan made (not just a
      mechanical detail): do not guess which way to resolve it. Report
      `STATUS: BLOCKED (DECISION)` per step 9, describing the divergence.
-3. Implement all changes described, writing the minimum code that satisfies the task, per ponytail
+3. Invoke the skill that matches CATEGORY and implement through it. Each one
+   carries the discipline for that shape of change, so don't reinvent it:
+   `fix` -> `/caveman:surgical-patch` (narrowest layer, regression proof),
+   `refactor` -> `/caveman:safe-refactor` (verification brackets the edit),
+   `feat` -> `/caveman:lean-build` (reuse first, explicit stop condition),
+   `chore` -> `/ponytail:ponytail` alone. Invoke `/ponytail:ponytail` in every
+   case and apply its ladder: the minimum code that satisfies the task, reusing
+   what the repo already has. For a mechanical multi-file rename or signature
+   change, `headroom sg` (ast-grep) beats hand-editing each site when
+   `command -v headroom` succeeds. Step 2a's capability rule applies to these
+   too: one that starts asking a human questions gets dropped, not waited on.
 4. Where the task changes behavior (not a pure deletion/rename), add or update a unit
    test that pins the expected behavior, following existing test conventions in the repo
 5. Run any required checks (lint, tests, format) per project conventions
@@ -224,15 +235,18 @@ Tree: TASK_DIR
 1. Read TASK_FILE, and PLAN_PATHS if it is not "none". Together they are the
    contract. `**Decision:**`, `**Fact:**`, `**Root cause:**` and `**Rework:**`
    lines in the task file are part of it.
-2. Run `git -C TASK_DIR show <hash>` for each commit in COMMITS. Judge the
-   diff against that contract, and nothing else. If `codebase-memory-mcp` is
+2. Run `git -C TASK_DIR show <hash>` for each commit in COMMITS (`headroom
+   diff` gives the same diff structurally when `command -v headroom`
+   succeeds, which reads smaller on a reformatted file). Judge the diff
+   against that contract, and nothing else. If `codebase-memory-mcp` is
    wired for this repo, run `trace_path` on each symbol the diff changed:
    a caller outside the diff that still assumes the old behavior is exactly
    the kind of miss a summary hides.
 3. Run the repo's own checks yourself in TASK_DIR (lint, tests, format, per
-   its conventions). Never accept a result you did not produce. If the repo
-   documents no checks you can find, say so in your report and do not count
-   it against the task.
+   its conventions), `rtk`-wrapped when `command -v rtk` succeeds — check
+   output is the bulk of what you read. Never accept a result you did not
+   produce. If the repo documents no checks you can find, say so in your
+   report and do not count it against the task.
 4. Quality pass: invoke the `/radin-review` skill with scope: COMMITS. You
    cannot reach the user and have no `AskUserQuestion`, so it takes its
    non-interactive path and logs every in-scope finding to the backlog
@@ -275,13 +289,17 @@ Plan(s): PLAN_PATHS
 Tree: TASK_DIR
 Reported failure: FAILURE
 
-Reproduce it read-only: run the failing check or command again, read the code
-and config around it. Find the root cause, not the symptom — if a shared
-function looks wrong, check its other callers before you name it
-(`trace_path` inbound, when `codebase-memory-mcp` is wired for this repo;
-`detect_changes` maps the uncommitted diff to the symbols it touches). Prefer
-primary evidence on this machine (command output, a file's actual contents)
-over recollection.
+Invoke `/mattpocock-skills:diagnosing-bugs` and follow its loop rather than
+improvising one; `/caveman:investigate-first` covers the same ground if that
+skill is unavailable. If either starts asking you questions a human is meant
+to answer, stop invoking it and diagnose on your own: you cannot reach the
+user, and waiting is a hang the router cannot break. Reproduce read-only: rerun the failing check or command
+(`rtk`-wrapped when `command -v rtk` succeeds), read the code and config
+around it. Find the root cause, not the symptom — if a shared function looks
+wrong, check its other callers before you name it (`trace_path` inbound, when
+`codebase-memory-mcp` is wired for this repo; `detect_changes` maps the
+uncommitted diff to the symbols it touches). Prefer primary evidence on this
+machine (command output, a file's actual contents) over recollection.
 
 Write nothing except, if the detail runs past ~15 lines,
 `NAMESPACE_DIR/state/facts/TASK_ID.md` (create the directory if needed);
@@ -316,8 +334,12 @@ Context: the task at TASK_FILE was blocked on it.
 
 Investigate read-only: read the repo, its lockfiles, its vendored
 dependencies, and its config; run read-only commands (`--help`, `--version`, a
-query, a dry run). Prefer primary sources already on this machine over
-recollection. Do NOT edit, create, or commit any file. Do NOT invoke a skill
+query, a dry run), `rtk`-wrapped when `command -v rtk` succeeds. When
+`codebase-memory-mcp` is wired for this repo, `search_code` and `search_graph`
+locate the symbol faster than Grep, and `get_code_snippet` reads it — a graph
+hit is a pointer, so read the file before you cite it, and never answer
+"absent" from an empty result. Prefer primary sources already on this machine
+over recollection. Do NOT edit, create, or commit any file. Do NOT invoke a skill
 that asks a human anything or spawns its own agent, background task, or
 workflow: you cannot reach the user, you have no `AskUserQuestion`, and the
 `Workflow` tool is not available to you, so `/deep-research` and any saved

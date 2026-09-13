@@ -14,10 +14,12 @@
 | Supported architectures | Arch-neutral through Homebrew. Works on macOS's `/opt/homebrew`/`/usr/local` and on Linuxbrew's `/home/linuxbrew/.linuxbrew`. No `uname -m` branching. Branch on `command -v` only where tool itself differs by OS (e.g. `md5` vs `md5sum`). |
 | Distribution | Git repo ([github.com/shortcuts/radin](https://github.com/shortcuts/radin), currently private). Install with `curl \| bash install.sh` — downloads latest release tarball, or `main` if no release exists, into `~/.claude/radin`. No `git clone` needed. Hack on radin itself: `git clone` + `./install.sh`. |
 
-radin gives solo dev on small Claude subscription one install for cost-optimized agentic workflow. Ships backlog-driven execution
-(`radin-execute`, `radin-plan`, `radin-review`), installs companion
-tools (rtk, caveman, codebase-memory-mcp, thermo-nuclear, ponytail) —
-some unconditional, some only on explicit yes pick.
+radin gives solo dev on small Claude subscription one install for
+cost-optimized agentic workflow. Ships backlog-driven execution
+(`radin-execute`, `radin-plan`, `radin-review`) and installs every companion
+tool it delegates to (rtk, caveman, ponytail, codebase-memory-mcp, headroom,
+thermo-nuclear, mattpocock-skills). The stack is opinionated: no per-tool
+question, because every skill here delegates to tools it assumes exist.
 radin never vendors or forks them.
 
 ## Dev loop
@@ -153,6 +155,39 @@ reinvent from scratch.
    `radin-doctor`, also add to `lib/radin-doctor.sh`'s expected-file
    list — not derived automatically from `install.sh`'s cp lines.
 
+## What radin delegates, and why it never reimplements it
+
+Every companion tool installs, so a radin skill may assume one is there and
+delegate to it. The rule is one owner per job: if a shipped tool already does
+the job, radin names it instead of writing its own version.
+
+| Job | Owner | Named in |
+| --- | --- | --- |
+| Interview the user until a decision is settled | `/mattpocock-skills:grilling` | `radin-record`, `radin-plan`, `radin-review` |
+| Check third-party API/library behavior | `/mattpocock-skills:research` | `radin-plan` (interactive only) |
+| Place a module boundary / shape an interface | `/mattpocock-skills:codebase-design` | `radin-plan` |
+| Diagnose a failed attempt | `/mattpocock-skills:diagnosing-bugs` | Debug prompt |
+| Keep the change minimal | `/ponytail:ponytail` | `radin-plan`, `radin-execute`, Execution prompt |
+| Over-engineering review | `/ponytail:ponytail-review`, `/ponytail:ponytail-audit` | `radin-plan`, `radin-review` |
+| Deliberate-shortcut ledger | `/ponytail:ponytail-debt` | `radin-review` (directory scope), `radin-stats` |
+| Maintainability review | `/thermo-nuclear` | `radin-plan`, `radin-review` |
+| Per-category implementation discipline | `/caveman:surgical-patch` (fix), `/caveman:safe-refactor` (refactor), `/caveman:lean-build` (feat) | Execution prompt |
+| Commit message | `/caveman:caveman-commit` | Execution prompt |
+| Code structure questions | codebase-memory-mcp's MCP tools | see the code-graph section below |
+| Command output compression | `rtk` | every prompt that runs a command |
+| Structural search/diff/repo shape | `headroom sg` / `diff` / `loc` | Execution + refuter prompts, `radin-plan` |
+| Measured savings | `caveman-stats`, `rtk gain`, `headroom savings`, `ponytail-gain` | `radin-stats` |
+
+Two constraints bound this. A sub-agent cannot be sent into a skill that asks
+the user or spawns its own agent (see "Sub-agent capability limits"), so
+every prompt that names one of these carries the escape clause: drop the
+skill, never wait on it. And each delegation is a `command -v` or
+availability check away from being skipped, because a companion install is
+advisory and may have failed.
+
+Adding a delegation: put the tool name in exactly one of the files above, and
+add the row here. A second copy of the same delegation drifts silently.
+
 ## radin-execute session preferences
 
 `skills/radin-execute/SKILL.md` Phase 0.5 asks two questions once per backlog run,
@@ -267,13 +302,13 @@ cannot notice a literal that was never a token. New role: add the token, a
 server, no second graph tool, no fallback to another one. These rules hold it
 in place:
 
-- **One yes installs the whole tool.** `install.sh` installs the binary with
+- **Install it whole or not at all.** `install.sh` installs the binary with
   `--skip-config`, sets `auto_index true`, then runs `radin cbm-config install`
   — upstream's own `codebase-memory-mcp install -y`, which writes its skill,
   three graph agents, the user-scope MCP entry and the
   `SessionStart`/`SubagentStart`/`PreToolUse` hooks that route Grep/Glob to the
-  graph. No second prompt: half a tool is not a choice worth offering, and the
-  user-scope MCP entry is what makes every repo work with no per-project step.
+  graph. Half a tool is not a choice worth offering, and the user-scope MCP
+  entry is what makes every repo work with no per-project step.
 - **`lib/radin-cbm-config.sh` makes that write non-destructive.** Upstream
   [#1200](https://github.com/DeusData/codebase-memory-mcp/issues/1200) (open,
   maintainer-confirmed, unfixed through v0.10.8) replaces the whole
@@ -288,6 +323,25 @@ in place:
   next machine loses hooks silently; that is the whole reason this file exists.
   When #1200 closes, the restore becomes a no-op that reports `INTACT` — leave
   it in, don't celebrate by deleting the safety net.
+- **A symlinked `~/.claude` needs `CLAUDE_CONFIG_DIR`.** Upstream refuses
+  every write under a symlinked config directory and then drops Claude Code
+  from its target list while still exiting 0
+  ([#1722](https://github.com/DeusData/codebase-memory-mcp/issues/1722),
+  closed unresolved through v0.10.8) — no skill, no agents, no hooks, and
+  `install.sh` printing that the tool is wired. `lib/radin-cbm-config.sh`
+  resolves the link (`cd` + `pwd -P`; stock macOS has neither `realpath` nor
+  `readlink -f`) and passes it as `CLAUDE_CONFIG_DIR`, which upstream honours.
+  That override also moves upstream's MCP entry to
+  `$CLAUDE_CONFIG_DIR/.claude.json`, so `adopt_staged_mcp` merges that one key
+  into `~/.claude.json` — the file Claude Code reads when the user's own
+  environment sets no `CLAUDE_CONFIG_DIR`. Never pass the variable empty:
+  upstream treats it as set.
+- **`cbm_wired` is the install's exit status, not a message.** Upstream exits
+  0 whether or not it configured Claude Code, so `cmd_install` ends non-zero
+  when neither the hooks nor the MCP entry are there, and `install.sh`'s
+  existing fallback branch runs. Don't turn that back into a printed line: a
+  false "wired" line is how a machine ends up with half a tool and nobody
+  noticing.
 - **`python3` is the one hard dependency of that path**, since the restore is
   JSON surgery. Without it `install.sh` skips upstream's configuration
   entirely and falls back to `radin cbm-hooks claude-md`, because running the
@@ -307,7 +361,8 @@ in place:
   writing a second one.
 - **Tool names live in four places only**: `skills/radin-plan/SKILL.md`
   (exploration), `skills/radin-review/SKILL.md` (`detect_changes` first),
-  `lib/radin-execute-prompts.md` (execution, refuter, debug), and the
+  `lib/radin-execute-prompts.md` (execution, refuter, debug, fact-finding),
+  and the
   CLAUDE.md section inside `lib/radin-cbm-hooks.sh`. Between them they name
   `index_repository`, `list_projects`, `search_graph`, `search_code`,
   `trace_path`, `detect_changes`, `query_graph`, `get_graph_schema`,
@@ -328,13 +383,13 @@ per-repo `<repo-root>/.claude/.radin/` backlog namespace — same `.radin`
 name, different scope: this one holds shared scripts like
 `radin-backlog.sh`, not backlog state). `install.sh` may only `cp`/`cp -r`
 radin's own named files (radin's own `skills/<name>/`, `lib/*` into
-`~/.claude/.radin/lib/`) and `mkdir -p`. Two exceptions, each on an explicit
-yes only:
+`~/.claude/.radin/lib/`) and `mkdir -p`. Two exceptions:
 
 1. It rewrites the block between `<!-- radin:begin -->` and
    `<!-- radin:end -->` in `~/.claude/CLAUDE.md` (agent guidance on when to
    use radin). Only that block — everything outside the markers passes
-   through untouched.
+   through untouched, which is what makes writing it unconditionally safe on
+   a file radin doesn't own.
 2. `lib/radin-cbm-config.sh` copies `~/.claude/settings.json` and
    `~/.claude.json` into `~/.claude/.radin/backups/` before handing `~/.claude`
    to `codebase-memory-mcp install`, then writes those two files again to put
@@ -359,9 +414,10 @@ prefix for machine (macOS ARM/Intel, or Linux via Linuxbrew). Where
 command itself differs by OS — e.g. BSD `md5` on macOS vs GNU `md5sum` on
 Linux — branch on `command -v <tool>`, never on `uname`.
 
-**Companion-tool installs advisory only.** `install.sh` asks and
-delegates; never guarantees rtk/caveman/codebase-memory-mcp's own install
-succeeds, never installs without explicit yes pick.
+**Companion-tool installs advisory only.** `install.sh` delegates to each
+tool's own installer and never guarantees it succeeds: a failure warns and
+the run continues. Installs are not optional. Only concurrency, the refuter
+pass, and sub-agent models are asked about.
 
 **rtk available for both user and sub-agent command execution.** When
 installed, both sub-agents and users can wrap commands with `rtk` for
