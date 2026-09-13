@@ -29,6 +29,21 @@ SETTINGS="$CLAUDE_DIR/settings.json"
 CLAUDE_JSON="$HOME/.claude.json"
 BACKUP_DIR="$CLAUDE_DIR/.radin/backups"
 CBM_NAME="codebase-memory-mcp"
+# Upstream refuses every write under a symlinked ~/.claude and then drops
+# Claude Code from its target list without failing (#1722, closed unresolved):
+# exit 0, no skill, no agents, no hooks. Its own CLAUDE_CONFIG_DIR override
+# takes the resolved path, so pass that when the link is what we have. `cd`
+# plus `pwd -P` rather than realpath/readlink -f -- neither exists on a stock
+# macOS.
+CLAUDE_REAL_DIR="$CLAUDE_DIR"
+[ ! -d "$CLAUDE_DIR" ] || CLAUDE_REAL_DIR="$(cd "$CLAUDE_DIR" && pwd -P)"
+CONFIG_DIR_OVERRIDE=""
+if [ "$CLAUDE_REAL_DIR" != "$CLAUDE_DIR" ] && [ -z "${CLAUDE_CONFIG_DIR:-}" ]; then
+	CONFIG_DIR_OVERRIDE="$CLAUDE_REAL_DIR"
+fi
+# Where that override makes upstream write the MCP entry instead of
+# ~/.claude.json -- adopted below, since Claude Code reads the latter.
+STAGED_CLAUDE_JSON="$CLAUDE_REAL_DIR/.claude.json"
 
 die() {
 	printf 'radin-cbm-config: %s\n' "$*" >&2
@@ -189,24 +204,93 @@ def restore_mcp_servers():
         print(f"INTACT   {claude_json_path} (mcpServers)")
 
 
-def report_cbm():
-    # Did upstream's configuration actually land? A silent no-op here is the
-    # other way to end up with half a stack.
-    settings = load(settings_path, settings_path) or {}
-    claude_json = load(claude_json_path, claude_json_path) or {}
-    # Its hook entries run shims named cbm-* rather than the full binary name,
-    # so match either spelling.
-    hooks_blob = json.dumps(settings.get("hooks") or {})
-    in_hooks = cbm in hooks_blob or "cbm-" in hooks_blob
-    in_mcp = cbm in json.dumps(claude_json.get("mcpServers") or {})
-    print(f"CBM      hooks: {'present' if in_hooks else 'absent'}, "
-          f"user-scope MCP entry: {'present' if in_mcp else 'absent'}")
-
-
 restore_settings()
 restore_mcp_servers()
-report_cbm()
 PY
+}
+
+# With CLAUDE_CONFIG_DIR set, upstream writes its MCP entry to
+# $CLAUDE_CONFIG_DIR/.claude.json. Claude Code reads ~/.claude.json unless the
+# user exports the same variable, so move that one key over. Never overwrites
+# an existing entry, and never deletes the staged file -- radin didn't ship it.
+adopt_staged_mcp() {
+	[ -n "$CONFIG_DIR_OVERRIDE" ] || return 0
+	[ -f "$STAGED_CLAUDE_JSON" ] || return 0
+	python3 - "$STAGED_CLAUDE_JSON" "$CLAUDE_JSON" <<'PY'
+import json, sys
+
+staged_path, claude_json_path = sys.argv[1:3]
+
+
+def load(path):
+    try:
+        with open(path) as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return None
+
+
+staged = load(staged_path) or {}
+staged_servers = staged.get("mcpServers")
+if not isinstance(staged_servers, dict) or not staged_servers:
+    sys.exit(0)
+target = load(claude_json_path)
+if target is None:
+    target = {}
+if not isinstance(target.get("mcpServers"), dict):
+    target["mcpServers"] = {}
+servers = target["mcpServers"]
+adopted = [name for name in staged_servers if name not in servers]
+for name in adopted:
+    servers[name] = staged_servers[name]
+    print(f"ADOPTED  {claude_json_path} (mcpServers.{name} from {staged_path})")
+if adopted:
+    with open(claude_json_path, "w") as f:
+        json.dump(target, f, indent=2)
+        f.write("\n")
+PY
+}
+
+# Did upstream's configuration actually land? It exits 0 on the symlink
+# refusal above, so the caller needs this as a status and not just a printed
+# line -- a silent no-op is the other way to end up with half a stack.
+cbm_wired() {
+	python3 - "$SETTINGS" "$CLAUDE_JSON" "$CBM_NAME" <<'PY'
+import json, sys
+
+settings_path, claude_json_path, cbm = sys.argv[1:4]
+
+
+def load(path):
+    try:
+        with open(path) as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+
+# Its hook entries run shims named cbm-* rather than the full binary name, so
+# match either spelling.
+hooks_blob = json.dumps(load(settings_path).get("hooks") or {})
+in_hooks = cbm in hooks_blob or "cbm-" in hooks_blob
+in_mcp = cbm in json.dumps(load(claude_json_path).get("mcpServers") or {})
+print(f"CBM      hooks: {'present' if in_hooks else 'absent'}, "
+      f"user-scope MCP entry: {'present' if in_mcp else 'absent'}")
+sys.exit(0 if in_hooks and in_mcp else 4)
+PY
+}
+
+# Upstream reads CLAUDE_CONFIG_DIR as set even when it is empty, so pass it
+# only when the symlink check produced a path.
+run_upstream() {
+	local bin="$1" log="$2"
+	if [ -n "$CONFIG_DIR_OVERRIDE" ]; then
+		printf 'SYMLINK  %s resolves to %s -- passing it as CLAUDE_CONFIG_DIR (#1722)\n' \
+			"$CLAUDE_DIR" "$CLAUDE_REAL_DIR"
+		CLAUDE_CONFIG_DIR="$CONFIG_DIR_OVERRIDE" "$bin" install -y >"$log" 2>&1
+	else
+		"$bin" install -y >"$log" 2>&1
+	fi
 }
 
 cmd_install() {
@@ -215,7 +299,7 @@ cmd_install() {
 	snapshot
 	local log
 	log="$(mktemp)"
-	if ! "$bin" install -y >"$log" 2>&1; then
+	if ! run_upstream "$bin" "$log"; then
 		tail -n 20 "$log" >&2
 		rm -f "$log"
 		# Its config pass is transactional per client, not per file, so a failed
@@ -227,6 +311,10 @@ cmd_install() {
 	rm -f "$log"
 	printf 'CONFIGURED %s install -y\n' "$CBM_NAME"
 	restore "${SNAP_SETTINGS:-}" "${SNAP_CLAUDE_JSON:-}"
+	adopt_staged_mcp
+	# An exit 0 that wired nothing is what makes install.sh claim the tool is
+	# ready when it is not, so end non-zero and let its fallback branch run.
+	cbm_wired || die "$CBM_NAME exited 0 but configured no Claude Code hooks or MCP entry -- your own hooks are untouched. Use 'radin cbm-hooks all' for the merge-only wiring."
 }
 
 cmd_repair() {
@@ -237,6 +325,10 @@ cmd_repair() {
 	[ -z "$snap_settings" ] || printf 'FROM     %s\n' "$snap_settings"
 	[ -z "$snap_claude_json" ] || printf 'FROM     %s\n' "$snap_claude_json"
 	restore "$snap_settings" "$snap_claude_json"
+	adopt_staged_mcp
+	# Informational here: repair puts back what an update dropped, and a
+	# never-configured machine is install's job, not this one's.
+	cbm_wired || true
 }
 
 case "${1:-}" in

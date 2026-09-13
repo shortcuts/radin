@@ -110,6 +110,7 @@ assert 'mine' in pre and 'cbm-hook-augment' in pre, pre
 #!/bin/sh
 [ "\$1" = "install" ] || exit 0
 printf '%s\n' '{"mcpServers": {"codebase-memory-mcp": {"command": "codebase-memory-mcp"}}}' > "\$HOME/.claude.json"
+printf '%s\n' '{"hooks": {"SessionStart": [{"matcher": "", "hooks": [{"type": "command", "command": "cbm-session-reminder"}]}]}}' > "\$HOME/.claude/settings.json"
 EOF
   chmod +x "$MOCK_BIN/codebase-memory-mcp"
   run bash "$CLI" install
@@ -189,4 +190,82 @@ EOF
   run bash "$CLI" repair
   [ "$status" -ne 0 ]
   [ "$(cat "$TEST_HOME/.claude/settings.json")" = "not json" ]
+}
+
+# Reproduces upstream #1722: writes under a symlinked ~/.claude are refused,
+# and Claude Code silently drops out of the target list. Honours
+# CLAUDE_CONFIG_DIR the way the real binary does, including writing the MCP
+# entry beside that directory instead of at ~/.claude.json.
+stub_cbm_symlink_averse() {
+  cat > "$MOCK_BIN/codebase-memory-mcp" <<'EOF'
+#!/usr/bin/env python3
+import json, os, sys
+if sys.argv[1:2] != ["install"]:
+    sys.exit(0)
+home = os.environ["HOME"]
+cfg = os.environ.get("CLAUDE_CONFIG_DIR") or os.path.join(home, ".claude")
+if os.path.islink(cfg.rstrip("/")):
+    # "(target: does not exist or cannot be inspected)" -- and exit 0 anyway.
+    print("Detected agents: Shell")
+    sys.exit(0)
+p = os.path.join(cfg, "settings.json")
+try:
+    s = json.load(open(p))
+except FileNotFoundError:
+    s = {}
+hooks = s.setdefault("hooks", {})
+hooks.setdefault("PreToolUse", []).append(
+    {"matcher": "Grep|Glob", "hooks": [{"type": "command", "command": "cbm-hook-augment"}]})
+json.dump(s, open(p, "w"), indent=2)
+cj = os.path.join(cfg, ".claude.json") if os.environ.get("CLAUDE_CONFIG_DIR") \
+    else os.path.join(home, ".claude.json")
+try:
+    c = json.load(open(cj))
+except FileNotFoundError:
+    c = {}
+c.setdefault("mcpServers", {})["codebase-memory-mcp"] = {"command": "codebase-memory-mcp"}
+json.dump(c, open(cj, "w"), indent=2)
+EOF
+  chmod +x "$MOCK_BIN/codebase-memory-mcp"
+}
+
+@test "install passes the resolved path when ~/.claude is a symlink, and adopts the staged MCP entry" {
+  stub_cbm_symlink_averse
+  rm -rf "$TEST_HOME/.claude"
+  mkdir -p "$TEST_HOME/.config/.claude"
+  ln -s "$TEST_HOME/.config/.claude" "$TEST_HOME/.claude"
+  printf '%s\n' '{"hooks": {"SessionStart": [{"matcher": "", "hooks": [{"type": "command", "command": "caveman-session"}]}]}}' > "$TEST_HOME/.config/.claude/settings.json"
+  printf '%s\n' '{"mcpServers": {"fff": {"command": "fff"}}}' > "$TEST_HOME/.claude.json"
+
+  run bash "$CLI" install
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"SYMLINK"* ]]
+  [[ "$output" == *"ADOPTED"* ]]
+  [[ "$output" == *"hooks: present"* ]]
+  [[ "$output" == *"MCP entry: present"* ]]
+  # Claude Code reads ~/.claude.json, so the entry has to end up there next to
+  # the one that was already present.
+  run python3 -c "
+import json
+c = json.load(open('$TEST_HOME/.claude.json'))
+assert sorted(c['mcpServers']) == ['codebase-memory-mcp', 'fff'], c
+s = json.load(open('$TEST_HOME/.config/.claude/settings.json'))
+assert 'cbm-hook-augment' in json.dumps(s['hooks']['PreToolUse']), s
+assert 'caveman-session' in json.dumps(s['hooks']['SessionStart']), s
+"
+  [ "$status" -eq 0 ]
+}
+
+@test "install fails when upstream exits 0 having configured nothing" {
+  cat > "$MOCK_BIN/codebase-memory-mcp" <<'EOF'
+#!/usr/bin/env bash
+exit 0
+EOF
+  chmod +x "$MOCK_BIN/codebase-memory-mcp"
+  printf '%s\n' '{"hooks": {}}' > "$TEST_HOME/.claude/settings.json"
+
+  run bash "$CLI" install
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"hooks: absent"* ]]
+  [[ "$output" == *"cbm-hooks all"* ]]
 }
