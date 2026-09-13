@@ -82,6 +82,12 @@ covered.
   and the file now lacks. It never deletes an upstream entry, so it cannot
   undo the configuration — `codebase-memory-mcp uninstall` does that. A hook
   the user deleted after the snapshot comes back on the next `repair`.
+- **Upstream's own entries are never restored.** An entry whose command names
+  `codebase-memory-mcp` or a `cbm-*` shim belongs to upstream, so the restore
+  skips it. Upstream rewrites that command spelling between versions (a new
+  resolved config dir, a renamed shim), which reads as "dropped" and would
+  otherwise pin a dead path in `SessionStart` for good — one broken
+  `SessionStart:startup` hook per version the machine has seen.
 - **Newest snapshot wins.** `repair` reads the newest `*.bak` pair, which
   after one successful install already contains upstream's entries. It is the
   right input after an upstream `update`, and the wrong input for

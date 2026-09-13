@@ -90,6 +90,24 @@ assert 'mine' in pre and 'cbm-hook-augment' in pre, pre
   [ "$status" -eq 0 ]
 }
 
+@test "install does not resurrect upstream's own stale hook entries" {
+  stub_cbm
+  cat > "$TEST_HOME/.claude/settings.json" <<'EOF'
+{"hooks": {"SessionStart": [{"matcher": "startup", "hooks": [{"type": "command", "command": "'/gone/.config/.claude/hooks/cbm-session-reminder'"}]},
+                            {"matcher": "startup", "hooks": [{"type": "command", "command": "cbm-hook-augment --old-spelling"}]},
+                            {"matcher": "", "hooks": [{"type": "command", "command": "caveman-session"}]}]}}
+EOF
+  run bash "$CLI" install
+  [ "$status" -eq 0 ]
+  run python3 -c "
+import json
+h = json.load(open('$TEST_HOME/.claude/settings.json'))['hooks']
+cmds = [k['command'] for e in h['SessionStart'] for k in e['hooks']]
+assert cmds == ['caveman-session', 'cbm-session-reminder'], cmds
+"
+  [ "$status" -eq 0 ]
+}
+
 @test "install keeps unrelated settings keys and reports the graph is wired" {
   stub_cbm
   echo '{"model": "opus", "env": {"A": "1"}}' > "$TEST_HOME/.claude/settings.json"

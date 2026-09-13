@@ -39,6 +39,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **A stale `codebase-memory-mcp` hook no longer survives forever.** The
+  restore put back every snapshot hook entry the file now lacked, including
+  upstream's own. Upstream changes that command spelling between versions (a
+  new resolved config dir, a renamed shim), which reads as "dropped" rather
+  than replaced, so each version a machine had seen left one dead
+  `SessionStart:startup` hook — `no such file or directory` on every session
+  start. The restore now skips entries whose command names
+  `codebase-memory-mcp` or a `cbm-*` shim; another tool's hooks are still put
+  back. A rerun of `radin cbm-config install` clears the leftovers.
 - **`codebase-memory-mcp` now installs on a machine whose `~/.claude` is a
   symlink.** Upstream refuses every write under a symlinked config directory
   and drops Claude Code from its target list while still exiting 0

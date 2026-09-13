@@ -129,6 +129,14 @@ def entry_key(entry):
     return json.dumps(entry, sort_keys=True)
 
 
+# An upstream hook entry whose command spelling changed between versions looks
+# dropped rather than replaced, so restoring it resurrects a dead path forever.
+# Upstream owns its own entries; radin only puts back another tool's.
+def is_cbm_entry(entry):
+    blob = json.dumps(entry)
+    return cbm in blob or "cbm-" in blob
+
+
 def restore_settings():
     old = load(snap_settings, snap_settings)
     if old is None:
@@ -156,8 +164,11 @@ def restore_settings():
     for event, old_entries in old_hooks.items():
         if not isinstance(old_entries, list):
             continue
+        old_entries = [e for e in old_entries if not is_cbm_entry(e)]
         current = new_hooks.get(event)
         if not isinstance(current, list):
+            if not old_entries:
+                continue
             new_hooks[event] = old_entries
             changed = True
             print(f"RESTORED {settings_path} (hooks.{event}: {len(old_entries)} "
