@@ -101,7 +101,7 @@ newest_snapshot() {
 restore() {
 	local snap_settings="$1" snap_claude_json="$2"
 	python3 - "$SETTINGS" "$snap_settings" "$CLAUDE_JSON" "$snap_claude_json" "$CBM_NAME" <<'PY'
-import json, sys
+import json, os, shlex, sys
 
 settings_path, snap_settings, claude_json_path, snap_claude_json, cbm = sys.argv[1:6]
 
@@ -135,6 +135,49 @@ def entry_key(entry):
 def is_cbm_entry(entry):
     blob = json.dumps(entry)
     return cbm in blob or "cbm-" in blob
+
+
+def command_exists(command):
+    if not isinstance(command, str) or not command.strip():
+        return True
+    # Judge a path only. A bare shim name resolves against Claude Code's PATH,
+    # not this script's, so calling it missing here would prune a live hook.
+    target = shlex.split(command)[0]
+    return "/" not in target or os.path.exists(os.path.expanduser(target))
+
+
+# A hook command naming a path that does not exist can only fail. Upstream
+# merges PreToolUse instead of replacing it, and a ~/.claude shared between
+# machines carries the other machine's $HOME, so such an entry survives every
+# rerun and prints `no such file or directory` on each session start. Dropped
+# whoever wrote it: radin cannot re-point another tool's hook, and leaving it
+# in place is the error the user sees.
+def prune_dead(new_hooks, settings_path):
+    changed = False
+    for event, entries in list(new_hooks.items()):
+        if not isinstance(entries, list):
+            continue
+        kept = []
+        for entry in entries:
+            hooks = entry.get("hooks") if isinstance(entry, dict) else None
+            if not isinstance(hooks, list):
+                kept.append(entry)
+                continue
+            live = [h for h in hooks
+                    if not isinstance(h, dict) or command_exists(h.get("command"))]
+            if len(live) == len(hooks):
+                kept.append(entry)
+                continue
+            changed = True
+            for h in hooks:
+                if h not in live:
+                    print(f"PRUNED   {settings_path} (hooks.{event}: "
+                          f"{h.get('command')!r} does not exist)")
+            if live:
+                entry["hooks"] = live
+                kept.append(entry)
+        new_hooks[event] = kept
+    return changed
 
 
 def restore_settings():
@@ -186,6 +229,8 @@ def restore_settings():
         else:
             print(f"INTACT   {settings_path} (hooks.{event})")
 
+    if prune_dead(new_hooks, settings_path):
+        changed = True
     if changed:
         save(settings_path, new)
 
@@ -220,6 +265,25 @@ restore_mcp_servers()
 PY
 }
 
+# Upstream bakes an absolute $HOME path into each hook script it writes
+# (BIN='/Users/<you>/.local/bin/codebase-memory-mcp') and leaves an existing
+# one alone on a rerun, so a ~/.claude shared between machines keeps the other
+# machine's path and every hook fails open -- silently, doing nothing. Move
+# them into the snapshot directory so upstream has to write them again for
+# this machine. Moved, never deleted: they are not radin's files.
+stash_hook_scripts() {
+	local dir="$CLAUDE_REAL_DIR/hooks" stamp f dest
+	[ -d "$dir" ] || return 0
+	stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+	for f in "$dir"/cbm-*; do
+		[ -f "$f" ] || continue
+		dest="$BACKUP_DIR/hooks.$stamp"
+		mkdir -p "$dest"
+		mv "$f" "$dest/"
+		printf 'STASHED  %s -> %s (upstream rewrites it for this machine)\n' "$f" "$dest/"
+	done
+}
+
 # With CLAUDE_CONFIG_DIR set, upstream writes its MCP entry to
 # $CLAUDE_CONFIG_DIR/.claude.json. Claude Code reads ~/.claude.json unless the
 # user exports the same variable, so move that one key over. Never overwrites
@@ -228,7 +292,7 @@ adopt_staged_mcp() {
 	[ -n "$CONFIG_DIR_OVERRIDE" ] || return 0
 	[ -f "$STAGED_CLAUDE_JSON" ] || return 0
 	python3 - "$STAGED_CLAUDE_JSON" "$CLAUDE_JSON" <<'PY'
-import json, sys
+import json, os, sys
 
 staged_path, claude_json_path = sys.argv[1:3]
 
@@ -251,7 +315,17 @@ if target is None:
 if not isinstance(target.get("mcpServers"), dict):
     target["mcpServers"] = {}
 servers = target["mcpServers"]
-adopted = [name for name in staged_servers if name not in servers]
+
+
+# A ~/.claude.json shared between machines names the other machine's binary,
+# which is no entry at all here, so replace it rather than keep it.
+def stale(name):
+    command = (servers.get(name) or {}).get("command")
+    return isinstance(command, str) and "/" in command \
+        and not os.path.exists(os.path.expanduser(command))
+
+
+adopted = [name for name in staged_servers if name not in servers or stale(name)]
 for name in adopted:
     servers[name] = staged_servers[name]
     print(f"ADOPTED  {claude_json_path} (mcpServers.{name} from {staged_path})")
@@ -308,6 +382,7 @@ cmd_install() {
 	local bin
 	bin="$(cbm_bin)" || die "$CBM_NAME not found on PATH or in ~/.local/bin -- run radin's install.sh first"
 	snapshot
+	stash_hook_scripts
 	local log
 	log="$(mktemp)"
 	if ! run_upstream "$bin" "$log"; then

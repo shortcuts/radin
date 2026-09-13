@@ -173,8 +173,12 @@ if command -v npx >/dev/null 2>&1; then
 	rm -f "$NPX_LOG"
 	# Renamed back to "thermo-nuclear" -- every radin agent/skill invokes it
 	# under that name, and skills CLI installs use the source folder's name.
-	rm -rf "$HOME/.claude/skills/thermo-nuclear"
-	mv "$HOME/.claude/skills/thermo-nuclear-code-quality-review" "$HOME/.claude/skills/thermo-nuclear"
+	# A rerun where the CLI kept an existing install writes no source folder,
+	# so guard the move instead of letting set -e abort the install there.
+	if [ -d "$HOME/.claude/skills/thermo-nuclear-code-quality-review" ]; then
+		rm -rf "$HOME/.claude/skills/thermo-nuclear"
+		mv "$HOME/.claude/skills/thermo-nuclear-code-quality-review" "$HOME/.claude/skills/thermo-nuclear"
+	fi
 else
 	warn "npx not found -- falling back to a direct SKILL.md download for thermo-nuclear."
 	mkdir -p "$HOME/.claude/skills/thermo-nuclear"

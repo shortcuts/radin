@@ -343,7 +343,12 @@ in place:
   `codebase-memory-mcp update` reruns the write. Drop the snapshot step and the
   next machine loses hooks silently; that is the whole reason this file exists.
   When #1200 closes, the restore becomes a no-op that reports `INTACT` — leave
-  it in, don't celebrate by deleting the safety net.
+  it in, don't celebrate by deleting the safety net. The same script forces
+  upstream to rewrite what it would otherwise keep from another machine: it
+  stashes `<config-dir>/hooks/cbm-*`, prunes hook entries whose command path is
+  gone, and replaces a dead `mcpServers` command. Reinstalling has to be able
+  to fix a wrong path, or a shared `~/.claude` stays broken on every machine
+  but the first.
 - **A symlinked `~/.claude` needs `CLAUDE_CONFIG_DIR`.** Upstream refuses
   every write under a symlinked config directory and then drops Claude Code
   from its target list while still exiting 0
@@ -415,9 +420,14 @@ radin's own named files (radin's own `skills/<name>/`, `lib/*` into
    `~/.claude.json` into `~/.claude/.radin/backups/` before handing `~/.claude`
    to `codebase-memory-mcp install`, then writes those two files again to put
    back what that install dropped (upstream #1200). It only ever restores an
-   entry that was in the snapshot and is now missing — it never adds an entry
-   of radin's own, never removes one of upstream's, and never deletes a
-   snapshot.
+   entry that was in the snapshot and is now missing, never adds an entry of
+   radin's own, and never deletes a snapshot. It does drop what it can see is
+   dead: a hook entry whose command is a path that does not exist, and an
+   `mcpServers` command likewise — a `~/.claude` shared between machines
+   carries the other machine's `$HOME`. It also moves
+   `<config-dir>/hooks/cbm-*` into `~/.claude/.radin/backups/hooks.<stamp>/`
+   before that install, because upstream bakes an absolute `$HOME` into each
+   hook script and leaves an existing one alone. Moved, never removed.
 
 Never `rm`. Never wildcard-delete directory. Never overwrite
 file radin didn't ship. Call out explicitly on any edit to `install.sh`.

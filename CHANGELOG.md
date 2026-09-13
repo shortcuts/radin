@@ -39,6 +39,18 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **A `~/.claude` shared between machines no longer keeps the other machine's
+  paths.** Upstream bakes an absolute `$HOME` into every hook script and
+  `mcpServers` command it writes, and leaves an existing file or entry alone on
+  a rerun, so reinstalling on the second machine fixed nothing: hook scripts
+  kept the first machine's `BIN=` (the hook ran and did nothing) and
+  `settings.json` kept a hook path that does not exist (`no such file or
+  directory` at every session start). `radin cbm-config install` now moves
+  `<config-dir>/hooks/cbm-*` into `~/.claude/.radin/backups/hooks.<stamp>/`
+  before upstream's install, so it writes them again for this machine;
+  replaces an `mcpServers` command whose path does not exist; and prunes any
+  hook entry whose command is a path that does not exist. A bare shim name is
+  left alone — it resolves against Claude Code's `PATH`.
 - **A stale `codebase-memory-mcp` hook no longer survives forever.** The
   restore put back every snapshot hook entry the file now lacked, including
   upstream's own. Upstream changes that command spelling between versions (a

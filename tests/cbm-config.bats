@@ -108,6 +108,43 @@ assert cmds == ['caveman-session', 'cbm-session-reminder'], cmds
   [ "$status" -eq 0 ]
 }
 
+@test "install prunes hook entries whose command path does not exist" {
+  stub_cbm
+  touch "$TEST_HOME/live-hook" && chmod +x "$TEST_HOME/live-hook"
+  cat > "$TEST_HOME/.claude/settings.json" <<EOF
+{"hooks": {"PreToolUse": [{"matcher": "Grep|Glob", "hooks": [{"type": "command", "command": "'/gone/.config/.claude/hooks/cbm-code-discovery-gate'"}]},
+                          {"matcher": "Bash", "hooks": [{"type": "command", "command": "/gone/other-tool-hook"}]},
+                          {"matcher": "Bash", "hooks": [{"type": "command", "command": "$TEST_HOME/live-hook"}]},
+                          {"matcher": "Write", "hooks": [{"type": "command", "command": "bare-shim-not-on-path"}]}]}}
+EOF
+  run bash "$CLI" install
+  [ "$status" -eq 0 ]
+  [[ "$output" == *PRUNED*cbm-code-discovery-gate* ]]
+  [[ "$output" == *PRUNED*other-tool-hook* ]]
+  run python3 -c "
+import json
+h = json.load(open('$TEST_HOME/.claude/settings.json'))['hooks']
+cmds = [k['command'] for e in h['PreToolUse'] for k in e['hooks']]
+assert cmds == ['$TEST_HOME/live-hook', 'bare-shim-not-on-path', 'cbm-hook-augment'], cmds
+"
+  [ "$status" -eq 0 ]
+}
+
+@test "install stashes upstream's hook scripts so it rewrites them for this machine" {
+  stub_cbm
+  mkdir -p "$TEST_HOME/.claude/hooks"
+  printf "BIN='/Users/someone-else/.local/bin/codebase-memory-mcp'\n" > "$TEST_HOME/.claude/hooks/cbm-session-reminder"
+  echo 'mine' > "$TEST_HOME/.claude/hooks/my-own-hook.sh"
+  echo '{}' > "$TEST_HOME/.claude/settings.json"
+  run bash "$CLI" install
+  [ "$status" -eq 0 ]
+  [[ "$output" == *STASHED*cbm-session-reminder* ]]
+  [ ! -f "$TEST_HOME/.claude/hooks/cbm-session-reminder" ]
+  [ -f "$TEST_HOME/.claude/hooks/my-own-hook.sh" ]
+  run bash -c "cat \"$TEST_HOME\"/.claude/.radin/backups/hooks.*/cbm-session-reminder"
+  [[ "$output" == *someone-else* ]]
+}
+
 @test "install keeps unrelated settings keys and reports the graph is wired" {
   stub_cbm
   echo '{"model": "opus", "env": {"A": "1"}}' > "$TEST_HOME/.claude/settings.json"

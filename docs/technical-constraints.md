@@ -88,6 +88,23 @@ covered.
   resolved config dir, a renamed shim), which reads as "dropped" and would
   otherwise pin a dead path in `SessionStart` for good — one broken
   `SessionStart:startup` hook per version the machine has seen.
+- **A hook command naming a path that does not exist is pruned**, whoever
+  wrote it. Two ways one appears: upstream merges `PreToolUse` rather than
+  replacing it, so its own older spelling stays; and a `~/.claude` shared
+  between machines (dotfile repo, symlink to synced storage) carries the other
+  machine's `$HOME`. radin cannot re-point another tool's hook, and the entry
+  can only print `no such file or directory` at session start. A bare shim
+  name is never pruned — it resolves against Claude Code's `PATH`, not the
+  script's.
+- **Upstream's hook scripts are stashed before its install runs.** Each one
+  bakes in an absolute `BIN='<home>/.local/bin/codebase-memory-mcp'` and
+  upstream leaves an existing file alone, so a shared `~/.claude` keeps a path
+  that fails open — the hook runs and does nothing. `install` moves
+  `<config-dir>/hooks/cbm-*` into `~/.claude/.radin/backups/hooks.<stamp>/`
+  so upstream has to write them again for this machine. Moved, never deleted.
+- **A stale `mcpServers` command is replaced, not kept.** `adopt_staged_mcp`
+  overwrites an existing entry whose `command` is a path that does not exist,
+  for the same shared-`~/.claude` reason.
 - **Newest snapshot wins.** `repair` reads the newest `*.bak` pair, which
   after one successful install already contains upstream's entries. It is the
   right input after an upstream `update`, and the wrong input for
