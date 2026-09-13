@@ -773,10 +773,15 @@ CLAUDE_MD="$HOME/.claude/CLAUDE.md"
 touch "$CLAUDE_MD"
 GUIDANCE_TMP="$(mktemp)"
 # Strip any previous radin block, then append the current one -- idempotent
-# across re-runs.
+# across re-runs. The second awk drops the blank lines the strip leaves at the
+# end (interior ones are held and reprinted), so a re-run stops growing the
+# file by one newline each time.
 awk '/^<!-- radin:begin -->$/ { skip = 1 } !skip { print } /^<!-- radin:end -->$/ { skip = 0 }' \
-	"$CLAUDE_MD" >"$GUIDANCE_TMP"
-printf '\n%s\n' "$RADIN_GUIDANCE" >>"$GUIDANCE_TMP"
+	"$CLAUDE_MD" |
+	awk 'NF { while (pending-- > 0) print ""; pending = 0; print; next } { pending++ }' \
+		>"$GUIDANCE_TMP"
+[ ! -s "$GUIDANCE_TMP" ] || printf '\n' >>"$GUIDANCE_TMP"
+printf '%s\n' "$RADIN_GUIDANCE" >>"$GUIDANCE_TMP"
 mv "$GUIDANCE_TMP" "$CLAUDE_MD"
 ok "radin section written to ${BOLD}$CLAUDE_MD${RESET} (between radin:begin/end markers)"
 
