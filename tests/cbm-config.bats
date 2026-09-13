@@ -256,6 +256,37 @@ assert 'caveman-session' in json.dumps(s['hooks']['SessionStart']), s
   [ "$status" -eq 0 ]
 }
 
+@test "install succeeds when upstream fails after configuring Claude Code" {
+  cat > "$MOCK_BIN/codebase-memory-mcp" <<'EOF'
+#!/usr/bin/env python3
+import json, os, sys
+if sys.argv[1:2] != ["install"]:
+    sys.exit(0)
+home = os.environ["HOME"]
+p = os.path.join(home, ".claude", "settings.json")
+s = json.load(open(p))
+s.setdefault("hooks", {}).setdefault("SessionStart", []).append(
+    {"matcher": "", "hooks": [{"type": "command", "command": "cbm-session-reminder"}]})
+json.dump(s, open(p, "w"), indent=2)
+cj = os.path.join(home, ".claude.json")
+c = json.load(open(cj))
+c.setdefault("mcpServers", {})["codebase-memory-mcp"] = {"command": "codebase-memory-mcp"}
+json.dump(c, open(cj, "w"), indent=2)
+# The real binary's version-activation step fails here, after the config pass.
+print("error: activation could not reserve exclusive access", file=sys.stderr)
+sys.exit(1)
+EOF
+  chmod +x "$MOCK_BIN/codebase-memory-mcp"
+  printf '%s\n' '{"hooks": {"SessionStart": [{"matcher": "", "hooks": [{"type": "command", "command": "caveman-session"}]}]}}' > "$TEST_HOME/.claude/settings.json"
+  printf '%s\n' '{"mcpServers": {}}' > "$TEST_HOME/.claude.json"
+
+  run bash "$CLI" install
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"FAILED"* ]]
+  [[ "$output" == *"PARTIAL"* ]]
+  [[ "$output" == *"hooks: present"* ]]
+}
+
 @test "install fails when upstream exits 0 having configured nothing" {
   cat > "$MOCK_BIN/codebase-memory-mcp" <<'EOF'
 #!/usr/bin/env bash

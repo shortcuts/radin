@@ -303,10 +303,16 @@ cmd_install() {
 		tail -n 20 "$log" >&2
 		rm -f "$log"
 		# Its config pass is transactional per client, not per file, so a failed
-		# run can still have rewritten settings.json before giving up.
+		# run can still have rewritten settings.json -- and can have finished
+		# Claude Code before failing on a later step (its version-activation lock
+		# is one). Restore, adopt, then let the end state decide: what install.sh
+		# branches on is whether the graph is wired, not which step complained.
 		printf 'FAILED   %s install -- restoring from the snapshot anyway\n' "$CBM_NAME" >&2
 		restore "${SNAP_SETTINGS:-}" "${SNAP_CLAUDE_JSON:-}"
-		exit 1
+		adopt_staged_mcp
+		cbm_wired || exit 1
+		printf 'PARTIAL  %s reported a failure after configuring Claude Code -- hooks and MCP entry are in place\n' "$CBM_NAME" >&2
+		exit 0
 	fi
 	rm -f "$log"
 	printf 'CONFIGURED %s install -y\n' "$CBM_NAME"
