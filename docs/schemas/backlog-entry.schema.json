@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://github.com/shortcuts/radin/docs/schemas/backlog-entry.schema.json",
   "title": "Backlog storage shape",
-  "description": "Canonical shape of a project's backlog, used by every radin agent/skill that reads or appends to it (radin-review, radin-record, radin-execute, radin-plan). This schema documents the contract in JSON form for radin contributors — it is not read at runtime; each agent/skill embeds the concrete shape matching this schema directly in its own instructions, since installed skills/agents run in consumer repos that never receive this docs/ directory. Storage is $NAMESPACE_DIR/backlog/index.jsonl (one 'indexLine' object per line, JSON Lines not a JSON array) plus one 'taskFile' per task under $NAMESPACE_DIR/backlog/tasks/.",
+  "description": "Canonical shape of a project's backlog, used by every radin agent/skill that reads or appends to it (radin-review, radin-record, radin-execute, radin-plan). This schema documents the contract in JSON form for radin contributors — it is not read at runtime; each agent/skill embeds the concrete shape matching this schema directly in its own instructions, since installed skills/agents run in consumer repos that never receive this docs/ directory. Storage is $NAMESPACE_DIR/backlog/index.jsonl (one 'indexLine' object per line, JSON Lines not a JSON array) plus one 'taskFile' per task under $NAMESPACE_DIR/backlog/tasks/, where an epic is a subdirectory holding DESCRIPTION.md (the shared root context) and its child tasks.",
   "definitions": {
     "indexLine": {
       "type": "object",
@@ -25,7 +25,7 @@
         },
         "file": {
           "type": "string",
-          "description": "Always \"tasks/<id>.md\", relative to the backlog/ directory. Points at the matching taskFile."
+          "description": "Either \"tasks/<id>.md\" or \"tasks/<epic-id>/<id>.md\" for a task grouped under an epic, relative to the backlog/ directory. Points at the matching taskFile, and is the only carrier of epic membership: an epic itself gets no index line and no category. One nesting level only."
         }
       }
     },

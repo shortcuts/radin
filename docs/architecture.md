@@ -14,6 +14,9 @@ All radin state — backlog content, execution state — lives inside target rep
     index.jsonl                  # backlog index, source of truth: one JSON object per task
     tasks/
       <task-id>.md                # one file per task: description + any **Plan:** lines
+      <epic-id>/
+        DESCRIPTION.md            # the epic's root context, inherited by every child task
+        <task-id>.md              # a child task of that epic
   state/
     BACKLOG_STEPS.json          # radin-execute execution plan
     completed.json               # radin-execute completed-task -> commit log
@@ -27,6 +30,8 @@ All radin state — backlog content, execution state — lives inside target rep
     <review-name>.md            # radin-review / thermo-nuclear output
 ```
 
+An epic is that one directory level and nothing else: membership is carried by the index line's `file` field (`tasks/<epic-id>/<task-id>.md`), so an epic gets no index line and no category. A line would have to be filtered out of `list` by every consumer, and the first one that forgot would dispatch an epic as a task. One nesting level: no epics inside epics. Task ids stay globally unique across every epic — `depends_on`, `radin state prepare`, `task-dir`, `triage` and the `radin/<task-id>` branch all key off the bare id.
+
 Split each task into own file, not one monolithic doc: no radin agent/skill addresses backlog content by line number — `**Plan:**` insert into one task's file can't touch any other task's file. `index.jsonl` = JSON Lines — one compact object per line, `{"id":...,"category":...,"title":...,"file":...}` — not single JSON array. Bash 3.2 got no JSON parser, project got no `jq` dep, so one-object-per-line keeps every CLI op a grep/sed one-liner.
 
 Outside any git repo, current directory takes repo root's place.
@@ -38,18 +43,22 @@ Replaced earlier `~/.claude/.radin/projects/<repo-slug>/` scheme. That scheme ke
 Every one of `skills/radin-execute/SKILL.md`, `skills/radin-plan/SKILL.md`, `skills/radin-review/SKILL.md`, `skills/radin-record/SKILL.md`, `skills/radin-show/SKILL.md` goes through same shared CLI, `lib/radin-backlog.sh`, for every deterministic backlog op:
 
 ```bash
-radin backlog <env|show|list|count|find|add|add-plan|append|meta|path|set-category|retitle|remove|reconcile>   # dispatcher at ~/.claude/.radin/bin/radin, symlinked into ~/.local/bin
+radin backlog <env|show|list|count|find|add|add-plan|append|meta|path|set-category|retitle|remove|reconcile|epics|epic-add|epic-move|epic-remove>   # dispatcher at ~/.claude/.radin/bin/radin, symlinked into ~/.local/bin
 ```
 
 - `env` — namespace resolution (delegates to `lib/radin-namespace.sh`, single source of truth for path logic; prints `REPO_ROOT`, `NAMESPACE_DIR`, `BACKLOG_INDEX`, `BACKLOG_TASKS_DIR`)
 - `show [category]` — render backlog as markdown (all tasks, or one category), reconstructed from `index.jsonl` + each task's file
 - `list` — print `id<TAB>category<TAB>title<TAB>file` per task
 - `find <id-or-title>` — locate task, print `id<TAB>category<TAB>title<TAB>file` per match (exact id first, then exact title, else case-insensitive substring on title)
-- `add <category> <title>` — create task (body on stdin): slugifies title into id (dedupe on collision), writes file, appends one line to index
+- `add <category> <title> [--epic <epic-id>]` — create task (body on stdin): slugifies title into id (dedupe on collision, across every epic directory), writes file, appends one line to index
 - `add-plan <id-or-title> <path>` — append `**Plan:**` pointer to task's own file
 - `path <id-or-title>` — print task file's absolute path, resolved by reading matched index line's `file` field and joining it to `backlog/` (what `radin tui` reads and hands to `$EDITOR`)
 - `set-category <id-or-title> <category>` / `retitle <id-or-title> <title>` — rewrite that one index line, id and task file untouched (id stays stable for the task's lifetime, so a retitle can't orphan a `depends_on` or a plan pointer)
-- `remove <id-or-title>` — delete task's file + index line (exact single match required)
+- `remove <id-or-title>` — delete task's file + index line (exact single match required); drops the epic directory too when that was its last child, so `epics` never reports a husk
+- `epics` — print every epic id, one per line; a directory listing, because an epic index file would be a second store to keep in sync
+- `epic-add <epic-id>` — create the directory and its `DESCRIPTION.md` (body from stdin when piped)
+- `epic-move <id-or-title> <epic-id|--none>` — move the task file and rewrite its `file` field; `--none` returns it to the flat `tasks/` level
+- `epic-remove <epic-id>` — refuse while child tasks remain (exit non-zero, delete nothing): the operator moves them out first
 
 Point: offloading. Id assignment, task lookup, plan-pointer insertion — deterministic ops model used to re-derive from prose rules every run. CLI does them exact; agents/skills supply only judgment (what to log, how to classify, what to plan). Task's file path always read back from its index line's `file` field, never composed by a caller and never computed from stored line number — nothing here goes stale as backlog shape changes.
 

@@ -333,3 +333,106 @@ nest_task() {
   run cat "$INDEX"
   [[ "$output" == *'"title":"keepme"'* ]]
 }
+
+@test "epic-add creates the directory and DESCRIPTION.md, epics lists it" {
+  run cli epic-add auth-overhaul <<<"Shared auth context."
+  [ "$status" -eq 0 ]
+  run cat "$TASKS/auth-overhaul/DESCRIPTION.md"
+  [[ "$output" == *"Shared auth context."* ]]
+  run cli epics
+  [ "$output" = "auth-overhaul" ]
+}
+
+@test "epic-add rejects a non-slug id and an existing epic" {
+  cli epic-add ok <<<"d"
+  run cli epic-add ok <<<"d"
+  [ "$status" -ne 0 ]
+  run cli epic-add "Not A Slug" <<<"d"
+  [ "$status" -ne 0 ]
+}
+
+@test "add --epic nests the task file and path resolves it" {
+  cli epic-add auth <<<"ctx"
+  run cli add feat "login form" --epic auth <<<"body"
+  [ "$status" -eq 0 ]
+  run cat "$INDEX"
+  [[ "$output" == *'"file":"tasks/auth/login-form.md"'* ]]
+  [ -f "$TASKS/auth/login-form.md" ]
+  run cli path login-form
+  [ "$output" = "$TASKS/auth/login-form.md" ]
+}
+
+@test "add --epic rejects an unknown epic" {
+  run cli add feat "nope" --epic ghost <<<"body"
+  [ "$status" -ne 0 ]
+}
+
+@test "add dedupes an id against a task inside another epic" {
+  cli epic-add one <<<"ctx"
+  cli epic-add two <<<"ctx"
+  cli add feat "same title" --epic one <<<"b1"
+  cli add fix "same title" --epic two <<<"b2"
+  [ -f "$TASKS/one/same-title.md" ]
+  [ -f "$TASKS/two/same-title-2.md" ]
+}
+
+@test "list output has no epic row" {
+  cli epic-add auth <<<"ctx"
+  cli add feat "child" --epic auth <<<"body"
+  run cli list
+  [ "$(printf '%s\n' "$output" | grep -c .)" = "1" ]
+  [[ "$output" != *"auth"$'\t'* ]]
+}
+
+@test "epic-move moves a task in and back out, rewriting the file field" {
+  cli epic-add auth <<<"ctx"
+  cli add feat "drifter" <<<"body"
+  run cli epic-move drifter auth
+  [ "$status" -eq 0 ]
+  [ -f "$TASKS/auth/drifter.md" ]
+  run cat "$INDEX"
+  [[ "$output" == *'"file":"tasks/auth/drifter.md"'* ]]
+  run cli epic-move drifter --none
+  [ "$status" -eq 0 ]
+  [ -f "$TASKS/drifter.md" ]
+  run cat "$INDEX"
+  [[ "$output" == *'"file":"tasks/drifter.md"'* ]]
+}
+
+@test "epic-remove refuses a non-empty epic and deletes nothing" {
+  cli epic-add auth <<<"ctx"
+  cli add feat "child" --epic auth <<<"body"
+  run cli epic-remove auth
+  [ "$status" -ne 0 ]
+  [ -f "$TASKS/auth/child.md" ]
+  [ -f "$TASKS/auth/DESCRIPTION.md" ]
+}
+
+@test "epic-remove deletes an epic with no child tasks" {
+  cli epic-add auth <<<"ctx"
+  run cli epic-remove auth
+  [ "$status" -eq 0 ]
+  [ ! -d "$TASKS/auth" ]
+}
+
+@test "remove does not leave an empty epic directory behind" {
+  cli epic-add auth <<<"ctx"
+  cli add feat "only child" --epic auth <<<"body"
+  cli remove only-child
+  [ ! -d "$TASKS/auth" ]
+  run cli epics
+  [ -z "$output" ]
+}
+
+@test "show prints an epic's description once above its children" {
+  cli epic-add auth <<<"Shared auth context."
+  cli add feat "login form" --epic auth <<<"child body"
+  cli add feat "flat one" <<<"flat body"
+  run cli show
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"### epic: auth"* ]]
+  [[ "$output" == *"Shared auth context."* ]]
+  [[ "$output" == *"#### login form"* ]]
+  [[ "$output" == *"### flat one"* ]]
+  [ "$(printf '%s\n' "$output" | grep -c 'Shared auth context.')" = "1" ]
+}
