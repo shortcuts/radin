@@ -47,7 +47,8 @@ Replace `TASK_ID` with the task's id. Send it with
 ```
 Invoke the `/radin-plan` skill scoped to the backlog task with id
 "TASK_ID". Resolve it via `radin-backlog.sh find "TASK_ID"` and read its
-file (everything in `$BACKLOG_TASKS_DIR/TASK_ID.md`) as the actual task
+file (everything in the file `RADIN_CLI backlog path "TASK_ID"` prints) as
+the actual task
 scope. It writes the plan file(s) and appends the `**Plan:**` pointer(s)
 to that same task file.
 
@@ -92,8 +93,8 @@ shortcut around exploring the repo.
 
 ## Execution prompt (Step 4b)
 
-Replace `TASK_FILE` with `$BACKLOG_TASKS_DIR/<id>.md`, `PLAN_PATHS` with
-the plan file path(s) in order (or "none — implement directly from the
+Replace `TASK_FILE` with the path `RADIN_CLI backlog path "<id>"` prints,
+`PLAN_PATHS` with the plan file path(s) in order (or "none — implement directly from the
 entry" if Step 4a skipped planning), `CATEGORY` with the entry's category as
 `radin-backlog.sh find` printed it, `SKILLS` with the collected
 `**Skill:**` name(s) or "none", `DEPENDS_ON` with the list of
@@ -216,8 +217,8 @@ its context for the rest of the session.
 
 ## Refuter prompt (Step 4b, after `STATUS: SUCCESS`)
 
-Replace `TASK_FILE` with `$BACKLOG_TASKS_DIR/<id>.md`, `PLAN_PATHS` with the
-plan path(s) or "none", `COMMITS` with the hash(es) the execution sub-agent
+Replace `TASK_FILE` with the path `RADIN_CLI backlog path "<id>"` prints,
+`PLAN_PATHS` with the plan path(s) or "none", `COMMITS` with the hash(es) the execution sub-agent
 reported, and `TASK_DIR` with the tree `radin-state.sh task-dir` prints. Send
 it with `model: "RADIN_MODEL_REFUTE"`. Never forward the execution
 sub-agent's report: the diff is the claim under test, and its summary of the

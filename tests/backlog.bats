@@ -234,6 +234,39 @@ cli() {
   [ "$output" = "$TASKS/pathy-thing.md" ]
 }
 
+# Epic support will nest a task under tasks/<epic-id>/, so the index's `file`
+# field -- not a composed tasks/<id>.md -- is what every verb must follow.
+nest_task() {
+  cli add feat "nested thing" <<<"body"
+  mkdir -p "$TASKS/epic-a"
+  mv "$TASKS/nested-thing.md" "$TASKS/epic-a/nested-thing.md"
+  printf '{"id":"nested-thing","category":"feat","title":"nested thing","file":"tasks/epic-a/nested-thing.md"}\n' >"$INDEX"
+}
+
+@test "path follows a non-default file value" {
+  nest_task
+  run cli path nested-thing
+  [ "$status" -eq 0 ]
+  [ "$output" = "$TASKS/epic-a/nested-thing.md" ]
+}
+
+@test "append, show, retitle and remove follow a non-default file value" {
+  nest_task
+  run cli append nested-thing <<<"appended line"
+  [ "$status" -eq 0 ]
+  run cat "$TASKS/epic-a/nested-thing.md"
+  [[ "$output" == *"appended line"* ]]
+  run cli show
+  [[ "$output" == *"appended line"* ]]
+  run cli retitle nested-thing "renamed"
+  [ "$status" -eq 0 ]
+  run cat "$INDEX"
+  [[ "$output" == *'"file":"tasks/epic-a/nested-thing.md"'* ]]
+  run cli remove nested-thing
+  [ "$status" -eq 0 ]
+  [ ! -f "$TASKS/epic-a/nested-thing.md" ]
+}
+
 @test "set-category moves a task and keeps its id, title and body" {
   cli add feat "movable" <<<"body text"
   run cli set-category movable chore

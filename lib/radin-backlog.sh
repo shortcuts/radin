@@ -4,11 +4,13 @@
 #
 # Storage: $BACKLOG_INDEX is a JSONL file (one compact JSON object per line,
 # one per task: {"id":...,"category":...,"title":...,"file":...}).
-# $BACKLOG_TASKS_DIR/<id>.md holds each task's body (description prose, and
-# any **Plan:** pointer lines radin-plan appends). Splitting each task into
-# its own file means inserting a **Plan:** line into one task can never
-# shift another task's content — unlike the old single-file BACKLOG.md,
-# nothing here is ever addressed by line number.
+# Each line's `file` field, relative to the backlog directory, is the
+# authoritative location of that task's body (description prose, and any
+# **Plan:** pointer lines radin-plan appends): `add` decides it, every other
+# verb reads it back. Splitting each task into its own file means inserting a
+# **Plan:** line into one task can never shift another task's content — unlike
+# the old single-file BACKLOG.md, nothing here is ever addressed by line
+# number.
 #
 # Usage:
 #   radin-backlog.sh env [--export]             # print REPO_ROOT/NAMESPACE_DIR/BACKLOG_INDEX/BACKLOG_TASKS_DIR (--export: source-able with export)
@@ -67,10 +69,20 @@ fmt_line() {
 	printf '%s\t%s\t%s\t%s\n' "$id" "$category" "$title" "$file"
 }
 
+# Absolute path of the task file whose index-relative location is $1.
+task_path() {
+	printf '%s/%s\n' "${BACKLOG_INDEX%/*}" "$1"
+}
+
+# Same, from an "id<TAB>category<TAB>title<TAB>file" line out of fmt_line.
+span_path() {
+	task_path "$(printf '%s' "$1" | cut -f4)"
+}
+
 # Delete a task by id: its body file and its index line.
 # Rewrite the index line for id $1, replacing its category with $2 and/or its
-# title with $3 (empty means keep). The id, and so the task file path, never
-# changes -- callers key off the id for the task's lifetime.
+# title with $3 (empty means keep). The id and the `file` field pass through
+# untouched -- callers key off the id for the task's lifetime.
 set_index_fields() {
 	local id="$1" newcat="$2" newtitle="$3" line out=""
 	while IFS= read -r line || [ -n "$line" ]; do
@@ -78,8 +90,8 @@ set_index_fields() {
 		if [ "$(json_get id "$line")" = "$id" ]; then
 			[ -n "$newcat" ] || newcat="$(json_get category "$line")"
 			[ -n "$newtitle" ] || newtitle="$(json_get title "$line")"
-			line="$(printf '{"id":"%s","category":"%s","title":"%s","file":"tasks/%s.md"}' \
-				"$id" "$newcat" "$(json_escape "$newtitle")" "$id")"
+			line="$(printf '{"id":"%s","category":"%s","title":"%s","file":"%s"}' \
+				"$id" "$newcat" "$(json_escape "$newtitle")" "$(json_get file "$line")")"
 		fi
 		out="$out$line
 "
@@ -88,7 +100,9 @@ set_index_fields() {
 }
 
 remove_by_id() {
-	rm -f "$BACKLOG_TASKS_DIR/$1.md"
+	local line
+	line="$(grep -F "\"id\":\"$1\"" "$BACKLOG_INDEX" || true)"
+	[ -z "$line" ] || rm -f "$(task_path "$(json_get file "$line")")"
 	grep -v -F "\"id\":\"$1\"" "$BACKLOG_INDEX" >"$BACKLOG_INDEX.tmp" || true
 	mv "$BACKLOG_INDEX.tmp" "$BACKLOG_INDEX"
 }
@@ -166,10 +180,9 @@ show)
 		printf '\n## %s\n' "$cat"
 		printf '%s' "$section" | while IFS= read -r line; do
 			[ -n "$line" ] || continue
-			id="$(json_get id "$line")"
 			title="$(json_get title "$line")"
 			printf '\n### %s\n' "$title"
-			cat "$BACKLOG_TASKS_DIR/$id.md"
+			cat "$(task_path "$(json_get file "$line")")"
 		done
 	done
 	;;
@@ -218,17 +231,21 @@ add)
 	[ -n "$id" ] || die "title produced an empty id: $title"
 	base="$id"
 	n=2
-	while [ -f "$BACKLOG_TASKS_DIR/$id.md" ]; do
+	while [ -f "$(task_path "tasks/$id.md")" ]; do
 		id="$base-$n"
 		n=$((n + 1))
 	done
-	printf '%s\n' "$BODY" >"$BACKLOG_TASKS_DIR/$id.md"
+	# `add` is the one verb that decides a task's location instead of reading
+	# it: the `file` field it writes here is what lets every other verb read.
+	rel="tasks/$id.md"
+	task_file="$(task_path "$rel")"
+	printf '%s\n' "$BODY" >"$task_file"
 	printf '%s' "$skills" | while IFS= read -r s; do
 		[ -n "$s" ] || continue
-		printf '**Skill:** Invoke %s to tackle this task.\n' "$s" >>"$BACKLOG_TASKS_DIR/$id.md"
+		printf '**Skill:** Invoke %s to tackle this task.\n' "$s" >>"$task_file"
 	done
-	printf '{"id":"%s","category":"%s","title":"%s","file":"tasks/%s.md"}\n' \
-		"$id" "$category" "$(json_escape "$title")" "$id" >>"$BACKLOG_INDEX"
+	printf '{"id":"%s","category":"%s","title":"%s","file":"%s"}\n' \
+		"$id" "$category" "$(json_escape "$title")" "$rel" >>"$BACKLOG_INDEX"
 	printf 'added "%s" (id: %s) under %s in %s\n' "$title" "$id" "$category" "$BACKLOG_INDEX"
 	;;
 
@@ -244,23 +261,21 @@ meta)
 	[ -n "${2:-}" ] || die "usage: meta <id-or-title>"
 	require_index
 	span="$(single_match "$2")"
-	id="$(printf '%s' "$span" | cut -f1)"
 	while IFS= read -r line || [ -n "$line" ]; do
 		case "$line" in
 		'**Plan:** '*) printf 'plan\t%s\n' "${line#"**Plan:** "}" ;;
 		'**Skill:** '*) printf 'skill\t%s\n' "${line#"**Skill:** "}" ;;
 		esac
-	done <"$BACKLOG_TASKS_DIR/$id.md"
+	done <"$(span_path "$span")"
 	;;
 
 append)
 	[ -n "${2:-}" ] || die "usage: append <id-or-title>  (text on stdin)"
 	require_index
 	span="$(single_match "$2")"
-	id="$(printf '%s' "$span" | cut -f1)"
 	BODY="$(cat)"
 	[ -n "$BODY" ] || die "append text is empty (pass it on stdin)"
-	printf '\n%s\n' "$BODY" >>"$BACKLOG_TASKS_DIR/$id.md"
+	printf '\n%s\n' "$BODY" >>"$(span_path "$span")"
 	printf 'appended to "%s"\n' "$(printf '%s' "$span" | cut -f3)"
 	;;
 
@@ -270,8 +285,7 @@ add-plan)
 	[ -n "$plan_path" ] || die "usage: add-plan <id-or-title> <plan-path>"
 	require_index
 	span="$(single_match "$query")"
-	id="$(printf '%s' "$span" | cut -f1)"
-	printf '**Plan:** %s\n' "$plan_path" >>"$BACKLOG_TASKS_DIR/$id.md"
+	printf '**Plan:** %s\n' "$plan_path" >>"$(span_path "$span")"
 	printf 'plan pointer added to "%s"\n' "$(printf '%s' "$span" | cut -f3)"
 	;;
 
@@ -279,7 +293,7 @@ path)
 	[ -n "${2:-}" ] || die "usage: path <id-or-title>"
 	require_index
 	span="$(single_match "$2")"
-	printf '%s/%s.md\n' "$BACKLOG_TASKS_DIR" "$(printf '%s' "$span" | cut -f1)"
+	span_path "$span"
 	;;
 
 set-category)
