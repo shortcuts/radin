@@ -12,9 +12,9 @@ One index line:
 {"id":"add-route-exports","category":"feat","title":"Add route exports","file":"tasks/add-route-exports.md"}
 ```
 
-`id` slug derived from title when task created, deduped with `-2`/`-3` suffix on collision. Never changes afterward, even if title text later edited (`radin backlog retitle`, or `r` in `radin tui`, rewrites only `title`; `set-category` only `category`) — stable key `depends_on` (state schema below) and `radin-plan`/`radin-execute` key off. `file` always `tasks/<id>.md`, relative to `backlog/` directory.
+`id` slug derived from title when task created, deduped with `-2`/`-3` suffix on collision. Never changes afterward, even if title text later edited (`radin backlog retitle`, or `r` in `radin tui`, rewrites only `title`; `set-category` only `category`) — stable key `depends_on` (state schema below) and `radin-plan`/`radin-execute` key off. `file` task body's location relative to `backlog/` directory — `tasks/<id>.md` today. `add` decides it; every other verb reads it back, so it's sole authority on where task's body lives (`radin backlog path <id>` prints absolute form).
 
-Task's file (`$BACKLOG_TASKS_DIR/<id>.md`) holds everything used to live under `### title` heading's span: description prose, lists, code blocks, any `**Plan:**` pointer lines — what `radin-execute`/`radin-plan` read as task's scope.
+Task's file (path `radin backlog path <id>` prints) holds everything used to live under `### title` heading's span: description prose, lists, code blocks, any `**Plan:**` pointer lines — what `radin-execute`/`radin-plan` read as task's scope.
 
 ```
 <as exhaustive a description as the situation warrants — what the change is,
@@ -70,7 +70,7 @@ JSONL, one compact object per line — same convention as `index.jsonl`, so sing
 {"id":"add-route-exports","order":1,"status":"pending","depends_on":[],"attempts":0,"note":""}
 ```
 
-`id` matches task's id in `index.jsonl`. File always `$BACKLOG_TASKS_DIR/<id>.md`, so schema no longer carries line range — task's file path fixed at creation, never goes stale.
+`id` matches task's id in `index.jsonl`. File located through index's `file` field (`radin backlog path <id>`), so schema no longer carries line range — task's file path fixed at creation, never goes stale.
 
 `radin-execute`'s only state file — `radin-plan` skill runs inline within one conversation, re-resolves sub-task list each time instead of persisting one to disk.
 
@@ -82,7 +82,7 @@ Every mutation goes through `lib/radin-state.sh` (`set-status`/`remove`) — `ra
 - `attempts` counts `start` calls. `start` exits 2 and marks entry `blocked` once count passes 3, so session that crashes at same task can't retry it forever.
 - `note` optional, empty for `pending` entries. `failed` entries carry short reason plus recovery pointer (e.g. `git stash` ref) — what Phase 4 final summary reports back to user. `blocked` entries carry decision question, candidate options, agent's recommendation — final summary asks user to decide.
 - `failed`/`blocked` entry never blocks execution loop from reaching Phase 4 — loop exits once no `pending` entries remain, not only when file empty.
-- Never stores full task text. `$BACKLOG_TASKS_DIR/<id>.md` stays source of truth for each task's body.
+- Never stores full task text. Task's own file (`radin backlog path <id>`) stays source of truth for each task's body.
 
 ## Session preferences (`session.json`)
 

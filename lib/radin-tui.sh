@@ -38,18 +38,19 @@ backlog() { bash "$BACKLOG" "$@"; }
 ids=()
 cats=()
 titles=()
+files=()
 flags=()
 
 load() {
 	ids=()
 	cats=()
 	titles=()
+	files=()
 	flags=()
 	local listing want id cat title file lq
 	listing="$(backlog list 2>/dev/null || true)"
 	lq="$(lower "$FILTER")"
 	for want in $CATEGORIES; do
-		# shellcheck disable=SC2034  # file is read only to consume the 4th field
 		while IFS="$(printf '\t')" read -r id cat title file; do
 			[ -n "$id" ] || continue
 			[ "$cat" = "$want" ] || continue
@@ -62,8 +63,9 @@ load() {
 			ids[${#ids[@]}]="$id"
 			cats[${#cats[@]}]="$cat"
 			titles[${#titles[@]}]="$title"
+			files[${#files[@]}]="$file"
 			# Planned tasks are marked once here, not re-grepped every frame.
-			if grep -q '^\*\*Plan:\*\* ' "$TASKS_DIR/$id.md" 2>/dev/null; then
+			if grep -q '^\*\*Plan:\*\* ' "$BACKLOG_DIR/$file" 2>/dev/null; then
 				flags[${#flags[@]}]="P"
 			else
 				flags[${#flags[@]}]=" "
@@ -171,8 +173,9 @@ draw() {
 	} 2>/dev/null
 }
 
+# The index's own `file` field, never a composed tasks/<id>.md.
 task_path() {
-	printf '%s/%s.md' "$TASKS_DIR" "${ids[$SEL]}"
+	printf '%s/%s' "$BACKLOG_DIR" "${files[$SEL]}"
 }
 
 # Read one keypress, mapping the arrow-key escape sequences onto j/k so the
@@ -356,7 +359,7 @@ help_screen() {
 }
 
 eval "$(backlog env)"
-TASKS_DIR="$BACKLOG_TASKS_DIR"
+BACKLOG_DIR="${BACKLOG_INDEX%/*}"
 
 trap 'cleanup' EXIT
 raw_on

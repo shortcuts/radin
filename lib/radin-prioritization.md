@@ -19,9 +19,9 @@ its own.
 
    One `id<TAB>category<TAB>title<TAB>file` line per task, across all
    categories (`feat`, `fix`, `chore`, `refactor`). Each task's full body —
-   prose, lists, code blocks, `**Plan:**` lines — lives in its own file at
-   `$BACKLOG_TASKS_DIR/<id>.md`, or read them all at once with
-   `radin-backlog.sh show`.
+   prose, lists, code blocks, `**Plan:**` lines — lives in its own file, at
+   the path `RADIN_CLI backlog path "<id>"` prints, or read them all at once
+   with `radin-backlog.sh show`.
 2. Read each task's body from its file. The title alone is never the task:
    the body underneath it is the actual scope. Category doesn't set
    priority by itself; consider every task.
@@ -67,7 +67,8 @@ Ensure:
 
 - The target directory (created in Phase 0) exists
 - `id` is the task's id as printed by `radin-backlog.sh list`/`find` — its
-  file is always `$BACKLOG_TASKS_DIR/<id>.md`, so no line numbers or other
+  file is whatever `RADIN_CLI backlog path "<id>"` prints, so no line
+  numbers or other
   location bookkeeping is needed here; a task's file path can never go
   stale, since inserting into one task's file (e.g. `radin-plan`'s
   `**Plan:**` line) can never affect another task's file
@@ -84,5 +85,6 @@ Ensure:
   tell the user what went wrong and how to recover. For `blocked` entries, set
   it to the decision question, the candidate options, and the agent's
   recommendation — the final summary asks the user to decide
-- Never store the full task text; `$BACKLOG_TASKS_DIR/<id>.md` remains the
-  source of truth for that task's body
+- Never store the full task text; the task's own file (the path
+  `RADIN_CLI backlog path "<id>"` prints) remains the source of truth for
+  that task's body

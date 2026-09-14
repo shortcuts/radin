@@ -85,7 +85,8 @@ Non-interactive: take the default (no split) without asking.
 
 ## Step 4: Write each plan
 
-The entry's file (`$BACKLOG_TASKS_DIR/<parent_id>.md`) never moves, so no
+The entry's file (the path `RADIN_CLI backlog path "<parent_id>"` prints)
+never moves, so no
 re-resolution is needed between sub-tasks. For each sub-task, in order:
 
 1. Read the entry's file. A sub-task from a split has only its one-line

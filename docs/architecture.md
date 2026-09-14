@@ -47,11 +47,11 @@ radin backlog <env|show|list|count|find|add|add-plan|append|meta|path|set-catego
 - `find <id-or-title>` — locate task, print `id<TAB>category<TAB>title<TAB>file` per match (exact id first, then exact title, else case-insensitive substring on title)
 - `add <category> <title>` — create task (body on stdin): slugifies title into id (dedupe on collision), writes file, appends one line to index
 - `add-plan <id-or-title> <path>` — append `**Plan:**` pointer to task's own file
-- `path <id-or-title>` — print task file's absolute path (what `radin tui` reads and hands to `$EDITOR`)
+- `path <id-or-title>` — print task file's absolute path, resolved by reading matched index line's `file` field and joining it to `backlog/` (what `radin tui` reads and hands to `$EDITOR`)
 - `set-category <id-or-title> <category>` / `retitle <id-or-title> <title>` — rewrite that one index line, id and task file untouched (id stays stable for the task's lifetime, so a retitle can't orphan a `depends_on` or a plan pointer)
 - `remove <id-or-title>` — delete task's file + index line (exact single match required)
 
-Point: offloading. Id assignment, task lookup, plan-pointer insertion — deterministic ops model used to re-derive from prose rules every run. CLI does them exact; agents/skills supply only judgment (what to log, how to classify, what to plan). Task's file path always `$BACKLOG_TASKS_DIR/<id>.md`, never computed from stored line number — nothing here goes stale as backlog shape changes.
+Point: offloading. Id assignment, task lookup, plan-pointer insertion — deterministic ops model used to re-derive from prose rules every run. CLI does them exact; agents/skills supply only judgment (what to log, how to classify, what to plan). Task's file path always read back from its index line's `file` field, never composed by a caller and never computed from stored line number — nothing here goes stale as backlog shape changes.
 
 `install.sh` copies `lib/radin-namespace.sh`, `lib/radin-backlog.sh`, `lib/radin-state.sh` to `~/.claude/.radin/lib/`, and `bin/radin` — a dispatcher mapping `radin <backlog|tui|state|scope|cbm-hooks|cbm-config|update|doctor|uninstall>` to those scripts — to `~/.claude/.radin/bin/`, plus a `~/.local/bin/radin` symlink (an existing non-radin file there is named and left alone, and skills then get the full dispatcher path). Consumer install never has this repo's `lib/` directly, so the scripts dist like any other radin file.
 

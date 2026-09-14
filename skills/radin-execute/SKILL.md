@@ -296,7 +296,8 @@ RADIN_CLI backlog find "<task id>"
 
 Zero matches (it errors) or several: mark the task `blocked` with the CLI's
 output as its `note` and continue to the next task. Exactly one: the task's
-file is `$BACKLOG_TASKS_DIR/<id>.md`, a path that never goes stale.
+file is the path `RADIN_CLI backlog path "<id>"` prints — read from the
+index's own `file` field, never composed, and it never goes stale.
 
 Check for existing plan and skill pointers:
 
@@ -339,7 +340,7 @@ Dispatch under the concurrency rule in Core Constraints. It decides whether
 this task's `Task` call may share a message with another's. Send the
 **Execution prompt** from `radin-execute-prompts.md`, substituting:
 
-- `TASK_FILE`: `$BACKLOG_TASKS_DIR/<id>.md`
+- `TASK_FILE`: the path `RADIN_CLI backlog path "<id>"` prints
 - `PLAN_PATHS`: the `plan` paths in printed order, or "none — implement
   directly from the entry" if Step 4a skipped planning
 - `CATEGORY`: the entry's category from Step 4a's `find` line. It picks which
