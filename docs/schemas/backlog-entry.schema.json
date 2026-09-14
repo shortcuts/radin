@@ -23,6 +23,15 @@
           "type": "string",
           "description": "Human-readable heading text, used for display and as a fallback lookup key (exact then case-insensitive substring) when a caller doesn't have the id."
         },
+        "priority": {
+          "type": "integer",
+          "description": "Human-set importance, higher is more important. Gaps and duplicates are allowed, so inserting a task never forces a renumber. The key is absent when unset, and absent must stay distinguishable from any number: \"did a human decide this?\" is the question a prioritization pass has to answer, so no verb defaults it. `radin-backlog.sh list` orders set priorities descending with unset entries after every set one."
+        },
+        "depends_on": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Human-authored ordering over other tasks' ids. Absent or empty means unset. `radin-backlog.sh set-deps` refuses an unknown id, a self-reference and a cycle, and `remove` prunes the removed id from every other entry's array — an unresolvable dependency stalls `radin state deps-check` rather than failing it."
+        },
         "file": {
           "type": "string",
           "description": "Either \"tasks/<id>.md\" or \"tasks/<epic-id>/<id>.md\" for a task grouped under an epic, relative to the backlog/ directory. Points at the matching taskFile, and is the only carrier of epic membership: an epic itself gets no index line and no category. One nesting level only."

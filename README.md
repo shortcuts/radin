@@ -144,7 +144,18 @@ group under an epic — `backlog/tasks/<epic-id>/`, where `DESCRIPTION.md` hold
 context every child task inherit, wrote once instead of repeat in each task.
 Epic get no index row and no category, so no tool ever mistake one for task.
 Manage with `radin backlog epics`, `epic-add`, `epic-move`, `epic-remove`, or
-`radin backlog add <category> "<title>" --epic <epic-id>`. Every
+`radin backlog add <category> "<title>" --epic <epic-id>`.
+
+Your own ranking live on the index row too, so it survive past one run:
+`radin backlog set-priority <id> <integer>` (higher win, gaps fine) and
+`radin backlog set-deps <id> <id,id>` (task must wait for those). Pass
+`--none` to either clear it, or set both at creation with
+`radin backlog add ... --priority <n> --depends-on <csv>`. `radin backlog list`
+then order priority descending, unset row last. `set-deps` refuse unknown id,
+self-reference and cycle, and `remove` drop removed id from every other row's
+`depends_on` — dangling or circular dependency stall a run instead of fail it.
+
+Every
 radin tool read from or write to it through radin's own CLI (`radin backlog`, `radin state`, `radin update`, ... — symlinked into `~/.local/bin` at install), never need look inside. Run `/radin-show` read it as plain markdown.
 Commit `.claude/.radin/` share backlog with team, or add to
 `.gitignore` keep private. Radin never touch your `.gitignore`

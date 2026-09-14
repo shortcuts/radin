@@ -14,3 +14,10 @@ json_escape() {
 json_get() {
 	printf '%s' "$2" | sed -E "s/.*\"$1\":\"((\\\\.|[^\"\\\\])*)\".*/\\1/" | sed -e 's/\\"/"/g' -e 's/\\\\/\\/g'
 }
+
+# Extracts non-string field $1 (integer or array of strings) from JSONL line
+# $2, raw and unquoted. Empty when the key is absent: "nobody set this" must
+# stay distinguishable from any value a caller could have set.
+json_get_raw() {
+	printf '%s' "$2" | sed -n -E "s/.*\"$1\":(-?[0-9]+|\\[[^]]*\\]).*/\\1/p"
+}

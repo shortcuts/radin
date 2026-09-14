@@ -53,14 +53,14 @@ cli() {
   [ "$status" -ne 0 ]
 }
 
-@test "list prints id, category, title, file for every task" {
+@test "list prints id, category, title, file, priority and depends-on for every task" {
   cli add feat "f thing" <<<"body f"
   cli add fix "b thing" <<<"body b"
   run cli list
   [ "$status" -eq 0 ]
   [ "${#lines[@]}" -eq 2 ]
-  [[ "${lines[0]}" == "f-thing"$'\t'"feat"$'\t'"f thing"$'\t'"tasks/f-thing.md" ]]
-  [[ "${lines[1]}" == "b-thing"$'\t'"fix"$'\t'"b thing"$'\t'"tasks/b-thing.md" ]]
+  [[ "${lines[0]}" == "f-thing"$'\t'"feat"$'\t'"f thing"$'\t'"tasks/f-thing.md"$'\t'$'\t' ]]
+  [[ "${lines[1]}" == "b-thing"$'\t'"fix"$'\t'"b thing"$'\t'"tasks/b-thing.md"$'\t'$'\t' ]]
 }
 
 @test "find matches by exact id first" {
@@ -435,4 +435,118 @@ nest_task() {
   [[ "$output" == *"#### login form"* ]]
   [[ "$output" == *"### flat one"* ]]
   [ "$(printf '%s\n' "$output" | grep -c 'Shared auth context.')" = "1" ]
+}
+
+@test "add --priority and --depends-on round-trip through list" {
+  cli add feat "first" <<<"b1"
+  run cli add fix "second" --priority 70 --depends-on first <<<"b2"
+  [ "$status" -eq 0 ]
+  run cat "$INDEX"
+  [[ "$output" == *'"priority":70'* ]]
+  [[ "$output" == *'"depends_on":["first"]'* ]]
+  run cli find second
+  [ "$output" = "second	fix	second	tasks/second.md	70	first" ]
+}
+
+@test "add rejects a non-integer priority and an unknown dependency" {
+  run cli add feat "bad prio" --priority high <<<"b"
+  [ "$status" -ne 0 ]
+  run cli add feat "bad dep" --depends-on ghost <<<"b"
+  [ "$status" -ne 0 ]
+  [ ! -f "$TASKS/bad-dep.md" ]
+  [ ! -s "$INDEX" ]
+}
+
+@test "set-priority sets, changes and clears the priority" {
+  cli add feat "ranked" <<<"b"
+  run cli set-priority ranked 40
+  [ "$status" -eq 0 ]
+  [[ "$(cat "$INDEX")" == *'"priority":40'* ]]
+  cli set-priority ranked 90
+  [[ "$(cat "$INDEX")" == *'"priority":90'* ]]
+  run cli set-priority ranked --none
+  [ "$status" -eq 0 ]
+  [[ "$(cat "$INDEX")" != *'"priority"'* ]]
+  run cli set-priority ranked twelve
+  [ "$status" -ne 0 ]
+}
+
+@test "set-deps sets and clears depends_on" {
+  cli add feat "one" <<<"b"
+  cli add feat "two" <<<"b"
+  cli add feat "three" <<<"b"
+  run cli set-deps three one,two
+  [ "$status" -eq 0 ]
+  [[ "$(cat "$INDEX")" == *'"depends_on":["one","two"]'* ]]
+  run cli set-deps three --none
+  [ "$status" -eq 0 ]
+  [[ "$(cat "$INDEX")" != *'"depends_on"'* ]]
+}
+
+@test "set-deps refuses an unknown id, a self-reference and a cycle, writing nothing" {
+  cli add feat "a task" <<<"b"
+  cli add feat "b task" <<<"b"
+  before="$(cat "$INDEX")"
+  run cli set-deps a-task ghost
+  [ "$status" -ne 0 ]
+  [ "$(cat "$INDEX")" = "$before" ]
+  run cli set-deps a-task a-task
+  [ "$status" -ne 0 ]
+  [ "$(cat "$INDEX")" = "$before" ]
+  cli set-deps b-task a-task
+  before="$(cat "$INDEX")"
+  run cli set-deps a-task b-task
+  [ "$status" -ne 0 ]
+  [ "$(cat "$INDEX")" = "$before" ]
+}
+
+@test "remove prunes the removed id from other entries' depends_on" {
+  cli add feat "keeper" <<<"b"
+  cli add feat "doomed" <<<"b"
+  cli set-deps keeper doomed
+  cli remove doomed
+  [[ "$(cat "$INDEX")" != *'"depends_on"'* ]]
+  run cli find keeper
+  [ "$output" = "keeper	feat	keeper	tasks/keeper.md		" ]
+}
+
+@test "remove keeps the other dependencies of a pruned entry" {
+  cli add feat "dep one" <<<"b"
+  cli add feat "dep two" <<<"b"
+  cli add feat "needy" <<<"b"
+  cli set-deps needy dep-one,dep-two
+  cli remove dep-one
+  [[ "$(cat "$INDEX")" == *'"depends_on":["dep-two"]'* ]]
+}
+
+@test "list orders by priority descending with unset entries last" {
+  cli add feat "low" --priority 10 <<<"b"
+  cli add feat "none at all" <<<"b"
+  cli add feat "high" --priority 90 <<<"b"
+  cli add feat "mid" --priority 50 <<<"b"
+  run cli list
+  [ "$status" -eq 0 ]
+  [ "$(printf '%s\n' "$output" | cut -f1 | tr '\n' ' ')" = "high mid low none-at-all " ]
+}
+
+@test "an entry written before priority existed still parses and round-trips" {
+  cli add feat "legacy" <<<"b"
+  printf '{"id":"old","category":"fix","title":"old one","file":"tasks/old.md"}\n' >>"$INDEX"
+  printf 'old body\n' >"$TASKS/old.md"
+  run cli find old
+  [ "$output" = "old	fix	old one	tasks/old.md		" ]
+  cli retitle old "renamed old"
+  run cat "$INDEX"
+  [[ "$output" == *'{"id":"old","category":"fix","title":"renamed old","file":"tasks/old.md"}'* ]]
+  [[ "$output" != *'"priority"'* ]]
+}
+
+@test "set-category and epic-move preserve priority and depends_on" {
+  cli add feat "anchor" <<<"b"
+  cli add feat "mover" --priority 60 --depends-on anchor <<<"b"
+  cli epic-add grouped <<<"ctx"
+  cli set-category mover fix
+  cli epic-move mover grouped
+  run cat "$INDEX"
+  [[ "$output" == *'{"id":"mover","category":"fix","title":"mover","file":"tasks/grouped/mover.md","priority":60,"depends_on":["anchor"]}'* ]]
 }

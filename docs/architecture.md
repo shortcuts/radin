@@ -43,18 +43,19 @@ Replaced earlier `~/.claude/.radin/projects/<repo-slug>/` scheme. That scheme ke
 Every one of `skills/radin-execute/SKILL.md`, `skills/radin-plan/SKILL.md`, `skills/radin-review/SKILL.md`, `skills/radin-record/SKILL.md`, `skills/radin-show/SKILL.md` goes through same shared CLI, `lib/radin-backlog.sh`, for every deterministic backlog op:
 
 ```bash
-radin backlog <env|show|list|count|find|add|add-plan|append|meta|path|set-category|retitle|remove|reconcile|epics|epic-add|epic-move|epic-remove>   # dispatcher at ~/.claude/.radin/bin/radin, symlinked into ~/.local/bin
+radin backlog <env|show|list|count|find|add|add-plan|append|meta|path|set-category|retitle|set-priority|set-deps|remove|reconcile|epics|epic-add|epic-move|epic-remove>   # dispatcher at ~/.claude/.radin/bin/radin, symlinked into ~/.local/bin
 ```
 
 - `env` — namespace resolution (delegates to `lib/radin-namespace.sh`, single source of truth for path logic; prints `REPO_ROOT`, `NAMESPACE_DIR`, `BACKLOG_INDEX`, `BACKLOG_TASKS_DIR`)
 - `show [category]` — render backlog as markdown (all tasks, or one category), reconstructed from `index.jsonl` + each task's file
-- `list` — print `id<TAB>category<TAB>title<TAB>file` per task
-- `find <id-or-title>` — locate task, print `id<TAB>category<TAB>title<TAB>file` per match (exact id first, then exact title, else case-insensitive substring on title)
-- `add <category> <title> [--epic <epic-id>]` — create task (body on stdin): slugifies title into id (dedupe on collision, across every epic directory), writes file, appends one line to index
+- `list` — print `id<TAB>category<TAB>title<TAB>file<TAB>priority<TAB>depends-on-csv` per task, ordered by priority descending with unset priorities last
+- `find <id-or-title>` — locate task, print the same six fields per match (exact id first, then exact title, else case-insensitive substring on title)
+- `add <category> <title> [--epic <epic-id>] [--priority <n>] [--depends-on <csv>]` — create task (body on stdin): slugifies title into id (dedupe on collision, across every epic directory), writes file, appends one line to index
 - `add-plan <id-or-title> <path>` — append `**Plan:**` pointer to task's own file
 - `path <id-or-title>` — print task file's absolute path, resolved by reading matched index line's `file` field and joining it to `backlog/` (what `radin tui` reads and hands to `$EDITOR`)
 - `set-category <id-or-title> <category>` / `retitle <id-or-title> <title>` — rewrite that one index line, id and task file untouched (id stays stable for the task's lifetime, so a retitle can't orphan a `depends_on` or a plan pointer)
-- `remove <id-or-title>` — delete task's file + index line (exact single match required); drops the epic directory too when that was its last child, so `epics` never reports a husk
+- `set-priority <id-or-title> <integer|--none>` / `set-deps <id-or-title> <csv-of-ids|--none>` — store the human's ranking and ordering on the index line; `set-deps` refuses an unknown id, a self-reference and a cycle, because an unresolvable dependency stalls `radin state deps-check` instead of failing it
+- `remove <id-or-title>` — delete task's file + index line (exact single match required); drops the epic directory too when that was its last child, so `epics` never reports a husk, and prunes the removed id from every other entry's `depends_on`
 - `epics` — print every epic id, one per line; a directory listing, because an epic index file would be a second store to keep in sync
 - `epic-add <epic-id>` — create the directory and its `DESCRIPTION.md` (body from stdin when piped)
 - `epic-move <id-or-title> <epic-id|--none>` — move the task file and rewrite its `file` field; `--none` returns it to the flat `tasks/` level

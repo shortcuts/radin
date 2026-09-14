@@ -14,6 +14,14 @@ One index line:
 
 `id` slug derived from title when task created, deduped with `-2`/`-3` suffix on collision. Never changes afterward, even if title text later edited (`radin backlog retitle`, or `r` in `radin tui`, rewrites only `title`; `set-category` only `category`) — stable key `depends_on` (state schema below) and `radin-plan`/`radin-execute` key off. `file` task body's location relative to `backlog/` directory — `tasks/<id>.md`, or `tasks/<epic-id>/<id>.md` for a task inside an epic. Ids stay globally unique across epics, so `add`'s dedup loop checks every epic directory. `add` decides it; every other verb reads it back, so it's sole authority on where task's body lives (`radin backlog path <id>` prints absolute form).
 
+Two optional keys carry human judgment that must survive a run:
+
+```json
+{"id":"add-route-exports","category":"feat","title":"Add route exports","file":"tasks/add-route-exports.md","priority":70,"depends_on":["split-router"]}
+```
+
+`priority` integer, higher more important. Gaps and duplicates allowed, so inserting task never forces renumber. Key absent means unset, and absent stays distinguishable from any number — "did a human decide this?" question prioritization has to answer, so no verb ever defaults it. `depends_on` array of task ids, human-authored ordering. Absent or empty means unset, and `set-deps --none` clears by dropping key. Both on index line, not `**Priority:**`/`**Depends:**` lines in task body, because sorting backlog must not cost one file read per task. `radin backlog list` orders set priorities descending, unset entries after every set one — ordering contract, not display choice. `set-deps` rejects unknown id, self-reference and cycle (validation in CLI, so every caller inherits it: unresolvable dependency stalls `radin state deps-check` instead of failing it), and `remove` prunes removed id from every other entry's `depends_on`.
+
 Task's file (path `radin backlog path <id>` prints) holds everything used to live under `### title` heading's span: description prose, lists, code blocks, any `**Plan:**` pointer lines — what `radin-execute`/`radin-plan` read as task's scope.
 
 ```
