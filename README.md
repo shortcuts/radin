@@ -128,6 +128,310 @@ Typical flow:
    findings, asks which to keep, then each kept one become new backlog entry,
    ready for next pass of step 3.
 
+### How the four skills connect
+
+Every skill run in your own conversation, so it can ask you questions. Only
+leaf work go to sub-agents. Disk is the handoff: nothing pass through
+conversation context.
+
+```mermaid
+flowchart LR
+    subgraph you["Your conversation"]
+        REC["/radin-record"]
+        PLAN["/radin-plan"]
+        EXEC["/radin-execute"]
+        REV["/radin-review"]
+        SHOW["/radin-show"]
+    end
+
+    subgraph disk["&lt —repo-root&gt —/.claude/.radin/"]
+        IDX[("backlog/index.jsonl<br/>backlog/tasks/&lt —id&gt —.md")]
+        PLANS[("plans/&lt —id&gt —.md")]
+        STATE[("state/BACKLOG_STEPS.json<br/>state/completed.json<br/>state/session.json<br/>state/journal.jsonl")]
+        REVS[("reviews/&lt —name&gt —.md")]
+    end
+
+    REC -->|"backlog add"| IDX
+    IDX -->|"backlog find"| PLAN
+    PLAN -->|"writes plan file"| PLANS
+    PLAN -->|"backlog add-plan"| IDX
+    IDX -->|"backlog count / find"| EXEC
+    PLANS -->|"backlog meta"| EXEC
+    EXEC <-->|"state steps-init / next-pending / task-done"| STATE
+    EXEC -->|"commits + backlog remove"| IDX
+    EXEC -->|"Phase 6, on request"| REV
+    REV --> REVS
+    REV -->|"backlog add per kept finding"| IDX
+    IDX --> SHOW
+```
+
+### Capture: `/radin-record`
+
+One gate matters here: you are at the keyboard now, and `radin-execute` may
+later run with nobody behind it. So every judgment call get settled at record
+time, or get written down plainly as open.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as You
+    participant R as /radin-record
+    participant G as /mattpocock-skills:grilling
+    participant CLI as radin backlog
+    participant FS as .claude/.radin/backlog/
+
+    U->>R: /radin-record [specific item | generic ask]
+    alt specific ask
+        R->>R: log exactly that item
+    else generic ask
+        R->>R: scan whole session for bugs, ideas, asides
+    end
+    R->>R: split one raised thing into sequential pieces of work
+
+    loop per item
+        R->>R: Step 2 — chart open decisions
+        alt decision unsettled and grillable
+            R->>G: grill this point
+            G->>U: one question at a time
+            U-->>G: answer
+            G-->>R: settled
+        else real but not yet sharp
+            R->>R: log as stub, say what is unknown
+        end
+        R->>R: Step 3 — note any **Skill:** instruction
+        R->>R: Step 4 — classify feat/fix/chore/refactor + depends_on
+    end
+
+    R->>R: Step 5 — bar: can a context-free agent execute this?
+    alt generic ask
+        R->>U: confirm finalized list (title + category)
+        U-->>R: yes / drop some
+    end
+    loop per confirmed item
+        R->>CLI: backlog add <category> "<title>" [--skill X]
+        CLI->>FS: index.jsonl line + tasks/<id>.md
+    end
+    R->>U: Step 6 — entries logged, decisions settled, open questions
+```
+
+Entry body carry its own context: what was being worked on, `**Raised as:**`
+verbatim quote of any error string or path, one `**Decision:**` line per
+settled call. Never merged with existing entry — false-positive merge lose
+something you cared about.
+
+### Execute: `/radin-execute`
+
+The loop. Phases 0 through 3 run once, Phase 4 run per task, Phase 5 always
+run. Every state change hit disk the moment it happens, so interrupting cost
+nothing: re-invoke resume, finished tasks never redone.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as You
+    participant E as /radin-execute
+    participant CLI as radin backlog / state
+    participant P as Planning sub-agent
+    participant X as Execution sub-agent
+    participant V as Refuter sub-agent
+    participant D as Debug sub-agent
+    participant F as Fact-finder sub-agent
+
+    U->>E: /radin-execute
+    Note over E: Phase 0 — resolve namespace
+    E->>CLI: backlog env --export, backlog count
+
+    Note over E: Phase 0.5 — worktree/branch preference
+    E->>CLI: state session-get
+    alt already answered
+        CLI-->>E: worktree/branch (ask nothing)
+    else no answer yet
+        E->>E: defer both questions to Phase 2's single call
+    end
+
+    Note over E: Phase 1 — read and prioritize
+    E->>CLI: backlog reconcile completed.json
+    E->>CLI: state stuck BACKLOG_STEPS.json
+    alt stuck tasks found
+        E->>E: read radin-execute-recovery.md, follow per id
+    end
+    E->>E: prioritize per radin-prioritization.md, assign order 1..n
+
+    Note over E,U: Phase 2 — MANDATORY GATE (never pre-answered by a prompt)
+    E->>U: AskUserQuestion: confirm order? which tasks now?<br/>(+ worktree/branch if unanswered)
+    U-->>E: answers
+    alt order rejected
+        E->>E: apply revision, re-prioritize, ask again
+    end
+    E->>CLI: state session-set (if asked)
+
+    Note over E: Phase 3 — persist plan
+    E->>CLI: state steps-init (id, order, depends_on)
+
+    loop Phase 4 — per task, until next-pending exits 1
+        E->>CLI: state next-pending
+        E->>CLI: state deps-check (Step 4a-0)
+        alt dependency unresolved
+            E->>CLI: state set-status blocked
+            E->>E: skip to next task
+        end
+
+        E->>CLI: backlog find + backlog meta (Step 4a)
+        alt plan pointer exists
+            E->>E: use plan(s) on disk
+        else no plan
+            E->>E: /ponytail:ponytail ladder — straightforward?
+            alt straightforward
+                E->>E: implement directly from entry text
+            else needs a plan
+                E->>P: Planning prompt (TASK_ID)
+                P-->>E: STATUS: PLANNED | BLOCKED (FACT|DECISION)
+            end
+        end
+
+        E->>CLI: state start (Step 4b — claim on disk, bump attempts)
+        alt attempts > MAX_ATTEMPTS
+            CLI-->>E: exit 2, already marked blocked
+        end
+        E->>X: Execution prompt (TASK_FILE, PLAN_PATHS, CATEGORY,<br/>NAMESPACE_DIR, TASK_ID, SKILLS, DEPENDS_ON)
+        Note over X: runs state prepare for its own tree,<br/>implements via /caveman discipline skill,<br/>commits with /caveman-commit
+        X-->>E: STATUS line
+
+        E->>CLI: state task-dir + state dirty-check
+        alt tree dirty whatever the STATUS
+            E->>CLI: state stash
+            E->>CLI: state set-status failed (stash ref in note)
+            E->>U: ⚠️ reported <STATUS> but left dirty tree
+        else clean tree
+            alt STATUS: SUCCESS
+                opt refuter pass enabled at install
+                    E->>V: Refuter prompt (diff only, never X's report)
+                    Note over V: reruns repo checks itself,<br/>invokes /radin-review for taste findings
+                    V-->>E: VERDICT: ACCEPT | REWORK | UNVERIFIED
+                    alt REWORK
+                        E->>CLI: backlog append **Rework:** must-fixes
+                        E->>E: re-run task from Step 4b
+                    end
+                end
+                E->>CLI: state task-done (hash to completed.json,<br/>entry out of backlog, line out of steps)
+                E->>U: ✅ Task complete. Remaining: n
+            else STATUS: BLOCKED (FACT)
+                E->>F: Fact-finding prompt (read-only)
+                F-->>E: STATUS: FOUND | NOT FOUND
+                alt FOUND
+                    E->>CLI: backlog append **Fact:** / **Facts:** path
+                    E->>E: retry from Step 4a
+                else NOT FOUND
+                    E->>E: fall through to BLOCKED (DECISION)
+                end
+            else STATUS: BLOCKED (DECISION)
+                E->>U: question + options + recommendation first
+                alt you decide
+                    U-->>E: answer
+                    E->>CLI: backlog append **Decision:**
+                    E->>E: retry from Step 4a
+                else you defer
+                    E->>CLI: state set-status blocked (question in note)
+                    E->>U: ⏸️ deferred. Continuing.
+                end
+            else STATUS: FAILED
+                E->>D: Debug prompt — once per task per session
+                D-->>E: STATUS: DIAGNOSED | NOT DIAGNOSED
+                alt DIAGNOSED
+                    E->>CLI: backlog append **Root cause:**
+                    E->>E: re-run from Step 4b (attempts cap still ends it)
+                else NOT DIAGNOSED
+                    E->>CLI: state set-status failed
+                    E->>U: ❌ failed: reason. Continuing.
+                end
+            else no STATUS line at all
+                E->>CLI: state set-status failed (interactive skill<br/>or spawned background task)
+            end
+        end
+    end
+
+    Note over E: Phase 5 — final summary (always runs)
+    E->>E: read radin-execute-reporting.md
+    E->>U: per-task outcome, where commits landed,<br/>deferred/blocked/failed, dropped skills
+
+    Note over E: Phase 6 — review
+    alt you asked for a session review
+        E->>E: dispatch reviewer sub-agent over the session's commits
+    else
+        E->>U: "run /radin-review with scope: <hashes>"<br/>(or: each task already refuted)
+    end
+```
+
+A task's status live in `state/BACKLOG_STEPS.json` and only the state CLI
+write it:
+
+```mermaid
+stateDiagram-v2
+    [*] --> pending: state steps-init
+    pending --> in_progress: state start (attempts++)
+    in_progress --> done: state task-done
+    in_progress --> pending: BLOCKED resolved, REWORK, DIAGNOSED
+    in_progress --> failed: dirty tree, NOT DIAGNOSED, no STATUS line
+    in_progress --> blocked: attempts > MAX_ATTEMPTS
+    pending --> blocked: dependency failed, entry vanished, decision deferred
+    in_progress --> in_progress: session died mid-task
+    failed --> pending: you re-invoke after a fix
+    blocked --> pending: you append the decision
+    done --> [*]: entry removed from backlog, hash in completed.json
+    note right of in_progress
+        Left in_progress by a dead session?
+        Phase 1's "state stuck" find it
+        on the next run.
+    end note
+```
+
+Only `done` remove entry from backlog. `failed` and `blocked` stay for you to
+retry or decide later, and never block loop from reach Phase 5.
+
+### Review: `/radin-review`
+
+Findings go to backlog, not to your terminal — nothing logged without your
+agreement.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as You
+    participant R as /radin-review
+    participant T as /thermo-nuclear
+    participant PT as /ponytail-review · /ponytail-audit · /ponytail-debt
+    participant G as /mattpocock-skills:grilling
+    participant CLI as radin backlog
+
+    U->>R: /radin-review #123 | <hash> | <dir> | "since Monday"
+    R->>R: Step 1 — resolve scope
+    R->>CLI: Step 2 — backlog count (baseline)
+    par code quality
+        R->>T: thermo-nuclear pass over scope
+    and over-engineering
+        R->>PT: over-engineering pass (+ debt ledger on a directory)
+    end
+    T-->>R: findings
+    PT-->>R: findings
+    R->>R: drop out-of-scope findings
+    R->>U: Step 4 — list findings — keep its picks / all / yours
+    U-->>R: selection
+    R->>U: Step 5 — refine before logging?
+    alt yes
+        loop per selected finding, in order
+            R->>G: grill this finding
+            G->>U: questions, one at a time
+            U-->>G: answers
+            G-->>R: settled scope/remedy/priority
+        end
+    end
+    loop Step 6 — per agreed finding
+        R->>CLI: backlog add <fix|refactor> "<title>"<br/>**Scope** **Location** **Finding** **Preferred remedy**
+    end
+    R->>U: Step 7 — net-new vs baseline, discarded count, index path
+    R->>U: Step 8 — leave in backlog, or /radin-execute now?
+```
+
 ## Tools you get
 
 ### Homemade
