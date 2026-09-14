@@ -71,7 +71,7 @@ RADIN_CLI backlog count
 
 ## Step 3: Run reviews
 
-If `codebase-memory-mcp` is installed and wired for this repo, start with
+Start with `codebase-memory-mcp`'s
 `detect_changes` (git diff mapped to affected symbols, with blast radius and
 risk classification), then `trace_path` on the symbols it flags and
 `get_code_snippet` to read them: risk-scored impact beats reading a raw diff

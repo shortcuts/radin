@@ -111,7 +111,7 @@ Do the task yourself: never spawn a sub-agent of your own. The `Workflow`
 tool is not available to you, so `/deep-research` and any saved workflow
 command fail rather than run: don't reach for them.
 
-(When exploring the codebase: if `codebase-memory-mcp` is wired for this repo (an `mcpServers.codebase-memory-mcp` entry in `.mcp.json`), use its MCP tools before Grep/Glob/Read — `search_graph` to find a symbol, `trace_path` for its callers and callees before you change it, `get_code_snippet` to read one function, `query_graph` for anything Cypher-shaped after `get_graph_schema`. A graph hit is a pointer: read the file before editing it, and never conclude something doesn't exist from an empty result. When running commands: prefer `rtk`-wrapped commands if `command -v rtk` succeeds for token savings.)
+(When exploring the codebase: use `codebase-memory-mcp`'s MCP tools before Grep/Glob/Read — `search_graph` to find a symbol, `trace_path` for its callers and callees before you change it, `get_code_snippet` to read one function, `query_graph` for anything Cypher-shaped after `get_graph_schema`. A graph hit is a pointer: read the file before editing it, and never conclude something doesn't exist from an empty result. When running commands: prefer `rtk`-wrapped commands if `command -v rtk` succeeds for token savings.)
 1. Read TASK_FILE to understand the task. Anything the router appended to it
    is part of the task, not commentary: `**Decision:**`, `**Fact:**`,
    `**Root cause:**`, and `**Rework:**` lines are settled and binding. A
@@ -238,8 +238,8 @@ Tree: TASK_DIR
 2. Run `git -C TASK_DIR show <hash>` for each commit in COMMITS (`headroom
    diff` gives the same diff structurally when `command -v headroom`
    succeeds, which reads smaller on a reformatted file). Judge the diff
-   against that contract, and nothing else. If `codebase-memory-mcp` is
-   wired for this repo, run `trace_path` on each symbol the diff changed:
+   against that contract, and nothing else. Run `trace_path` on each symbol
+   the diff changed:
    a caller outside the diff that still assumes the old behavior is exactly
    the kind of miss a summary hides.
 3. Run the repo's own checks yourself in TASK_DIR (lint, tests, format, per
@@ -296,9 +296,8 @@ to answer, stop invoking it and diagnose on your own: you cannot reach the
 user, and waiting is a hang the router cannot break. Reproduce read-only: rerun the failing check or command
 (`rtk`-wrapped when `command -v rtk` succeeds), read the code and config
 around it. Find the root cause, not the symptom — if a shared function looks
-wrong, check its other callers before you name it (`trace_path` inbound, when
-`codebase-memory-mcp` is wired for this repo; `detect_changes` maps the
-uncommitted diff to the symbols it touches). Prefer primary evidence on this
+wrong, check its other callers before you name it (`trace_path` inbound;
+`detect_changes` maps the uncommitted diff to the symbols it touches). Prefer primary evidence on this
 machine (command output, a file's actual contents) over recollection.
 
 Write nothing except, if the detail runs past ~15 lines,
@@ -334,8 +333,8 @@ Context: the task at TASK_FILE was blocked on it.
 
 Investigate read-only: read the repo, its lockfiles, its vendored
 dependencies, and its config; run read-only commands (`--help`, `--version`, a
-query, a dry run), `rtk`-wrapped when `command -v rtk` succeeds. When
-`codebase-memory-mcp` is wired for this repo, `search_code` and `search_graph`
+query, a dry run), `rtk`-wrapped when `command -v rtk` succeeds.
+`codebase-memory-mcp`'s `search_code` and `search_graph`
 locate the symbol faster than Grep, and `get_code_snippet` reads it — a graph
 hit is a pointer, so read the file before you cite it, and never answer
 "absent" from an empty result. Prefer primary sources already on this machine

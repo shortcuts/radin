@@ -91,8 +91,7 @@ re-resolution is needed between sub-tasks. For each sub-task, in order:
 1. Read the entry's file. A sub-task from a split has only its one-line
    Step 3 description as scope, so plan just that part.
 2. Explore the codebase: structure, affected files, patterns, constraints.
-   If `codebase-memory-mcp` is wired for this repo, use its MCP tools before
-   Grep/Glob/Read: `get_architecture` for the shape of an unfamiliar area,
+   Use `codebase-memory-mcp`'s MCP tools before Grep/Glob/Read: `get_architecture` for the shape of an unfamiliar area,
    `search_graph` to find the symbols in scope, `trace_path` for every
    caller and callee the plan will touch, `get_code_snippet` to read one
    function, `query_graph` (after `get_graph_schema`) for anything
