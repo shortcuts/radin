@@ -139,7 +139,12 @@ pipe; use `radin backlog show` there.
 ## The backlog lifecycle
 
 Repo's backlog live inside repo, at `.claude/.radin/backlog/`
-from repo root: index file plus one markdown file per task. Every
+from repo root: index file plus one markdown file per task. Related tasks
+group under an epic — `backlog/tasks/<epic-id>/`, where `DESCRIPTION.md` hold
+context every child task inherit, wrote once instead of repeat in each task.
+Epic get no index row and no category, so no tool ever mistake one for task.
+Manage with `radin backlog epics`, `epic-add`, `epic-move`, `epic-remove`, or
+`radin backlog add <category> "<title>" --epic <epic-id>`. Every
 radin tool read from or write to it through radin's own CLI (`radin backlog`, `radin state`, `radin update`, ... — symlinked into `~/.local/bin` at install), never need look inside. Run `/radin-show` read it as plain markdown.
 Commit `.claude/.radin/` share backlog with team, or add to
 `.gitignore` keep private. Radin never touch your `.gitignore`
@@ -175,7 +180,7 @@ flowchart LR
     end
 
     subgraph disk["&lt —repo-root&gt —/.claude/.radin/"]
-        IDX[("backlog/index.jsonl<br/>backlog/tasks/&lt —id&gt —.md")]
+        IDX[("backlog/index.jsonl<br/>backlog/tasks/&lt —id&gt —.md<br/>backlog/tasks/&lt —epic&gt —/&lt —id&gt —.md")]
         PLANS[("plans/&lt —id&gt —.md")]
         STATE[("state/BACKLOG_STEPS.json<br/>state/completed.json<br/>state/session.json<br/>state/journal.jsonl")]
         REVS[("reviews/&lt —name&gt —.md")]

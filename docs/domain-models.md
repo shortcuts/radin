@@ -4,7 +4,7 @@
 
 `docs/schemas/backlog-entry.schema.json` formal contract (JSON Schema, draft-07). Documents shape every radin agent/skill must produce reading or appending backlog. Read before changing structure or adding new entry-producing skill. Repo-internal reference only — doesn't ship to consumers, so every agent/skill embeds concrete shape inline instead of reading schema file at runtime.
 
-Backlog lives at `<repo-root>/.claude/.radin/backlog/`: `index.jsonl` file (one compact JSON object per line, one per task) plus `tasks/` directory holding one markdown file per task. Task's category — `feat`, `fix`, `chore`, `refactor`, same vocabulary as conventional-commit type — field on index line, not section heading. No per-entry bracket tag. `radin-backlog.sh show` reconstructs old grouped-by-category markdown view for humans, canonical order (feat → fix → chore → refactor), but that's rendering, not storage.
+Backlog lives at `<repo-root>/.claude/.radin/backlog/`: `index.jsonl` file (one compact JSON object per line, one per task) plus `tasks/` directory holding one markdown file per task. Related tasks group under `tasks/<epic-id>/`, where `DESCRIPTION.md` holds the root context every child inherits — written once instead of repeated in each child's body. An epic has no index line and no category: `list` feeds `radin-execute`, and an epic row there would eventually be dispatched as a task. Membership is `dirname(file)`; one nesting level only. Task's category — `feat`, `fix`, `chore`, `refactor`, same vocabulary as conventional-commit type — field on index line, not section heading. No per-entry bracket tag. `radin-backlog.sh show` reconstructs old grouped-by-category markdown view for humans, canonical order (feat → fix → chore → refactor), but that's rendering, not storage.
 
 One index line:
 
@@ -12,7 +12,7 @@ One index line:
 {"id":"add-route-exports","category":"feat","title":"Add route exports","file":"tasks/add-route-exports.md"}
 ```
 
-`id` slug derived from title when task created, deduped with `-2`/`-3` suffix on collision. Never changes afterward, even if title text later edited (`radin backlog retitle`, or `r` in `radin tui`, rewrites only `title`; `set-category` only `category`) — stable key `depends_on` (state schema below) and `radin-plan`/`radin-execute` key off. `file` task body's location relative to `backlog/` directory — `tasks/<id>.md` today. `add` decides it; every other verb reads it back, so it's sole authority on where task's body lives (`radin backlog path <id>` prints absolute form).
+`id` slug derived from title when task created, deduped with `-2`/`-3` suffix on collision. Never changes afterward, even if title text later edited (`radin backlog retitle`, or `r` in `radin tui`, rewrites only `title`; `set-category` only `category`) — stable key `depends_on` (state schema below) and `radin-plan`/`radin-execute` key off. `file` task body's location relative to `backlog/` directory — `tasks/<id>.md`, or `tasks/<epic-id>/<id>.md` for a task inside an epic. Ids stay globally unique across epics, so `add`'s dedup loop checks every epic directory. `add` decides it; every other verb reads it back, so it's sole authority on where task's body lives (`radin backlog path <id>` prints absolute form).
 
 Task's file (path `radin backlog path <id>` prints) holds everything used to live under `### title` heading's span: description prose, lists, code blocks, any `**Plan:**` pointer lines — what `radin-execute`/`radin-plan` read as task's scope.
 

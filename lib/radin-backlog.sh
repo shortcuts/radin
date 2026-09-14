@@ -18,7 +18,7 @@
 #   radin-backlog.sh list                        # print "id<TAB>category<TAB>title<TAB>file" for every task
 #   radin-backlog.sh find <id-or-title>          # print matching "id<TAB>category<TAB>title<TAB>file" line(s)
 #   radin-backlog.sh count                       # print the number of entries (0 without an index)
-#   radin-backlog.sh add <category> <title> [--skill <name>]...  # create task, body read from stdin, prints its id
+#   radin-backlog.sh add <category> <title> [--epic <epic-id>] [--skill <name>]...  # create task, body read from stdin, prints its id
 #   radin-backlog.sh add-plan <id-or-title> <path>  # append "**Plan:** <path>" to the task's file
 #   radin-backlog.sh append <id-or-title>        # append text from stdin to the task's file
 #   radin-backlog.sh path <id-or-title>          # print the task file's absolute path
@@ -27,6 +27,17 @@
 #   radin-backlog.sh meta <id-or-title>          # print "plan<TAB><path>" / "skill<TAB><instruction>" lines from the task's file
 #   radin-backlog.sh remove <id-or-title>        # delete task file + index entry (exact single match required)
 #   radin-backlog.sh reconcile <completed-file>  # drop backlog entries whose id is already in completed.json
+#   radin-backlog.sh epics                       # print every epic id, one per line
+#   radin-backlog.sh epic-add <epic-id>          # create the epic dir + DESCRIPTION.md (body from stdin when piped)
+#   radin-backlog.sh epic-move <id-or-title> <epic-id|--none>  # move a task into/out of an epic
+#   radin-backlog.sh epic-remove <epic-id>       # delete an epic that has no child tasks left
+#
+# An epic is a directory under tasks/ holding DESCRIPTION.md (the root context
+# every child task inherits) plus one file per child task. Membership is
+# carried only by the index line's `file` field (`tasks/<epic-id>/<id>.md`),
+# so an epic gets no index line of its own and no category: a consumer that
+# forgot to filter epics out of `list` would dispatch one as a task.
+# One nesting level: no epics inside epics.
 #
 # Categories: feat | fix | chore | refactor (canonical section order, used by `show`).
 # `find` matches an exact id first, then exact title, then case-insensitive
@@ -79,19 +90,61 @@ span_path() {
 	task_path "$(printf '%s' "$1" | cut -f4)"
 }
 
+# The epic a `file` field belongs to, or empty at the flat tasks/ level.
+file_epic() {
+	case "$1" in
+	tasks/*/*)
+		local rest="${1#tasks/}"
+		printf '%s\n' "${rest%%/*}"
+		;;
+	esac
+}
+
+require_epic_id() {
+	[ "$(slugify "$1")" = "$1" ] || die "epic id must be a slug (lowercase, dashes), got: $1"
+	[ -d "$BACKLOG_TASKS_DIR/$1" ] || die "no such epic: $1"
+}
+
+# True when any epic (or the flat level) already holds a task file for id $1.
+# Task ids stay globally unique: depends_on, `radin state prepare` and the
+# radin/<id> branch name all key off the bare id, never off the epic path.
+id_taken() {
+	local f
+	for f in "$BACKLOG_TASKS_DIR/$1.md" "$BACKLOG_TASKS_DIR"/*/"$1.md"; do
+		[ -e "$f" ] && return 0
+	done
+	return 1
+}
+
+# Drop an epic directory once its last child task is gone, so `epics` never
+# reports a husk left behind by `remove`.
+prune_empty_epic() {
+	local epic="$1" f
+	[ -n "$epic" ] && [ -d "$BACKLOG_TASKS_DIR/$epic" ] || return 0
+	for f in "$BACKLOG_TASKS_DIR/$epic"/*.md; do
+		case "$f" in
+		*/DESCRIPTION.md | "$BACKLOG_TASKS_DIR/$epic/*.md") continue ;;
+		esac
+		[ -e "$f" ] && return 0
+	done
+	rm -f "$BACKLOG_TASKS_DIR/$epic/DESCRIPTION.md"
+	rmdir "$BACKLOG_TASKS_DIR/$epic" 2>/dev/null || true
+}
+
 # Delete a task by id: its body file and its index line.
-# Rewrite the index line for id $1, replacing its category with $2 and/or its
-# title with $3 (empty means keep). The id and the `file` field pass through
+# Rewrite the index line for id $1, replacing its category with $2, its title
+# with $3 and/or its `file` with $4 (empty means keep). The id passes through
 # untouched -- callers key off the id for the task's lifetime.
 set_index_fields() {
-	local id="$1" newcat="$2" newtitle="$3" line out=""
+	local id="$1" newcat="$2" newtitle="$3" newfile="${4:-}" line out=""
 	while IFS= read -r line || [ -n "$line" ]; do
 		[ -n "$line" ] || continue
 		if [ "$(json_get id "$line")" = "$id" ]; then
 			[ -n "$newcat" ] || newcat="$(json_get category "$line")"
 			[ -n "$newtitle" ] || newtitle="$(json_get title "$line")"
+			[ -n "$newfile" ] || newfile="$(json_get file "$line")"
 			line="$(printf '{"id":"%s","category":"%s","title":"%s","file":"%s"}' \
-				"$id" "$newcat" "$(json_escape "$newtitle")" "$(json_get file "$line")")"
+				"$id" "$newcat" "$(json_escape "$newtitle")" "$newfile")"
 		fi
 		out="$out$line
 "
@@ -100,9 +153,13 @@ set_index_fields() {
 }
 
 remove_by_id() {
-	local line
+	local line rel=""
 	line="$(grep -F "\"id\":\"$1\"" "$BACKLOG_INDEX" || true)"
-	[ -z "$line" ] || rm -f "$(task_path "$(json_get file "$line")")"
+	if [ -n "$line" ]; then
+		rel="$(json_get file "$line")"
+		rm -f "$(task_path "$rel")"
+		prune_empty_epic "$(file_epic "$rel")"
+	fi
 	grep -v -F "\"id\":\"$1\"" "$BACKLOG_INDEX" >"$BACKLOG_INDEX.tmp" || true
 	mv "$BACKLOG_INDEX.tmp" "$BACKLOG_INDEX"
 }
@@ -180,9 +237,28 @@ show)
 		printf '\n## %s\n' "$cat"
 		printf '%s' "$section" | while IFS= read -r line; do
 			[ -n "$line" ] || continue
-			title="$(json_get title "$line")"
-			printf '\n### %s\n' "$title"
-			cat "$(task_path "$(json_get file "$line")")"
+			rel="$(json_get file "$line")"
+			[ -z "$(file_epic "$rel")" ] || continue
+			printf '\n### %s\n' "$(json_get title "$line")"
+			cat "$(task_path "$rel")"
+		done
+		# An epic's shared context is printed once, above its children, so a
+		# human reading `show` sees the hierarchy the `file` paths encode.
+		cat_epics="$(printf '%s' "$section" | while IFS= read -r line; do
+			[ -n "$line" ] || continue
+			file_epic "$(json_get file "$line")"
+		done | sort -u)"
+		for epic in $cat_epics; do
+			printf '\n### epic: %s\n' "$epic"
+			[ ! -s "$BACKLOG_TASKS_DIR/$epic/DESCRIPTION.md" ] ||
+				cat "$BACKLOG_TASKS_DIR/$epic/DESCRIPTION.md"
+			printf '%s' "$section" | while IFS= read -r line; do
+				[ -n "$line" ] || continue
+				rel="$(json_get file "$line")"
+				[ "$(file_epic "$rel")" = "$epic" ] || continue
+				printf '\n#### %s\n' "$(json_get title "$line")"
+				cat "$(task_path "$rel")"
+			done
 		done
 	done
 	;;
@@ -206,19 +282,26 @@ find)
 add)
 	category="${2:-}"
 	title="${3:-}"
-	[ -n "$title" ] || die "usage: add <category> <title> [--skill <name>]...  (body on stdin)"
+	[ -n "$title" ] || die "usage: add <category> <title> [--epic <epic-id>] [--skill <name>]...  (body on stdin)"
 	case "$category" in
 	feat | fix | chore | refactor) ;;
 	*) die "category must be feat|fix|chore|refactor, got: $category" ;;
 	esac
 	shift 3
 	skills=""
+	epic=""
 	while [ $# -gt 0 ]; do
 		case "$1" in
 		--skill)
 			[ -n "${2:-}" ] || die "--skill needs a name"
 			skills="$skills$2
 "
+			shift 2
+			;;
+		--epic)
+			[ -n "${2:-}" ] || die "--epic needs an epic id"
+			epic="$2"
+			require_epic_id "$epic"
 			shift 2
 			;;
 		*) die "unknown add option: $1" ;;
@@ -231,13 +314,17 @@ add)
 	[ -n "$id" ] || die "title produced an empty id: $title"
 	base="$id"
 	n=2
-	while [ -f "$(task_path "tasks/$id.md")" ]; do
+	while id_taken "$id"; do
 		id="$base-$n"
 		n=$((n + 1))
 	done
 	# `add` is the one verb that decides a task's location instead of reading
 	# it: the `file` field it writes here is what lets every other verb read.
-	rel="tasks/$id.md"
+	if [ -n "$epic" ]; then
+		rel="tasks/$epic/$id.md"
+	else
+		rel="tasks/$id.md"
+	fi
 	task_file="$(task_path "$rel")"
 	printf '%s\n' "$BODY" >"$task_file"
 	printf '%s' "$skills" | while IFS= read -r s; do
@@ -363,7 +450,69 @@ reconcile)
 	[ -n "$removed" ] && printf 'reconcile: dropped already-completed entries:%s\n' "$removed" || printf 'reconcile: no stale completed entries\n'
 	;;
 
+epics)
+	# A directory listing is the whole store: an epic index file would be a
+	# second copy of what one `ls` already knows.
+	for d in "$BACKLOG_TASKS_DIR"/*/; do
+		[ -d "$d" ] || continue
+		d="${d%/}"
+		printf '%s\n' "${d##*/}"
+	done
+	;;
+
+epic-add)
+	epic="${2:-}"
+	[ -n "$epic" ] || die "usage: epic-add <epic-id>  (description on stdin)"
+	[ "$(slugify "$epic")" = "$epic" ] || die "epic id must be a slug (lowercase, dashes), got: $epic"
+	[ ! -d "$BACKLOG_TASKS_DIR/$epic" ] || die "epic already exists: $epic"
+	id_taken "$epic" && die "a task already uses that id: $epic"
+	mkdir -p "$BACKLOG_TASKS_DIR/$epic"
+	if [ -t 0 ]; then
+		: >"$BACKLOG_TASKS_DIR/$epic/DESCRIPTION.md"
+	else
+		cat >"$BACKLOG_TASKS_DIR/$epic/DESCRIPTION.md"
+	fi
+	printf 'created epic %s\n' "$epic"
+	;;
+
+epic-move)
+	query="${2:-}"
+	target="${3:-}"
+	[ -n "$target" ] || die "usage: epic-move <id-or-title> <epic-id|--none>"
+	require_index
+	span="$(single_match "$query")"
+	id="$(printf '%s' "$span" | cut -f1)"
+	old_rel="$(printf '%s' "$span" | cut -f4)"
+	if [ "$target" = "--none" ]; then
+		new_rel="tasks/$id.md"
+	else
+		require_epic_id "$target"
+		new_rel="tasks/$target/$id.md"
+	fi
+	[ "$old_rel" != "$new_rel" ] || die "already there: $old_rel"
+	mv "$(task_path "$old_rel")" "$(task_path "$new_rel")"
+	set_index_fields "$id" "" "" "$new_rel"
+	prune_empty_epic "$(file_epic "$old_rel")"
+	printf 'moved %s to %s\n' "$id" "$new_rel"
+	;;
+
+epic-remove)
+	epic="${2:-}"
+	[ -n "$epic" ] || die "usage: epic-remove <epic-id>"
+	require_epic_id "$epic"
+	# Never recursively delete tasks: the operator moves them out first.
+	for f in "$BACKLOG_TASKS_DIR/$epic"/*.md; do
+		case "$f" in
+		*/DESCRIPTION.md | "$BACKLOG_TASKS_DIR/$epic/*.md") continue ;;
+		esac
+		[ -e "$f" ] && die "epic $epic still holds child tasks; epic-move them out first"
+	done
+	rm -f "$BACKLOG_TASKS_DIR/$epic/DESCRIPTION.md"
+	rmdir "$BACKLOG_TASKS_DIR/$epic"
+	printf 'removed epic %s\n' "$epic"
+	;;
+
 *)
-	die "unknown command: ${cmd:-<none>} (env|show|list|count|find|add|add-plan|append|meta|path|set-category|retitle|remove|reconcile)"
+	die "unknown command: ${cmd:-<none>} (env|show|list|count|find|add|add-plan|append|meta|path|set-category|retitle|remove|reconcile|epics|epic-add|epic-move|epic-remove)"
 	;;
 esac
