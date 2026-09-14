@@ -282,3 +282,21 @@ cli() {
   run grep -c . "$INDEX"
   [ "$output" = "2" ]
 }
+
+@test "add rejects a tab or newline in the title" {
+  run cli add feat "$(printf 'a\tb')" <<<"body"
+  [ "$status" -ne 0 ]
+  run cli add feat "$(printf 'a\nb')" <<<"body"
+  [ "$status" -ne 0 ]
+  [ ! -f "$INDEX" ]
+}
+
+@test "retitle rejects a tab or newline in the new title" {
+  cli add fix "keepme" <<<"body"
+  run cli retitle keepme "$(printf 'a\tb')"
+  [ "$status" -ne 0 ]
+  run cli retitle keepme "$(printf 'a\nb')"
+  [ "$status" -ne 0 ]
+  run cat "$INDEX"
+  [[ "$output" == *'"title":"keepme"'* ]]
+}

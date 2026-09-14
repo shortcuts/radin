@@ -46,6 +46,13 @@ require_index() {
 	[ -s "$BACKLOG_INDEX" ] || die "no backlog at $BACKLOG_INDEX"
 }
 
+# TSV is the agent-facing output format, so a tab/CR/LF in a title corrupts
+# every consumer's field split.
+require_plain_title() {
+	[ "$(printf '%s' "$1" | tr -d '\t\r\n')" = "$1" ] ||
+		die "title must not contain a tab, carriage return or newline: $1"
+}
+
 slugify() {
 	printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//'
 }
@@ -204,6 +211,7 @@ add)
 		*) die "unknown add option: $1" ;;
 		esac
 	done
+	require_plain_title "$title"
 	BODY="$(cat)"
 	[ -n "$BODY" ] || die "entry body is empty (pass it on stdin)"
 	id="$(slugify "$title")"
@@ -293,6 +301,7 @@ retitle)
 	query="${2:-}"
 	newtitle="${3:-}"
 	[ -n "$newtitle" ] || die "usage: retitle <id-or-title> <new-title>"
+	require_plain_title "$newtitle"
 	require_index
 	span="$(single_match "$query")"
 	id="$(printf '%s' "$span" | cut -f1)"
