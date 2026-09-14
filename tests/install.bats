@@ -106,6 +106,19 @@ EOF
   grep -q 'Concurrency allowed' "$TEST_HOME/.claude/skills/radin-execute/SKILL.md"
 }
 
+# Exiting before "Done" leaves a partial ~/.claude, so the run must say so
+# instead of returning success-looking silence.
+@test "an install that dies mid-run says the install is partial" {
+  cat > "$MOCK_BIN/npx" <<'EOF'
+#!/bin/sh
+exit 1
+EOF
+  chmod +x "$MOCK_BIN/npx"
+  cd "$REPO_ROOT" && run bash -c "printf '2\n2\n2\n' | bash ./install.sh"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"partial install"* ]]
+}
+
 @test "resolves RADIN_ROOT from a real checkout, no tarball download" {
   run run_install_defaults
   [ "$status" -eq 0 ]

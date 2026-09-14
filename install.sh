@@ -52,6 +52,11 @@ ok() { printf "%b\n" "${GREEN}${RAT}${RESET} $*"; }
 warn() { printf "%b\n" "${YELLOW}${RAT}${RESET} $*"; }
 step() { printf "\n%b\n" "${BOLD}${MAGENTA}${RAT} $*${RESET}"; }
 
+# A child that swallowed fd0 used to end the run here with status 0 and a
+# half-populated ~/.claude, silently. Say so instead.
+INSTALL_DONE=""
+trap 'st=$?; [ -n "$INSTALL_DONE" ] || [ "$st" = 130 ] || printf "%b\n" "${RED}${RAT} install stopped early ($st) -- ~/.claude holds a partial install. Re-run it, or check with: radin doctor${RESET}" >&2' EXIT
+
 printf "%b\n" "${BOLD}${MAGENTA}"
 printf "%s\n" "  🐀 radin — stingy on tokens, generous on backlog throughput"
 printf "%b\n" "${RESET}${DIM}  Installs backlog-workflow skills into ~/.claude, plus the whole curated"
@@ -870,6 +875,7 @@ EOF
 ok "manifest written to ${BOLD}$MANIFEST_FILE${RESET}"
 
 step "Done"
+INSTALL_DONE="1"
 if [ -n "$UPDATE" ]; then
 	ok "radin updated. ${DIM}Go be stingy with those tokens.${RESET}"
 else
