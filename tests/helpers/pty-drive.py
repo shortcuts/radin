@@ -29,8 +29,9 @@ while time.time() < deadline:
                 break
         except OSError:
             break
-    if os.waitpid(pid, os.WNOHANG)[0]:
-        sys.exit(0)
+    wpid, status = os.waitpid(pid, os.WNOHANG)
+    if wpid:
+        sys.exit(os.waitstatus_to_exitcode(status))
 else:
     os.kill(pid, 9)
     sys.exit(1)

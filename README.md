@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <a href="#quickstart">Quickstart</a> ·
+  <a href="#install">Install</a> ·
   <a href="#tools-you-get">Tools you get</a>
 </p>
 

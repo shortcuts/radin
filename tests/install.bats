@@ -92,6 +92,20 @@ run_install_defaults() {
   [ "$status" -eq 0 ]
 }
 
+# A child that inherits fd0 reads the rest of the piped script or the piped
+# answers, and the install then stops before the questions.
+@test "a companion install that reads stdin can't eat the piped answers" {
+  cat > "$MOCK_BIN/npx" <<'EOF'
+#!/bin/sh
+cat > /dev/null
+exit 0
+EOF
+  chmod +x "$MOCK_BIN/npx"
+  cd "$REPO_ROOT" && run bash -c "printf '1\n2\n2\n' | bash ./install.sh"
+  [ "$status" -eq 0 ]
+  grep -q 'Concurrency allowed' "$TEST_HOME/.claude/skills/radin-execute/SKILL.md"
+}
+
 @test "resolves RADIN_ROOT from a real checkout, no tarball download" {
   run run_install_defaults
   [ "$status" -eq 0 ]

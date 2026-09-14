@@ -165,7 +165,10 @@ chmod +x "$HOME/.claude/.radin/bin/radin"
 # if npx isn't available.
 if command -v npx >/dev/null 2>&1; then
 	NPX_LOG="$(mktemp)"
-	if ! npx -y skills add "https://github.com/cursor/plugins/tree/main/cursor-team-kit/skills/thermo-nuclear-code-quality-review" -g -a claude-code -y >"$NPX_LOG" 2>&1; then
+	# </dev/null everywhere below: under `curl | bash` fd0 is the script itself,
+	# and a child that reads stdin eats the rest of it -- the install then just
+	# stops, silently, before the questions.
+	if ! npx -y skills add "https://github.com/cursor/plugins/tree/main/cursor-team-kit/skills/thermo-nuclear-code-quality-review" -g -a claude-code -y >"$NPX_LOG" 2>&1 </dev/null; then
 		cat "$NPX_LOG" >&2
 		rm -f "$NPX_LOG"
 		exit 1
@@ -338,7 +341,7 @@ install_tool() {
 	# the tail only when the install fails.
 	local log
 	log="$(mktemp)"
-	if eval "$install_cmd" >"$log" 2>&1; then
+	if eval "$install_cmd" >"$log" 2>&1 </dev/null; then
 		ok "$name installed."
 	else
 		tail -n 20 "$log" >&2
@@ -365,7 +368,7 @@ install_plugin() {
 		if {
 			claude plugin marketplace update
 			claude plugin update "$plugin_id"
-		} >"$log" 2>&1; then
+		} >"$log" 2>&1 </dev/null; then
 			ok "$name updated."
 		else
 			tail -n 20 "$log" >&2
@@ -379,7 +382,7 @@ install_plugin() {
 	if {
 		claude plugin marketplace add "$marketplace_source"
 		claude plugin install "$plugin_id"
-	} >"$log" 2>&1; then
+	} >"$log" 2>&1 </dev/null; then
 		ok "$name installed."
 	else
 		tail -n 20 "$log" >&2
@@ -683,7 +686,7 @@ if CBM_BIN="$(cbm_bin)"; then
 		# failure needs and noise on success, so keep it in a log and print only
 		# the RESTORED/INTACT/CBM result lines when it worked.
 		CBM_LOG="$(mktemp)"
-		if bash "$HOME/.claude/.radin/lib/radin-cbm-config.sh" install >"$CBM_LOG" 2>&1; then
+		if bash "$HOME/.claude/.radin/lib/radin-cbm-config.sh" install >"$CBM_LOG" 2>&1 </dev/null; then
 			grep -v '^\(SNAPSHOT\|SYMLINK\) ' "$CBM_LOG" || true
 			rm -f "$CBM_LOG"
 			CBM_AGENT_CONFIG="true"
