@@ -38,7 +38,7 @@ Replaced earlier `~/.claude/.radin/projects/<repo-slug>/` scheme. That scheme ke
 Every one of `skills/radin-execute/SKILL.md`, `skills/radin-plan/SKILL.md`, `skills/radin-review/SKILL.md`, `skills/radin-record/SKILL.md`, `skills/radin-show/SKILL.md` goes through same shared CLI, `lib/radin-backlog.sh`, for every deterministic backlog op:
 
 ```bash
-radin backlog <env|show|find|add|add-plan|remove>   # dispatcher at ~/.claude/.radin/bin/radin, symlinked into ~/.local/bin
+radin backlog <env|show|list|count|find|add|add-plan|append|meta|path|set-category|retitle|remove|reconcile>   # dispatcher at ~/.claude/.radin/bin/radin, symlinked into ~/.local/bin
 ```
 
 - `env` — namespace resolution (delegates to `lib/radin-namespace.sh`, single source of truth for path logic; prints `REPO_ROOT`, `NAMESPACE_DIR`, `BACKLOG_INDEX`, `BACKLOG_TASKS_DIR`)
@@ -47,11 +47,13 @@ radin backlog <env|show|find|add|add-plan|remove>   # dispatcher at ~/.claude/.r
 - `find <id-or-title>` — locate task, print `id<TAB>category<TAB>title<TAB>file` per match (exact id first, then exact title, else case-insensitive substring on title)
 - `add <category> <title>` — create task (body on stdin): slugifies title into id (dedupe on collision), writes file, appends one line to index
 - `add-plan <id-or-title> <path>` — append `**Plan:**` pointer to task's own file
+- `path <id-or-title>` — print task file's absolute path (what `radin tui` reads and hands to `$EDITOR`)
+- `set-category <id-or-title> <category>` / `retitle <id-or-title> <title>` — rewrite that one index line, id and task file untouched (id stays stable for the task's lifetime, so a retitle can't orphan a `depends_on` or a plan pointer)
 - `remove <id-or-title>` — delete task's file + index line (exact single match required)
 
 Point: offloading. Id assignment, task lookup, plan-pointer insertion — deterministic ops model used to re-derive from prose rules every run. CLI does them exact; agents/skills supply only judgment (what to log, how to classify, what to plan). Task's file path always `$BACKLOG_TASKS_DIR/<id>.md`, never computed from stored line number — nothing here goes stale as backlog shape changes.
 
-`install.sh` copies `lib/radin-namespace.sh`, `lib/radin-backlog.sh`, `lib/radin-state.sh` to `~/.claude/.radin/lib/`, and `bin/radin` — a dispatcher mapping `radin <backlog|state|scope|cbm-hooks|cbm-config|update|doctor|uninstall>` to those scripts — to `~/.claude/.radin/bin/`, plus a `~/.local/bin/radin` symlink (an existing non-radin file there is named and left alone, and skills then get the full dispatcher path). Consumer install never has this repo's `lib/` directly, so the scripts dist like any other radin file.
+`install.sh` copies `lib/radin-namespace.sh`, `lib/radin-backlog.sh`, `lib/radin-state.sh` to `~/.claude/.radin/lib/`, and `bin/radin` — a dispatcher mapping `radin <backlog|tui|state|scope|cbm-hooks|cbm-config|update|doctor|uninstall>` to those scripts — to `~/.claude/.radin/bin/`, plus a `~/.local/bin/radin` symlink (an existing non-radin file there is named and left alone, and skills then get the full dispatcher path). Consumer install never has this repo's `lib/` directly, so the scripts dist like any other radin file.
 
 Inside script:
 
@@ -176,6 +178,7 @@ radin/
     radin
   lib/
     radin-backlog.sh
+    radin-tui.sh
     radin-cbm-hooks.sh
     radin-doctor.sh
     radin-update.sh
@@ -189,6 +192,31 @@ radin/
   install.sh
   README.md
 ```
+
+## The human TUI
+
+`radin tui` (`lib/radin-tui.sh`) is the human's way into the same backlog the
+skills drive: a full-screen list of every task, a preview of the selected
+task's body, and one key per operation (`e` edit in `$EDITOR`, `v` view in
+`$PAGER`, `n` new, `d` delete, `c` next category, `r` retitle, `/` filter).
+A `P` in the first column marks a task `radin-plan` already planned.
+
+Two rules keep it from becoming a second backlog implementation:
+
+- **It draws and dispatches keys, nothing else.** Every mutation shells out to
+  `radin-backlog.sh` (`add`, `remove`, `set-category`, `retitle`, `path`), so
+  the index/task-file contract has exactly one owner. A key that needs an
+  operation the CLI lacks means adding a CLI subcommand, not writing to
+  `index.jsonl` from the TUI.
+- **Raw ANSI only — no `tput`, `dialog`, `gum` or `fzf`.** Zero dependencies is
+  the same promise as the rest of radin: `stty` for raw mode and terminal size,
+  `\033[` escapes to draw, `read -rsn1` for keys. `bash-tui-toolkit` solves the
+  same problem the same way; radin borrows the technique rather than vendoring
+  600 lines of someone else's bash for one list widget.
+
+It is deliberately not a skill and no agent invokes it: a TUI needs a terminal
+and a human at it, and every agent-facing path already exists as a CLI
+subcommand. `install.sh` asks nothing about it.
 
 ## Authoring vs. distribution
 

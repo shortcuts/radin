@@ -12,7 +12,7 @@ One index line:
 {"id":"add-route-exports","category":"feat","title":"Add route exports","file":"tasks/add-route-exports.md"}
 ```
 
-`id` slug derived from title when task created, deduped with `-2`/`-3` suffix on collision. Never changes afterward, even if title text later edited — stable key `depends_on` (state schema below) and `radin-plan`/`radin-execute` key off. `file` always `tasks/<id>.md`, relative to `backlog/` directory.
+`id` slug derived from title when task created, deduped with `-2`/`-3` suffix on collision. Never changes afterward, even if title text later edited (`radin backlog retitle`, or `r` in `radin tui`, rewrites only `title`; `set-category` only `category`) — stable key `depends_on` (state schema below) and `radin-plan`/`radin-execute` key off. `file` always `tasks/<id>.md`, relative to `backlog/` directory.
 
 Task's file (`$BACKLOG_TASKS_DIR/<id>.md`) holds everything used to live under `### title` heading's span: description prose, lists, code blocks, any `**Plan:**` pointer lines — what `radin-execute`/`radin-plan` read as task's scope.
 

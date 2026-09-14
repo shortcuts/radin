@@ -298,6 +298,30 @@ that survives, so any new install-time question must be recorded there too —
 otherwise the next update resets it. Models are read all-or-nothing: a
 manifest missing one key falls through to the pickers.
 
+## The human TUI
+
+`radin tui` (`lib/radin-tui.sh`) is the human-facing backlog browser: list,
+preview, `e` edit in `$EDITOR`, `n` new, `d` delete, `c` category, `r`
+retitle, `/` filter. Not a skill, and no agent invokes it — a TUI needs a
+terminal and a human at it, and every agent-facing path is already a CLI
+subcommand.
+
+Two rules:
+
+- **The TUI draws and dispatches keys, nothing else.** Every mutation shells
+  out to `radin-backlog.sh` (`add`, `remove`, `set-category`, `retitle`,
+  `path`). A key that needs an operation the CLI lacks means adding a CLI
+  subcommand — never writing `index.jsonl` from the TUI.
+- **Raw ANSI only.** `stty` for raw mode and terminal size, `\033[` escapes to
+  draw, `read -rsn1` for keys. No `tput`, `dialog`, `whiptail`, `gum` or
+  `fzf`, and no vendored bash TUI library (`bash-tui-toolkit` solves this the
+  same way; borrow the technique, don't copy the bundle). Zero dependencies is
+  the same promise as the rest of radin.
+
+Every key that mutates something is covered in `tests/tui.bats`, driven on a
+real pty by `tests/helpers/pty-run.py` — assert on the backlog store, not on
+the drawn frame, so a layout change doesn't break the suite.
+
 ## Sub-agent models in radin-execute
 
 No radin file names a model. Each sub-agent role carries a

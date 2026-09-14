@@ -150,7 +150,7 @@ mkdir -p "$HOME/.claude/skills" "$HOME/.claude/.radin/lib"
 # Explicit name lists, not lib/* or skills/* globs: install.sh may only copy
 # files radin itself named (AGENTS.md Constraints), and a stray file in a dev
 # clone must not ship.
-for f in radin-namespace.sh radin-json.sh radin-backlog.sh radin-state.sh \
+for f in radin-namespace.sh radin-json.sh radin-backlog.sh radin-tui.sh radin-state.sh \
 	radin-scope.sh radin-prioritization.md radin-execute-prompts.md \
 	radin-execute-recovery.md radin-execute-reporting.md radin-cbm-hooks.sh \
 	radin-cbm-config.sh radin-update.sh \

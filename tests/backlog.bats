@@ -226,3 +226,59 @@ cli() {
   [ -s "$WORK/plain/.claude/.radin/backlog/index.jsonl" ]
   [ -s "$WORK/plain/.claude/.radin/backlog/tasks/note.md" ]
 }
+
+@test "path prints the task file's absolute path" {
+  cli add feat "pathy thing" <<<"body"
+  run cli path pathy-thing
+  [ "$status" -eq 0 ]
+  [ "$output" = "$TASKS/pathy-thing.md" ]
+}
+
+@test "set-category moves a task and keeps its id, title and body" {
+  cli add feat "movable" <<<"body text"
+  run cli set-category movable chore
+  [ "$status" -eq 0 ]
+  run cat "$INDEX"
+  [[ "$output" == *'"id":"movable"'* ]]
+  [[ "$output" == *'"category":"chore"'* ]]
+  [[ "$output" == *'"title":"movable"'* ]]
+  run cat "$TASKS/movable.md"
+  [[ "$output" == *"body text"* ]]
+}
+
+@test "set-category rejects an unknown category" {
+  cli add feat "movable" <<<"body"
+  run cli set-category movable wat
+  [ "$status" -ne 0 ]
+  run cat "$INDEX"
+  [[ "$output" == *'"category":"feat"'* ]]
+}
+
+@test "retitle changes the title but never the id or file" {
+  cli add fix "old name" <<<"body"
+  run cli retitle old-name "new name"
+  [ "$status" -eq 0 ]
+  run cat "$INDEX"
+  [[ "$output" == *'"id":"old-name"'* ]]
+  [[ "$output" == *'"title":"new name"'* ]]
+  [[ "$output" == *'"file":"tasks/old-name.md"'* ]]
+  [ -f "$TASKS/old-name.md" ]
+}
+
+@test "retitle escapes quotes in the new title" {
+  cli add fix "quotable" <<<"body"
+  cli retitle quotable 'say "hi"'
+  run cli find quotable
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'say "hi"'* ]]
+}
+
+@test "set-category leaves every other entry untouched" {
+  cli add feat "first" <<<"b1"
+  cli add fix "second" <<<"b2"
+  cli set-category first chore
+  run cli list
+  [[ "$output" == *"second"* ]]
+  run grep -c . "$INDEX"
+  [ "$output" = "2" ]
+}

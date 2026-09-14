@@ -106,6 +106,36 @@ curl -fsSL https://raw.githubusercontent.com/shortcuts/radin/main/install.sh | b
 
 `--force` updates companion tools but keeps asking the three questions.
 
+## Drive it yourself: `radin tui`
+
+```sh
+radin tui
+```
+
+Full-screen backlog browser, for when you want no agent in the loop. Lists
+every task grouped by category, previews the selected one, and gives you one
+key per operation:
+
+| Key | Does |
+| --- | --- |
+| `j` `k`, arrows | Move, `g`/`G` jump to first/last |
+| `enter`, `e` | Edit task body in `$EDITOR` |
+| `v` | View task body in `$PAGER` |
+| `n` | New task: one key for category, a title, then body in `$EDITOR` |
+| `d` | Delete selected task, after a `y` confirmation |
+| `c` | Move task to next category |
+| `r` | Retitle task — its id never changes, so plans and `depends_on` still point at it |
+| `/` | Filter by id or title, empty clears |
+| `R` `?` `q` | Reload, keys, quit |
+
+A `P` in the first column means `/radin-plan` already wrote a plan for that
+task.
+
+Same backlog the skills use, same CLI underneath — every key shells out to
+`radin backlog`. Zero dependencies too: raw ANSI and `stty`, no `tput`,
+`dialog`, `gum` or `fzf`. It needs a real terminal, so it refuses to run in a
+pipe; use `radin backlog show` there.
+
 ## The backlog lifecycle
 
 Repo's backlog live inside repo, at `.claude/.radin/backlog/`
@@ -443,6 +473,7 @@ sequenceDiagram
 | `radin-review` | Strict code-quality pass, findings triaged with you then logged into backlog |
 | `radin-record` | Logs feedback/bugs/ideas raised mid-session as backlog entries |
 | `radin-show` | Prints current project's backlog |
+| `radin tui` | Full-screen backlog browser for humans — CLI subcommand, not a skill, no agent invokes it |
 | `radin-doctor` | Checks radin's own install complete, reports which companion tools reachable |
 | `radin-setup-hooks` | Fallback per-repo wiring for codebase-memory-mcp, when `install.sh` could not wire it globally |
 | `radin-stats` | Shows each installed companion tool's own stats/gain output, side by side |

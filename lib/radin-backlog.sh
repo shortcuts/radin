@@ -19,6 +19,9 @@
 #   radin-backlog.sh add <category> <title> [--skill <name>]...  # create task, body read from stdin, prints its id
 #   radin-backlog.sh add-plan <id-or-title> <path>  # append "**Plan:** <path>" to the task's file
 #   radin-backlog.sh append <id-or-title>        # append text from stdin to the task's file
+#   radin-backlog.sh path <id-or-title>          # print the task file's absolute path
+#   radin-backlog.sh set-category <id-or-title> <category>  # move a task to another category
+#   radin-backlog.sh retitle <id-or-title> <title>  # change a task's title (its id never changes)
 #   radin-backlog.sh meta <id-or-title>          # print "plan<TAB><path>" / "skill<TAB><instruction>" lines from the task's file
 #   radin-backlog.sh remove <id-or-title>        # delete task file + index entry (exact single match required)
 #   radin-backlog.sh reconcile <completed-file>  # drop backlog entries whose id is already in completed.json
@@ -58,6 +61,25 @@ fmt_line() {
 }
 
 # Delete a task by id: its body file and its index line.
+# Rewrite the index line for id $1, replacing its category with $2 and/or its
+# title with $3 (empty means keep). The id, and so the task file path, never
+# changes -- callers key off the id for the task's lifetime.
+set_index_fields() {
+	local id="$1" newcat="$2" newtitle="$3" line out=""
+	while IFS= read -r line || [ -n "$line" ]; do
+		[ -n "$line" ] || continue
+		if [ "$(json_get id "$line")" = "$id" ]; then
+			[ -n "$newcat" ] || newcat="$(json_get category "$line")"
+			[ -n "$newtitle" ] || newtitle="$(json_get title "$line")"
+			line="$(printf '{"id":"%s","category":"%s","title":"%s","file":"tasks/%s.md"}' \
+				"$id" "$newcat" "$(json_escape "$newtitle")" "$id")"
+		fi
+		out="$out$line
+"
+	done <"$BACKLOG_INDEX"
+	printf '%s' "$out" >"$BACKLOG_INDEX"
+}
+
 remove_by_id() {
 	rm -f "$BACKLOG_TASKS_DIR/$1.md"
 	grep -v -F "\"id\":\"$1\"" "$BACKLOG_INDEX" >"$BACKLOG_INDEX.tmp" || true
@@ -245,6 +267,39 @@ add-plan)
 	printf 'plan pointer added to "%s"\n' "$(printf '%s' "$span" | cut -f3)"
 	;;
 
+path)
+	[ -n "${2:-}" ] || die "usage: path <id-or-title>"
+	require_index
+	span="$(single_match "$2")"
+	printf '%s/%s.md\n' "$BACKLOG_TASKS_DIR" "$(printf '%s' "$span" | cut -f1)"
+	;;
+
+set-category)
+	query="${2:-}"
+	newcat="${3:-}"
+	[ -n "$newcat" ] || die "usage: set-category <id-or-title> <feat|fix|chore|refactor>"
+	case "$newcat" in
+	feat | fix | chore | refactor) ;;
+	*) die "category must be feat|fix|chore|refactor, got: $newcat" ;;
+	esac
+	require_index
+	span="$(single_match "$query")"
+	id="$(printf '%s' "$span" | cut -f1)"
+	set_index_fields "$id" "$newcat" ""
+	printf 'moved "%s" to %s\n' "$(printf '%s' "$span" | cut -f3)" "$newcat"
+	;;
+
+retitle)
+	query="${2:-}"
+	newtitle="${3:-}"
+	[ -n "$newtitle" ] || die "usage: retitle <id-or-title> <new-title>"
+	require_index
+	span="$(single_match "$query")"
+	id="$(printf '%s' "$span" | cut -f1)"
+	set_index_fields "$id" "" "$newtitle"
+	printf 'retitled %s to "%s"\n' "$id" "$newtitle"
+	;;
+
 remove)
 	query="${2:-}"
 	[ -n "$query" ] || die "usage: remove <id-or-title>"
@@ -286,6 +341,6 @@ reconcile)
 	;;
 
 *)
-	die "unknown command: ${cmd:-<none>} (env|show|list|count|find|add|add-plan|append|meta|remove|reconcile)"
+	die "unknown command: ${cmd:-<none>} (env|show|list|count|find|add|add-plan|append|meta|path|set-category|retitle|remove|reconcile)"
 	;;
 esac
