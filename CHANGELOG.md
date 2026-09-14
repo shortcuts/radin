@@ -2,6 +2,14 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.0.1](https://github.com/shortcuts/radin/compare/v1.0.0...v1.0.1) (2026-09-14)
+
+
+### Bug Fixes
+
+* install ([5769cca](https://github.com/shortcuts/radin/commit/5769ccab7f487983c07c3dfbd33201eed186b26f))
+* tests ([77b8f3a](https://github.com/shortcuts/radin/commit/77b8f3a80748a17df4e65d347a7bfb27a3588322))
+
 ## 1.0.0 (2026-09-13)
 
 
