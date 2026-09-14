@@ -3,7 +3,8 @@
 # storage. Installed to ~/.claude/.radin/lib/radin-backlog.sh by install.sh.
 #
 # Storage: $BACKLOG_INDEX is a JSONL file (one compact JSON object per line,
-# one per task: {"id":...,"category":...,"title":...,"file":...}).
+# one per task: {"id":...,"category":...,"title":...,"file":...}), plus the
+# optional "priority":<int> and "depends_on":[<id>,...] keys a human sets.
 # Each line's `file` field, relative to the backlog directory, is the
 # authoritative location of that task's body (description prose, and any
 # **Plan:** pointer lines radin-plan appends): `add` decides it, every other
@@ -15,15 +16,17 @@
 # Usage:
 #   radin-backlog.sh env [--export]             # print REPO_ROOT/NAMESPACE_DIR/BACKLOG_INDEX/BACKLOG_TASKS_DIR (--export: source-able with export)
 #   radin-backlog.sh show [category]             # print backlog as markdown, or one ## section
-#   radin-backlog.sh list                        # print "id<TAB>category<TAB>title<TAB>file" for every task
-#   radin-backlog.sh find <id-or-title>          # print matching "id<TAB>category<TAB>title<TAB>file" line(s)
+#   radin-backlog.sh list                        # print "id<TAB>category<TAB>title<TAB>file<TAB>priority<TAB>depends-on-csv", priority-descending, unset priorities last
+#   radin-backlog.sh find <id-or-title>          # print matching "id<TAB>category<TAB>title<TAB>file<TAB>priority<TAB>depends-on-csv" line(s)
 #   radin-backlog.sh count                       # print the number of entries (0 without an index)
-#   radin-backlog.sh add <category> <title> [--epic <epic-id>] [--skill <name>]...  # create task, body read from stdin, prints its id
+#   radin-backlog.sh add <category> <title> [--epic <epic-id>] [--skill <name>]... [--priority <n>] [--depends-on <csv>]  # create task, body read from stdin, prints its id
 #   radin-backlog.sh add-plan <id-or-title> <path>  # append "**Plan:** <path>" to the task's file
 #   radin-backlog.sh append <id-or-title>        # append text from stdin to the task's file
 #   radin-backlog.sh path <id-or-title>          # print the task file's absolute path
 #   radin-backlog.sh set-category <id-or-title> <category>  # move a task to another category
 #   radin-backlog.sh retitle <id-or-title> <title>  # change a task's title (its id never changes)
+#   radin-backlog.sh set-priority <id-or-title> <integer|--none>  # set/clear the priority (higher wins)
+#   radin-backlog.sh set-deps <id-or-title> <csv-of-ids|--none>   # set/clear depends_on (rejects an unknown id and any cycle)
 #   radin-backlog.sh meta <id-or-title>          # print "plan<TAB><path>" / "skill<TAB><instruction>" lines from the task's file
 #   radin-backlog.sh remove <id-or-title>        # delete task file + index entry (exact single match required)
 #   radin-backlog.sh reconcile <completed-file>  # drop backlog entries whose id is already in completed.json
@@ -38,6 +41,14 @@
 # so an epic gets no index line of its own and no category: a consumer that
 # forgot to filter epics out of `list` would dispatch one as a task.
 # One nesting level: no epics inside epics.
+#
+# Priority is a human's call, so it is stored, not re-derived: higher is more
+# important, gaps and duplicates are fine (inserting a task never forces a
+# renumber), and an absent key means unset -- which must stay distinguishable
+# from any number, because "did a human decide this?" is the question a
+# prioritization pass has to answer. `depends_on` is human-authored ordering
+# over task ids. Both live on the index line rather than in the task body, so
+# sorting the backlog costs no file read per task.
 #
 # Categories: feat | fix | chore | refactor (canonical section order, used by `show`).
 # `find` matches an exact id first, then exact title, then case-insensitive
@@ -70,14 +81,37 @@ slugify() {
 	printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//'
 }
 
-# Prints "id<TAB>category<TAB>title<TAB>file" for JSONL line $1.
+# Space-separated task ids from a raw "depends_on" array; empty when unset.
+deps_ids() {
+	printf '%s' "$1" | tr -d '[]" ' | tr ',' ' '
+}
+
+# JSON array literal for the ids in "$@", or the clear sentinel when there are
+# none: an empty depends_on and an absent one mean the same thing.
+deps_array() {
+	local out="" d
+	for d in "$@"; do
+		[ -z "$out" ] || out="$out,"
+		out="$out\"$d\""
+	done
+	[ -n "$out" ] || {
+		printf -- '--none\n'
+		return 0
+	}
+	printf '[%s]\n' "$out"
+}
+
+# Prints "id<TAB>category<TAB>title<TAB>file<TAB>priority<TAB>depends-on-csv"
+# for JSONL line $1. The last two fields are empty when unset.
 fmt_line() {
-	local line="$1" id category title file
+	local line="$1" id category title file priority deps
 	id="$(json_get id "$line")"
 	category="$(json_get category "$line")"
 	title="$(json_get title "$line")"
 	file="$(json_get file "$line")"
-	printf '%s\t%s\t%s\t%s\n' "$id" "$category" "$title" "$file"
+	priority="$(json_get_raw priority "$line")"
+	deps="$(deps_ids "$(json_get_raw depends_on "$line")" | tr ' ' ',')"
+	printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$id" "$category" "$title" "$file" "$priority" "$deps"
 }
 
 # Absolute path of the task file whose index-relative location is $1.
@@ -85,7 +119,7 @@ task_path() {
 	printf '%s/%s\n' "${BACKLOG_INDEX%/*}" "$1"
 }
 
-# Same, from an "id<TAB>category<TAB>title<TAB>file" line out of fmt_line.
+# Same, from a line out of fmt_line.
 span_path() {
 	task_path "$(printf '%s' "$1" | cut -f4)"
 }
@@ -135,21 +169,55 @@ prune_empty_epic() {
 # Rewrite the index line for id $1, replacing its category with $2, its title
 # with $3 and/or its `file` with $4 (empty means keep). The id passes through
 # untouched -- callers key off the id for the task's lifetime.
+# One index line. An empty $5/$6 omits the key entirely, so every verb that
+# rewrites a line keeps "unset" unset instead of defaulting it to a value.
+compose_line() {
+	local out
+	out="$(printf '{"id":"%s","category":"%s","title":"%s","file":"%s"' \
+		"$1" "$2" "$(json_escape "$3")" "$4")"
+	[ -z "$5" ] || out="$out,\"priority\":$5"
+	[ -z "$6" ] || out="$out,\"depends_on\":$6"
+	printf '%s}\n' "$out"
+}
+
 set_index_fields() {
-	local id="$1" newcat="$2" newtitle="$3" newfile="${4:-}" line out=""
+	local id="$1" newcat="$2" newtitle="$3" newfile="${4:-}" newprio="${5:-}" newdeps="${6:-}" line out=""
 	while IFS= read -r line || [ -n "$line" ]; do
 		[ -n "$line" ] || continue
 		if [ "$(json_get id "$line")" = "$id" ]; then
 			[ -n "$newcat" ] || newcat="$(json_get category "$line")"
 			[ -n "$newtitle" ] || newtitle="$(json_get title "$line")"
 			[ -n "$newfile" ] || newfile="$(json_get file "$line")"
-			line="$(printf '{"id":"%s","category":"%s","title":"%s","file":"%s"}' \
-				"$id" "$newcat" "$(json_escape "$newtitle")" "$newfile")"
+			[ -n "$newprio" ] || newprio="$(json_get_raw priority "$line")"
+			[ -n "$newdeps" ] || newdeps="$(json_get_raw depends_on "$line")"
+			[ "$newprio" != "--none" ] || newprio=""
+			[ "$newdeps" != "--none" ] || newdeps=""
+			line="$(compose_line "$id" "$newcat" "$newtitle" "$newfile" "$newprio" "$newdeps")"
 		fi
 		out="$out$line
 "
 	done <"$BACKLOG_INDEX"
 	printf '%s' "$out" >"$BACKLOG_INDEX"
+}
+
+# Drop id $1 from every other entry's depends_on: a dangling reference stalls
+# `radin state deps-check` exactly like a cycle does.
+prune_dep() {
+	local gone="$1" line raw d kept ids=""
+	while IFS= read -r line || [ -n "$line" ]; do
+		[ -n "$line" ] || continue
+		raw="$(json_get_raw depends_on "$line")"
+		case "$raw" in *"\"$gone\""*) ids="$ids $(json_get id "$line")" ;; esac
+	done <"$BACKLOG_INDEX"
+	for d in $ids; do
+		raw="$(json_get_raw depends_on "$(grep -F "\"id\":\"$d\"" "$BACKLOG_INDEX")")"
+		kept=""
+		for line in $(deps_ids "$raw"); do
+			[ "$line" = "$gone" ] || kept="$kept $line"
+		done
+		# shellcheck disable=SC2086
+		set_index_fields "$d" "" "" "" "" "$(deps_array $kept)"
+	done
 }
 
 remove_by_id() {
@@ -162,6 +230,7 @@ remove_by_id() {
 	fi
 	grep -v -F "\"id\":\"$1\"" "$BACKLOG_INDEX" >"$BACKLOG_INDEX.tmp" || true
 	mv "$BACKLOG_INDEX.tmp" "$BACKLOG_INDEX"
+	prune_dep "$1"
 }
 
 # Matching JSONL lines for query $1: exact id, else exact title, else
@@ -209,6 +278,33 @@ single_match() {
 	[ "$n" -eq 1 ] || die "matches $n entries: $1
 $found"
 	printf '%s\n' "$found"
+}
+
+require_integer() {
+	case "$1" in
+	'' | - | *[!0-9-]* | ?*-*) die "priority must be an integer, got: $1" ;;
+	esac
+}
+
+# Every id reachable from the space-separated dep list $2, treating it as $1's
+# depends_on. Prints them space-separated, so a caller can ask whether the
+# closure comes back around to $1.
+deps_closure() {
+	local pending="$2" seen="" cur line
+	while [ -n "$pending" ]; do
+		# shellcheck disable=SC2086
+		set -- $pending
+		[ $# -gt 0 ] || break
+		cur="$1"
+		shift
+		pending="$*"
+		case " $seen " in *" $cur "*) continue ;; esac
+		seen="$seen $cur"
+		line="$(grep -F "\"id\":\"$cur\"" "$BACKLOG_INDEX" || true)"
+		[ -n "$line" ] || continue
+		pending="$pending $(deps_ids "$(json_get_raw depends_on "$line")")"
+	done
+	printf '%s\n' "$seen"
 }
 
 cmd="${1:-}"
@@ -265,10 +361,24 @@ show)
 
 list)
 	require_index
+	# Priority descending with unset last is the ordering contract, not a
+	# display choice: a consumer reads this order as the human's ranking.
+	# -s keeps equal priorities in index order.
+	ranked=""
+	unranked=""
 	while IFS= read -r line; do
 		[ -n "$line" ] || continue
-		fmt_line "$line"
+		prio="$(json_get_raw priority "$line")"
+		if [ -n "$prio" ]; then
+			ranked="$ranked$prio	$(fmt_line "$line")
+"
+		else
+			unranked="$unranked$(fmt_line "$line")
+"
+		fi
 	done <"$BACKLOG_INDEX"
+	[ -z "$ranked" ] || printf '%s' "$ranked" | sort -s -k1,1nr | cut -f2-
+	[ -z "$unranked" ] || printf '%s' "$unranked"
 	;;
 
 find)
@@ -282,7 +392,7 @@ find)
 add)
 	category="${2:-}"
 	title="${3:-}"
-	[ -n "$title" ] || die "usage: add <category> <title> [--epic <epic-id>] [--skill <name>]...  (body on stdin)"
+	[ -n "$title" ] || die "usage: add <category> <title> [--epic <epic-id>] [--skill <name>]... [--priority <n>] [--depends-on <csv>]  (body on stdin)"
 	case "$category" in
 	feat | fix | chore | refactor) ;;
 	*) die "category must be feat|fix|chore|refactor, got: $category" ;;
@@ -290,8 +400,27 @@ add)
 	shift 3
 	skills=""
 	epic=""
+	priority=""
+	deps=""
 	while [ $# -gt 0 ]; do
 		case "$1" in
+		--priority)
+			[ -n "${2:-}" ] || die "--priority needs an integer"
+			require_integer "$2"
+			priority="$2"
+			shift 2
+			;;
+		--depends-on)
+			[ -n "${2:-}" ] || die "--depends-on needs a csv of task ids"
+			deps="$(printf '%s' "$2" | tr ',' ' ')"
+			# Checked before the task file is written, so a bad flag
+			# leaves no orphan body behind.
+			for d in $deps; do
+				grep -qF "\"id\":\"$d\"" "$BACKLOG_INDEX" 2>/dev/null ||
+					die "--depends-on names an unknown task id: $d"
+			done
+			shift 2
+			;;
 		--skill)
 			[ -n "${2:-}" ] || die "--skill needs a name"
 			skills="$skills$2
@@ -331,8 +460,10 @@ add)
 		[ -n "$s" ] || continue
 		printf '**Skill:** Invoke %s to tackle this task.\n' "$s" >>"$task_file"
 	done
-	printf '{"id":"%s","category":"%s","title":"%s","file":"%s"}\n' \
-		"$id" "$category" "$(json_escape "$title")" "$rel" >>"$BACKLOG_INDEX"
+	dep_array=""
+	# shellcheck disable=SC2086
+	[ -z "$deps" ] || dep_array="$(deps_array $deps)"
+	compose_line "$id" "$category" "$title" "$rel" "$priority" "$dep_array" >>"$BACKLOG_INDEX"
 	printf 'added "%s" (id: %s) under %s in %s\n' "$title" "$id" "$category" "$BACKLOG_INDEX"
 	;;
 
@@ -408,6 +539,44 @@ retitle)
 	id="$(printf '%s' "$span" | cut -f1)"
 	set_index_fields "$id" "" "$newtitle"
 	printf 'retitled %s to "%s"\n' "$id" "$newtitle"
+	;;
+
+set-priority)
+	query="${2:-}"
+	value="${3:-}"
+	[ -n "$value" ] || die "usage: set-priority <id-or-title> <integer|--none>"
+	[ "$value" = "--none" ] || require_integer "$value"
+	require_index
+	span="$(single_match "$query")"
+	id="$(printf '%s' "$span" | cut -f1)"
+	set_index_fields "$id" "" "" "" "$value"
+	printf 'priority of %s set to %s\n' "$id" "$value"
+	;;
+
+set-deps)
+	query="${2:-}"
+	value="${3:-}"
+	[ -n "$value" ] || die "usage: set-deps <id-or-title> <csv-of-ids|--none>"
+	require_index
+	span="$(single_match "$query")"
+	id="$(printf '%s' "$span" | cut -f1)"
+	if [ "$value" = "--none" ]; then
+		dep_array="--none"
+	else
+		deps="$(printf '%s' "$value" | tr ',' ' ')"
+		# Validation lives here, not in a skill: an unknown id or a cycle
+		# makes `radin state deps-check` wait forever instead of failing.
+		for d in $deps; do
+			grep -qF "\"id\":\"$d\"" "$BACKLOG_INDEX" || die "no such task id: $d"
+		done
+		case " $(deps_closure "$id" "$deps") " in
+		*" $id "*) die "depends_on would create a cycle through $id" ;;
+		esac
+		# shellcheck disable=SC2086
+		dep_array="$(deps_array $deps)"
+	fi
+	set_index_fields "$id" "" "" "" "" "$dep_array"
+	printf 'depends_on of %s set to %s\n' "$id" "$value"
 	;;
 
 remove)
@@ -513,6 +682,6 @@ epic-remove)
 	;;
 
 *)
-	die "unknown command: ${cmd:-<none>} (env|show|list|count|find|add|add-plan|append|meta|path|set-category|retitle|remove|reconcile|epics|epic-add|epic-move|epic-remove)"
+	die "unknown command: ${cmd:-<none>} (env|show|list|count|find|add|add-plan|append|meta|path|set-category|retitle|set-priority|set-deps|remove|reconcile|epics|epic-add|epic-move|epic-remove)"
 	;;
 esac

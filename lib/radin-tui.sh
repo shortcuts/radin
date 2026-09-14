@@ -47,11 +47,11 @@ load() {
 	titles=()
 	files=()
 	flags=()
-	local listing want id cat title file lq
+	local listing want id cat title file _rest lq
 	listing="$(backlog list 2>/dev/null || true)"
 	lq="$(lower "$FILTER")"
 	for want in $CATEGORIES; do
-		while IFS="$(printf '\t')" read -r id cat title file; do
+		while IFS="$(printf '\t')" read -r id cat title file _rest; do
 			[ -n "$id" ] || continue
 			[ "$cat" = "$want" ] || continue
 			if [ -n "$lq" ]; then
