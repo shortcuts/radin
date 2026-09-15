@@ -328,7 +328,10 @@ Two rules:
   `build_rows` never emits them — no key handler knows about collapse.
 - **A failed mutation sets `MSG` and does not reload.** The footer shows the
   CLI's own die message and `SEL`/`TOP`/`COLLAPSED` keep their values, so a
-  rejected `set-deps` cycle is visibly a rejection rather than a no-op.
+  rejected `set-deps` cycle is visibly a rejection rather than a no-op. That
+  contract lives in one helper, `mutate <verb> <args...>`, so every mutating
+  key handler ends in one line and no copy can reload on failure; the epic-header
+  guard is likewise single-sourced in `sel_task` (sets `TI`, non-zero on a header).
 - **One `pick` helper serves every chooser** (`multi` for a set, `single` for a
   choice), drawn with `row` and driven by `readkey`. Candidates are passed as
   an argument, never on stdin — `readkey` owns fd 0.

@@ -647,14 +647,32 @@ no_task() {
 	MSG="epic header selected -- no task here"
 }
 
+# The guard every mutating key handler opens with: TI becomes the selected
+# task index, or the footer says why there is none and the caller returns. A
+# global rather than a command substitution -- MSG set in a subshell is lost.
+sel_task() {
+	TI="$(cur_task)" && return 0
+	no_task
+	return 1
+}
+
+# Every mutation shares one contract: MSG carries the CLI's own output on both
+# paths, and load() runs on success only, so a rejected change keeps
+# SEL/TOP/COLLAPSED and reads as a rejection instead of a no-op.
+mutate() {
+	local out
+	if out="$(backlog "$@" 2>&1)"; then
+		MSG="$out"
+		load
+	else
+		MSG="$1 failed: $out"
+	fi
+}
+
 edit_body() {
-	local ti
-	ti="$(cur_task)" || {
-		no_task
-		return 0
-	}
-	run_external "${EDITOR:-vi}" "$(task_path "$ti")"
-	MSG="edited ${ids[$ti]}"
+	sel_task || return 0
+	run_external "${EDITOR:-vi}" "$(task_path "$TI")"
+	MSG="edited ${ids[$TI]}"
 	DETAIL_FOR=""
 }
 
@@ -672,7 +690,7 @@ pick_category() {
 }
 
 new_task() {
-	local cat title body_file out
+	local cat title body_file
 	pick_category || {
 		MSG="new: cancelled"
 		return 0
@@ -695,28 +713,14 @@ new_task() {
 		MSG="new: empty body, cancelled"
 		return 0
 	fi
-	if out="$(backlog add "$cat" "$title" <"$body_file.body" 2>&1)"; then
-		MSG="$out"
-	else
-		MSG="add failed: $out"
-	fi
+	mutate add "$cat" "$title" <"$body_file.body"
 	rm -f "$body_file" "$body_file.body"
-	load
 }
 
 delete_task() {
-	local out ti
-	ti="$(cur_task)" || {
-		no_task
-		return 0
-	}
-	if confirm "delete \"${titles[$ti]}\"?"; then
-		if out="$(backlog remove "${ids[$ti]}" 2>&1)"; then
-			MSG="$out"
-		else
-			MSG="remove failed: $out"
-		fi
-		load
+	sel_task || return 0
+	if confirm "delete \"${titles[$TI]}\"?"; then
+		mutate remove "${ids[$TI]}"
 	else
 		MSG="delete cancelled"
 	fi
@@ -724,12 +728,9 @@ delete_task() {
 
 # `c` cycles rather than prompts: four categories, one keypress each way.
 cycle_category() {
-	local current next first pick out ti
-	ti="$(cur_task)" || {
-		no_task
-		return 0
-	}
-	current="${cats[$ti]}"
+	local current next first pick
+	sel_task || return 0
+	current="${cats[$TI]}"
 	pick=""
 	first=""
 	for next in $CATEGORIES; do
@@ -741,90 +742,54 @@ cycle_category() {
 		[ "$next" = "$current" ] && pick="PENDING" || true
 	done
 	[ "$pick" != "PENDING" ] || pick="$first"
-	if out="$(backlog set-category "${ids[$ti]}" "$pick" 2>&1)"; then
-		MSG="$out"
-	else
-		MSG="set-category failed: $out"
-	fi
-	load
+	mutate set-category "${ids[$TI]}" "$pick"
 }
 
 retitle_task() {
-	local out ti
-	ti="$(cur_task)" || {
-		no_task
-		return 0
-	}
-	prompt "new title (was \"${titles[$ti]}\"): "
+	sel_task || return 0
+	prompt "new title (was \"${titles[$TI]}\"): "
 	[ -n "$REPLY_LINE" ] || {
 		MSG="retitle cancelled"
 		return 0
 	}
-	if out="$(backlog retitle "${ids[$ti]}" "$REPLY_LINE" 2>&1)"; then
-		MSG="$out"
-	else
-		MSG="retitle failed: $out"
-	fi
-	load
+	mutate retitle "${ids[$TI]}" "$REPLY_LINE"
 }
 
-# The four setters below share one contract: a rejected change sets MSG and
-# skips load(), so SEL/TOP/COLLAPSED keep their values and the footer shows the
-# CLI's own die message instead of looking like a no-op.
 set_priority_task() {
-	local out ti value
-	ti="$(cur_task)" || {
-		no_task
-		return 0
-	}
-	prompt "priority for ${ids[$ti]} (empty clears, higher wins): "
+	local value
+	sel_task || return 0
+	prompt "priority for ${ids[$TI]} (empty clears, higher wins): "
 	value="$REPLY_LINE"
 	# set-priority has no empty-value form: an empty 3rd arg dies on the usage line.
 	[ -n "$value" ] || value="--none"
-	if out="$(backlog set-priority "${ids[$ti]}" "$value" 2>&1)"; then
-		MSG="$out"
-		load
-	else
-		MSG="set-priority failed: $out"
-	fi
+	mutate set-priority "${ids[$TI]}" "$value"
 }
 
 edit_deps_task() {
-	local out ti cands marked csv
-	ti="$(cur_task)" || {
-		no_task
-		return 0
-	}
+	local cands marked csv
+	sel_task || return 0
 	# A fresh list, not the in-memory ids: $FILTER must not hide a legal dependency.
 	cands="$(backlog list 2>/dev/null |
-		awk -F"$US" -v me="${ids[$ti]}" '$1 != "" && $1 != me { printf "%s\t%s -- %s\n", $1, $1, $3 }')"
+		awk -F"$US" -v me="${ids[$TI]}" '$1 != "" && $1 != me { printf "%s\t%s -- %s\n", $1, $1, $3 }')"
 	[ -n "$cands" ] || {
 		MSG="no other task to depend on"
 		return 0
 	}
-	marked="${deps[$ti]//,/ }"
-	pick multi "depends_on for ${ids[$ti]}  (space toggles)" "$cands" "$marked" || {
+	marked="${deps[$TI]//,/ }"
+	pick multi "depends_on for ${ids[$TI]}  (space toggles)" "$cands" "$marked" || {
 		MSG="deps cancelled"
 		return 0
 	}
 	csv="${PICK_RESULT// /,}"
 	[ -n "$csv" ] || csv="--none"
-	if out="$(backlog set-deps "${ids[$ti]}" "$csv" 2>&1)"; then
-		MSG="$out"
-		load
-	else
-		MSG="set-deps failed: $out"
-	fi
+	mutate set-deps "${ids[$TI]}" "$csv"
 }
 
 move_epic_task() {
-	local out ti cands epics_out e
-	ti="$(cur_task)" || {
-		no_task
-		return 0
-	}
+	local cands epics_out e
+	sel_task || return 0
 	epics_out="$(backlog epics 2>/dev/null || true)"
-	if [ -z "$epics_out" ] && [ -z "${epics[$ti]}" ]; then
+	if [ -z "$epics_out" ] && [ -z "${epics[$TI]}" ]; then
 		MSG="no epics yet -- press E to create one"
 		return 0
 	fi
@@ -833,16 +798,11 @@ move_epic_task() {
 		cands="$cands
 $e${TAB}epic: $e"
 	done
-	pick single "epic for ${ids[$ti]}" "$cands" || {
+	pick single "epic for ${ids[$TI]}" "$cands" || {
 		MSG="epic move cancelled"
 		return 0
 	}
-	if out="$(backlog epic-move "${ids[$ti]}" "$PICK_RESULT" 2>&1)"; then
-		MSG="$out"
-		load
-	else
-		MSG="epic-move failed: $out"
-	fi
+	mutate epic-move "${ids[$TI]}" "$PICK_RESULT"
 }
 
 # The epic exists before the editor runs, so an editor that writes nothing
