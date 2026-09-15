@@ -148,6 +148,16 @@ tui() {
   [[ "$output" == *"[2/2]"* ]]
 }
 
+@test "a keypress burst applies every motion and keeps the key after them" {
+  seed
+  bl add chore "third thing" <<<"third body" >/dev/null
+  run tui "jjd|y\r|q"
+  [ "$status" -eq 0 ]
+  [ ! -f "$TASKS/third-thing.md" ]
+  [ -f "$TASKS/dark-mode.md" ]
+  [ -f "$TASKS/broken-auth.md" ]
+}
+
 @test "marks a planned task with P" {
   seed
   (cd "$WORK/proj" && bash "$BACKLOG" add-plan dark-mode "plans/dark-mode.md" >/dev/null)

@@ -35,6 +35,9 @@ ROWS=24
 COLS=80
 STTY_SAVE=""
 MODE=list
+# A key the coalescing drain read past the last motion, handed to the next
+# readkey instead of being dropped.
+PENDING=""
 # bash 3.2 has no associative arrays, so the collapsed-epic set is a
 # space-delimited string, matched the way radin-backlog.sh matches its own.
 COLLAPSED=""
@@ -310,6 +313,18 @@ move() {
 	last) [ "$n" -eq 0 ] || sel=$((n - 1)) ;;
 	esac
 	if [ "$MODE" = "done" ]; then DONE_SEL="$sel"; else SEL="$sel"; fi
+}
+
+# The motion keys, in one table, so the dispatcher and the coalescing drain
+# agree on which keys are motions. Non-zero for anything else.
+move_key() {
+	case "$1" in
+	j) move down ;;
+	k) move up ;;
+	g) move first ;;
+	G) move last ;;
+	*) return 1 ;;
+	esac
 }
 
 # Bold full-width header/footer line. $2 draws it at that terminal row; with no
@@ -604,6 +619,11 @@ pick_draw() {
 # dispatcher only ever sees single letters.
 readkey() {
 	local k rest
+	if [ -n "$PENDING" ]; then
+		KEY="$PENDING"
+		PENDING=""
+		return 0
+	fi
 	IFS= read -rsn1 k || return 1
 	if [ "$k" = "$(printf '\033')" ]; then
 		IFS= read -rsn2 -t 1 rest 2>/dev/null || rest=""
@@ -616,6 +636,26 @@ readkey() {
 		esac
 	fi
 	KEY="$k"
+}
+
+# One full repaint per keypress is what makes a held j/k lag behind the
+# keyboard: a second of autorepeat queues ~30 keys and only the last frame is
+# ever seen. So after a motion key, apply every motion already sitting in the
+# tty buffer and repaint once. The first non-motion key stops the drain and
+# waits in $PENDING for the next readkey, so nothing is swallowed.
+#
+# `read -t 0` is the only non-blocking input test available: `read -n1` sets
+# the terminal to VMIN=1 itself, so an `stty min 0 time 0` around it never
+# takes effect. bash 3.2 has neither `read -t 0` nor a fractional timeout, so
+# there the drain is skipped and a held key costs exactly what it does today.
+coalesce() {
+	[ "${BASH_VERSINFO[0]}" -ge 4 ] || return 0
+	while read -t 0 && readkey; do
+		move_key "$KEY" || {
+			PENDING="$KEY"
+			break
+		}
+	done
 }
 
 # Line input needs the terminal back in cooked mode, on the last row.
@@ -949,24 +989,10 @@ while :; do
 	if [ "$MODE" = "done" ]; then draw_done; else draw; fi
 	MSG=""
 	readkey || break
-	case "$KEY" in
-	j)
-		move down
+	if move_key "$KEY"; then
+		coalesce
 		continue
-		;;
-	k)
-		move up
-		continue
-		;;
-	g)
-		move first
-		continue
-		;;
-	G)
-		move last
-		continue
-		;;
-	esac
+	fi
 	if [ "$MODE" = "done" ]; then
 		case "$KEY" in
 		"$TAB") MODE="list" ;;
