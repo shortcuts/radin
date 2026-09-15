@@ -150,16 +150,9 @@ id_taken() {
 }
 
 # The only definition of "this epic still holds a child task": DESCRIPTION.md is
-# the epic's own root context, not a child, and an unexpanded glob means none.
+# the epic's own root context, not a child.
 epic_has_children() {
-	local epic="$1" f
-	for f in "$BACKLOG_TASKS_DIR/$epic"/*.md; do
-		case "$f" in
-		*/DESCRIPTION.md | "$BACKLOG_TASKS_DIR/$epic/*.md") continue ;;
-		esac
-		[ -e "$f" ] && return 0
-	done
-	return 1
+	[ -n "$(find "$BACKLOG_TASKS_DIR/$1" -maxdepth 1 -name '*.md' ! -name DESCRIPTION.md -print -quit 2>/dev/null)" ]
 }
 
 # Drop an epic directory once its last child task is gone, so `epics` never
