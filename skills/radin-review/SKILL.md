@@ -168,9 +168,7 @@ RADIN_CLI backlog add <fix|refactor> "<short title>" <<'EOF'
 **Acceptance:** <only when Step 5's refinement settled a checkable outcome
 for this finding — one flat `- ` bullet per criterion below this line. Omit
 the label entirely otherwise, and always omit it on the non-interactive path
-(Step 5 does not run there), because a criterion derived from the remedy on
-your own is a fabrication a later reader would then measure the work
-against.>
+(Step 5 does not run there): never synthesise a criterion from the remedy.>
 EOF
 ```
 

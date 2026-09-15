@@ -379,11 +379,8 @@ this task's `Task` call may share a message with another's. Send the
     dispatches own instead).
   Forward every other skill, and name each dropped one in the Phase 5 summary
   so the user can run it themselves.
-- `ACCEPTANCE`: the `acceptance` criteria in printed order, formatted as
-  the prompt file's narration specifies. No `acceptance` line: delete the
-  placeholder line and substitute nothing — most tasks have no criteria and
-  that case must add no prompt content at all. Pass each criterion's text
-  through verbatim; never write, reword, or complete one yourself.
+- `ACCEPTANCE`: substituted exactly as the prompt file's own `ACCEPTANCE`
+  narration specifies, the no-criteria case included.
 - `DEPENDS_ON`: the Step 4a-0 `<id>: <commit hash>` pairs, or "none"
 
 When the sub-agent reports, its `STATUS:` line drives what happens next,
