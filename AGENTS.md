@@ -522,6 +522,36 @@ Change isn't done until affected docs updated in same commit.
 | "Tools you get" table (README) | radin-built skill added, removed, or renamed |
 | `CHANGELOG.md` | Any user-facing change, on every release |
 
+## Test suite speed
+
+The suite is a development loop, so it stays fast enough to run on every
+change. Two rules carry most of it:
+
+- **Exactly one test runs `install.sh` end to end.** `tests/install.bats`'s
+  `setup_file` does that single real run and records the tree, its stdout and
+  its exit status under `$BATS_FILE_TMPDIR`; every other test that needs an
+  installed `~/.claude` copies that tree instead of paying the ~1.1s install
+  again. A new test asserting on an installed artefact calls
+  `run_install_defaults` (the replay), never `install.sh`. Only a test whose
+  subject *is* install-time behaviour — a missing `brew`, a companion that
+  eats stdin, a non-default picker answer, `--update` — earns its own run, and
+  each one costs the suite another ~1.1s.
+- **Mock anything radin does not control.** `setup()` stubs `brew`, `curl`,
+  `claude`, `pipx` and `rtk` on a `PATH` reduced to `$MOCK_BIN` plus the system
+  directories, so no test makes a network request. `install.sh` reaches for
+  `npx` and `curl` against github.com and the npm registry on a real run;
+  a test that lets either through is a bug, not a slow test.
+
+Two smaller ones worth keeping: don't `git init` a fixture unless the test is
+about git — namespace resolution falls back to `PWD`, so a plain `mkdir -p` is
+a fork cheaper per test. And `tests/helpers/pty-run.py` waits for the pty to go
+quiet rather than for a fixed deadline; a redraw takes ~4ms, so a fixed wait
+per keystroke is what made `tui.bats` the slowest file in the suite.
+
+`make test` passes `-j` when GNU `parallel` is installed. Every test file
+isolates its own state under `mktemp -d`, which is what makes that safe — a
+new test that writes to a fixed path outside its own temp dir breaks it.
+
 ## Pre-commit checklist
 
 - `make lint` clean (or documented exceptions only)

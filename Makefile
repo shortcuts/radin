@@ -9,8 +9,10 @@ install-force:
 update:
 	./install.sh --update
 
+# Every test file isolates its state under mktemp -d, so -j is safe. bats needs
+# GNU parallel for it; without it the suite still runs, just serially.
 test:
-	bats tests/
+	@if command -v parallel >/dev/null 2>&1; then bats -j 16 tests/; else bats tests/; fi
 
 BENCH_N ?= 200
 BENCH_DIR ?= /tmp/radin-bench

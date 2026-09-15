@@ -8,7 +8,9 @@ setup() {
   TUI="$REPO_ROOT/lib/radin-tui.sh"
   BACKLOG="$REPO_ROOT/lib/radin-backlog.sh"
   WORK="$(cd "$(mktemp -d)" && pwd -P)"
-  git init -q "$WORK/proj"
+  # No git init: namespace resolution falls back to PWD, and the TUI always
+  # runs with cwd at this directory, so a repo would only cost a fork per test.
+  mkdir -p "$WORK/proj"
   INDEX="$WORK/proj/.claude/.radin/backlog/index.jsonl"
   TASKS="$WORK/proj/.claude/.radin/backlog/tasks"
   NS="$WORK/proj/.claude/.radin"

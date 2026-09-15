@@ -26,11 +26,17 @@ fcntl.ioctl(fd, termios.TIOCSWINSZ, struct.pack("HHHH", 24, 80, 0, 0))
 screen = b""
 
 
-def pump(seconds):
+# A redraw takes ~4ms, so waiting out the whole deadline on every key cost the
+# suite ~0.6s per keystroke. Return once the pty has gone quiet instead, and
+# only start that clock after the first byte -- before it, the frame we are
+# waiting for has not been drawn yet.
+def pump(seconds, quiet=0.02):
     global screen
     deadline = time.time() + seconds
+    idle_since = None
+    got_any = False
     while time.time() < deadline:
-        if select.select([fd], [], [], 0.05)[0]:
+        if select.select([fd], [], [], 0.01)[0]:
             try:
                 chunk = os.read(fd, 65536)
             except OSError:
@@ -38,6 +44,13 @@ def pump(seconds):
             if not chunk:
                 return False
             screen += chunk
+            got_any = True
+            idle_since = None
+        elif got_any:
+            if idle_since is None:
+                idle_since = time.time()
+            elif time.time() - idle_since >= quiet:
+                return True
     return True
 
 

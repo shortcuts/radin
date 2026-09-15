@@ -12,6 +12,30 @@ setup() {
   export HOME="$TEST_HOME"
   export PATH="$MOCK_BIN:/usr/bin:/bin:/usr/sbin:/sbin"
 
+  make_mocks
+}
+
+# One real install.sh run for the whole file, recorded so every test that only
+# asserts on the installed tree can replay it instead of paying ~1.1s again.
+setup_file() {
+  REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
+  export TEMPLATE="$BATS_FILE_TMPDIR/template"
+  TEST_HOME="$TEMPLATE/home"
+  MOCK_BIN="$TEMPLATE/bin"
+  mkdir -p "$TEST_HOME" "$MOCK_BIN"
+  make_mocks
+
+  local st=0
+  (cd "$REPO_ROOT" && printf '2\n2\n' |
+    env HOME="$TEST_HOME" PATH="$MOCK_BIN:/usr/bin:/bin:/usr/sbin:/sbin" \
+      bash ./install.sh) >"$TEMPLATE/output" 2>&1 || st=$?
+  printf '%s\n' "$st" >"$TEMPLATE/status"
+}
+
+# Stubs every binary install.sh reaches for, so no test makes a network
+# request. Uses $TEST_HOME/$MOCK_BIN from the caller: setup() per test, and
+# setup_file() once for the recorded install.
+make_mocks() {
   BREW_LOG="$TEST_HOME/brew.log"
   # "install rtk" also drops a stub rtk binary on PATH, mirroring what a real
   # brew install would leave behind -- needed for manifest/companion-tool
@@ -72,18 +96,49 @@ teardown() {
   rm -rf "$TEST_HOME" "$MOCK_BIN"
 }
 
+# Replays setup_file's recorded install: the tree, its stdout and its exit
+# status. Only a test whose subject is install-time behaviour should run
+# install.sh itself -- see AGENTS.md's "Test suite speed".
+replay_install() {
+  rm -rf "$TEST_HOME/.claude" "$TEST_HOME/.local"
+  cp -a "$TEMPLATE/home/.claude" "$TEST_HOME/.claude"
+  [ -d "$TEMPLATE/home/.local" ] && cp -a "$TEMPLATE/home/.local" "$TEST_HOME/.local"
+  for log in brew.log pip.log; do
+    [ -f "$TEMPLATE/home/$log" ] && cp "$TEMPLATE/home/$log" "$TEST_HOME/$log"
+  done
+  cat "$TEMPLATE/output"
+  return "$(cat "$TEMPLATE/status")"
+}
+
+# The install-time-behaviour exception: a test whose subject is what install.sh
+# does while running (a missing binary, a pre-existing file, a second run)
+# cannot use the replay, and costs the suite ~1.1s. See AGENTS.md.
+real_install() {
+  cd "$REPO_ROOT" && printf '2\n2\n' | bash ./install.sh
+}
+
 # Only execution behaviour is asked about, in this order: 1 concurrency,
 # 2 sub-agent models. Each is a numbered picker where 1 is the first option
 # (parallel / yes) and 2 the second (sequential / no), so two 2s takes every
 # documented default. Every companion tool installs with no prompt at all --
 # the stubs on MOCK_BIN absorb those calls.
 run_install_defaults() {
-  cd "$REPO_ROOT" && printf '2\n2\n' | bash ./install.sh
+  replay_install
 }
 
 @test "syntax is valid" {
   run bash -n "$REPO_ROOT/install.sh"
   [ "$status" -eq 0 ]
+}
+
+# The one real end-to-end install in the suite: setup_file ran it, this asserts
+# it worked. Everything below replays its recorded tree.
+@test "a real install.sh run succeeds end to end" {
+  [ "$(cat "$TEMPLATE/status")" -eq 0 ]
+  grep -q 'Done' "$TEMPLATE/output"
+  [ -f "$TEMPLATE/home/.claude/skills/radin-execute/SKILL.md" ]
+  [ -f "$TEMPLATE/home/.claude/.radin/lib/radin-backlog.sh" ]
+  [ -f "$TEMPLATE/home/.claude/.radin/manifest.json" ]
 }
 
 @test "installs fine when brew is missing, falling back to rtk's own installer" {
@@ -220,9 +275,9 @@ EOF
 @test "the CLAUDE.md guidance block is written once, idempotently" {
   mkdir -p "$TEST_HOME/.claude"
   echo "user content stays" > "$TEST_HOME/.claude/CLAUDE.md"
-  run run_install_defaults
+  run real_install
   [ "$status" -eq 0 ]
-  run run_install_defaults
+  run real_install
   [ "$status" -eq 0 ]
   claude_md="$TEST_HOME/.claude/CLAUDE.md"
   grep -q "user content stays" "$claude_md"
@@ -232,13 +287,13 @@ EOF
   grep -q '"claude_md_guidance": true' "$TEST_HOME/.claude/.radin/manifest.json"
   # A re-run must not grow the file by one blank line each time.
   before="$(wc -l < "$claude_md")"
-  run run_install_defaults
+  run real_install
   [ "$status" -eq 0 ]
   [ "$(wc -l < "$claude_md")" -eq "$before" ]
 }
 
 @test "installs the radin CLI dispatcher and the ~/.local/bin symlink" {
-  run_install_defaults
+  real_install
   [ -x "$TEST_HOME/.claude/.radin/bin/radin" ]
   [ -L "$TEST_HOME/.local/bin/radin" ]
   [ "$(readlink "$TEST_HOME/.local/bin/radin")" = "$TEST_HOME/.claude/.radin/bin/radin" ]
@@ -275,7 +330,7 @@ EOF
 @test "an existing non-radin ~/.local/bin/radin is named, never replaced" {
   mkdir -p "$TEST_HOME/.local/bin"
   echo "someone else's" > "$TEST_HOME/.local/bin/radin"
-  run run_install_defaults
+  run real_install
   [ "$status" -eq 0 ]
   [ "$(cat "$TEST_HOME/.local/bin/radin")" = "someone else's" ]
   [[ "$output" == *"isn't radin's"* ]]
@@ -409,7 +464,7 @@ EOF
 exit 1
 EOF
   chmod +x "$MOCK_BIN/brew"
-  run run_install_defaults
+  run real_install
   [ "$status" -eq 0 ]
   [[ "$output" == *"rtk install failed"* ]]
   [[ "$output" == *"radin installed."* ]]
