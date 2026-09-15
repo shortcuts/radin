@@ -32,7 +32,7 @@ constructs before committing script change.
 Installing radin installs every companion tool. There is no per-tool
 question: a half-installed stack is the case radin's skills cannot rely on,
 and every skill below delegates to tools it assumes are there. Only
-execution behaviour is asked about (concurrency, refuter pass, sub-agent
+execution behaviour is asked about (concurrency, sub-agent
 models), because those change what a run does rather than what exists.
 
 `install.sh` reaches each tool through its own existing install path

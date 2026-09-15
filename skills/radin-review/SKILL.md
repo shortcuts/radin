@@ -164,7 +164,8 @@ RADIN_CLI backlog add <fix|refactor> "<short title>" <<'EOF'
 for this finding — one flat `- ` bullet per criterion below this line. Omit
 the label entirely otherwise, and always omit it on the non-interactive path
 (Step 5 does not run there), because a criterion derived from the remedy on
-your own is a fabrication the refuter would then verify against.>
+your own is a fabrication a later reader would then measure the work
+against.>
 EOF
 ```
 

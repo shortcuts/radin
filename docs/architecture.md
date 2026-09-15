@@ -103,7 +103,7 @@ Both `BACKLOG_STEPS.json` and `completed.json` JSONL (one compact object per lin
 
 `radin-execute` alone reads three on-demand files, none of them inline in `SKILL.md`, because the skill body sits in the user's own context for the rest of the session:
 
-- `lib/radin-execute-prompts.md` — the five verbatim sub-agent prompts (planning, execution, refuter, debug, fact-finding), read at start of Phase 4. A session that stops at Phase 2 (common first turn) never reaches Phase 4, so never loads them.
+- `lib/radin-execute-prompts.md` — the four verbatim sub-agent prompts (planning, execution, debug, fact-finding), read at start of Phase 4. A session that stops at Phase 2 (common first turn) never reaches Phase 4, so never loads them.
 - `lib/radin-execute-recovery.md` — `triage` routing for tasks a dead session left `in_progress`, read only when `radin-state.sh stuck` exits 0. Most runs never load it.
 - `lib/radin-execute-reporting.md` — residual-changes check, commit-location rules, final report template, read at Phase 5.
 
@@ -129,7 +129,7 @@ radin ships no agent for this. `claude agents` (agent view) dispatches full Clau
 - source has a `.git` dir (dev clone): `git pull --ff-only`, refusing outright when `git status --porcelain` prints anything, then `bash "$SRC/install.sh" --update`.
 - anything else (tarball install, or an install predating `install_root`): download the newest `install.sh` from `main` and run it with `--update`, since that installer re-resolves the latest release tarball itself.
 
-`--update` implies `--force` and `--yes`, so every companion tool takes its upgrade path and no behaviour question is re-asked. Instead `install.sh` reads its own previous `manifest.json` (`manifest_value`, a `sed` lookup — no JSON parser) for `parallel_execution`, `refuter_pass` and the six `model_<role>` keys, and writes those answers back into the installed files. Models are all-or-nothing: a manifest missing any of the six falls through to the pickers, so a half-read manifest can't mix recorded picks with defaults. No manifest at all (first install with `--update`) means the documented defaults, never a blocking prompt.
+`--update` implies `--force` and `--yes`, so every companion tool takes its upgrade path and no behaviour question is re-asked. Instead `install.sh` reads its own previous `manifest.json` (`manifest_value`, a `sed` lookup — no JSON parser) for `parallel_execution` and the five `model_<role>` keys, and writes those answers back into the installed files. Models are all-or-nothing: a manifest missing any of the five falls through to the pickers, so a half-read manifest can't mix recorded picks with defaults. No manifest at all (first install with `--update`) means the documented defaults, never a blocking prompt.
 
 Non-destructive by construction: the installer only `cp`s radin's own files, plugins go through `claude plugin update`, brew/pipx installs re-run as upgrades, and `radin cbm-config install` re-brackets upstream's `settings.json` write with a fresh snapshot. `--force` alone still works, and still asks the three questions.
 
@@ -157,7 +157,7 @@ It writes no `settings.json` hook of radin's own: `auto_index` indexes a project
 
 ## Install manifest
 
-`install.sh` writes `~/.claude/.radin/manifest.json` every run: generated snapshot of what installed. Records `version` (release tag, or `dev` for local git clone), `installed_at` (UTC timestamp), `skills`/`lib` file lists copied, `parallel_execution` (whether install allowed `radin-execute` to fan out execution sub-agents), `refuter_pass` (whether every task's commit gets verified by a second sub-agent), `install_root` and the six `model_<role>` keys (both read back by `install.sh --update`), `claude_md_guidance` (whether the radin section in `~/.claude/CLAUDE.md` was written), `cbm_agent_config` (whether upstream's own `codebase-memory-mcp install` ran), `cli_on_path` (whether the symlink landed), `companion_tools` object recording which of rtk, codebase-memory-mcp, headroom, caveman, ponytail, mattpocock-skills came out reachable — a companion install is advisory, so `false` means its own installer failed or its CLI is missing.
+`install.sh` writes `~/.claude/.radin/manifest.json` every run: generated snapshot of what installed. Records `version` (release tag, or `dev` for local git clone), `installed_at` (UTC timestamp), `skills`/`lib` file lists copied, `parallel_execution` (whether install allowed `radin-execute` to fan out execution sub-agents), `install_root` and the five `model_<role>` keys (both read back by `install.sh --update`), `claude_md_guidance` (whether the radin section in `~/.claude/CLAUDE.md` was written), `cbm_agent_config` (whether upstream's own `codebase-memory-mcp install` ran), `cli_on_path` (whether the symlink landed), `companion_tools` object recording which of rtk, codebase-memory-mcp, headroom, caveman, ponytail, mattpocock-skills came out reachable — a companion install is advisory, so `false` means its own installer failed or its CLI is missing.
 
 Snapshot for external tooling to read, not live source of truth. `radin-doctor.sh` and `radin-uninstall.sh` each keep own independent file list, check filesystem direct, rather than trust manifest. Corrupted or stale manifest must never make either report false "OK" or delete wrong thing.
 

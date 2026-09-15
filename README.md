@@ -72,9 +72,9 @@ Homebrew optional. When present, radin use it for `rtk`. Not required on Linux.
 curl -fsSL https://raw.githubusercontent.com/shortcuts/radin/main/install.sh | bash
 ```
 
-Install asks three questions, all about how `radin-execute` behaves:
-concurrency, refuter pass, sub-agent models. Everything else installs.
-`--yes` skips the three and takes their defaults, for a non-interactive
+Install asks two questions, both about how `radin-execute` behaves:
+concurrency and sub-agent models. Everything else installs.
+`--yes` skips both and takes their defaults, for a non-interactive
 machine.
 
 ```sh
@@ -90,7 +90,7 @@ radin update
 One command for the whole stack: radin's own skills and lib scripts, plus
 every companion tool. It pulls a dev clone (only when clean and
 fast-forwardable) or downloads the newest release, then re-runs `install.sh`
-in update mode. No question is asked again — concurrency, refuter pass and
+in update mode. No question is asked again — concurrency and
 sub-agent models come from `~/.claude/.radin/manifest.json`, which the last
 install wrote.
 
@@ -295,7 +295,6 @@ sequenceDiagram
     participant CLI as radin backlog / state
     participant P as Planning sub-agent
     participant X as Execution sub-agent
-    participant V as Refuter sub-agent
     participant D as Debug sub-agent
     participant F as Fact-finder sub-agent
 
@@ -366,15 +365,6 @@ sequenceDiagram
             E->>U: ⚠️ reported <STATUS> but left dirty tree
         else clean tree
             alt STATUS: SUCCESS
-                opt refuter pass enabled at install
-                    E->>V: Refuter prompt (diff only, never X's report)
-                    Note over V: reruns repo checks itself,<br/>invokes /radin-review for taste findings
-                    V-->>E: VERDICT: ACCEPT | REWORK | UNVERIFIED
-                    alt REWORK
-                        E->>CLI: backlog append **Rework:** must-fixes
-                        E->>E: re-run task from Step 4b
-                    end
-                end
                 E->>CLI: state task-done (hash to completed.json,<br/>entry out of backlog, line out of steps)
                 E->>U: ✅ Task complete. Remaining: n
             else STATUS: BLOCKED (FACT)
@@ -420,7 +410,7 @@ sequenceDiagram
     alt you asked for a session review
         E->>E: dispatch reviewer sub-agent over the session's commits
     else
-        E->>U: "run /radin-review with scope: <hashes>"<br/>(or: each task already refuted)
+        E->>U: "run /radin-review with scope: <hashes>"
     end
 ```
 
@@ -432,7 +422,7 @@ stateDiagram-v2
     [*] --> pending: state steps-init
     pending --> in_progress: state start (attempts++)
     in_progress --> done: state task-done
-    in_progress --> pending: BLOCKED resolved, REWORK, DIAGNOSED
+    in_progress --> pending: BLOCKED resolved, DIAGNOSED
     in_progress --> failed: dirty tree, NOT DIAGNOSED, no STATUS line
     in_progress --> blocked: attempts > MAX_ATTEMPTS
     pending --> blocked: dependency failed, entry vanished, decision deferred

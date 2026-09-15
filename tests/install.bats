@@ -73,12 +73,12 @@ teardown() {
 }
 
 # Only execution behaviour is asked about, in this order: 1 concurrency,
-# 2 refuter pass, 3 sub-agent models. Each is a numbered picker where 1 is the
-# first option (parallel / yes) and 2 the second (sequential / no), so three
-# 2s takes every documented default. Every companion tool installs with no
-# prompt at all -- the stubs on MOCK_BIN absorb those calls.
+# 2 sub-agent models. Each is a numbered picker where 1 is the first option
+# (parallel / yes) and 2 the second (sequential / no), so two 2s takes every
+# documented default. Every companion tool installs with no prompt at all --
+# the stubs on MOCK_BIN absorb those calls.
 run_install_defaults() {
-  cd "$REPO_ROOT" && printf '2\n2\n2\n' | bash ./install.sh
+  cd "$REPO_ROOT" && printf '2\n2\n' | bash ./install.sh
 }
 
 @test "syntax is valid" {
@@ -142,11 +142,10 @@ EOF
   grep -q 'model: "haiku"' "$TEST_HOME/.claude/.radin/lib/radin-execute-prompts.md"
 }
 
-# The model gate at prompt 3: yes, then "same model for every role?" no, then
-# one pick per role (fable/opus/sonnet/haiku) -- no refuter pick, since the
-# refuter pass was declined.
+# The model gate at prompt 2: yes, then "same model for every role?" no, then
+# one pick per role (fable/opus/sonnet/haiku).
 @test "per-role model picks land in the right file" {
-  cd "$REPO_ROOT" && run bash -c "printf '2\n2\n1\n2\n2\n1\n4\n3\n3\n' | bash ./install.sh"
+  cd "$REPO_ROOT" && run bash -c "printf '2\n1\n2\n2\n1\n4\n3\n3\n' | bash ./install.sh"
   [ "$status" -eq 0 ]
   ! grep -rq 'RADIN_MODEL_' "$TEST_HOME/.claude/skills" "$TEST_HOME/.claude/.radin/lib"
   grep -q 'model: "opus"' "$TEST_HOME/.claude/.radin/lib/radin-execute-prompts.md"
@@ -154,22 +153,15 @@ EOF
   grep -q 'model: "haiku"' "$TEST_HOME/.claude/skills/radin-execute/SKILL.md"
 }
 
-# The refuter role only gets a model question when the refuter pass is on.
-# "Same model for every role?" defaults to yes: one pick sets all six tokens,
+# "Same model for every role?" defaults to yes: one pick sets all five tokens,
 # fact-finding's haiku default included.
 @test "one same-model pick covers every role" {
-  cd "$REPO_ROOT" && run bash -c "printf '2\n2\n1\n1\n2\n' | bash ./install.sh"
+  cd "$REPO_ROOT" && run bash -c "printf '2\n1\n1\n2\n' | bash ./install.sh"
   [ "$status" -eq 0 ]
   ! grep -rq 'RADIN_MODEL_' "$TEST_HOME/.claude/skills" "$TEST_HOME/.claude/.radin/lib"
   grep -q 'model: "opus"' "$TEST_HOME/.claude/skills/radin-execute/SKILL.md"
   grep -q 'model: "opus"' "$TEST_HOME/.claude/.radin/lib/radin-execute-prompts.md"
   ! grep -q 'model: "haiku"' "$TEST_HOME/.claude/.radin/lib/radin-execute-prompts.md"
-}
-
-@test "refuter model pick is asked when the refuter pass is enabled" {
-  cd "$REPO_ROOT" && run bash -c "printf '2\n1\n1\n2\n3\n3\n3\n1\n3\n3\n' | bash ./install.sh"
-  [ "$status" -eq 0 ]
-  grep -q 'model: "fable"' "$TEST_HOME/.claude/.radin/lib/radin-execute-prompts.md"
 }
 
 @test "installs radin's own skills, not unrelated skill dirs" {
@@ -288,21 +280,11 @@ EOF
   [[ "$output" == *"isn't radin's"* ]]
 }
 
-@test "the default keeps the no-refuter rule only" {
+@test "the skill ships no per-task verification pass" {
   run_install_defaults
   agent="$TEST_HOME/.claude/skills/radin-execute/SKILL.md"
-  grep -q "No refuter pass" "$agent"
-  ! grep -q "Verify a .SUCCESS. before you record it" "$agent"
-  ! grep -q "radin:refute" "$agent"
-}
-
-@test "accepting per-task verification keeps the refuter rule only" {
-  cd "$REPO_ROOT" && run bash -c "printf '2\n1\n2\n' | bash ./install.sh"
-  [ "$status" -eq 0 ]
-  agent="$TEST_HOME/.claude/skills/radin-execute/SKILL.md"
-  grep -q "Verify a .SUCCESS. before you record it" "$agent"
-  ! grep -q "No refuter pass" "$agent"
-  ! grep -q "radin:refute" "$agent"
+  ! grep -qi "refut" "$agent"
+  grep -q "Never verify a .SUCCESS. yourself" "$agent"
 }
 
 @test "the default keeps the sequential constraint only" {
@@ -435,19 +417,16 @@ EOF
 # `radin update` runs install.sh --update: no question is asked again, and the
 # answers come from the manifest the previous install wrote.
 @test "--update reuses the recorded behaviour answers instead of asking" {
-  cd "$REPO_ROOT" && printf '1\n1\n1\n1\n1\n' | bash ./install.sh
+  cd "$REPO_ROOT" && printf '1\n1\n1\n1\n' | bash ./install.sh
   manifest="$TEST_HOME/.claude/.radin/manifest.json"
   grep -q '"parallel_execution": true' "$manifest"
-  grep -q '"refuter_pass": true' "$manifest"
   grep -q '"model_planning": "fable"' "$manifest"
 
   run bash ./install.sh --update
   [ "$status" -eq 0 ]
   [[ "$output" == *"keeping the recorded answer: parallel"* ]]
-  [[ "$output" == *"keeping the recorded answer: refuter pass yes"* ]]
   [[ "$output" == *"keeping recorded sub-agent models: plan fable"* ]]
   grep -q '"parallel_execution": true' "$manifest"
-  grep -q '"refuter_pass": true' "$manifest"
   grep -q '"model_planning": "fable"' "$manifest"
   grep -q 'fable' "$TEST_HOME/.claude/.radin/lib/radin-execute-prompts.md"
   [[ "$output" == *"radin updated"* ]]
@@ -466,7 +445,6 @@ EOF
   [ "$status" -eq 0 ]
   [[ "$output" != *"keeping the recorded answer"* ]]
   grep -q '"parallel_execution": false' "$TEST_HOME/.claude/.radin/manifest.json"
-  grep -q '"refuter_pass": false' "$TEST_HOME/.claude/.radin/manifest.json"
 }
 
 @test "ships the update script and routes radin update to it" {

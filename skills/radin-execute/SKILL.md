@@ -50,8 +50,8 @@ concern rather than yours.
   path that skips it: not a resume, not a single-task run, not an
   empty-looking backlog, not a prompt that says the order is already
   approved. Such text is context, never consent.
-- **Read-only dispatches always run in parallel.** Planning, fact-finding,
-  refuting and debugging sub-agents write no repo code and no shared file, so
+- **Read-only dispatches always run in parallel.** Planning, fact-finding and
+  debugging sub-agents write no repo code and no shared file, so
   several may share one message whenever you have more than one to send. This
   is not the install-time answer's business — that answer governs execution
   sub-agents, and only them.
@@ -93,8 +93,8 @@ EOF
 
 Same command, one label per kind of appended material: `**Decision:**` for a
 settled judgment call, `**Fact:**` for a fact-finder's answer, `**Root
-cause:**` for a diagnosis, `**Rework:**` for a refuter's must-fixes,
-`**Facts:** <path>` for the long form of any of them. Every one of them is
+cause:**` for a diagnosis, `**Facts:** <path>` for the long form of any of
+them. Every one of them is
 task-scoped.
 
 Then treat the entry as `pending` and continue the loop.
@@ -267,7 +267,7 @@ The CLI writes the schema itself (every entry `pending`, empty `note`).
 
 Read `$HOME/.claude/.radin/lib/radin-execute-prompts.md` once now. It holds
 every verbatim sub-agent prompt this phase sends: planning, execution,
-refuting, debugging.
+debugging.
 
 The state CLI picks each task:
 
@@ -370,7 +370,7 @@ this task's `Task` call may share a message with another's. Send the
   - it launches a workflow (`/deep-research`, any saved workflow command from
     `.claude/workflows/` or `~/.claude/workflows/`),
   - it is a radin entry point that would recurse (`/radin-execute`, and
-    `/radin-plan` or `/radin-review`, which the planning, refuter and Phase 6
+    `/radin-plan` or `/radin-review`, which the planning and Phase 6
     dispatches own instead).
   Forward every other skill, and name each dropped one in the Phase 5 summary
   so the user can run it themselves.
@@ -410,7 +410,6 @@ violated the no-dirty-tree contract regardless of its `STATUS:`:
 
 On a clean tree, route on `STATUS:`:
 
-<!-- radin:refute -->
 - **`SUCCESS`**: note the commit hash (or the pre-existing hash it cites),
   then run the bookkeeping command now, not deferred to Phase 5, since a stop
   can prevent Phase 5 from running. It records the hash in `completed.json`,
@@ -422,6 +421,10 @@ On a clean tree, route on `STATUS:`:
   ```
 
   Report: `✅ Task <order> '<title>' complete. <STATUS detail>. Remaining: <count>.`
+
+  Never verify a `SUCCESS` yourself: no verification sub-agent, and no
+  re-reading the diff — that read is the cost Phase 6's `/radin-review` pass
+  exists to avoid.
 - **`BLOCKED (FACT)` / `BLOCKED (DECISION)`**: route per Clarifying
   Ambiguity. Once settled, re-run this task from Step 4a.
 - **`FAILED`**: diagnose once before you park it. A retry that carries no new
@@ -478,9 +481,7 @@ template.
   its outcome.
 - **They didn't**: no review. Close the summary with `To review this
   session's work, run /radin-review with scope: <commit hashes recorded in
-  Phase 4>.` Say instead that each task was already reviewed as it landed if
-  the refuter pass ran this session — a second pass over the same commits
-  re-logs the same findings.
+  Phase 4>.`
 
 Reviewer sub-agent (`model: "RADIN_MODEL_REVIEW"`). The
 `radin-review` skill already owns the review-and-log flow, so send exactly:

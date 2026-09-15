@@ -55,7 +55,6 @@ These labels are the shared vocabulary of a task file's annotations, and the tab
 | `**Decision:** <answer>` | user settled a `BLOCKED (DECISION)` | `radin-execute` |
 | `**Fact:** <answer>` | fact-finder returned `STATUS: FOUND` | `radin-execute` |
 | `**Root cause:** <cause + fix direction>` | debug sub-agent returned `STATUS: DIAGNOSED` | `radin-execute` |
-| `**Rework:** <must-fixes>` | refuter returned `VERDICT: REWORK` | `radin-execute` |
 | `**Facts:** <path>` | the long form went to `state/facts/<task-id>.md` | `radin-execute` |
 | `**Acceptance:** <checklist>` | the session surfaced checkable criteria | radin-record, radin-review, or a human |
 
@@ -137,12 +136,10 @@ Written by `install.sh` to `~/.claude/.radin/manifest.json` on every run — not
   "version": "v0.4.0",
   "installed_at": "2026-07-28T00:00:00Z",
   "parallel_execution": false,
-  "refuter_pass": false,
   "install_root": "/Users/me/.claude/radin",
   "model_planning": "sonnet",
   "model_execution": "sonnet",
   "model_review": "sonnet",
-  "model_refute": "sonnet",
   "model_debug": "sonnet",
   "model_factfind": "haiku",
   "claude_md_guidance": false,
@@ -161,7 +158,7 @@ Written by `install.sh` to `~/.claude/.radin/manifest.json` on every run — not
 
 - `version` `dev` when installed from local git clone (no downloaded release tarball, no `.radin-version` file to read).
 - `skills`/`lib` static lists matching exactly what `install.sh` copies, what `radin-doctor.sh` checks for — not derived from manifest at runtime by either script (see `docs/architecture.md` "Install manifest").
-- `parallel_execution` records which concurrency rule `install.sh` wrote into `skills/radin-execute/SKILL.md`, and covers execution sub-agents only — read-only dispatches always run in parallel. `refuter_pass` records which verification rule it wrote into the same file. `claude_md_guidance` records whether the user opted into the marked radin section in `~/.claude/CLAUDE.md`. `cbm_agent_config` records whether upstream's own `codebase-memory-mcp install` ran (it does whenever the tool installed and `python3` is present; the merge-only wiring is the fallback). `cli_on_path` records whether the `~/.local/bin/radin` symlink was created.
+- `parallel_execution` records which concurrency rule `install.sh` wrote into `skills/radin-execute/SKILL.md`, and covers execution sub-agents only — read-only dispatches always run in parallel. `claude_md_guidance` records whether the user opted into the marked radin section in `~/.claude/CLAUDE.md`. `cbm_agent_config` records whether upstream's own `codebase-memory-mcp install` ran (it does whenever the tool installed and `python3` is present; the merge-only wiring is the fallback). `cli_on_path` records whether the `~/.local/bin/radin` symlink was created.
 - `companion_tools` values reflect final reachable state after this install.sh run (already present, just installed, or skipped not distinguished — only "is it there now").
 - `install_root` is the resolved source path (dev clone or fetched tarball dir); `model_<role>` records the model written into each `RADIN_MODEL_<ROLE>` token.
-- Regenerated wholesale on every `install.sh` run, never partially updated. Read back in one case only: `install.sh --update` (what `radin update` runs) reads `parallel_execution`, `refuter_pass` and the six `model_<role>` keys so an update keeps the previous answers instead of asking. Missing or unparseable keys fall back to the pickers or, under `--update`, to the defaults.
+- Regenerated wholesale on every `install.sh` run, never partially updated. Read back in one case only: `install.sh --update` (what `radin update` runs) reads `parallel_execution` and the five `model_<role>` keys so an update keeps the previous answers instead of asking. Missing or unparseable keys fall back to the pickers or, under `--update`, to the defaults.

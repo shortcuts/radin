@@ -15,7 +15,7 @@ narration:
   `AskUserQuestion` is removed from every sub-agent. So no prompt may route
   one into a skill that asks and waits (`/mattpocock-skills:grilling`): it
   would end its turn with no `STATUS:` line. `/radin-plan` and `/radin-review`
-  are the exception the planning and refuter prompts rely on: each documents a
+  are the exception the planning prompt relies on: it documents a
   non-interactive path and takes it rather than waiting.
 - **It cannot launch a workflow.** `Workflow` is removed from every sub-agent
   too, so `/deep-research` and any saved workflow command fail rather than
@@ -110,15 +110,14 @@ printed no `acceptance` line — the common case — delete that line and send
 nothing in its place: the prompt is then exactly what it was before this
 field existed. Never synthesise a criterion, never leave a placeholder, and
 never ask the sub-agent to invent one; a fabricated criterion is worse than
-none, because the refuter would verify against radin's own guess. When `meta`
+none, because it measures the task against radin's own guess. When `meta`
 printed one or more, replace the line with this block verbatim, one indented
 `-` bullet per `acceptance` line in printed order, each criterion's text
 exactly as `meta` printed it:
 
 ```
 1b. This task states its own acceptance criteria. They are the bar it is
-   measured against, and a separate sub-agent will check your committed diff
-   against each one, so satisfy every one of them:
+   measured against, so satisfy every one of them:
    - <criterion>
 ```
 
@@ -132,7 +131,7 @@ command fail rather than run: don't reach for them.
 (When exploring the codebase: use `codebase-memory-mcp`'s MCP tools before Grep/Glob/Read — `search_graph` to find a symbol, `trace_path` for its callers and callees before you change it, `get_code_snippet` to read one function, `query_graph` for anything Cypher-shaped after `get_graph_schema`. A graph hit is a pointer: read the file before editing it, and never conclude something doesn't exist from an empty result. When running commands: prefer `rtk`-wrapped commands if `command -v rtk` succeeds for token savings.)
 1. Read TASK_FILE to understand the task. Anything the router appended to it
    is part of the task, not commentary: `**Decision:**`, `**Fact:**`,
-   `**Root cause:**`, and `**Rework:**` lines are settled and binding. A
+   and `**Root cause:**` lines are settled and binding. A
    `**Facts:**` line points at a file with the long form of one of them; read
    it. That file and this task file are the only cross-agent context you get,
    and that is deliberate: no other task's material reaches you.
@@ -229,83 +228,6 @@ it turns out to be unnecessary.
 Keep your report brief: at most a few lines on what changed, then the STATUS line.
 The router acts only on the STATUS line, and everything else you write bloats
 its context for the rest of the session.
-```
-
----
-
-## Refuter prompt (Step 4b, after `STATUS: SUCCESS`)
-
-Replace `TASK_FILE` with the path `RADIN_CLI backlog path "<id>"` prints,
-`PLAN_PATHS` with the plan path(s) or "none", `COMMITS` with the hash(es) the execution sub-agent
-reported, and `TASK_DIR` with the tree `radin-state.sh task-dir` prints. Send
-it with `model: "RADIN_MODEL_REFUTE"`. Never forward the execution
-sub-agent's report: the diff is the claim under test, and its summary of the
-diff is where the rounding-up happens.
-
-`ACCEPTANCE` is a whole line, handled exactly as in the Execution prompt: no
-`acceptance` line from `meta` means delete the line and send nothing in its
-place, and never synthesise a criterion. One or more means replace the line
-with this block verbatim, one indented `-` bullet per criterion in printed
-order:
-
-```
-1a. This task states its own acceptance criteria, and they are part of the
-   contract:
-   - <criterion>
-   Check each one against the diff and against the checks you rerun in step
-   3. Your `VERDICT:` line must name which criteria you verified. A criterion
-   you cannot verify is `UNVERIFIED`, never `ACCEPT`: name it and say what
-   stopped you. Never count a criterion as met because the diff looks like it
-   should be, and never reword, extend, or add one.
-```
-
-```
-Verify one task's committed work. You did not write it, and you are not
-here to finish it.
-
-Task file: TASK_FILE
-Plan(s): PLAN_PATHS
-Commit(s): COMMITS
-Tree: TASK_DIR
-
-1. Read TASK_FILE, and PLAN_PATHS if it is not "none". Together they are the
-   contract. `**Decision:**`, `**Fact:**`, `**Root cause:**` and `**Rework:**`
-   lines in the task file are part of it.
-ACCEPTANCE
-2. Run `git -C TASK_DIR show <hash>` for each commit in COMMITS (`headroom
-   diff` gives the same diff structurally when `command -v headroom`
-   succeeds, which reads smaller on a reformatted file). Judge the diff
-   against that contract, and nothing else. Run `trace_path` on each symbol
-   the diff changed:
-   a caller outside the diff that still assumes the old behavior is exactly
-   the kind of miss a summary hides.
-3. Run the repo's own checks yourself in TASK_DIR (lint, tests, format, per
-   its conventions), `rtk`-wrapped when `command -v rtk` succeeds — check
-   output is the bulk of what you read. Never accept a result you did not
-   produce. If the repo documents no checks you can find, say so in your
-   report and do not count it against the task.
-4. Quality pass: invoke the `/radin-review` skill with scope: COMMITS. You
-   cannot reach the user and have no `AskUserQuestion`, so it takes its
-   non-interactive path and logs every in-scope finding to the backlog
-   itself. That is where structure, taste, and over-engineering findings
-   belong, and none of them are must-fixes here.
-5. REWORK is for four things only: the diff does not satisfy the task or
-   plan, it changes something the contract never asked for, a check you ran
-   fails, or behavior changed with no test pinning it. Everything else went
-   to step 4.
-
-Change no code, revert nothing, commit nothing, and fix nothing yourself: a
-rework round is another sub-agent's job. Do not spawn a sub-agent, and the
-`Workflow` tool is not available to you, so `/deep-research` and any saved
-workflow command fail rather than run.
-
-Keep your report to a few lines: what you ran, what it printed. Then the
-LAST line exactly one of:
-`VERDICT: ACCEPT — <one line on what you verified>`
-`VERDICT: REWORK — <numbered must-fixes, each naming the file and the change>`
-`VERDICT: UNVERIFIED — <what stopped you, e.g. checks you could not run>`
-Use UNVERIFIED only when you could not test the claim, never as a soft
-REWORK. A must-fix you cannot name a file for is not a must-fix.
 ```
 
 ---

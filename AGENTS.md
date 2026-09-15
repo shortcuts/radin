@@ -175,7 +175,7 @@ the job, radin names it instead of writing its own version.
 | Commit message | `/caveman:caveman-commit` | Execution prompt |
 | Code structure questions | codebase-memory-mcp's MCP tools | see the code-graph section below |
 | Command output compression | `rtk` | every prompt that runs a command |
-| Structural search/diff/repo shape | `headroom sg` / `diff` / `loc` | Execution + refuter prompts, `radin-plan` |
+| Structural search/diff/repo shape | `headroom sg` / `diff` / `loc` | Execution prompt, `radin-plan` |
 | Measured savings | `caveman-stats`, `rtk gain`, `headroom savings`, `ponytail-gain` | `radin-stats` |
 
 Two constraints bound this. A sub-agent cannot be sent into a skill that asks
@@ -219,32 +219,27 @@ The skill itself is under no such limit: it runs in the user's thread.
 
 ## Per-task verification in radin-execute
 
-An execution sub-agent's `STATUS: SUCCESS` is a claim, and radin can check it
-before recording it. `skills/radin-execute/SKILL.md` carries one
-`<!-- radin:refute -->` marker line in Step 4b; `install.sh` asks (default no,
-since it costs one sub-agent per successful task) and its awk swaps that line
-for `$REFUTE_ON_RULE` or `$REFUTE_OFF_RULE`. Same contract as the concurrency
-marker: the marker stays alone on its line, both rule texts live only in
-`install.sh`, and `set_refute` exits non-zero if the marker survives.
+There is none, deliberately. A `STATUS: SUCCESS` goes straight to the
+bookkeeping, and the session's one verification pass is `/radin-review` at
+Phase 6. A per-task refuter sub-agent used to run here; it cost one extra
+sub-agent per successful task and slowed every run for findings the Phase 6
+pass finds anyway. Don't reintroduce one, and don't have the router re-read
+the diff instead — that read is the cost the single end-of-session pass
+exists to avoid.
 
-The refuter never sees the execution sub-agent's report — only the diff, the
-task file, the plan(s), and the checks it reruns itself. That asymmetry is the
-whole point: a summary of a diff is where a wrong "done" hides. Correctness
-belongs in its `VERDICT:` line; structure and taste go to the `/radin-review`
-pass it invokes, which logs its own backlog entries and blocks nothing. A task
-body may state its own `**Acceptance:**` criteria, which `radin backlog meta`
-reports and both the execution and refuter prompts are handed, so the refuter
-checks a stated outcome instead of prose. A criterion the refuter cannot verify
-is `UNVERIFIED`, and a task with no criteria adds no prompt content at all —
-a synthesised criterion would have the refuter verifying radin's own guess.
+A task body may state its own `**Acceptance:**` criteria, which
+`radin backlog meta` reports and the execution prompt is handed, so the
+sub-agent implements against a stated outcome instead of prose. A task with no
+criteria adds no prompt content at all — a synthesised criterion would measure
+the work against radin's own guess.
 
 A `STATUS: FAILED` gets the **Debug prompt** instead, once per task per
 session: a retry with no new information fails identically and burns an
 attempt. It diagnoses read-only, the router appends the cause to the task
 file, and Step 4b runs again.
 
-Everything either one learns stays on that one task: a `**Fact:**`,
-`**Root cause:**` or `**Rework:**` line in its task file, with the long form
+Everything either one learns stays on that one task: a `**Fact:**` or
+`**Root cause:**` line in its task file, with the long form
 in `state/facts/<task-id>.md`. Don't add a shared notes file, a cross-task
 memory, or an `agent-memory` store — a sub-agent's context holds its own task
 and nothing else, which is what keeps it cheap and on-scope. (Claude Code's
@@ -266,7 +261,7 @@ Sub-agent prompts carry no variant. `lib/radin-execute-prompts.md` states
 the flat rule instead (a sub-agent never spawns a sub-agent), so the
 install-time answer lives in exactly one file.
 
-The answer covers execution sub-agents only. Planning, refuting, debugging
+The answer covers execution sub-agents only. Planning, debugging
 and fact-finding dispatches write no repo code, so Core Constraints allows
 them in parallel unconditionally, and both rule texts in `install.sh` say so.
 Don't let either variant grow into a rule about those.
@@ -296,7 +291,7 @@ tree — or downloads the newest `install.sh` from `main`, then re-runs it with
 `--update`.
 
 `--update` implies `--force` and `--yes`, and `install.sh` reads its own
-previous `manifest.json` for `parallel_execution`, `refuter_pass` and the six
+previous `manifest.json` for `parallel_execution` and the five
 `model_<role>` keys, so an update keeps the recorded answers rather than
 re-asking or silently resetting to defaults. The manifest is the only state
 that survives, so any new install-time question must be recorded there too —
@@ -353,11 +348,10 @@ the drawn frame, so a layout change doesn't break the suite.
 ## Sub-agent models in radin-execute
 
 No radin file names a model. Each sub-agent role carries a
-`RADIN_MODEL_<ROLE>` token instead — `PLANNING`, `EXECUTION`, `REFUTE`,
-`DEBUG`, `FACTFIND` in `lib/radin-execute-prompts.md`, `REVIEW` in
+`RADIN_MODEL_<ROLE>` token instead — `PLANNING`, `EXECUTION`, `DEBUG`,
+`FACTFIND` in `lib/radin-execute-prompts.md`, `REVIEW` in
 `skills/radin-execute/SKILL.md`. `install.sh` asks — one pick for every
-role by default, or per role (only for roles the install enabled: a declined
-refuter pass gets no refuter-model question) — and its `set_role_models` sed
+role by default, or per role — and its `set_role_models` sed
 writes the answers in.
 Defaults are sonnet,
 except fact-finding: it retrieves a checkable fact and its prompt already
@@ -439,7 +433,7 @@ in place:
   writing a second one.
 - **Tool names live in four places only**: `skills/radin-plan/SKILL.md`
   (exploration), `skills/radin-review/SKILL.md` (`detect_changes` first),
-  `lib/radin-execute-prompts.md` (execution, refuter, debug, fact-finding),
+  `lib/radin-execute-prompts.md` (execution, debug, fact-finding),
   and the
   CLAUDE.md section inside `lib/radin-cbm-hooks.sh`. Between them they name
   `index_repository`, `list_projects`, `search_graph`, `search_code`,
@@ -499,8 +493,8 @@ Linux — branch on `command -v <tool>`, never on `uname`.
 
 **Companion-tool installs advisory only.** `install.sh` delegates to each
 tool's own installer and never guarantees it succeeds: a failure warns and
-the run continues. Installs are not optional. Only concurrency, the refuter
-pass, and sub-agent models are asked about.
+the run continues. Installs are not optional. Only concurrency and sub-agent
+models are asked about.
 
 **rtk available for both user and sub-agent command execution.** When
 installed, both sub-agents and users can wrap commands with `rtk` for

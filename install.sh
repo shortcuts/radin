@@ -402,7 +402,6 @@ install_plugin() {
 MODEL_PLANNING="sonnet"
 MODEL_EXECUTION="sonnet"
 MODEL_REVIEW="sonnet"
-MODEL_REFUTE="sonnet"
 MODEL_DEBUG="sonnet"
 # Fact-finding retrieves a checkable fact and its prompt requires the evidence
 # that establishes it, so the cheapest tier is the default: the router reads
@@ -417,7 +416,6 @@ set_role_models() {
 	sed -e "s/RADIN_MODEL_PLANNING/${MODEL_PLANNING}/g" \
 		-e "s/RADIN_MODEL_EXECUTION/${MODEL_EXECUTION}/g" \
 		-e "s/RADIN_MODEL_REVIEW/${MODEL_REVIEW}/g" \
-		-e "s/RADIN_MODEL_REFUTE/${MODEL_REFUTE}/g" \
 		-e "s/RADIN_MODEL_DEBUG/${MODEL_DEBUG}/g" \
 		-e "s/RADIN_MODEL_FACTFIND/${MODEL_FACTFIND}/g" \
 		"$file" >"$tmp" && mv "$tmp" "$file"
@@ -452,27 +450,6 @@ set_cli() {
 SEQUENTIAL_RULE='- **One execution sub-agent at a time.** Dispatch one task, wait for its `STATUS:` line, finish its bookkeeping, then dispatch the next. Never put two `Task` calls in one message, however independent the tasks look. Batching other tool calls stays fine -- this rule is about `Task` only, and about execution sub-agents only: read-only dispatches stay parallel per Core Constraints.'
 # shellcheck disable=SC2016  # backticks here are markdown code spans, not command substitution
 PARALLEL_RULE='- **Concurrency allowed, and only under these conditions.** Several execution sub-agents may run in the same turn when they share no `depends_on` chain and no files, and only when Phase 0.5 recorded the worktree answer as yes -- parallel agents in one worktree corrupt each other commits. Worktree answer is no, or file overlap is at all unclear: dispatch strictly one at a time. Launch parallel ones in one message, every one still `run_in_background: false`: a background task cannot notify a sub-agent turn, so you would wait forever. Per-task steps stay unchanged, and each targets that task own tree via `radin-state.sh task-dir` -- its own `dirty-check`, its own commit, its own `task-done`. Never `dirty-check` the shared checkout while another agent is in flight: you would stash a sibling task work out from under it.'
-
-# Per-task verification is off unless asked for: it adds one sub-agent to
-# every successful task, and the skill must ship exactly one of these two
-# rules rather than a marker the model interprets itself.
-# shellcheck disable=SC2016  # backticks here are markdown code spans, not command substitution
-REFUTE_ON_RULE='- **Verify a `SUCCESS` before you record it.** Send the **Refuter prompt** from `radin-execute-prompts.md`, substituting the commit hash(es) and the tree from `task-dir`. Never forward the execution sub-agent report: the diff is the claim under test. Route on its `VERDICT:` line, never on its prose. `ACCEPT`: continue to the bookkeeping below. `REWORK`: append its must-fixes to the task file as a `**Rework:**` line (`radin-backlog.sh append`), then re-run this task from Step 4b -- `start` bumps `attempts`, so the cap still ends it. `UNVERIFIED`: record the task as done anyway, since the work is committed and the tree is clean, and name it in the Phase 5 summary as unverified.'
-# shellcheck disable=SC2016  # backticks here are markdown code spans, not command substitution
-REFUTE_OFF_RULE='- **No refuter pass.** Per-task verification was declined at install time, so a `SUCCESS` goes straight to the bookkeeping below. Never dispatch a verification sub-agent of your own, and never re-read the diff yourself to make up for it -- reading it into this context is the cost the pass exists to avoid. `/radin-review` at Phase 6 is where the session verified.'
-
-set_refute() {
-	local file="$1" rule="$2" tmp
-	tmp="$(mktemp)"
-	awk -v rule="$rule" '/^<!-- radin:refute -->$/ { print rule; next } { print }' \
-		"$file" >"$tmp" && mv "$tmp" "$file"
-	# A surviving marker leaves Step 4b with no rule for a SUCCESS report, and
-	# the model then decides whether to verify -- louder to fail here.
-	if grep -q '^<!-- radin:refute -->$' "$file"; then
-		printf "%b\n" "${RED}${RAT} failed to write the verification rule into $file.${RESET} Re-run the installer." >&2
-		exit 1
-	fi
-}
 
 set_concurrency() {
 	local file="$1" rule="$2" tmp
@@ -509,32 +486,6 @@ else
 	ok "sequential execution — one sub-agent at a time"
 fi
 
-step "Per-task verification"
-REFUTER_ANSWER=""
-if [ -n "$UPDATE" ]; then
-	case "$(manifest_value refuter_pass)" in
-	true) REFUTER_ANSWER="yes" ;;
-	false) REFUTER_ANSWER="no" ;;
-	esac
-	[ -n "$REFUTER_ANSWER" ] && info "keeping the recorded answer: refuter pass $REFUTER_ANSWER"
-fi
-if [ -z "$REFUTER_ANSWER" ]; then
-	if prompt_yn "Verify every task's commit with a second sub-agent? Catches a wrong 'done' claim, costs one more agent per task (default: no)"; then
-		REFUTER_ANSWER="yes"
-	else
-		REFUTER_ANSWER="no"
-	fi
-fi
-REFUTER_PASS="false"
-if [ "$REFUTER_ANSWER" = "yes" ]; then
-	REFUTER_PASS="true"
-	set_refute "$HOME/.claude/skills/radin-execute/SKILL.md" "$REFUTE_ON_RULE"
-	ok "refuter pass on -- each SUCCESS is checked against the task before it is recorded"
-else
-	set_refute "$HOME/.claude/skills/radin-execute/SKILL.md" "$REFUTE_OFF_RULE"
-	ok "no refuter pass -- review the session at the end with /radin-review"
-fi
-
 step "Sub-agent models"
 # radin-execute is a skill running in the user's own thread, so its own model
 # is whatever they picked with /model. Only its leaf sub-agents get a choice,
@@ -547,24 +498,22 @@ if [ -n "$UPDATE" ]; then
 	REC_PLANNING="$(manifest_value model_planning)"
 	REC_EXECUTION="$(manifest_value model_execution)"
 	REC_REVIEW="$(manifest_value model_review)"
-	REC_REFUTE="$(manifest_value model_refute)"
 	REC_DEBUG="$(manifest_value model_debug)"
 	REC_FACTFIND="$(manifest_value model_factfind)"
-	# All six or none: a half-read manifest would silently mix recorded picks
+	# All five or none: a half-read manifest would silently mix recorded picks
 	# with defaults, which is worse than asking.
 	if [ -n "$REC_PLANNING" ] && [ -n "$REC_EXECUTION" ] && [ -n "$REC_REVIEW" ] &&
-		[ -n "$REC_REFUTE" ] && [ -n "$REC_DEBUG" ] && [ -n "$REC_FACTFIND" ]; then
+		[ -n "$REC_DEBUG" ] && [ -n "$REC_FACTFIND" ]; then
 		MODEL_PLANNING="$REC_PLANNING"
 		MODEL_EXECUTION="$REC_EXECUTION"
 		MODEL_REVIEW="$REC_REVIEW"
-		MODEL_REFUTE="$REC_REFUTE"
 		MODEL_DEBUG="$REC_DEBUG"
 		MODEL_FACTFIND="$REC_FACTFIND"
 		MODELS_RECORDED="1"
 	fi
 fi
 if [ -n "$MODELS_RECORDED" ]; then
-	ok "keeping recorded sub-agent models: plan $MODEL_PLANNING, exec $MODEL_EXECUTION, review $MODEL_REVIEW, refute $MODEL_REFUTE, debug $MODEL_DEBUG, facts $MODEL_FACTFIND"
+	ok "keeping recorded sub-agent models: plan $MODEL_PLANNING, exec $MODEL_EXECUTION, review $MODEL_REVIEW, debug $MODEL_DEBUG, facts $MODEL_FACTFIND"
 elif prompt_yn "Choose radin-execute's sub-agent models? (defaults: sonnet, haiku for fact-finding)"; then
 	# One pick covers the common case; the per-role walk is 5-6 pickers deep.
 	if [ "$(prompt_pick "Same model for every role? (default: yes)" 1 "yes" "no")" = "yes" ]; then
@@ -573,7 +522,6 @@ elif prompt_yn "Choose radin-execute's sub-agent models? (defaults: sonnet, haik
 		MODEL_PLANNING="$MODEL_ALL"
 		MODEL_EXECUTION="$MODEL_ALL"
 		MODEL_REVIEW="$MODEL_ALL"
-		MODEL_REFUTE="$MODEL_ALL"
 		MODEL_DEBUG="$MODEL_ALL"
 		MODEL_FACTFIND="$MODEL_ALL"
 	else
@@ -583,18 +531,12 @@ elif prompt_yn "Choose radin-execute's sub-agent models? (defaults: sonnet, haik
 		MODEL_EXECUTION="$(prompt_pick "execution sub-agent (implements and commits one task)" "$SONNET_INDEX" $MODELS)"
 		# shellcheck disable=SC2086
 		MODEL_REVIEW="$(prompt_pick "review sub-agent (reviews the session's commits)" "$SONNET_INDEX" $MODELS)"
-		# Roles the install didn't enable get no question -- the token still gets
-		# its default so the prompts file never ships a literal RADIN_MODEL_.
-		if [ "$REFUTER_PASS" = "true" ]; then
-			# shellcheck disable=SC2086
-			MODEL_REFUTE="$(prompt_pick "refuter sub-agent (verifies one task's commit)" "$SONNET_INDEX" $MODELS)"
-		fi
 		# shellcheck disable=SC2086
 		MODEL_DEBUG="$(prompt_pick "debug sub-agent (diagnoses one failed task)" "$SONNET_INDEX" $MODELS)"
 		# shellcheck disable=SC2086
 		MODEL_FACTFIND="$(prompt_pick "fact-finding sub-agent (answers one checkable question)" "$HAIKU_INDEX" $MODELS)"
 	fi
-	ok "sub-agent models: plan $MODEL_PLANNING, exec $MODEL_EXECUTION, review $MODEL_REVIEW, refute $MODEL_REFUTE, debug $MODEL_DEBUG, facts $MODEL_FACTFIND"
+	ok "sub-agent models: plan $MODEL_PLANNING, exec $MODEL_EXECUTION, review $MODEL_REVIEW, debug $MODEL_DEBUG, facts $MODEL_FACTFIND"
 else
 	ok "keeping default sub-agent models (sonnet; haiku for fact-finding)"
 fi
@@ -824,12 +766,10 @@ cat >"$MANIFEST_FILE" <<EOF
   "version": "$MANIFEST_VERSION",
   "installed_at": "$INSTALLED_AT",
   "parallel_execution": $PARALLEL_MODE,
-  "refuter_pass": $REFUTER_PASS,
   "install_root": "$RADIN_ROOT",
   "model_planning": "$MODEL_PLANNING",
   "model_execution": "$MODEL_EXECUTION",
   "model_review": "$MODEL_REVIEW",
-  "model_refute": "$MODEL_REFUTE",
   "model_debug": "$MODEL_DEBUG",
   "model_factfind": "$MODEL_FACTFIND",
   "claude_md_guidance": $CLAUDE_MD_GUIDANCE,
