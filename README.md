@@ -312,7 +312,7 @@ sequenceDiagram
     E->>CLI: state session-set (if asked)
 
     Note over E: Phase 3 — persist plan
-    E->>CLI: state steps-init (id, order, depends_on)
+    E->>CLI: state steps-init (id, order; depends_on from the index)
 
     loop Phase 4 — per task, until next-pending exits 1
         E->>CLI: state next-pending

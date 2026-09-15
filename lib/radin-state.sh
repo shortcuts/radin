@@ -9,7 +9,8 @@
 # JSON array, so editing one line never risks another.
 #
 # Usage:
-#   radin-state.sh steps-init <steps-file>                # write the file from "id<TAB>order<TAB>depends-on-csv" lines on stdin
+#   radin-state.sh steps-init <steps-file> [<backlog-index>]  # write the file from "id<TAB>order<TAB>depends-on-csv" lines on stdin
+#                                                         # with an index, each entry's depends_on comes from its index line; the stdin csv is used only where the index has none
 #   radin-state.sh next-pending <steps-file>              # print lowest-order pending entry as "id<TAB>order<TAB>depends-on-csv", exit 1 if none
 #   radin-state.sh start <steps-file> <id>                # mark in_progress, bump attempts; exit 2 (entry set blocked) past MAX_ATTEMPTS
 #   radin-state.sh stuck <steps-file>                     # print "id<TAB>attempts<TAB>note" per in_progress entry, exit 1 if none
@@ -46,7 +47,7 @@ LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Prints line $1's depends_on as a comma-separated id list (empty for []).
 deps_csv() {
-	printf '%s' "$1" | sed -E 's/.*"depends_on":\[([^]]*)\].*/\1/' | tr -d '" '
+	printf '%s' "$1" | sed -nE 's/.*"depends_on":\[([^]]*)\].*/\1/p' | tr -d '" '
 }
 
 # A task dispatched this many times without a terminal status is not
@@ -110,7 +111,9 @@ cmd="${1:-}"
 case "$cmd" in
 steps-init)
 	file="${2:-}"
-	[ -n "$file" ] || die "usage: steps-init <steps-file>  (lines of id<TAB>order<TAB>depends-on-csv on stdin)"
+	[ -n "$file" ] || die "usage: steps-init <steps-file> [<backlog-index>]  (lines of id<TAB>order<TAB>depends-on-csv on stdin)"
+	index="${3:-}"
+	[ -z "$index" ] || [ -f "$index" ] || die "no backlog index: $index"
 	n=0
 	: >"$file.tmp"
 	while IFS=$'\t' read -r id order deps || [ -n "${id:-}" ]; do
@@ -122,6 +125,11 @@ steps-init)
 			;;
 		esac
 		deps_json="[]"
+		if [ -n "$index" ]; then
+			iline="$(grep -F "\"id\":\"$id\"" "$index" | head -n1 || true)"
+			idx_deps="$(deps_csv "$iline")"
+			[ -z "$idx_deps" ] || deps="$idx_deps"
+		fi
 		deps="$(printf '%s' "${deps:-}" | tr -d ' ')"
 		[ -z "$deps" ] || deps_json="[$(printf '%s' "$deps" | sed -E 's/([^,]+)/"\1"/g')]"
 		printf '{"id":"%s","order":%s,"status":"pending","depends_on":%s,"attempts":0,"note":""}\n' \

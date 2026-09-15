@@ -84,7 +84,7 @@ JSONL, one compact object per line — same convention as `index.jsonl`, so sing
 
 Every mutation goes through `lib/radin-state.sh` (`set-status`/`remove`) — `radin-execute` never hand-edits this file's JSON.
 
-- `depends_on` lists `id`s of other tasks in this file whose result this task's plan or implementation assumes — set during prioritization per `radin-prioritization.md`'s dependency-order criterion (same files, functions, or behavior touched by both). Empty when no overlap.
+- `depends_on` lists `id`s of other tasks in this file whose result this task's plan or implementation assumes. Value comes from task's index line when it has one (`radin state steps-init` reads index it's handed), and from prioritization's overlap inference per `radin-prioritization.md`'s dependency-order criterion (same files, functions, or behavior touched by both) otherwise. Empty when neither.
 - `status` one of `pending`, `in_progress`, `failed`, `blocked`. Entry's absence from file means task complete.
 - `in_progress` set by `radin-state.sh start` right before orchestrator dispatches execution sub-agent, cleared by task's terminal status. Entry still `in_progress` at startup means previous run died mid-task: `radin-state.sh stuck` lists those, `triage` reports what dead sub-agent left behind (commits on `radin/<id>`, dirty tree, already-recorded hash). Never re-dispatched blind.
 - `attempts` counts `start` calls. `start` exits 2 and marks entry `blocked` once count passes 3, so session that crashes at same task can't retry it forever.

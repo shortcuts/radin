@@ -198,8 +198,12 @@ RADIN_CLI state session-set "$NAMESPACE_DIR" "<worktree yes|no>" "<branch yes|no
    `$HOME/.claude/.radin/lib/radin-execute-recovery.md` and follow it for
    each id. Most runs skip this file entirely.
 4. Read `$HOME/.claude/.radin/lib/radin-prioritization.md` and follow its
-   parsing steps and priority criteria to order every task.
-5. Assign a sequential `order` number starting from 1.
+   parsing steps and priority criteria to order every task. When every
+   entry's `priority` field is set, the `backlog list` order is the order:
+   read no task body for prioritization.
+5. Assign a sequential `order` number starting from 1. Carry any
+   `dependency override:` line the priority rules produced into the Phase 2
+   report.
 
 ## Phase 2: Confirm Execution Order (MANDATORY GATE)
 
@@ -210,7 +214,8 @@ the invoking prompt can pre-answer either one (see Core Constraints). Phase
 0.5's preferences are the only questions a prompt may pre-answer.
 
 1. Report the prioritized list as `<order>. <title> (id: <id>)`, one line per
-   task.
+   task, then print each `dependency override:` line from Phase 1 step 5
+   under the list.
 2. Ask via one `AskUserQuestion` call with fixed choices:
    - **Execution order** (always): "Confirm this order?" Options: `Yes` /
      `No, I'll explain`.
@@ -245,12 +250,14 @@ the invoking prompt can pre-answer either one (see Core Constraints). Phase
 ## Phase 3: Persist Execution Plan
 
 Feed the confirmed order to the state CLI, one
-`id<TAB>order<TAB>depends-on-csv` line per task (`depends_on` per
-`radin-prioritization.md`'s dependency criterion; empty when none):
+`id<TAB>order<TAB>depends-on-csv` line per task. Pass the backlog index too:
+the CLI reads each entry's `depends_on` from its index line, so the third
+field stays empty for any entry that already has one there. It carries only
+deps the ranking pass inferred for an entry the index has none for.
 
 ```bash
-RADIN_CLI state steps-init "$NAMESPACE_DIR/state/BACKLOG_STEPS.json" <<'EOF'
-<id> <order> <comma-separated depends_on ids, or empty>
+RADIN_CLI state steps-init "$NAMESPACE_DIR/state/BACKLOG_STEPS.json" "$BACKLOG_INDEX" <<'EOF'
+<id> <order> <inferred depends_on ids, comma-separated; empty when none>
 EOF
 ```
 

@@ -249,6 +249,41 @@ EOF
   [[ "${lines[1]}" == '{"id":"task-b","order":2,"status":"pending","depends_on":["task-a","task-c"],"attempts":0,"note":""}' ]]
 }
 
+@test "steps-init takes depends_on from the index line, ignoring stdin" {
+  printf '{"id":"a","title":"A","depends_on":[]}\n' > "$WORK/index.jsonl"
+  printf '{"id":"b","title":"B","depends_on":["a"]}\n' >> "$WORK/index.jsonl"
+  run cli steps-init "$STEPS" "$WORK/index.jsonl" <<EOF
+a	1
+b	2	zzz
+EOF
+  [ "$status" -eq 0 ]
+  run cat "$STEPS"
+  [[ "${lines[0]}" == *'"id":"a"'*'"depends_on":[]'* ]]
+  [[ "${lines[1]}" == *'"id":"b"'*'"depends_on":["a"]'* ]]
+}
+
+@test "steps-init keeps the stdin deps when the index line has none" {
+  printf '{"id":"a","title":"A"}\n' > "$WORK/index.jsonl"
+  printf '{"id":"b","title":"B"}\n' >> "$WORK/index.jsonl"
+  run cli steps-init "$STEPS" "$WORK/index.jsonl" <<EOF
+a	1
+b	2	a
+c	3	b
+EOF
+  [ "$status" -eq 0 ]
+  run cat "$STEPS"
+  [[ "${lines[1]}" == *'"id":"b"'*'"depends_on":["a"]'* ]]
+  [[ "${lines[2]}" == *'"id":"c"'*'"depends_on":["b"]'* ]]
+}
+
+@test "steps-init rejects a named index that does not exist" {
+  run cli steps-init "$STEPS" "$WORK/nope.jsonl" <<EOF
+a	1
+EOF
+  [ "$status" -ne 0 ]
+  [ ! -f "$STEPS" ]
+}
+
 @test "steps-init rejects a non-numeric order and empty stdin" {
   run cli steps-init "$STEPS" <<EOF
 task-a	first
