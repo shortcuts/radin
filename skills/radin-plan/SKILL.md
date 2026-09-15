@@ -40,8 +40,8 @@ its output. Re-run this line in any later Bash call that uses them.
 RADIN_CLI backlog find "<scope id/title/keyword>"
 ```
 
-It prints one `id<TAB>category<TAB>title<TAB>file` line per match (exact id
-first, then exact title, else substring on title).
+It prints one `id<TAB>category<TAB>title<TAB>file<TAB>priority<TAB>depends-on-csv`
+line per match (exact id first, then exact title, else substring on title).
 
 - **One match**: use it.
 - **Several**: list them and ask which one. Non-interactive: report the
