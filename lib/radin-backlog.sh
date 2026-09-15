@@ -149,17 +149,25 @@ id_taken() {
 	grep -qF "\"id\":\"$1\"" "$BACKLOG_INDEX" 2>/dev/null
 }
 
-# Drop an epic directory once its last child task is gone, so `epics` never
-# reports a husk left behind by `remove`.
-prune_empty_epic() {
+# The only definition of "this epic still holds a child task": DESCRIPTION.md is
+# the epic's own root context, not a child, and an unexpanded glob means none.
+epic_has_children() {
 	local epic="$1" f
-	[ -n "$epic" ] && [ -d "$BACKLOG_TASKS_DIR/$epic" ] || return 0
 	for f in "$BACKLOG_TASKS_DIR/$epic"/*.md; do
 		case "$f" in
 		*/DESCRIPTION.md | "$BACKLOG_TASKS_DIR/$epic/*.md") continue ;;
 		esac
 		[ -e "$f" ] && return 0
 	done
+	return 1
+}
+
+# Drop an epic directory once its last child task is gone, so `epics` never
+# reports a husk left behind by `remove`.
+prune_empty_epic() {
+	local epic="$1"
+	[ -n "$epic" ] && [ -d "$BACKLOG_TASKS_DIR/$epic" ] || return 0
+	! epic_has_children "$epic" || return 0
 	rm -f "$BACKLOG_TASKS_DIR/$epic/DESCRIPTION.md"
 	rmdir "$BACKLOG_TASKS_DIR/$epic" 2>/dev/null || true
 }
@@ -727,12 +735,8 @@ epic-remove)
 	[ -n "$epic" ] || die "usage: epic-remove <epic-id>"
 	require_epic_id "$epic"
 	# Never recursively delete tasks: the operator moves them out first.
-	for f in "$BACKLOG_TASKS_DIR/$epic"/*.md; do
-		case "$f" in
-		*/DESCRIPTION.md | "$BACKLOG_TASKS_DIR/$epic/*.md") continue ;;
-		esac
-		[ -e "$f" ] && die "epic $epic still holds child tasks; epic-move them out first"
-	done
+	! epic_has_children "$epic" ||
+		die "epic $epic still holds child tasks; epic-move them out first"
 	rm -f "$BACKLOG_TASKS_DIR/$epic/DESCRIPTION.md"
 	rmdir "$BACKLOG_TASKS_DIR/$epic"
 	printf 'removed epic %s\n' "$epic"

@@ -529,6 +529,16 @@ nest_task() {
   [ -z "$output" ]
 }
 
+@test "remove keeps an epic that still holds another child" {
+  cli epic-add auth <<<"ctx"
+  cli add feat "first child" --epic auth <<<"body"
+  cli add feat "second child" --epic auth <<<"body"
+  cli remove first-child
+  [ -d "$TASKS/auth" ]
+  [ -f "$TASKS/auth/second-child.md" ]
+  [ -f "$TASKS/auth/DESCRIPTION.md" ]
+}
+
 @test "show prints an epic's description once above its children" {
   cli epic-add auth <<<"Shared auth context."
   cli add feat "login form" --epic auth <<<"child body"
