@@ -45,6 +45,11 @@ DETAIL_FOR=""
 DONE_N=0
 DONE_SEL=0
 DONE_TOP=0
+PRIO_MIN=""
+PRIO_MAX=""
+# NO_COLOR is the only opt-out: a non-tty already exits above.
+COLOR=1
+[ -z "${NO_COLOR:-}" ] || COLOR=""
 
 lower() { printf '%s' "$1" | tr '[:upper:]' '[:lower:]'; }
 
@@ -77,6 +82,8 @@ load() {
 	prios=()
 	deps=()
 	epics=()
+	PRIO_MIN=""
+	PRIO_MAX=""
 	local listing want id cat title file prio dep lq planned epic rest
 	listing="$(backlog list 2>/dev/null | tr "$TAB" "$US" || true)"
 	# One call for the whole backlog: `meta` per task is quadratic.
@@ -97,6 +104,11 @@ load() {
 			titles[${#titles[@]}]="$title"
 			files[${#files[@]}]="$file"
 			prios[${#prios[@]}]="$prio"
+			case "$prio" in '' | *[!0-9]*) ;; *)
+				[ -n "$PRIO_MIN" ] && [ "$prio" -ge "$PRIO_MIN" ] || PRIO_MIN="$prio"
+				[ -n "$PRIO_MAX" ] && [ "$prio" -le "$PRIO_MAX" ] || PRIO_MAX="$prio"
+				;;
+			esac
 			deps[${#deps[@]}]="$dep"
 			epic=""
 			case "$file" in
@@ -218,18 +230,41 @@ cleanup() {
 # block spans it, and truncated so a long title can never wrap and desync the
 # frame's line count.
 row() {
-	local text="$1" selected="${2:-}"
+	local text="$1" selected="${2:-}" pre="${3:-}" post=""
 	text="${text:0:$COLS}"
+	[ -z "$pre" ] || post='\033[0m'
 	if [ -n "$selected" ]; then
-		printf '\033[7m%-*s\033[0m\n' "$COLS" "$text"
+		pre="$pre\033[7m"
+		post='\033[0m'
+	fi
+	printf "$pre%-*s$post\n" "$COLS" "$text"
+}
+
+# Bands are relative to the set priorities now loaded, so this row's colour
+# moves when an unrelated task's number does -- chosen over a fixed palette
+# because priority is an unbounded integer. $1 is a task index.
+prio_colour() {
+	local p="${prios[$1]}" span off
+	[ -n "$COLOR" ] && [ -n "$PRIO_MIN" ] || return 0
+	case "$p" in '' | *[!0-9]*) return 0 ;; esac
+	span=$((PRIO_MAX - PRIO_MIN))
+	[ "$span" -gt 0 ] || {
+		printf '\033[33m'
+		return 0
+	}
+	off=$(((p - PRIO_MIN) * 3))
+	if [ "$off" -ge $((span * 2)) ]; then
+		printf '\033[31m'
+	elif [ "$off" -ge "$span" ]; then
+		printf '\033[33m'
 	else
-		printf '%-*s\n' "$COLS" "$text"
+		printf '\033[32m'
 	fi
 }
 
 draw() {
 	term_size
-	local preview_h list_h i end header footer ti marker text
+	local preview_h list_h i end header footer ti marker text colour
 	preview_h=$(((ROWS - 4) / 3))
 	[ "$preview_h" -ge 4 ] || preview_h=4
 	list_h=$((ROWS - preview_h - 4))
@@ -266,10 +301,11 @@ draw() {
 				else
 					text="$(printf ' %s %-9s %s' "${flags[$ti]}" "${cats[$ti]}" "${titles[$ti]}")"
 				fi
+				if [ "$ti" -lt 0 ]; then colour=""; else colour="$(prio_colour "$ti")"; fi
 				if [ "$i" -eq "$SEL" ]; then
-					row "$text" sel
+					row "$text" sel "$colour"
 				else
-					row "$text"
+					row "$text" "" "$colour"
 				fi
 				i=$((i + 1))
 			done
@@ -822,6 +858,9 @@ help_screen() {
 		  R             reload from disk
 		  q             quit
 
+		Row colour is the priority band, relative to the priorities now shown:
+		red highest third, yellow middle, green lowest, no colour when unset.
+		Set NO_COLOR to a non-empty value to turn it off.
 		A P in the first column marks a task radin-plan has already planned.
 		Epic rows are headers; collapse is per-session.
 		Tasks live in .claude/.radin/backlog/ in this repo.

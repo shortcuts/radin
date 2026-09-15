@@ -133,6 +133,13 @@ header, previews the selected one, and gives you one key per operation:
 | `/` | Filter by id or title, empty clears |
 | `R` `?` `q` | Reload, keys, quit |
 
+Row colour is the priority band: red for the top third of the priorities
+currently shown, yellow for the middle, green for the bottom, and no colour for
+a task with no priority set. The bands are relative to the backlog on screen,
+because priority is an unbounded integer — so a task's colour changes when
+another task's number does. Set `NO_COLOR` to any non-empty value to turn
+colour off.
+
 A `P` in the first column means `/radin-plan` already wrote a plan for that
 task. Collapse state lasts for the session only. The Done view is the only
 place a shipped task is still visible, because completion deletes its backlog

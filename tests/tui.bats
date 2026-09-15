@@ -348,3 +348,60 @@ tui() {
   run cat "$TASKS/ui-polish/DESCRIPTION.md"
   [ "$output" = "ctx" ]
 }
+
+@test "priority rows render three relative colour bands, red highest" {
+  bl add feat "low one" --priority 1 <<<"low body" >/dev/null
+  bl add feat "mid one" --priority 5 <<<"mid body" >/dev/null
+  bl add feat "high one" --priority 9 <<<"high body" >/dev/null
+  bl add feat "no prio" <<<"none body" >/dev/null
+  run tui "q"
+  [ "$status" -eq 0 ]
+  run cat -v "$SCREEN"
+  [[ "$output" == *"^[[31m"*"high one"* ]]
+  [[ "$output" == *"^[[33m"*"mid one"* ]]
+  [[ "$output" == *"^[[32m"*"low one"* ]]
+}
+
+@test "equal priorities all render yellow" {
+  bl add feat "same a" --priority 5 <<<"a body" >/dev/null
+  bl add feat "same b" --priority 5 <<<"b body" >/dev/null
+  run tui "q"
+  [ "$status" -eq 0 ]
+  run cat -v "$SCREEN"
+  [[ "$output" == *"^[[33m"* ]]
+  [[ "$output" != *"^[[31m"* ]]
+  [[ "$output" != *"^[[32m"* ]]
+}
+
+@test "a single set priority renders yellow, not a divide by zero" {
+  bl add feat "only prio" --priority 3 <<<"only body" >/dev/null
+  bl add feat "no prio" <<<"none body" >/dev/null
+  run tui "q"
+  [ "$status" -eq 0 ]
+  run cat -v "$SCREEN"
+  [[ "$output" == *"^[[33m"* ]]
+  [[ "$output" != *"^[[31m"* ]]
+  [[ "$output" != *"^[[32m"* ]]
+}
+
+@test "no priority set anywhere means no colour" {
+  seed
+  run tui "q"
+  [ "$status" -eq 0 ]
+  run cat -v "$SCREEN"
+  [[ "$output" != *"^[[31m"* ]]
+  [[ "$output" != *"^[[32m"* ]]
+  [[ "$output" != *"^[[33m"* ]]
+}
+
+@test "NO_COLOR disables the priority bands" {
+  bl add feat "low one" --priority 1 <<<"low body" >/dev/null
+  bl add feat "high one" --priority 9 <<<"high body" >/dev/null
+  export NO_COLOR=1
+  run tui "q"
+  [ "$status" -eq 0 ]
+  run cat -v "$SCREEN"
+  [[ "$output" != *"^[[31m"* ]]
+  [[ "$output" != *"^[[32m"* ]]
+  [[ "$output" != *"^[[33m"* ]]
+}
