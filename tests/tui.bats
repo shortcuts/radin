@@ -49,7 +49,7 @@ two_epics() {
 
 tui() {
   local keys="$1"
-  (cd "$WORK/proj" && EDITOR="$WORK/editor.sh" PAGER=cat \
+  (cd "$WORK/proj" && EDITOR="${TUI_EDITOR:-$WORK/editor.sh}" PAGER=cat \
     python3 "$REPO_ROOT/tests/helpers/pty-run.py" "$SCREEN" "$keys" bash "$TUI")
 }
 
@@ -240,8 +240,111 @@ tui() {
 @test "the Done view ignores mutating keys" {
   seed
   snapshot
-  run tui "\t|d|y\r|n|x|nope\r|q"
+  run tui "\t|d|y\r|n|x|nope\r|p|9\r|D| |\r|m|\r|E|nope\r|q"
   [ "$status" -eq 0 ]
   unchanged
   [ -f "$TASKS/dark-mode.md" ]
+  [ ! -d "$TASKS/nope" ]
+}
+
+@test "p sets and then clears the priority" {
+  seed
+  run tui "p|7\r|q"
+  [ "$status" -eq 0 ]
+  run grep dark-mode "$INDEX"
+  [[ "$output" == *'"priority":7'* ]]
+  run tui "p|\r|q"
+  [ "$status" -eq 0 ]
+  run grep dark-mode "$INDEX"
+  [[ "$output" != *'"priority"'* ]]
+}
+
+@test "p rejects a non-integer and changes nothing" {
+  seed
+  snapshot
+  run tui "p|soon\r|q"
+  [ "$status" -eq 0 ]
+  unchanged
+}
+
+@test "D sets depends_on from the picker" {
+  seed
+  run tui "D| |\r|q"
+  [ "$status" -eq 0 ]
+  run grep dark-mode "$INDEX"
+  [[ "$output" == *'"depends_on":["broken-auth"]'* ]]
+}
+
+@test "D clears depends_on when nothing stays marked" {
+  seed
+  bl set-deps dark-mode broken-auth >/dev/null
+  run tui "D| |\r|q"
+  [ "$status" -eq 0 ]
+  run grep dark-mode "$INDEX"
+  [[ "$output" != *'"depends_on"'* ]]
+}
+
+@test "D cancels on q without touching the store" {
+  seed
+  snapshot
+  run tui "D| |q|q"
+  [ "$status" -eq 0 ]
+  unchanged
+}
+
+@test "a rejected set-deps cycle shows a message and changes nothing" {
+  seed
+  bl set-deps dark-mode broken-auth >/dev/null
+  snapshot
+  run tui "j|D| |\r|q"
+  [ "$status" -eq 0 ]
+  unchanged
+  run cat "$SCREEN"
+  [[ "$output" == *"cycle"* ]]
+}
+
+@test "m moves a task into another epic" {
+  two_epics
+  run tui "j|m|j|j|\r|q"
+  [ "$status" -eq 0 ]
+  [ -f "$TASKS/bbb-epic/aaa-child.md" ]
+  [ ! -f "$TASKS/aaa-epic/aaa-child.md" ]
+  run grep aaa-child "$INDEX"
+  [[ "$output" == *'"file":"tasks/bbb-epic/aaa-child.md"'* ]]
+}
+
+@test "m with the none choice moves a task out of its epic" {
+  two_epics
+  run tui "j|m|\r|q"
+  [ "$status" -eq 0 ]
+  [ -f "$TASKS/aaa-child.md" ]
+  [ ! -d "$TASKS/aaa-epic" ]
+}
+
+@test "E creates the epic and writes DESCRIPTION.md in EDITOR" {
+  seed
+  run tui "E|ui-polish\r|q"
+  [ "$status" -eq 0 ]
+  run cat "$TASKS/ui-polish/DESCRIPTION.md"
+  [ "$output" = "typed body" ]
+}
+
+@test "E keeps the epic when the editor writes nothing" {
+  seed
+  export TUI_EDITOR=true
+  run tui "E|ui-polish\r|q"
+  unset TUI_EDITOR
+  [ "$status" -eq 0 ]
+  [ -d "$TASKS/ui-polish" ]
+  [ -f "$TASKS/ui-polish/DESCRIPTION.md" ]
+  [ ! -s "$TASKS/ui-polish/DESCRIPTION.md" ]
+}
+
+@test "E rejects a duplicate epic id" {
+  seed
+  bl epic-add ui-polish <<<"ctx"
+  run tui "E|ui-polish\r|q"
+  [ "$status" -eq 0 ]
+  run cat "$TASKS/ui-polish/DESCRIPTION.md"
+  [ "$output" = "ctx" ]
 }

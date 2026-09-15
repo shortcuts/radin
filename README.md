@@ -126,13 +126,19 @@ header, previews the selected one, and gives you one key per operation:
 | `d` | Delete selected task, after a `y` confirmation |
 | `c` | Move task to next category |
 | `r` | Retitle task — its id never changes, so plans and `depends_on` still point at it |
+| `p` | Set the selected task's priority — empty input clears it, higher wins |
+| `D` | Edit `depends_on`: pick from the other tasks, `space` toggles, confirm with nothing marked to clear |
+| `m` | Move the task into an epic, or out of one |
+| `E` | Create an epic, then write its `DESCRIPTION.md` in `$EDITOR` |
 | `/` | Filter by id or title, empty clears |
 | `R` `?` `q` | Reload, keys, quit |
 
 A `P` in the first column means `/radin-plan` already wrote a plan for that
 task. Collapse state lasts for the session only. The Done view is the only
 place a shipped task is still visible, because completion deletes its backlog
-entry.
+entry. A rejected change — a non-integer priority, an unknown id, a
+dependency cycle — shows the CLI's own message in the footer and leaves the
+backlog untouched.
 
 Same backlog the skills use, same CLI underneath — every key shells out to
 `radin backlog`, and the Done view to `radin state completed-list`. Zero dependencies too: raw ANSI and `stty`, no `tput`,

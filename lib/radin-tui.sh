@@ -16,6 +16,9 @@ LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BACKLOG="$LIB_DIR/radin-backlog.sh"
 STATE="$LIB_DIR/radin-state.sh"
 TAB="$(printf '\t')"
+# Tab is IFS whitespace, so `IFS=$TAB read` collapses the empty field an unset
+# priority leaves behind and shifts depends_on into it. Split on US instead.
+US="$(printf '\037')"
 CATEGORIES="feat fix chore refactor"
 BODY_HINT="# describe the task: what changes, why, which files, how to verify"
 
@@ -60,6 +63,10 @@ epics=()
 row_task=()
 row_epic=()
 done_rows=()
+pick_vals=()
+pick_labels=()
+pick_marked=""
+PICK_RESULT=""
 
 load() {
 	ids=()
@@ -71,12 +78,12 @@ load() {
 	deps=()
 	epics=()
 	local listing want id cat title file prio dep lq planned epic rest
-	listing="$(backlog list 2>/dev/null || true)"
+	listing="$(backlog list 2>/dev/null | tr "$TAB" "$US" || true)"
 	# One call for the whole backlog: `meta` per task is quadratic.
 	planned="$(backlog planned 2>/dev/null || true)"
 	lq="$(lower "$FILTER")"
 	for want in $CATEGORIES; do
-		while IFS="$TAB" read -r id cat title file prio dep; do
+		while IFS="$US" read -r id cat title file prio dep; do
 			[ -n "$id" ] || continue
 			[ "$cat" = "$want" ] || continue
 			if [ -n "$lq" ]; then
@@ -458,6 +465,94 @@ confirm() {
 	case "$REPLY_LINE" in y | Y | yes) return 0 ;; *) return 1 ;; esac
 }
 
+# One chooser for every key that needs one: $1 is multi (a set, space toggles)
+# or single (one value). $2 title, $3 newline-delimited "value<TAB>label"
+# candidates, $4 space-delimited values to pre-mark (multi only).
+# Candidates arrive as an argument, never on stdin -- readkey owns fd 0.
+# Sets PICK_RESULT to the space-delimited answer ("" is legal in multi mode:
+# it means clear). Returns 1 when the user cancels or there is nothing to pick.
+pick() {
+	local kind="$1" title="$2" items="$3" v l n sel=0 ptop=0 list_h i end mark kept x footer
+	pick_vals=()
+	pick_labels=()
+	pick_marked="${4:-}"
+	while IFS="$TAB" read -r v l; do
+		[ -n "$v" ] || continue
+		pick_vals[${#pick_vals[@]}]="$v"
+		pick_labels[${#pick_labels[@]}]="$l"
+	done <<-ITEMS
+		$items
+	ITEMS
+	n=${#pick_vals[@]}
+	[ "$n" -gt 0 ] || return 1
+	PICK_RESULT=""
+	while :; do
+		term_size
+		list_h=$((ROWS - 2))
+		[ "$list_h" -ge 1 ] || list_h=1
+		[ "$sel" -ge "$ptop" ] || ptop="$sel"
+		[ "$sel" -lt $((ptop + list_h)) ] || ptop=$((sel - list_h + 1))
+		[ "$ptop" -ge 0 ] || ptop=0
+		{
+			printf '\033[H\033[2J'
+			printf '\033[1m%-*s\033[0m\n' "$COLS" "${title:0:$COLS}"
+			end=$((ptop + list_h))
+			[ "$end" -le "$n" ] || end="$n"
+			i="$ptop"
+			while [ "$i" -lt "$end" ]; do
+				if [ "$kind" = multi ]; then
+					mark=" "
+					case " $pick_marked " in *" ${pick_vals[$i]} "*) mark="x" ;; esac
+					l="$(printf ' [%s] %s' "$mark" "${pick_labels[$i]}")"
+				else
+					l="$(printf '  %s' "${pick_labels[$i]}")"
+				fi
+				if [ "$i" -eq "$sel" ]; then row "$l" sel; else row "$l"; fi
+				i=$((i + 1))
+			done
+			i=$((end - ptop))
+			while [ "$i" -lt "$list_h" ]; do
+				row ""
+				i=$((i + 1))
+			done
+			if [ "$kind" = multi ]; then
+				footer="space mark  enter confirm  q cancel"
+			else
+				footer="enter select  q cancel"
+			fi
+			printf '\033[%d;1H\033[1m%-*s\033[0m' "$ROWS" "$COLS" "${footer:0:$COLS}"
+		} 2>/dev/null
+		readkey || return 1
+		case "$KEY" in
+		j) [ "$sel" -lt $((n - 1)) ] && sel=$((sel + 1)) || true ;;
+		k) [ "$sel" -gt 0 ] && sel=$((sel - 1)) || true ;;
+		g) sel=0 ;;
+		G) sel=$((n - 1)) ;;
+		' ')
+			[ "$kind" = multi ] || continue
+			v="${pick_vals[$sel]}"
+			case " $pick_marked " in
+			*" $v "*)
+				kept=""
+				for x in $pick_marked; do [ "$x" = "$v" ] || kept="$kept $x"; done
+				pick_marked="$kept"
+				;;
+			*) pick_marked="$pick_marked $v" ;;
+			esac
+			;;
+		'')
+			if [ "$kind" = multi ]; then
+				PICK_RESULT="$(printf '%s' "$pick_marked" | sed 's/  */ /g; s/^ //; s/ $//')"
+			else
+				PICK_RESULT="${pick_vals[$sel]}"
+			fi
+			return 0
+			;;
+		q | ESC) return 1 ;;
+		esac
+	done
+}
+
 # $EDITOR owns the whole terminal while it runs, so hand it a normal screen
 # and take the alternate one back afterwards.
 run_external() {
@@ -595,6 +690,109 @@ retitle_task() {
 	load
 }
 
+# The four setters below share one contract: a rejected change sets MSG and
+# skips load(), so SEL/TOP/COLLAPSED keep their values and the footer shows the
+# CLI's own die message instead of looking like a no-op.
+set_priority_task() {
+	local out ti value
+	ti="$(cur_task)"
+	[ -n "$ti" ] || {
+		no_task
+		return 0
+	}
+	prompt "priority for ${ids[$ti]} (empty clears, higher wins): "
+	value="$REPLY_LINE"
+	# set-priority has no empty-value form: an empty 3rd arg dies on the usage line.
+	[ -n "$value" ] || value="--none"
+	if out="$(backlog set-priority "${ids[$ti]}" "$value" 2>&1)"; then
+		MSG="$out"
+		load
+	else
+		MSG="set-priority failed: $out"
+	fi
+}
+
+edit_deps_task() {
+	local out ti cands marked csv
+	ti="$(cur_task)"
+	[ -n "$ti" ] || {
+		no_task
+		return 0
+	}
+	# A fresh list, not the in-memory ids: $FILTER must not hide a legal dependency.
+	cands="$(backlog list 2>/dev/null |
+		awk -F"$TAB" -v me="${ids[$ti]}" '$1 != "" && $1 != me { printf "%s\t%s -- %s\n", $1, $1, $3 }')"
+	[ -n "$cands" ] || {
+		MSG="no other task to depend on"
+		return 0
+	}
+	marked="$(printf '%s' "${deps[$ti]}" | tr ',' ' ')"
+	pick multi "depends_on for ${ids[$ti]}  (space toggles)" "$cands" "$marked" || {
+		MSG="deps cancelled"
+		return 0
+	}
+	csv="$(printf '%s' "$PICK_RESULT" | tr ' ' ',')"
+	[ -n "$csv" ] || csv="--none"
+	if out="$(backlog set-deps "${ids[$ti]}" "$csv" 2>&1)"; then
+		MSG="$out"
+		load
+	else
+		MSG="set-deps failed: $out"
+	fi
+}
+
+move_epic_task() {
+	local out ti cands epics_out e
+	ti="$(cur_task)"
+	[ -n "$ti" ] || {
+		no_task
+		return 0
+	}
+	epics_out="$(backlog epics 2>/dev/null || true)"
+	if [ -z "$epics_out" ] && [ -z "${epics[$ti]}" ]; then
+		MSG="no epics yet -- press E to create one"
+		return 0
+	fi
+	cands="--none${TAB}(none) -- move out of any epic"
+	for e in $epics_out; do
+		cands="$cands
+$e${TAB}epic: $e"
+	done
+	pick single "epic for ${ids[$ti]}" "$cands" || {
+		MSG="epic move cancelled"
+		return 0
+	}
+	if out="$(backlog epic-move "${ids[$ti]}" "$PICK_RESULT" 2>&1)"; then
+		MSG="$out"
+		load
+	else
+		MSG="epic-move failed: $out"
+	fi
+}
+
+# The epic exists before the editor runs, so an editor that writes nothing
+# leaves a real epic with an empty description -- epic-remove is the undo.
+new_epic() {
+	local out epic desc
+	prompt "new epic id (slug, empty cancels): "
+	epic="$REPLY_LINE"
+	[ -n "$epic" ] || {
+		MSG="new epic: cancelled"
+		return 0
+	}
+	if ! out="$(backlog epic-add "$epic" 2>&1)"; then
+		MSG="epic-add failed: $out"
+		return 0
+	fi
+	desc="$BACKLOG_TASKS_DIR/$epic/DESCRIPTION.md"
+	run_external "${EDITOR:-vi}" "$desc"
+	if [ -s "$desc" ]; then
+		MSG="created epic $epic"
+	else
+		MSG="created epic $epic -- description left empty"
+	fi
+}
+
 view_task() {
 	[ "$N" -gt 0 ] || return 0
 	ensure_detail
@@ -616,6 +814,10 @@ help_screen() {
 		  d             delete the selected task (asks first)
 		  c             move the task to the next category
 		  r             retitle the task (its id never changes)
+		  p             set priority (empty input clears it; higher wins)
+		  D             edit depends_on: pick from the other tasks, space toggles
+		  m             move the task into an epic, or out of one
+		  E             create an epic, then write its DESCRIPTION.md in \$EDITOR
 		  /             filter by id or title (empty clears)
 		  R             reload from disk
 		  q             quit
@@ -673,6 +875,10 @@ while :; do
 	d) delete_task ;;
 	c) cycle_category ;;
 	r) retitle_task ;;
+	p) set_priority_task ;;
+	D) edit_deps_task ;;
+	m) move_epic_task ;;
+	E) new_epic ;;
 	/)
 		prompt "filter: "
 		FILTER="$REPLY_LINE"
