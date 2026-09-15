@@ -88,19 +88,15 @@ deps_ids() {
 	printf '%s' "$1" | tr -d '[]" ' | tr ',' ' '
 }
 
-# JSON array literal for the ids in "$@", or the clear sentinel when there are
-# none: an empty depends_on and an absent one mean the same thing.
+# JSON array literal for the ids in "$@", or nothing when there are none: an
+# empty depends_on and an absent one mean the same thing on the index line.
 deps_array() {
 	local out="" d
 	for d in "$@"; do
 		[ -z "$out" ] || out="$out,"
 		out="$out\"$d\""
 	done
-	[ -n "$out" ] || {
-		printf -- '--none\n'
-		return 0
-	}
-	printf '[%s]\n' "$out"
+	[ -z "$out" ] || printf '[%s]\n' "$out"
 }
 
 # Prints "id<TAB>category<TAB>title<TAB>file<TAB>priority<TAB>depends-on-csv"
@@ -168,10 +164,6 @@ prune_empty_epic() {
 	rmdir "$BACKLOG_TASKS_DIR/$epic" 2>/dev/null || true
 }
 
-# Delete a task by id: its body file and its index line.
-# Rewrite the index line for id $1, replacing its category with $2, its title
-# with $3 and/or its `file` with $4 (empty means keep). The id passes through
-# untouched -- callers key off the id for the task's lifetime.
 # One index line. An empty $5/$6 omits the key entirely, so every verb that
 # rewrites a line keeps "unset" unset instead of defaulting it to a value.
 compose_line() {
@@ -183,19 +175,28 @@ compose_line() {
 	printf '%s}\n' "$out"
 }
 
-set_index_fields() {
-	local id="$1" newcat="$2" newtitle="$3" newfile="${4:-}" newprio="${5:-}" newdeps="${6:-}" line out=""
+# Rewrite one key of the index line for id $1: $2 names the key, $3 is its
+# new value, and an empty $3 drops the key. A key the caller does not name is
+# always kept, so no argument ever has to mean "leave this alone".
+set_index_field() {
+	local id="$1" key="$2" value="$3" line out="" category title file prio deps
 	while IFS= read -r line || [ -n "$line" ]; do
 		[ -n "$line" ] || continue
 		if [ "$(json_get id "$line")" = "$id" ]; then
-			[ -n "$newcat" ] || newcat="$(json_get category "$line")"
-			[ -n "$newtitle" ] || newtitle="$(json_get title "$line")"
-			[ -n "$newfile" ] || newfile="$(json_get file "$line")"
-			[ -n "$newprio" ] || newprio="$(json_get_raw priority "$line")"
-			[ -n "$newdeps" ] || newdeps="$(json_get_raw depends_on "$line")"
-			[ "$newprio" != "--none" ] || newprio=""
-			[ "$newdeps" != "--none" ] || newdeps=""
-			line="$(compose_line "$id" "$newcat" "$newtitle" "$newfile" "$newprio" "$newdeps")"
+			category="$(json_get category "$line")"
+			title="$(json_get title "$line")"
+			file="$(json_get file "$line")"
+			prio="$(json_get_raw priority "$line")"
+			deps="$(json_get_raw depends_on "$line")"
+			case "$key" in
+			category) category="$value" ;;
+			title) title="$value" ;;
+			file) file="$value" ;;
+			priority) prio="$value" ;;
+			depends_on) deps="$value" ;;
+			*) die "set_index_field: unknown key: $key" ;;
+			esac
+			line="$(compose_line "$id" "$category" "$title" "$file" "$prio" "$deps")"
 		fi
 		out="$out$line
 "
@@ -219,7 +220,7 @@ prune_dep() {
 			[ "$line" = "$gone" ] || kept="$kept $line"
 		done
 		# shellcheck disable=SC2086
-		set_index_fields "$d" "" "" "" "" "$(deps_array $kept)"
+		set_index_field "$d" depends_on "$(deps_array $kept)"
 	done
 }
 
@@ -463,9 +464,8 @@ add)
 		[ -n "$s" ] || continue
 		printf '**Skill:** Invoke %s to tackle this task.\n' "$s" >>"$task_file"
 	done
-	dep_array=""
 	# shellcheck disable=SC2086
-	[ -z "$deps" ] || dep_array="$(deps_array $deps)"
+	dep_array="$(deps_array $deps)"
 	compose_line "$id" "$category" "$title" "$rel" "$priority" "$dep_array" >>"$BACKLOG_INDEX"
 	printf 'added "%s" (id: %s) under %s in %s\n' "$title" "$id" "$category" "$BACKLOG_INDEX"
 	;;
@@ -557,7 +557,7 @@ set-category)
 	require_index
 	entry="$(single_match "$query")"
 	id="$(json_get id "$entry")"
-	set_index_fields "$id" "$newcat" ""
+	set_index_field "$id" category "$newcat"
 	printf 'moved "%s" to %s\n' "$(json_get title "$entry")" "$newcat"
 	;;
 
@@ -569,7 +569,7 @@ retitle)
 	require_index
 	entry="$(single_match "$query")"
 	id="$(json_get id "$entry")"
-	set_index_fields "$id" "" "$newtitle"
+	set_index_field "$id" title "$newtitle"
 	printf 'retitled %s to "%s"\n' "$id" "$newtitle"
 	;;
 
@@ -581,7 +581,9 @@ set-priority)
 	require_index
 	entry="$(single_match "$query")"
 	id="$(json_get id "$entry")"
-	set_index_fields "$id" "" "" "" "$value"
+	newprio="$value"
+	[ "$value" != "--none" ] || newprio=""
+	set_index_field "$id" priority "$newprio"
 	printf 'priority of %s set to %s\n' "$id" "$value"
 	;;
 
@@ -593,7 +595,7 @@ set-deps)
 	entry="$(single_match "$query")"
 	id="$(json_get id "$entry")"
 	if [ "$value" = "--none" ]; then
-		dep_array="--none"
+		dep_array=""
 	else
 		deps="$(printf '%s' "$value" | tr ',' ' ')"
 		# Validation lives here, not in a skill: an unknown id or a cycle
@@ -607,7 +609,7 @@ set-deps)
 		# shellcheck disable=SC2086
 		dep_array="$(deps_array $deps)"
 	fi
-	set_index_fields "$id" "" "" "" "" "$dep_array"
+	set_index_field "$id" depends_on "$dep_array"
 	printf 'depends_on of %s set to %s\n' "$id" "$value"
 	;;
 
@@ -700,7 +702,7 @@ epic-move)
 	fi
 	[ "$old_rel" != "$new_rel" ] || die "already there: $old_rel"
 	mv "$(task_path "$old_rel")" "$(task_path "$new_rel")"
-	set_index_fields "$id" "" "" "$new_rel"
+	set_index_field "$id" file "$new_rel"
 	prune_empty_epic "$(file_epic "$old_rel")"
 	printf 'moved %s to %s\n' "$id" "$new_rel"
 	;;
