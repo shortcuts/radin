@@ -155,6 +155,19 @@ Entries are compared deep-equal, so re-running restores nothing and reports `INT
 
 It writes no `settings.json` hook of radin's own: `auto_index` indexes a project on first connection and the background watcher keeps it current, so a `PostToolUse` reindex would pay for nothing. The graph itself lives in `~/.cache/codebase-memory-mcp/`, outside both `~/.claude` and the consumer's repo.
 
+An MCP tool name must exist in upstream's [MCP
+Tools](https://github.com/DeusData/codebase-memory-mcp#mcp-tools) table — a
+wrong one costs a failed call plus a fallback in every sub-agent that reads
+the prompt. Names appear in four files only:
+`skills/radin-plan/SKILL.md` (exploration), `skills/radin-review/SKILL.md`
+(`detect_changes` first), `lib/radin-execute-prompts.md` (execution, debug,
+fact-finding), and the CLAUDE.md section inside `lib/radin-cbm-hooks.sh`.
+Between them they name `index_repository`, `list_projects`, `search_graph`,
+`search_code`, `trace_path`, `detect_changes`, `query_graph`,
+`get_graph_schema`, `get_code_snippet` and `get_architecture`. Each mention
+also says a graph hit is a pointer: read the file before editing, never claim
+absence from an empty result.
+
 ## Install manifest
 
 `install.sh` writes `~/.claude/.radin/manifest.json` every run: generated snapshot of what installed. Records `version` (release tag, or `dev` for local git clone), `installed_at` (UTC timestamp), `skills`/`lib` file lists copied, `parallel_execution` (whether install allowed `radin-execute` to fan out execution sub-agents), `install_root` and the five `model_<role>` keys (both read back by `install.sh --update`), `claude_md_guidance` (whether the radin section in `~/.claude/CLAUDE.md` was written), `cbm_agent_config` (whether upstream's own `codebase-memory-mcp install` ran), `cli_on_path` (whether the symlink landed), `companion_tools` object recording which of rtk, codebase-memory-mcp, headroom, caveman, ponytail, mattpocock-skills came out reachable — a companion install is advisory, so `false` means its own installer failed or its CLI is missing.
@@ -234,3 +247,49 @@ subcommand. `install.sh` asks nothing about it.
 ## Authoring vs. distribution
 
 This repo source of truth. `skills/*/SKILL.md` authored/edited direct here — no external fork, no sync step. `install.sh` dist them one-directional into `~/.claude/skills`. Every entry point is a skill, so it runs in the user's own thread and can talk to them (see "Why every entry point is a skill"). `thermo-nuclear` not part of this repo at all: `install.sh` downloads its `SKILL.md` straight from cursor/plugins at install time.
+
+## Install-time substitution
+
+Three things no radin file may state literally. `install.sh` writes each one
+in, and each substitution exits non-zero if its token survives — a file that
+ships with the token intact invents its own answer.
+
+| Written as | Resolved to |
+| --- | --- |
+| `RADIN_CLI <subcommand>` in every `skills/*/SKILL.md` and shipped `lib/*.md` | bare `radin` when the `~/.local/bin` symlink is on PATH, else `"$HOME/.claude/.radin/bin/radin"` (`set_cli`) |
+| `RADIN_MODEL_<ROLE>` — `PLANNING`, `EXECUTION`, `DEBUG`, `FACTFIND` in `lib/radin-execute-prompts.md`, `REVIEW` in `skills/radin-execute/SKILL.md` | the install-time pick (`set_role_models`). Defaults sonnet, except fact-finding: haiku, since its prompt demands the evidence and the router can reject a wrong answer |
+| one `<!-- radin:concurrency -->` line in `radin-execute`'s Core Constraints | `$SEQUENTIAL_RULE` or `$PARALLEL_RULE`, both defined only in `install.sh` (`set_concurrency`) |
+
+Edit the concurrency wording in `install.sh`, never in the skill. A new
+sub-agent role needs a token, a `MODEL_<ROLE>` default, a picker, and a `-e`
+clause in `set_role_models`.
+
+Sub-agent prompts carry no concurrency variant: `lib/radin-execute-prompts.md`
+states the flat rule (a sub-agent never spawns a sub-agent) instead. The
+install-time answer covers execution sub-agents only — planning, debug and
+fact-finding dispatches write no repo code, so both rule texts allow them in
+parallel unconditionally.
+
+Any new install-time question must also be recorded in `manifest.json`, or the
+next `radin update` resets it.
+
+## Verification in radin-execute
+
+There is none per task, deliberately. A `STATUS: SUCCESS` goes straight to the
+bookkeeping, and `/radin-review` at Phase 6 is the session's one verification
+pass. A per-task refuter sub-agent used to run here; it cost an extra
+sub-agent per successful task for findings the Phase 6 pass finds anyway.
+Don't reintroduce one, and don't have the router re-read the diff instead —
+that read is the cost the single end-of-session pass exists to avoid.
+
+A task body may state its own `**Acceptance:**` criteria, which
+`radin backlog meta` reports and the execution prompt is handed. A task with
+no criteria adds no prompt content: a synthesised criterion would measure the
+work against radin's own guess.
+
+## Delegation is pinned by a test
+
+`tests/skill-names.bats` pins every `/<name>` written in `skills/**/SKILL.md`
+and `lib/*.md` to a skill radin ships or `install.sh` installs, so a rename or
+typo fails the suite instead of costing a failed call in every sub-agent. A
+new companion needs its plugin prefix in that test's list.
