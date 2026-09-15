@@ -624,6 +624,16 @@ nest_task() {
   [[ "$(cat "$INDEX")" == *'"depends_on":["dep-two"]'* ]]
 }
 
+@test "remove prunes every dependent in one rewrite and keeps their other keys" {
+  cli add feat "doomed" <<<"b"
+  cli add feat "first" --priority 70 --depends-on doomed <<<"b"
+  cli add feat "second" --priority 20 --depends-on doomed <<<"b"
+  cli remove doomed
+  run cat "$INDEX"
+  [[ "$output" == *'{"id":"first","category":"feat","title":"first","file":"tasks/first.md","priority":70}'* ]]
+  [[ "$output" == *'{"id":"second","category":"feat","title":"second","file":"tasks/second.md","priority":20}'* ]]
+}
+
 @test "list orders by priority descending with unset entries last" {
   cli add feat "low" --priority 10 <<<"b"
   cli add feat "none at all" <<<"b"

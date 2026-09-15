@@ -207,21 +207,27 @@ set_index_field() {
 # Drop id $1 from every other entry's depends_on: a dangling reference stalls
 # `radin state deps-check` exactly like a cycle does.
 prune_dep() {
-	local gone="$1" line raw d kept ids=""
+	local gone="$1" line raw dep kept
 	while IFS= read -r line || [ -n "$line" ]; do
 		[ -n "$line" ] || continue
 		raw="$(json_get_raw depends_on "$line")"
-		case "$raw" in *"\"$gone\""*) ids="$ids $(json_get id "$line")" ;; esac
-	done <"$BACKLOG_INDEX"
-	for d in $ids; do
-		raw="$(json_get_raw depends_on "$(grep -F "\"id\":\"$d\"" "$BACKLOG_INDEX")")"
-		kept=""
-		for line in $(deps_ids "$raw"); do
-			[ "$line" = "$gone" ] || kept="$kept $line"
-		done
-		# shellcheck disable=SC2086
-		set_index_field "$d" depends_on "$(deps_array $kept)"
-	done
+		case "$raw" in *"\"$gone\""*)
+			kept=""
+			for dep in $(deps_ids "$raw"); do
+				[ "$dep" = "$gone" ] || kept="$kept $dep"
+			done
+			# shellcheck disable=SC2086
+			line="$(compose_line "$(json_get id "$line")" \
+				"$(json_get category "$line")" \
+				"$(json_get title "$line")" \
+				"$(json_get file "$line")" \
+				"$(json_get_raw priority "$line")" \
+				"$(deps_array $kept)")"
+			;;
+		esac
+		printf '%s\n' "$line"
+	done <"$BACKLOG_INDEX" >"$BACKLOG_INDEX.tmp"
+	mv "$BACKLOG_INDEX.tmp" "$BACKLOG_INDEX"
 }
 
 remove_by_id() {
