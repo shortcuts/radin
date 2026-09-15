@@ -64,6 +64,7 @@ flags=()
 prios=()
 deps=()
 epics=()
+colours=()
 row_task=()
 row_epic=()
 done_rows=()
@@ -81,6 +82,7 @@ load() {
 	prios=()
 	deps=()
 	epics=()
+	colours=()
 	PRIO_MIN=""
 	PRIO_MAX=""
 	local listing want id cat title file prio dep lq planned epic rest
@@ -131,8 +133,38 @@ $id
 		LISTING
 	done
 	TASK_N=${#ids[@]}
+	fill_colours
 	DETAIL_FOR=""
 	build_rows
+}
+
+# Bands are relative to the set priorities now loaded, so this row's colour
+# moves when an unrelated task's number does -- chosen over a fixed palette
+# because priority is an unbounded integer. Computed here, not in draw(), so a
+# redraw costs no fork per visible row.
+fill_colours() {
+	local i span off p
+	span=-1
+	[ -z "$COLOR" ] || [ -z "$PRIO_MIN" ] || span=$((PRIO_MAX - PRIO_MIN))
+	i=0
+	while [ "$i" -lt "$TASK_N" ]; do
+		colours[i]=""
+		p="${prios[$i]}"
+		case "$p" in '' | *[!0-9]*) p="" ;; esac
+		if [ "$span" -eq 0 ] && [ -n "$p" ]; then
+			colours[i]=$'\033[33m'
+		elif [ "$span" -gt 0 ] && [ -n "$p" ]; then
+			off=$(((p - PRIO_MIN) * 3))
+			if [ "$off" -ge $((span * 2)) ]; then
+				colours[i]=$'\033[31m'
+			elif [ "$off" -ge "$span" ]; then
+				colours[i]=$'\033[33m'
+			else
+				colours[i]=$'\033[32m'
+			fi
+		fi
+		i=$((i + 1))
+	done
 }
 
 # The visible rows: ungrouped tasks first, then one collapsible header per
@@ -236,28 +268,6 @@ row() {
 	printf "$pre%-*s$post\n" "$COLS" "$text"
 }
 
-# Bands are relative to the set priorities now loaded, so this row's colour
-# moves when an unrelated task's number does -- chosen over a fixed palette
-# because priority is an unbounded integer. $1 is a task index.
-prio_colour() {
-	local p="${prios[$1]}" span off
-	[ -n "$COLOR" ] && [ -n "$PRIO_MIN" ] || return 0
-	case "$p" in '' | *[!0-9]*) return 0 ;; esac
-	span=$((PRIO_MAX - PRIO_MIN))
-	[ "$span" -gt 0 ] || {
-		printf '\033[33m'
-		return 0
-	}
-	off=$(((p - PRIO_MIN) * 3))
-	if [ "$off" -ge $((span * 2)) ]; then
-		printf '\033[31m'
-	elif [ "$off" -ge "$span" ]; then
-		printf '\033[33m'
-	else
-		printf '\033[32m'
-	fi
-}
-
 draw() {
 	term_size
 	local preview_h list_h i end header footer ti marker text colour
@@ -292,12 +302,15 @@ draw() {
 					*) marker="-" ;;
 					esac
 					text="$(printf ' %s epic: %s' "$marker" "${row_epic[$i]}")"
-				elif [ -n "${epics[$ti]}" ]; then
-					text="$(printf '   %s %-9s %s' "${flags[$ti]}" "${cats[$ti]}" "${titles[$ti]}")"
+					colour=""
 				else
-					text="$(printf ' %s %-9s %s' "${flags[$ti]}" "${cats[$ti]}" "${titles[$ti]}")"
+					colour="${colours[$ti]}"
+					if [ -n "${epics[$ti]}" ]; then
+						text="$(printf '   %s %-9s %s' "${flags[$ti]}" "${cats[$ti]}" "${titles[$ti]}")"
+					else
+						text="$(printf ' %s %-9s %s' "${flags[$ti]}" "${cats[$ti]}" "${titles[$ti]}")"
+					fi
 				fi
-				if [ "$ti" -lt 0 ]; then colour=""; else colour="$(prio_colour "$ti")"; fi
 				if [ "$i" -eq "$SEL" ]; then
 					row "$text" sel "$colour"
 				else

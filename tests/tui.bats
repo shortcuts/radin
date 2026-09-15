@@ -362,6 +362,19 @@ tui() {
   [[ "$output" == *"^[[32m"*"low one"* ]]
 }
 
+@test "an epic child keeps its band, the epic header has no colour" {
+  bl epic-add ui-polish <<<"ctx"
+  bl add feat "low one" --priority 1 <<<"low body" >/dev/null
+  bl add feat "high child" --epic ui-polish --priority 9 <<<"high body" >/dev/null
+  run tui "q"
+  [ "$status" -eq 0 ]
+  run cat -v "$SCREEN"
+  [[ "$output" == *"^[[31m"*"high child"* ]]
+  run bash -c "cat -v '$SCREEN' | grep 'epic: ui-polish'"
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"^[["* ]]
+}
+
 @test "equal priorities all render yellow" {
   bl add feat "same a" --priority 5 <<<"a body" >/dev/null
   bl add feat "same b" --priority 5 <<<"b body" >/dev/null

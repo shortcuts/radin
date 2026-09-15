@@ -328,10 +328,11 @@ Two rules:
   choice), drawn with `row` and driven by `readkey`. Candidates are passed as
   an argument, never on stdin — `readkey` owns fd 0.
 - **Colour is one relative band per row, computed in `load`.** `PRIO_MIN`/
-  `PRIO_MAX` come from the set priorities loaded; `prio_colour` splits that
+  `PRIO_MAX` come from the set priorities loaded; `fill_colours` splits that
   range in three (`\033[31m`/`[33m`/`[32m`, basic 8-colour so every terminal
-  renders it) and returns nothing for an unset priority, for `NO_COLOR`, or for
-  a zero-width range, which renders yellow instead of dividing by zero. Bands
+  renders it) into a `colours[]` array parallel to `prios[]`, which `draw`
+  reads. The entry is empty for an unset priority and for `NO_COLOR`; a
+  zero-width range renders yellow instead of dividing by zero. Bands
   are deliberately relative, so an unrelated task's number changes this one's
   colour — a fixed palette cannot cover an unbounded integer. Category stays a
   plain-text column; priority is the only thing that carries colour.
