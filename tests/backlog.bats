@@ -605,6 +605,22 @@ nest_task() {
   [ "$(cat "$INDEX")" = "$before" ]
 }
 
+@test "set-deps refuses a multi-hop cycle but allows a deep acyclic chain" {
+  cli add feat "a task" <<<"b"
+  cli add feat "b task" <<<"b"
+  cli add feat "c task" <<<"b"
+  cli set-deps a-task b-task
+  cli set-deps b-task c-task
+  before="$(cat "$INDEX")"
+  run cli set-deps c-task a-task
+  [ "$status" -ne 0 ]
+  [ "$(cat "$INDEX")" = "$before" ]
+  cli add feat "d task" <<<"b"
+  run cli set-deps d-task a-task
+  [ "$status" -eq 0 ]
+  [[ "$(cat "$INDEX")" == *'"depends_on":["a-task"]'* ]]
+}
+
 @test "remove prunes the removed id from other entries' depends_on" {
   cli add feat "keeper" <<<"b"
   cli add feat "doomed" <<<"b"

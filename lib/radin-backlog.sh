@@ -306,25 +306,27 @@ require_known_ids() {
 	done
 }
 
-# Every id reachable from the space-separated dep list $2, treating it as $1's
-# depends_on. Prints them space-separated, so a caller can ask whether the
-# closure comes back around to $1.
-deps_closure() {
-	local pending="$2" seen="" cur line
+# True when target $1 is reachable from the ids in "$@". The seen list is what
+# stops a graph that already has a cycle from looping forever.
+deps_reaches() {
+	local target="$1" pending seen="" cur line
+	shift
+	pending="$*"
 	while [ -n "$pending" ]; do
-		# shellcheck disable=SC2086
-		set -- $pending
-		[ $# -gt 0 ] || break
-		cur="$1"
-		shift
-		pending="$*"
+		cur="${pending%% *}"
+		case "$pending" in
+		*" "*) pending="${pending#* }" ;;
+		*) pending="" ;;
+		esac
+		[ -n "$cur" ] || continue
+		[ "$cur" != "$target" ] || return 0
 		case " $seen " in *" $cur "*) continue ;; esac
 		seen="$seen $cur"
 		line="$(grep -F "\"id\":\"$cur\"" "$BACKLOG_INDEX" || true)"
 		[ -n "$line" ] || continue
 		pending="$pending $(deps_ids "$(json_get_raw depends_on "$line")")"
 	done
-	printf '%s\n' "$seen"
+	return 1
 }
 
 cmd="${1:-}"
@@ -616,9 +618,9 @@ set-deps)
 		# makes `radin state deps-check` wait forever instead of failing.
 		# shellcheck disable=SC2086
 		require_known_ids $deps
-		case " $(deps_closure "$id" "$deps") " in
-		*" $id "*) die "depends_on would create a cycle through $id" ;;
-		esac
+		# shellcheck disable=SC2086
+		deps_reaches "$id" $deps &&
+			die "depends_on would create a cycle through $id"
 		# shellcheck disable=SC2086
 		dep_array="$(deps_array $deps)"
 	fi
