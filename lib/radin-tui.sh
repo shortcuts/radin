@@ -268,6 +268,23 @@ row() {
 	printf "$pre%-*s$post\n" "$COLS" "$text"
 }
 
+# Keeps sel inside a window of $3 rows and leaves the new top in CLAMP_TOP,
+# because bash 3.2 has no namerefs to write $2 back through.
+clamp_top() {
+	CLAMP_TOP="$2"
+	[ "$1" -ge "$CLAMP_TOP" ] || CLAMP_TOP="$1"
+	[ "$1" -lt $((CLAMP_TOP + $3)) ] || CLAMP_TOP=$(($1 - $3 + 1))
+	[ "$CLAMP_TOP" -ge 0 ] || CLAMP_TOP=0
+}
+
+# Bold full-width header/footer line. $2 draws it at that terminal row; with no
+# $2 it is emitted inline and ends with a newline.
+bar() {
+	[ -z "${2:-}" ] || printf '\033[%d;1H' "$2"
+	printf '\033[1m%-*s\033[0m' "$COLS" "${1:0:$COLS}"
+	[ -n "${2:-}" ] || printf '\n'
+}
+
 draw() {
 	term_size
 	local preview_h list_h i end header footer ti marker text colour
@@ -276,9 +293,8 @@ draw() {
 	list_h=$((ROWS - preview_h - 4))
 	[ "$list_h" -ge 1 ] || list_h=1
 
-	[ "$SEL" -ge "$TOP" ] || TOP="$SEL"
-	[ "$SEL" -lt $((TOP + list_h)) ] || TOP=$((SEL - list_h + 1))
-	[ "$TOP" -ge 0 ] || TOP=0
+	clamp_top "$SEL" "$TOP" "$list_h"
+	TOP="$CLAMP_TOP"
 
 	header="radin backlog  ${TASK_N} task(s)"
 	[ -z "$FILTER" ] || header="$header  filter:\"$FILTER\""
@@ -286,7 +302,7 @@ draw() {
 
 	{
 		printf '\033[H\033[2J'
-		printf '\033[1m%-*s\033[0m\n' "$COLS" "${header:0:$COLS}"
+		bar "$header"
 		end=$((TOP + list_h))
 		[ "$end" -le "$N" ] || end="$N"
 		if [ "$N" -eq 0 ]; then
@@ -336,7 +352,7 @@ draw() {
 		fi
 		footer="j/k move  enter edit/collapse  v detail  n new  d delete  c category  r retitle  / filter  Tab done  ? keys  q quit"
 		[ -z "$MSG" ] || footer="$MSG"
-		printf '\033[%d;1H\033[1m%-*s\033[0m' "$ROWS" "$COLS" "${footer:0:$COLS}"
+		bar "$footer" "$ROWS"
 	} 2>/dev/null
 }
 
@@ -442,13 +458,12 @@ draw_done() {
 	local list_h i end header footer
 	list_h=$((ROWS - 2))
 	[ "$list_h" -ge 1 ] || list_h=1
-	[ "$DONE_SEL" -ge "$DONE_TOP" ] || DONE_TOP="$DONE_SEL"
-	[ "$DONE_SEL" -lt $((DONE_TOP + list_h)) ] || DONE_TOP=$((DONE_SEL - list_h + 1))
-	[ "$DONE_TOP" -ge 0 ] || DONE_TOP=0
+	clamp_top "$DONE_SEL" "$DONE_TOP" "$list_h"
+	DONE_TOP="$CLAMP_TOP"
 	header="radin done  ${DONE_N} completed"
 	{
 		printf '\033[H\033[2J'
-		printf '\033[1m%-*s\033[0m\n' "$COLS" "${header:0:$COLS}"
+		bar "$header"
 		end=$((DONE_TOP + list_h))
 		[ "$end" -le "$DONE_N" ] || end="$DONE_N"
 		if [ "$DONE_N" -eq 0 ]; then
@@ -472,7 +487,7 @@ draw_done() {
 		done
 		footer="j/k move  Tab back  R reload  q quit  (read-only)"
 		[ -z "$MSG" ] || footer="$MSG"
-		printf '\033[%d;1H\033[1m%-*s\033[0m' "$ROWS" "$COLS" "${footer:0:$COLS}"
+		bar "$footer" "$ROWS"
 	} 2>/dev/null
 }
 
@@ -535,12 +550,11 @@ pick() {
 		term_size
 		list_h=$((ROWS - 2))
 		[ "$list_h" -ge 1 ] || list_h=1
-		[ "$sel" -ge "$ptop" ] || ptop="$sel"
-		[ "$sel" -lt $((ptop + list_h)) ] || ptop=$((sel - list_h + 1))
-		[ "$ptop" -ge 0 ] || ptop=0
+		clamp_top "$sel" "$ptop" "$list_h"
+		ptop="$CLAMP_TOP"
 		{
 			printf '\033[H\033[2J'
-			printf '\033[1m%-*s\033[0m\n' "$COLS" "${title:0:$COLS}"
+			bar "$title"
 			end=$((ptop + list_h))
 			[ "$end" -le "$n" ] || end="$n"
 			i="$ptop"
@@ -565,7 +579,7 @@ pick() {
 			else
 				footer="enter select  q cancel"
 			fi
-			printf '\033[%d;1H\033[1m%-*s\033[0m' "$ROWS" "$COLS" "${footer:0:$COLS}"
+			bar "$footer" "$ROWS"
 		} 2>/dev/null
 		readkey || return 1
 		case "$KEY" in

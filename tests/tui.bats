@@ -427,3 +427,17 @@ tui() {
   run grep slow-tests "$INDEX"
   [[ "$output" == *'"depends_on":["broken-auth","dark-mode"]'* ]]
 }
+
+@test "G scrolls the Done view past one window" {
+  seed
+  mkdir -p "$NS/state"
+  i=1
+  while [ "$i" -le 30 ]; do
+    bash "$REPO_ROOT/lib/radin-state.sh" completed-add "$NS/state/completed.json" "done-$i" "hash$i"
+    i=$((i + 1))
+  done
+  run tui "\t|G|q"
+  [ "$status" -eq 0 ]
+  run cat "$SCREEN"
+  [[ "$output" == *"done-30"* ]]
+}
