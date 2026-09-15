@@ -105,6 +105,23 @@ entry" if Step 4a skipped planning), `CATEGORY` with the entry's category as
 substituted anywhere: `radin-state.sh prepare` reads them from
 `session.json` itself.
 
+`ACCEPTANCE` is a whole line, not a value. When `RADIN_CLI backlog meta`
+printed no `acceptance` line — the common case — delete that line and send
+nothing in its place: the prompt is then exactly what it was before this
+field existed. Never synthesise a criterion, never leave a placeholder, and
+never ask the sub-agent to invent one; a fabricated criterion is worse than
+none, because the refuter would verify against radin's own guess. When `meta`
+printed one or more, replace the line with this block verbatim, one indented
+`-` bullet per `acceptance` line in printed order, each criterion's text
+exactly as `meta` printed it:
+
+```
+1b. This task states its own acceptance criteria. They are the bar it is
+   measured against, and a separate sub-agent will check your committed diff
+   against each one, so satisfy every one of them:
+   - <criterion>
+```
+
 ```
 Execute the task described in TASK_FILE:
 
@@ -133,6 +150,7 @@ command fail rather than run: don't reach for them.
    Anything uncommitted in the tree it hands you is a dead attempt's
    leftovers. Commit it as part of this task if it belongs there, otherwise
    revert it before you start.
+ACCEPTANCE
 2. If PLAN_PATHS is not "none", read them in order. They are plan(s) radin-plan already
    wrote for this task. Follow them; do not re-derive an approach from scratch. If
    there's more than one, they cover different parts of the same task, so implement all
@@ -224,6 +242,23 @@ it with `model: "RADIN_MODEL_REFUTE"`. Never forward the execution
 sub-agent's report: the diff is the claim under test, and its summary of the
 diff is where the rounding-up happens.
 
+`ACCEPTANCE` is a whole line, handled exactly as in the Execution prompt: no
+`acceptance` line from `meta` means delete the line and send nothing in its
+place, and never synthesise a criterion. One or more means replace the line
+with this block verbatim, one indented `-` bullet per criterion in printed
+order:
+
+```
+1a. This task states its own acceptance criteria, and they are part of the
+   contract:
+   - <criterion>
+   Check each one against the diff and against the checks you rerun in step
+   3. Your `VERDICT:` line must name which criteria you verified. A criterion
+   you cannot verify is `UNVERIFIED`, never `ACCEPT`: name it and say what
+   stopped you. Never count a criterion as met because the diff looks like it
+   should be, and never reword, extend, or add one.
+```
+
 ```
 Verify one task's committed work. You did not write it, and you are not
 here to finish it.
@@ -236,6 +271,7 @@ Tree: TASK_DIR
 1. Read TASK_FILE, and PLAN_PATHS if it is not "none". Together they are the
    contract. `**Decision:**`, `**Fact:**`, `**Root cause:**` and `**Rework:**`
    lines in the task file are part of it.
+ACCEPTANCE
 2. Run `git -C TASK_DIR show <hash>` for each commit in COMMITS (`headroom
    diff` gives the same diff structurally when `command -v headroom`
    succeeds, which reads smaller on a reformatted file). Judge the diff

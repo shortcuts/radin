@@ -32,6 +32,8 @@ this text, so write enough that a sub-agent given only this entry, with no
 other session context, could act on it correctly.>
 ```
 
+A body may also state its own acceptance criteria: an `**Acceptance:**` label alone on its line, followed by flat hyphen bullets. `radin backlog meta` prints one `acceptance<TAB><criterion>` line per bullet, stripping the bullet marker and any `[ ]`/`[x]` checkbox prefix. The first line that is not a hyphen bullet at column 0 ends the list, so a blank line, the next `**Label:**` line, prose, or EOF all terminate it. An indented or wrapped criterion is not supported — each criterion is one unindented line.
+
 Every radin agent/skill appending entry classifies into one of four categories, writes same title + description shape via `radin-backlog.sh add`: `radin-review` (code-review findings, usually `fix` for actual bug or `refactor` for structural finding), `radin-record` (feedback/bugs/follow-ups/ideas surfaced in conversation), `radin-execute`/`radin-plan` (own backlog grooming). None invent fifth category or per-entry tag on top.
 
 Once `radin-plan` processes task, appends one more line to that task's own file:
@@ -44,7 +46,7 @@ Once `radin-plan` processes task, appends one more line to that task's own file:
 
 ## Task-file annotations (`radin-execute` appends)
 
-`radin-execute` appends one labeled line per piece of settled material to the task's own file, through `radin-backlog.sh append`. Every label is task-scoped by design: an execution sub-agent reads its task file and nothing else, so no other task's context reaches it.
+These labels are the shared vocabulary of a task file's annotations, and the table names who writes each. Most are appended by `radin-execute` through `radin-backlog.sh append`, one labeled line per piece of settled material. Every label is task-scoped by design: an execution sub-agent reads its task file and nothing else, so no other task's context reaches it.
 
 | Label | Written when | Written by |
 | --- | --- | --- |
@@ -55,6 +57,7 @@ Once `radin-plan` processes task, appends one more line to that task's own file:
 | `**Root cause:** <cause + fix direction>` | debug sub-agent returned `STATUS: DIAGNOSED` | `radin-execute` |
 | `**Rework:** <must-fixes>` | refuter returned `VERDICT: REWORK` | `radin-execute` |
 | `**Facts:** <path>` | the long form went to `state/facts/<task-id>.md` | `radin-execute` |
+| `**Acceptance:** <checklist>` | the session surfaced checkable criteria | radin-record, radin-review, or a human |
 
 Every one of them is binding on the next sub-agent that reads the file, not commentary on it.
 

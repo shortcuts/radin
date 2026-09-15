@@ -231,7 +231,12 @@ The refuter never sees the execution sub-agent's report — only the diff, the
 task file, the plan(s), and the checks it reruns itself. That asymmetry is the
 whole point: a summary of a diff is where a wrong "done" hides. Correctness
 belongs in its `VERDICT:` line; structure and taste go to the `/radin-review`
-pass it invokes, which logs its own backlog entries and blocks nothing.
+pass it invokes, which logs its own backlog entries and blocks nothing. A task
+body may state its own `**Acceptance:**` criteria, which `radin backlog meta`
+reports and both the execution and refuter prompts are handed, so the refuter
+checks a stated outcome instead of prose. A criterion the refuter cannot verify
+is `UNVERIFIED`, and a task with no criteria adds no prompt content at all —
+a synthesised criterion would have the refuter verifying radin's own guess.
 
 A `STATUS: FAILED` gets the **Debug prompt** instead, once per task per
 session: a retry with no new information fails identically and burns an

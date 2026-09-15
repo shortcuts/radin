@@ -201,6 +201,63 @@ cli() {
   [ -z "$output" ]
 }
 
+@test "meta prints one acceptance line per criterion" {
+  cli add feat "no criteria" <<'EOF'
+Body prose.
+- a bullet that is not under an Acceptance label
+
+**Priority:** 5.
+EOF
+  run cli meta "no criteria"
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+
+  cli add feat "one criterion" <<'EOF'
+Body prose.
+
+**Acceptance:**
+- the parser prints exactly one line
+EOF
+  run cli meta "one criterion"
+  [ "$status" -eq 0 ]
+  [ "${#lines[@]}" -eq 1 ]
+  [[ "${lines[0]}" == "acceptance"$'\t'"the parser prints exactly one line" ]]
+
+  cli add feat "several criteria" <<'EOF'
+Body prose.
+
+**Acceptance:**
+- plain bullet
+- [ ] unticked checkbox
+- [x] ticked checkbox
+  - indented sub-bullet ends the list
+- not collected, the list already ended
+
+**Priority:** 10. **Depends on:** nothing.
+EOF
+  run cli meta "several criteria"
+  [ "$status" -eq 0 ]
+  [ "${#lines[@]}" -eq 3 ]
+  [[ "${lines[0]}" == "acceptance"$'\t'"plain bullet" ]]
+  [[ "${lines[1]}" == "acceptance"$'\t'"unticked checkbox" ]]
+  [[ "${lines[2]}" == "acceptance"$'\t'"ticked checkbox" ]]
+
+  cli add feat "criteria then plan" <<'EOF'
+Body prose.
+
+**Acceptance:**
+- one thing
+
+**Priority:** 3.
+EOF
+  cli add-plan "criteria then plan" ".claude/.radin/plans/criteria-then-plan.md"
+  run cli meta "criteria then plan"
+  [ "$status" -eq 0 ]
+  [ "${#lines[@]}" -eq 2 ]
+  [[ "${lines[0]}" == "acceptance"$'\t'"one thing" ]]
+  [[ "${lines[1]}" == "plan"$'\t'".claude/.radin/plans/criteria-then-plan.md" ]]
+}
+
 @test "append adds stdin text to the task's file only" {
   cli add feat "target" <<<"original body"
   cli add feat "other" <<<"other body"

@@ -27,7 +27,7 @@
 #   radin-backlog.sh retitle <id-or-title> <title>  # change a task's title (its id never changes)
 #   radin-backlog.sh set-priority <id-or-title> <integer|--none>  # set/clear the priority (higher wins)
 #   radin-backlog.sh set-deps <id-or-title> <csv-of-ids|--none>   # set/clear depends_on (rejects an unknown id and any cycle)
-#   radin-backlog.sh meta <id-or-title>          # print "plan<TAB><path>" / "skill<TAB><instruction>" lines from the task's file
+#   radin-backlog.sh meta <id-or-title>          # print "plan<TAB><path>" / "skill<TAB><instruction>" / "acceptance<TAB><criterion>" lines from the task's file
 #   radin-backlog.sh planned                     # print the id of every task that already has a **Plan:** line
 #   radin-backlog.sh remove <id-or-title>        # delete task file + index entry (exact single match required)
 #   radin-backlog.sh reconcile <completed-file>  # drop backlog entries whose id is already in completed.json
@@ -482,10 +482,28 @@ meta)
 	[ -n "${2:-}" ] || die "usage: meta <id-or-title>"
 	require_index
 	entry="$(single_match "$2")"
+	in_acceptance=""
 	while IFS= read -r line || [ -n "$line" ]; do
+		if [ -n "$in_acceptance" ]; then
+			case "$line" in
+			'- '*)
+				crit="${line#- }"
+				case "$crit" in
+				'[ ] '* | '[x] '* | '[X] '*)
+					crit="${crit#???}"
+					crit="${crit# }"
+					;;
+				esac
+				printf 'acceptance\t%s\n' "$crit"
+				continue
+				;;
+			*) in_acceptance="" ;;
+			esac
+		fi
 		case "$line" in
 		'**Plan:** '*) printf 'plan\t%s\n' "${line#"**Plan:** "}" ;;
 		'**Skill:** '*) printf 'skill\t%s\n' "${line#"**Skill:** "}" ;;
+		'**Acceptance:**') in_acceptance=1 ;;
 		esac
 	done <"$(task_path "$(json_get file "$entry")")"
 	;;

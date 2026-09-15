@@ -160,10 +160,16 @@ RADIN_CLI backlog add <fix|refactor> "<short title>" <<'EOF'
 <the problem, stated the way the review skill states it: direct, specific>
 **Preferred remedy:**
 <the concrete restructuring suggested>
+**Acceptance:** <only when Step 5's refinement settled a checkable outcome
+for this finding — one flat `- ` bullet per criterion below this line. Omit
+the label entirely otherwise, and always omit it on the non-interactive path
+(Step 5 does not run there), because a criterion derived from the remedy on
+your own is a fabrication the refuter would then verify against.>
 EOF
 ```
 
-Those four labels are the description's own internal structure. Make the
+Those four required labels are the description's own internal structure, and
+the `**Acceptance:**` block is an optional fifth. Make the
 body as exhaustive as the finding warrants, and carry Step 5's refinements
 into it.
 
