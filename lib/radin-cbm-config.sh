@@ -104,6 +104,7 @@ restore() {
 import json, os, shlex, sys
 
 settings_path, snap_settings, claude_json_path, snap_claude_json, cbm = sys.argv[1:6]
+HOME = os.path.expanduser("~")
 
 
 def load(path, label):
@@ -180,18 +181,61 @@ def prune_dead(new_hooks, settings_path):
     return changed
 
 
+# Upstream writes its hook commands as a quoted absolute path, so a ~/.claude
+# shared between machines carries the other machine's $HOME and the entry is
+# pruned above instead of running. A hook command goes through a shell, which
+# expands an unquoted leading ~, so the ~/ form is valid on every machine
+# (verified -- docs/technical-constraints.md). Rewritten words go in bare: a
+# tilde inside quotes does not expand. Only cbm entries: radin does not
+# rewrite another tool's hook.
+def portable(command):
+    if not isinstance(command, str) or not command.strip():
+        return command
+    try:
+        words = shlex.split(command)
+    except ValueError:
+        return command
+    rewritten, changed = [], False
+    for word in words:
+        if word.startswith(HOME + "/"):
+            rewritten.append("~" + word[len(HOME):])
+            changed = True
+        else:
+            rewritten.append(shlex.quote(word))
+    return " ".join(rewritten) if changed else command
+
+
+def normalize_cbm(new_hooks, settings_path):
+    changed = False
+    for event, entries in new_hooks.items():
+        if not isinstance(entries, list):
+            continue
+        for entry in entries:
+            hooks = entry.get("hooks") if isinstance(entry, dict) else None
+            if not isinstance(hooks, list) or not is_cbm_entry(entry):
+                continue
+            for h in hooks:
+                if not isinstance(h, dict):
+                    continue
+                command = portable(h.get("command"))
+                if command != h.get("command"):
+                    h["command"] = command
+                    changed = True
+                    print(f"PORTABLE {settings_path} (hooks.{event}: {command!r})")
+    return changed
+
+
 def restore_settings():
     old = load(snap_settings, snap_settings)
-    if old is None:
-        return
     new = load(settings_path, settings_path)
     if new is None:
-        save(settings_path, old)
-        print(f"RESTORED {settings_path} (whole file -- upstream's write removed it)")
+        if old is not None:
+            save(settings_path, old)
+            print(f"RESTORED {settings_path} (whole file -- upstream's write removed it)")
         return
     changed = False
 
-    for key, value in old.items():
+    for key, value in (old or {}).items():
         if key == "hooks":
             continue
         if key not in new:
@@ -199,7 +243,7 @@ def restore_settings():
             changed = True
             print(f"RESTORED {settings_path} ({key})")
 
-    old_hooks = old.get("hooks") or {}
+    old_hooks = (old or {}).get("hooks") or {}
     if old_hooks and not isinstance(new.get("hooks"), dict):
         new["hooks"] = {}
     new_hooks = new.get("hooks") if isinstance(new.get("hooks"), dict) else {}
@@ -230,6 +274,8 @@ def restore_settings():
             print(f"INTACT   {settings_path} (hooks.{event})")
 
     if prune_dead(new_hooks, settings_path):
+        changed = True
+    if normalize_cbm(new_hooks, settings_path):
         changed = True
     if changed:
         save(settings_path, new)
@@ -318,7 +364,12 @@ servers = target["mcpServers"]
 
 
 # A ~/.claude.json shared between machines names the other machine's binary,
-# which is no entry at all here, so replace it rather than keep it.
+# which is no entry at all here, so replace it rather than keep it. The
+# absolute path stays: Claude Code posix_spawns an mcpServers command instead
+# of running it through a shell, so a leading ~ is a literal directory name
+# and the server fails with ENOENT (verified -- see
+# docs/technical-constraints.md). Detecting a stale path is the only fix
+# available here; don't retry the ~/ rewrite the hook commands get.
 def stale(name):
     command = (servers.get(name) or {}).get("command")
     return isinstance(command, str) and "/" in command \

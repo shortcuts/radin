@@ -355,3 +355,45 @@ EOF
   [[ "$output" == *"hooks: absent"* ]]
   [[ "$output" == *"cbm-hooks all"* ]]
 }
+
+@test "install rewrites upstream's absolute hook paths to the ~/ form" {
+  mkdir -p "$TEST_HOME/.claude/hooks"
+  touch "$TEST_HOME/.claude/hooks/cbm-session-reminder" "$TEST_HOME/other-tool-hook"
+  # Upstream writes its hook command as a quoted absolute path; another tool's
+  # absolute hook is left alone.
+  cat > "$MOCK_BIN/codebase-memory-mcp" <<'EOF'
+#!/usr/bin/env python3
+import json, os, sys
+if sys.argv[1:2] != ["install"]:
+    sys.exit(0)
+home = os.environ["HOME"]
+# upstream rewrites the hook script radin stashed
+os.makedirs(os.path.join(home, ".claude", "hooks"), exist_ok=True)
+open(os.path.join(home, ".claude", "hooks", "cbm-session-reminder"), "w").close()
+json.dump({"hooks": {"SessionStart": [
+    {"matcher": "startup", "hooks": [{"type": "command",
+     "command": "'%s/.claude/hooks/cbm-session-reminder'" % home}]},
+    {"matcher": "", "hooks": [{"type": "command",
+     "command": "%s/other-tool-hook" % home}]}]}},
+    open(os.path.join(home, ".claude", "settings.json"), "w"), indent=2)
+json.dump({"mcpServers": {"codebase-memory-mcp": {
+    "command": "%s/.local/bin/codebase-memory-mcp" % home}}},
+    open(os.path.join(home, ".claude.json"), "w"), indent=2)
+EOF
+  chmod +x "$MOCK_BIN/codebase-memory-mcp"
+  mkdir -p "$TEST_HOME/.local/bin"
+  touch "$TEST_HOME/.local/bin/codebase-memory-mcp"
+  run bash "$CLI" install
+  [ "$status" -eq 0 ]
+  [[ "$output" == *PORTABLE*"~/.claude/hooks/cbm-session-reminder"* ]]
+  run python3 -c "
+import json
+h = json.load(open('$TEST_HOME/.claude/settings.json'))['hooks']
+cmds = [k['command'] for e in h['SessionStart'] for k in e['hooks']]
+assert cmds == ['~/.claude/hooks/cbm-session-reminder', '$TEST_HOME/other-tool-hook'], cmds
+# posix_spawn does not expand ~, so the MCP command keeps its absolute path.
+c = json.load(open('$TEST_HOME/.claude.json'))['mcpServers']['codebase-memory-mcp']['command']
+assert c == '$TEST_HOME/.local/bin/codebase-memory-mcp', c
+"
+  [ "$status" -eq 0 ]
+}

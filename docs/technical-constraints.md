@@ -102,9 +102,25 @@ covered.
   that fails open — the hook runs and does nothing. `install` moves
   `<config-dir>/hooks/cbm-*` into `~/.claude/.radin/backups/hooks.<stamp>/`
   so upstream has to write them again for this machine. Moved, never deleted.
+  Still true of v0.10.8, which writes a literal
+  `BIN='/Users/<you>/.local/bin/codebase-memory-mcp'` and not `$HOME`; radin
+  cannot fix those scripts in place (they are upstream's files), so the stash
+  stays.
 - **A stale `mcpServers` command is replaced, not kept.** `adopt_staged_mcp`
   overwrites an existing entry whose `command` is a path that does not exist,
   for the same shared-`~/.claude` reason.
+- **`~` expands in a hook `command`, never in an `mcpServers` command.**
+  Measured against Claude Code 2.1.236, not inferred from upstream's docs. A
+  hook command runs through a shell, so both `~/.claude/hooks/cbm-session-reminder`
+  and `sh ~/.claude/hooks/cbm-session-reminder` fire; `restore_settings`'
+  `normalize_cbm` therefore rewrites upstream's quoted absolute hook paths to
+  their `~/`-relative form (bare, since a tilde inside quotes does not
+  expand), and only for `cbm-*`/`codebase-memory-mcp` entries — radin does not
+  rewrite another tool's hook. An `mcpServers.<name>.command` is posix_spawned
+  directly: `~/tilde-probe.sh` fails with
+  `ENOENT ... posix_spawn '~/tilde-probe.sh'` while the same path spelled
+  absolutely spawns. That entry keeps its absolute path, so a shared
+  `~/.claude.json` still needs `stale()` — don't retry the rewrite there.
 - **Newest snapshot wins.** `repair` reads the newest `*.bak` pair, which
   after one successful install already contains upstream's entries. It is the
   right input after an upstream `update`, and the wrong input for
