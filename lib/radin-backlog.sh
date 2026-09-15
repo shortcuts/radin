@@ -511,8 +511,7 @@ meta)
 				crit="${line#- }"
 				case "$crit" in
 				'[ ] '* | '[x] '* | '[X] '*)
-					crit="${crit#???}"
-					crit="${crit# }"
+					crit="${crit#????}"
 					;;
 				esac
 				printf 'acceptance\t%s\n' "$crit"
