@@ -127,6 +127,11 @@ task_path() {
 	printf '%s/%s\n' "${BACKLOG_INDEX%/*}" "$1"
 }
 
+# Absolute path of the task file the index line $1 points at.
+entry_path() {
+	task_path "$(json_get file "$1")"
+}
+
 # The epic a `file` field belongs to, or empty at the flat tasks/ level.
 file_epic() {
 	case "$1" in
@@ -386,7 +391,7 @@ show)
 				fi
 				if [ -z "$epic" ]; then level='###'; else level='####'; fi
 				printf '\n%s %s\n' "$level" "$(json_get title "$line")"
-				cat "$(task_path "$(json_get file "$line")")"
+				cat "$(entry_path "$line")"
 			done
 		}
 	done
@@ -531,14 +536,14 @@ meta)
 		'**Skill:** '*) printf 'skill\t%s\n' "${line#"**Skill:** "}" ;;
 		'**Acceptance:**') in_acceptance=1 ;;
 		esac
-	done <"$(task_path "$(json_get file "$entry")")"
+	done <"$(entry_path "$entry")"
 	;;
 
 planned)
 	require_index
 	while IFS= read -r line; do
 		[ -n "$line" ] || continue
-		f="$(task_path "$(json_get file "$line")")"
+		f="$(entry_path "$line")"
 		[ -f "$f" ] || continue
 		grep -q '^\*\*Plan:\*\* ' "$f" || continue
 		printf '%s\n' "$(json_get id "$line")"
@@ -551,7 +556,7 @@ append)
 	entry="$(single_match "$2")"
 	BODY="$(cat)"
 	[ -n "$BODY" ] || die "append text is empty (pass it on stdin)"
-	printf '\n%s\n' "$BODY" >>"$(task_path "$(json_get file "$entry")")"
+	printf '\n%s\n' "$BODY" >>"$(entry_path "$entry")"
 	printf 'appended to "%s"\n' "$(json_get title "$entry")"
 	;;
 
@@ -561,7 +566,7 @@ add-plan)
 	[ -n "$plan_path" ] || die "usage: add-plan <id-or-title> <plan-path>"
 	require_index
 	entry="$(single_match "$query")"
-	printf '**Plan:** %s\n' "$plan_path" >>"$(task_path "$(json_get file "$entry")")"
+	printf '**Plan:** %s\n' "$plan_path" >>"$(entry_path "$entry")"
 	printf 'plan pointer added to "%s"\n' "$(json_get title "$entry")"
 	;;
 
@@ -569,7 +574,7 @@ path)
 	[ -n "${2:-}" ] || die "usage: path <id-or-title>"
 	require_index
 	entry="$(single_match "$2")"
-	task_path "$(json_get file "$entry")"
+	entry_path "$entry"
 	;;
 
 set-category)
