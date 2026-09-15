@@ -16,7 +16,7 @@
 # Usage:
 #   radin-backlog.sh env [--export]             # print REPO_ROOT/NAMESPACE_DIR/BACKLOG_INDEX/BACKLOG_TASKS_DIR (--export: source-able with export)
 #   radin-backlog.sh show [category]             # print backlog as markdown, or one ## section
-#   radin-backlog.sh list                        # print "id<TAB>category<TAB>title<TAB>file<TAB>priority<TAB>depends-on-csv", priority-descending, unset priorities last
+#   radin-backlog.sh list                        # print "id<US>category<US>title<US>file<US>priority<US>depends-on-csv" (US = \037), priority-descending, unset priorities last
 #   radin-backlog.sh find <id-or-title>          # print matching "id<TAB>category<TAB>title<TAB>file<TAB>priority<TAB>depends-on-csv" line(s)
 #   radin-backlog.sh count                       # print the number of entries (0 without an index)
 #   radin-backlog.sh add <category> <title> [--epic <epic-id>] [--skill <name>]... [--priority <n>] [--depends-on <csv>]  # create task, body read from stdin, prints its id
@@ -72,6 +72,11 @@ require_index() {
 	[ -s "$BACKLOG_INDEX" ] || die "no backlog at $BACKLOG_INDEX"
 }
 
+TAB="$(printf '\t')"
+# `list` separates with US, not TAB: TAB is IFS whitespace, so an unset
+# priority collapses under `IFS=$TAB read` and shifts depends_on into it.
+US="$(printf '\037')"
+
 # TSV is the agent-facing output format, so a tab/CR/LF in a title corrupts
 # every consumer's field split.
 require_plain_title() {
@@ -99,17 +104,18 @@ deps_array() {
 	[ -z "$out" ] || printf '[%s]\n' "$out"
 }
 
-# Prints "id<TAB>category<TAB>title<TAB>file<TAB>priority<TAB>depends-on-csv"
-# for JSONL line $1. The last two fields are empty when unset.
+# Prints "id<sep>category<sep>title<sep>file<sep>priority<sep>depends-on-csv"
+# for JSONL line $1, separated by $2 (default TAB). The last two fields are
+# empty when unset.
 fmt_line() {
-	local line="$1" id category title file priority deps
+	local line="$1" sep="${2-$TAB}" id category title file priority deps
 	id="$(json_get id "$line")"
 	category="$(json_get category "$line")"
 	title="$(json_get title "$line")"
 	file="$(json_get file "$line")"
 	priority="$(json_get_raw priority "$line")"
 	deps="$(deps_ids "$(json_get_raw depends_on "$line")" | tr ' ' ',')"
-	printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$id" "$category" "$title" "$file" "$priority" "$deps"
+	printf '%s\n' "$id$sep$category$sep$title$sep$file$sep$priority$sep$deps"
 }
 
 # fmt_line over a stream of raw index lines, so `find` keeps its TSV contract
@@ -408,10 +414,10 @@ list)
 		[ -n "$line" ] || continue
 		prio="$(json_get_raw priority "$line")"
 		if [ -n "$prio" ]; then
-			ranked="$ranked$prio	$(fmt_line "$line")
+			ranked="$ranked$prio	$(fmt_line "$line" "$US")
 "
 		else
-			unranked="$unranked$(fmt_line "$line")
+			unranked="$unranked$(fmt_line "$line" "$US")
 "
 		fi
 	done <"$BACKLOG_INDEX"

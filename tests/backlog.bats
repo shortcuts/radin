@@ -59,8 +59,8 @@ cli() {
   run cli list
   [ "$status" -eq 0 ]
   [ "${#lines[@]}" -eq 2 ]
-  [[ "${lines[0]}" == "f-thing"$'\t'"feat"$'\t'"f thing"$'\t'"tasks/f-thing.md"$'\t'$'\t' ]]
-  [[ "${lines[1]}" == "b-thing"$'\t'"fix"$'\t'"b thing"$'\t'"tasks/b-thing.md"$'\t'$'\t' ]]
+  [[ "${lines[0]}" == "f-thing"$'\037'"feat"$'\037'"f thing"$'\037'"tasks/f-thing.md"$'\037'$'\037' ]]
+  [[ "${lines[1]}" == "b-thing"$'\037'"fix"$'\037'"b thing"$'\037'"tasks/b-thing.md"$'\037'$'\037' ]]
 }
 
 @test "find matches by exact id first" {
@@ -488,7 +488,7 @@ nest_task() {
   cli add feat "child" --epic auth <<<"body"
   run cli list
   [ "$(printf '%s\n' "$output" | grep -c .)" = "1" ]
-  [[ "$output" != *"auth"$'\t'* ]]
+  [[ "$output" != *"auth"$'\037'* ]]
 }
 
 @test "epic-move moves a task in and back out, rewriting the file field" {
@@ -704,6 +704,17 @@ EOF
   [[ "$output" == *'{"id":"second","category":"feat","title":"second","file":"tasks/second.md","priority":20}'* ]]
 }
 
+@test "list fields split on US even when priority is unset" {
+  cli add feat "first" <<<"b1"
+  cli add fix "second" --depends-on first <<<"b2"
+  local listing out=""
+  listing="$(cli list)"
+  while IFS=$'\037' read -r id cat title file prio dep; do
+    out="$out$id|$cat|$prio|$dep"$'\n'
+  done <<<"$listing"
+  [[ "$out" == *"second|fix||first"* ]]
+}
+
 @test "list orders by priority descending with unset entries last" {
   cli add feat "low" --priority 10 <<<"b"
   cli add feat "none at all" <<<"b"
@@ -711,7 +722,7 @@ EOF
   cli add feat "mid" --priority 50 <<<"b"
   run cli list
   [ "$status" -eq 0 ]
-  [ "$(printf '%s\n' "$output" | cut -f1 | tr '\n' ' ')" = "high mid low none-at-all " ]
+  [ "$(printf '%s\n' "$output" | cut -d$'\037' -f1 | tr '\n' ' ')" = "high mid low none-at-all " ]
 }
 
 @test "an entry written before priority existed still parses and round-trips" {

@@ -17,8 +17,9 @@ its own.
    RADIN_CLI backlog list
    ```
 
-   One `id<TAB>category<TAB>title<TAB>file<TAB>priority<TAB>depends-on-csv`
-   line per task, across all categories (`feat`, `fix`, `chore`,
+   One `id<US>category<US>title<US>file<US>priority<US>depends-on-csv`
+   line per task, where `US` is the unit-separator byte `\037` (not a tab),
+   across all categories (`feat`, `fix`, `chore`,
    `refactor`). The output is already sorted priority-descending with unset
    priorities last. That order is the human's ranking, not a display choice.
    Each task's full body — prose, lists, code blocks, `**Plan:**` lines —

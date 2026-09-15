@@ -16,8 +16,7 @@ LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BACKLOG="$LIB_DIR/radin-backlog.sh"
 STATE="$LIB_DIR/radin-state.sh"
 TAB="$(printf '\t')"
-# Tab is IFS whitespace, so `IFS=$TAB read` collapses the empty field an unset
-# priority leaves behind and shifts depends_on into it. Split on US instead.
+# The separator `backlog list` emits; see radin-backlog.sh for why not TAB.
 US="$(printf '\037')"
 CATEGORIES="feat fix chore refactor"
 BODY_HINT="# describe the task: what changes, why, which files, how to verify"
@@ -85,7 +84,7 @@ load() {
 	PRIO_MIN=""
 	PRIO_MAX=""
 	local listing want id cat title file prio dep lq planned epic rest
-	listing="$(backlog list 2>/dev/null | tr "$TAB" "$US" || true)"
+	listing="$(backlog list 2>/dev/null || true)"
 	# One call for the whole backlog: `meta` per task is quadratic.
 	planned="$(backlog planned 2>/dev/null || true)"
 	lq="$(lower "$FILTER")"
@@ -754,7 +753,7 @@ edit_deps_task() {
 	}
 	# A fresh list, not the in-memory ids: $FILTER must not hide a legal dependency.
 	cands="$(backlog list 2>/dev/null |
-		awk -F"$TAB" -v me="${ids[$ti]}" '$1 != "" && $1 != me { printf "%s\t%s -- %s\n", $1, $1, $3 }')"
+		awk -F"$US" -v me="${ids[$ti]}" '$1 != "" && $1 != me { printf "%s\t%s -- %s\n", $1, $1, $3 }')"
 	[ -n "$cands" ] || {
 		MSG="no other task to depend on"
 		return 0
