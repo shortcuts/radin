@@ -188,6 +188,11 @@ advisory and may have failed.
 Adding a delegation: put the tool name in exactly one of the files above, and
 add the row here. A second copy of the same delegation drifts silently.
 
+`tests/skill-names.bats` pins every `/<name>` written in `skills/**/SKILL.md`
+and `lib/*.md` to a skill radin ships or `install.sh` installs, so a rename or
+a typo fails the suite instead of costing a failed call in every sub-agent.
+A new companion needs its plugin prefix in that test's list too.
+
 ## radin-execute session preferences
 
 `skills/radin-execute/SKILL.md` Phase 0.5 asks two questions once per backlog run,
