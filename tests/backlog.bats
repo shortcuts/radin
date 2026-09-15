@@ -735,3 +735,16 @@ EOF
   run cat "$INDEX"
   [[ "$output" == *'{"id":"mover","category":"fix","title":"mover","file":"tasks/grouped/mover.md","priority":60,"depends_on":["anchor"]}'* ]]
 }
+
+@test "a failed index rewrite leaves no .tmp behind and keeps the index intact" {
+  cli add feat "keeper" <<<"b"
+  cli add feat "doomed" <<<"b"
+  before="$(cat "$INDEX")"
+  mkdir -p "$WORK/fake"
+  printf '#!/bin/sh\nexit 1\n' >"$WORK/fake/mv"
+  chmod +x "$WORK/fake/mv"
+  run env PATH="$WORK/fake:$PATH" bash -c "cd '$WORK/proj' && bash '$CLI' remove doomed"
+  [ "$status" -ne 0 ]
+  [ ! -e "$INDEX.tmp" ]
+  [ "$(cat "$INDEX")" = "$before" ]
+}

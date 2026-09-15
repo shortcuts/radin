@@ -196,6 +196,16 @@ line_set_field() {
 	compose_line "$(json_get id "$line")" "$category" "$title" "$file" "$prio" "$deps"
 }
 
+# Replace the index with $1 in one rename, so a caller that dies while it
+# builds the new content leaves the old index untouched. The trap keeps that
+# dead run from leaving `.tmp` debris in the consumer's backlog directory.
+write_index() {
+	trap 'rm -f "$BACKLOG_INDEX.tmp"' EXIT
+	printf '%s' "$1" >"$BACKLOG_INDEX.tmp"
+	mv "$BACKLOG_INDEX.tmp" "$BACKLOG_INDEX"
+	trap - EXIT
+}
+
 # Rewrite one key of the index line for id $1: $2 names the key, $3 is its
 # new value, and an empty $3 drops the key. A key the caller does not name is
 # always kept, so no argument ever has to mean "leave this alone".
@@ -209,13 +219,13 @@ set_index_field() {
 		out="$out$line
 "
 	done <"$BACKLOG_INDEX"
-	printf '%s' "$out" >"$BACKLOG_INDEX"
+	write_index "$out"
 }
 
 # Drop id $1 from every other entry's depends_on: a dangling reference stalls
 # `radin state deps-check` exactly like a cycle does.
 prune_dep() {
-	local gone="$1" line raw dep kept
+	local gone="$1" line raw dep kept out=""
 	while IFS= read -r line || [ -n "$line" ]; do
 		[ -n "$line" ] || continue
 		raw="$(json_get_raw depends_on "$line")"
@@ -228,21 +238,24 @@ prune_dep() {
 			line="$(line_set_field "$line" depends_on "$(deps_array $kept)")"
 			;;
 		esac
-		printf '%s\n' "$line"
-	done <"$BACKLOG_INDEX" >"$BACKLOG_INDEX.tmp"
-	mv "$BACKLOG_INDEX.tmp" "$BACKLOG_INDEX"
+		out="$out$line
+"
+	done <"$BACKLOG_INDEX"
+	write_index "$out"
 }
 
 remove_by_id() {
-	local line rel=""
+	local line rel="" kept
 	line="$(grep -F "\"id\":\"$1\"" "$BACKLOG_INDEX" || true)"
 	if [ -n "$line" ]; then
 		rel="$(json_get file "$line")"
 		rm -f "$(task_path "$rel")"
 		prune_empty_epic "$(file_epic "$rel")"
 	fi
-	grep -v -F "\"id\":\"$1\"" "$BACKLOG_INDEX" >"$BACKLOG_INDEX.tmp" || true
-	mv "$BACKLOG_INDEX.tmp" "$BACKLOG_INDEX"
+	kept="$(grep -v -F "\"id\":\"$1\"" "$BACKLOG_INDEX" || true)"
+	[ -z "$kept" ] || kept="$kept
+"
+	write_index "$kept"
 	prune_dep "$1"
 }
 
