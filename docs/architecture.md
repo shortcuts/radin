@@ -50,7 +50,7 @@ radin backlog <env|show|list|count|find|add|add-plan|append|meta|path|set-catego
 - `show [category]` — render backlog as markdown (all tasks, or one category), reconstructed from `index.jsonl` + each task's file
 - `list` — print `id<TAB>category<TAB>title<TAB>file<TAB>priority<TAB>depends-on-csv` per task, ordered by priority descending with unset priorities last
 - `find <id-or-title>` — locate task, print the same six fields per match (exact id first, then exact title, else case-insensitive substring on title)
-- `add <category> <title> [--epic <epic-id>] [--priority <n>] [--depends-on <csv>]` — create task (body on stdin): slugifies title into id (dedupe on collision, across every epic directory), writes file, appends one line to index
+- `add <category> <title> [--epic <epic-id>] [--priority <n>] [--depends-on <csv>]` — create task (body on stdin): slugifies title into id (dedupe on collision against the index's `id` fields), writes file, appends one line to index
 - `add-plan <id-or-title> <path>` — append `**Plan:**` pointer to task's own file
 - `path <id-or-title>` — print task file's absolute path, resolved by reading matched index line's `file` field and joining it to `backlog/` (what `radin tui` reads and hands to `$EDITOR`)
 - `set-category <id-or-title> <category>` / `retitle <id-or-title> <title>` — rewrite that one index line, id and task file untouched (id stays stable for the task's lifetime, so a retitle can't orphan a `depends_on` or a plan pointer)

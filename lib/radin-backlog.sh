@@ -144,15 +144,11 @@ require_epic_id() {
 	[ -d "$BACKLOG_TASKS_DIR/$1" ] || die "no such epic: $1"
 }
 
-# True when any epic (or the flat level) already holds a task file for id $1.
-# Task ids stay globally unique: depends_on, `radin state prepare` and the
-# radin/<id> branch name all key off the bare id, never off the epic path.
+# True when the index already carries id $1, at any epic depth. Task ids stay
+# globally unique: depends_on, `radin state prepare` and the radin/<id> branch
+# name all key off the bare id, never off the epic path.
 id_taken() {
-	local f
-	for f in "$BACKLOG_TASKS_DIR/$1.md" "$BACKLOG_TASKS_DIR"/*/"$1.md"; do
-		[ -e "$f" ] && return 0
-	done
-	return 1
+	grep -qF "\"id\":\"$1\"" "$BACKLOG_INDEX" 2>/dev/null
 }
 
 # Drop an epic directory once its last child task is gone, so `epics` never
