@@ -232,11 +232,8 @@ cleanup() {
 row() {
 	local text="$1" selected="${2:-}" pre="${3:-}" post=""
 	text="${text:0:$COLS}"
-	[ -z "$pre" ] || post='\033[0m'
-	if [ -n "$selected" ]; then
-		pre="$pre\033[7m"
-		post='\033[0m'
-	fi
+	[ -z "$pre$selected" ] || post='\033[0m'
+	[ -z "$selected" ] || pre="$pre\033[7m"
 	printf "$pre%-*s$post\n" "$COLS" "$text"
 }
 
