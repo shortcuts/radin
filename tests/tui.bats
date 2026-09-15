@@ -191,6 +191,16 @@ tui() {
   unchanged
 }
 
+@test "a task key on an epic header reports no task and changes nothing" {
+  two_epics
+  snapshot
+  run tui "d|c|r|p|q"
+  [ "$status" -eq 0 ]
+  run cat "$SCREEN"
+  [[ "$output" == *"no task here"* ]]
+  unchanged
+}
+
 @test "v composes body, epic description, plan and dependency title" {
   bl add feat "dep target" <<<"target body" >/dev/null
   bl epic-add ctx-epic <<<"epic ctx line"

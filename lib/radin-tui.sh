@@ -207,10 +207,11 @@ build_rows() {
 	[ "$SEL" -lt "$N" ] || SEL=$((N > 0 ? N - 1 : 0))
 }
 
-# The selected row's task index, or nothing when an epic header is selected.
+# The selected row's task index. Non-zero exit on an epic header (or an empty
+# list), so every caller guards with one `||` instead of a length test.
 cur_task() {
-	[ "$N" -gt 0 ] || return 0
-	[ "${row_task[$SEL]}" -ge 0 ] || return 0
+	[ "$N" -gt 0 ] || return 1
+	[ "${row_task[$SEL]}" -ge 0 ] || return 1
 	printf '%s' "${row_task[$SEL]}"
 }
 
@@ -377,8 +378,7 @@ task_path() {
 
 pane_label() {
 	local ti
-	ti="$(cur_task)"
-	if [ -n "$ti" ]; then
+	if ti="$(cur_task)"; then
 		printf '%s' "${ids[$ti]}"
 	else
 		printf 'epic: %s' "${row_epic[$SEL]}"
@@ -391,8 +391,7 @@ compose_detail() {
 	local ti plans p abs d t i
 	: >"$DETAIL_FILE"
 	{
-		ti="$(cur_task)"
-		if [ -z "$ti" ]; then
+		if ! ti="$(cur_task)"; then
 			printf '# epic: %s\n\n' "${row_epic[$SEL]}"
 			backlog epic-show "${row_epic[$SEL]}" 2>/dev/null || printf '(no description)\n'
 			printf '\n## Tasks\n\n'
@@ -650,8 +649,7 @@ no_task() {
 
 edit_body() {
 	local ti
-	ti="$(cur_task)"
-	[ -n "$ti" ] || {
+	ti="$(cur_task)" || {
 		no_task
 		return 0
 	}
@@ -708,8 +706,7 @@ new_task() {
 
 delete_task() {
 	local out ti
-	ti="$(cur_task)"
-	[ -n "$ti" ] || {
+	ti="$(cur_task)" || {
 		no_task
 		return 0
 	}
@@ -728,8 +725,7 @@ delete_task() {
 # `c` cycles rather than prompts: four categories, one keypress each way.
 cycle_category() {
 	local current next first pick out ti
-	ti="$(cur_task)"
-	[ -n "$ti" ] || {
+	ti="$(cur_task)" || {
 		no_task
 		return 0
 	}
@@ -755,8 +751,7 @@ cycle_category() {
 
 retitle_task() {
 	local out ti
-	ti="$(cur_task)"
-	[ -n "$ti" ] || {
+	ti="$(cur_task)" || {
 		no_task
 		return 0
 	}
@@ -778,8 +773,7 @@ retitle_task() {
 # CLI's own die message instead of looking like a no-op.
 set_priority_task() {
 	local out ti value
-	ti="$(cur_task)"
-	[ -n "$ti" ] || {
+	ti="$(cur_task)" || {
 		no_task
 		return 0
 	}
@@ -797,8 +791,7 @@ set_priority_task() {
 
 edit_deps_task() {
 	local out ti cands marked csv
-	ti="$(cur_task)"
-	[ -n "$ti" ] || {
+	ti="$(cur_task)" || {
 		no_task
 		return 0
 	}
@@ -826,8 +819,7 @@ edit_deps_task() {
 
 move_epic_task() {
 	local out ti cands epics_out e
-	ti="$(cur_task)"
-	[ -n "$ti" ] || {
+	ti="$(cur_task)" || {
 		no_task
 		return 0
 	}
@@ -961,7 +953,7 @@ while :; do
 		continue
 	fi
 	case "$KEY" in
-	e | '') if [ -n "$(cur_task)" ]; then edit_body; else toggle_collapse; fi ;;
+	e | '') if cur_task >/dev/null; then edit_body; else toggle_collapse; fi ;;
 	v) view_task ;;
 	"$TAB")
 		MODE="done"
