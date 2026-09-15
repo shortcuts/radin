@@ -211,6 +211,25 @@ cli() {
   [ "$output" = "deadbeef" ]
 }
 
+@test "completed-list prints id and commit per line" {
+  cli completed-add "$COMPLETED" first-task hash1
+  cli completed-add "$COMPLETED" second-task hash2
+  run cli completed-list "$COMPLETED"
+  [ "$status" -eq 0 ]
+  [ "${lines[0]}" = "$(printf 'first-task\thash1')" ]
+  [ "${lines[1]}" = "$(printf 'second-task\thash2')" ]
+}
+
+@test "completed-list exits 1 with no completions" {
+  run cli completed-list "$WORK/nope.json"
+  [ "$status" -eq 1 ]
+  [ -z "$output" ]
+  : >"$COMPLETED"
+  run cli completed-list "$COMPLETED"
+  [ "$status" -eq 1 ]
+  [ -z "$output" ]
+}
+
 @test "completed-get exits 1 for an absent id or an absent file" {
   cli completed-add "$COMPLETED" my-task deadbeef
   run cli completed-get "$COMPLETED" other

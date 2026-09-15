@@ -43,7 +43,7 @@ Replaced earlier `~/.claude/.radin/projects/<repo-slug>/` scheme. That scheme ke
 Every one of `skills/radin-execute/SKILL.md`, `skills/radin-plan/SKILL.md`, `skills/radin-review/SKILL.md`, `skills/radin-record/SKILL.md`, `skills/radin-show/SKILL.md` goes through same shared CLI, `lib/radin-backlog.sh`, for every deterministic backlog op:
 
 ```bash
-radin backlog <env|show|list|count|find|add|add-plan|append|meta|path|set-category|retitle|set-priority|set-deps|remove|reconcile|epics|epic-add|epic-move|epic-remove>   # dispatcher at ~/.claude/.radin/bin/radin, symlinked into ~/.local/bin
+radin backlog <env|show|list|count|find|add|add-plan|append|meta|planned|path|set-category|retitle|set-priority|set-deps|remove|reconcile|epics|epic-add|epic-show|epic-move|epic-remove>   # dispatcher at ~/.claude/.radin/bin/radin, symlinked into ~/.local/bin
 ```
 
 - `env` — namespace resolution (delegates to `lib/radin-namespace.sh`, single source of truth for path logic; prints `REPO_ROOT`, `NAMESPACE_DIR`, `BACKLOG_INDEX`, `BACKLOG_TASKS_DIR`)
@@ -52,12 +52,14 @@ radin backlog <env|show|list|count|find|add|add-plan|append|meta|path|set-catego
 - `find <id-or-title>` — locate task, print the same six fields per match (exact id first, then exact title, else case-insensitive substring on title)
 - `add <category> <title> [--epic <epic-id>] [--priority <n>] [--depends-on <csv>]` — create task (body on stdin): slugifies title into id (dedupe on collision against the index's `id` fields), writes file, appends one line to index
 - `add-plan <id-or-title> <path>` — append `**Plan:**` pointer to task's own file
+- `planned` — print the id of every task whose file already carries a `**Plan:**` line; one call answers "which tasks are planned?" for a whole listing, where `meta` per task costs one file read each
 - `path <id-or-title>` — print task file's absolute path, resolved by reading matched index line's `file` field and joining it to `backlog/` (what `radin tui` reads and hands to `$EDITOR`)
 - `set-category <id-or-title> <category>` / `retitle <id-or-title> <title>` — rewrite that one index line, id and task file untouched (id stays stable for the task's lifetime, so a retitle can't orphan a `depends_on` or a plan pointer)
 - `set-priority <id-or-title> <integer|--none>` / `set-deps <id-or-title> <csv-of-ids|--none>` — store the human's ranking and ordering on the index line; `set-deps` refuses an unknown id, a self-reference and a cycle, because an unresolvable dependency stalls `radin state deps-check` instead of failing it
 - `remove <id-or-title>` — delete task's file + index line (exact single match required); drops the epic directory too when that was its last child, so `epics` never reports a husk, and prunes the removed id from every other entry's `depends_on`
 - `epics` — print every epic id, one per line; a directory listing, because an epic index file would be a second store to keep in sync
 - `epic-add <epic-id>` — create the directory and its `DESCRIPTION.md` (body from stdin when piped)
+- `epic-show <epic-id>` — print the epic's `DESCRIPTION.md` verbatim (nothing, exit 0, when it is empty)
 - `epic-move <id-or-title> <epic-id|--none>` — move the task file and rewrite its `file` field; `--none` returns it to the flat `tasks/` level
 - `epic-remove <epic-id>` — refuse while child tasks remain (exit non-zero, delete nothing): the operator moves them out first
 
@@ -78,7 +80,7 @@ Creates `state/`, `plans/`, `reviews/`, `backlog/tasks/` under `$NAMESPACE_DIR`,
 `radin-execute`'s own state files (`BACKLOG_STEPS.json`, `completed.json`) get same treatment as backlog. Sibling CLI, `lib/radin-state.sh`, only way agent mutates either file — never hand-written JSON edit in agent's own prose.
 
 ```bash
-radin state <start|stuck|triage|set-status|remove|completed-add|completed-get|task-dir|prepare|dirty-check|session-set|session-get|journal-tail>
+radin state <start|stuck|triage|set-status|remove|completed-add|completed-get|completed-list|task-dir|prepare|dirty-check|session-set|session-get|journal-tail>
 ```
 
 - `start <steps-file> <id>` — claim task before dispatch: `status` `in_progress`, `attempts` +1. Exits 2 having marked entry `blocked` once `attempts` passes `MAX_ATTEMPTS` (3), so crash loop can't burn tokens forever
@@ -88,6 +90,7 @@ radin state <start|stuck|triage|set-status|remove|completed-add|completed-get|ta
 - `remove <steps-file> <id>` — delete one completed entry's line
 - `completed-add <completed-file> <id> <hash>` — append completed task's commit, create file if absent
 - `completed-get <completed-file> <id>` — print completed task's commit hash (exit 1 if not recorded), for later task's `depends_on` check
+- `completed-list <completed-file>` — print `id<TAB>commit` per completion in file order (exit 1 when nothing is recorded), for `radin tui`'s Done view: completion deletes the backlog entry, so this file is the only record left
 - `task-dir <repo-root> <id>` — print task's worktree (`<repo-root>-<id>`) when it exists, else repo root. Everything checking or parking one task's files (`dirty-check`, `stash`) goes through it: in worktree mode repo root is not tree sub-agent worked in, and checking wrong one reports clean while work sits uncommitted elsewhere
 - `prepare <namespace-dir> <id>` — read `session.json`, create or reuse `<repo-root>-<id>` worktree and `radin/<id>` branch exactly as recorded answers require, print single directory execution sub-agent works in. Only place those two answers turn into git commands, so a model can't reinterpret `no` into a worktree it prefers. Fails when nothing recorded yet
 - `dirty-check <dir>` — `git status --porcelain`, `.claude/.radin` excluded so radin's own state writes never read as dirty tree

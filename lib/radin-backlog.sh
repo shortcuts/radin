@@ -28,10 +28,12 @@
 #   radin-backlog.sh set-priority <id-or-title> <integer|--none>  # set/clear the priority (higher wins)
 #   radin-backlog.sh set-deps <id-or-title> <csv-of-ids|--none>   # set/clear depends_on (rejects an unknown id and any cycle)
 #   radin-backlog.sh meta <id-or-title>          # print "plan<TAB><path>" / "skill<TAB><instruction>" lines from the task's file
+#   radin-backlog.sh planned                     # print the id of every task that already has a **Plan:** line
 #   radin-backlog.sh remove <id-or-title>        # delete task file + index entry (exact single match required)
 #   radin-backlog.sh reconcile <completed-file>  # drop backlog entries whose id is already in completed.json
 #   radin-backlog.sh epics                       # print every epic id, one per line
 #   radin-backlog.sh epic-add <epic-id>          # create the epic dir + DESCRIPTION.md (body from stdin when piped)
+#   radin-backlog.sh epic-show <epic-id>         # print the epic's DESCRIPTION.md
 #   radin-backlog.sh epic-move <id-or-title> <epic-id|--none>  # move a task into/out of an epic
 #   radin-backlog.sh epic-remove <epic-id>       # delete an epic that has no child tasks left
 #
@@ -488,6 +490,17 @@ meta)
 	done <"$(task_path "$(json_get file "$entry")")"
 	;;
 
+planned)
+	require_index
+	while IFS= read -r line; do
+		[ -n "$line" ] || continue
+		f="$(task_path "$(json_get file "$line")")"
+		[ -f "$f" ] || continue
+		grep -q '^\*\*Plan:\*\* ' "$f" || continue
+		printf '%s\n' "$(json_get id "$line")"
+	done <"$BACKLOG_INDEX"
+	;;
+
 append)
 	[ -n "${2:-}" ] || die "usage: append <id-or-title>  (text on stdin)"
 	require_index
@@ -645,6 +658,14 @@ epic-add)
 	printf 'created epic %s\n' "$epic"
 	;;
 
+epic-show)
+	epic="${2:-}"
+	[ -n "$epic" ] || die "usage: epic-show <epic-id>"
+	require_epic_id "$epic"
+	[ ! -s "$BACKLOG_TASKS_DIR/$epic/DESCRIPTION.md" ] ||
+		cat "$BACKLOG_TASKS_DIR/$epic/DESCRIPTION.md"
+	;;
+
 epic-move)
 	query="${2:-}"
 	target="${3:-}"
@@ -683,6 +704,6 @@ epic-remove)
 	;;
 
 *)
-	die "unknown command: ${cmd:-<none>} (env|show|list|count|find|add|add-plan|append|meta|path|set-category|retitle|set-priority|set-deps|remove|reconcile|epics|epic-add|epic-move|epic-remove)"
+	die "unknown command: ${cmd:-<none>} (env|show|list|count|find|add|add-plan|append|meta|planned|path|set-category|retitle|set-priority|set-deps|remove|reconcile|epics|epic-add|epic-show|epic-move|epic-remove)"
 	;;
 esac

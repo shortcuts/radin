@@ -113,14 +113,15 @@ radin tui
 ```
 
 Full-screen backlog browser, for when you want no agent in the loop. Lists
-every task grouped by category, previews the selected one, and gives you one
-key per operation:
+every task grouped by category, nests an epic's children under a collapsible
+header, previews the selected one, and gives you one key per operation:
 
 | Key | Does |
 | --- | --- |
 | `j` `k`, arrows | Move, `g`/`G` jump to first/last |
-| `enter`, `e` | Edit task body in `$EDITOR` |
-| `v` | View task body in `$PAGER` |
+| `enter`, `e` | Edit task body in `$EDITOR`; on an epic header, collapse/expand it |
+| `v` | View the composed detail: body, epic description, every plan's contents, priority, and each dependency as id + title |
+| `Tab` | The Done view: completed task ids and their commit hashes, read-only |
 | `n` | New task: one key for category, a title, then body in `$EDITOR` |
 | `d` | Delete selected task, after a `y` confirmation |
 | `c` | Move task to next category |
@@ -129,10 +130,12 @@ key per operation:
 | `R` `?` `q` | Reload, keys, quit |
 
 A `P` in the first column means `/radin-plan` already wrote a plan for that
-task.
+task. Collapse state lasts for the session only. The Done view is the only
+place a shipped task is still visible, because completion deletes its backlog
+entry.
 
 Same backlog the skills use, same CLI underneath — every key shells out to
-`radin backlog`. Zero dependencies too: raw ANSI and `stty`, no `tput`,
+`radin backlog`, and the Done view to `radin state completed-list`. Zero dependencies too: raw ANSI and `stty`, no `tput`,
 `dialog`, `gum` or `fzf`. It needs a real terminal, so it refuses to run in a
 pipe; use `radin backlog show` there.
 

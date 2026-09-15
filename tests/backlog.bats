@@ -355,6 +355,42 @@ nest_task() {
   [ "$output" = "auth-overhaul" ]
 }
 
+@test "epic-show prints the epic description" {
+  cli epic-add auth-overhaul <<<"Shared auth context."
+  run cli epic-show auth-overhaul
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Shared auth context."* ]]
+}
+
+@test "epic-show is silent for an empty description" {
+  printf '' | cli epic-add bare
+  run cli epic-show bare
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+@test "epic-show rejects an unknown epic" {
+  run cli epic-show ghost
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"no such epic"* ]]
+}
+
+@test "planned lists only tasks with a plan pointer" {
+  cli add feat "with plan" <<<"b1"
+  cli add feat "without plan" <<<"b2"
+  cli add-plan with-plan "plans/with-plan.md"
+  run cli planned
+  [ "$status" -eq 0 ]
+  [ "$output" = "with-plan" ]
+}
+
+@test "planned prints nothing when no task is planned" {
+  cli add feat "no plan" <<<"b"
+  run cli planned
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
 @test "epic-add rejects a non-slug id and an existing epic" {
   cli epic-add ok <<<"d"
   run cli epic-add ok <<<"d"

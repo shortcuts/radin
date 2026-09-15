@@ -3,10 +3,13 @@
 # argv: <outfile> <keys separated by |> <cmd> [args...]
 # Each key chunk is written after the previous frame had time to render;
 # escape sequences may be spelled with Python escapes ("\r", "\x1b[B").
+import fcntl
 import os
 import pty
 import select
+import struct
 import sys
+import termios
 import time
 
 outfile, keys = sys.argv[1:3]
@@ -15,6 +18,10 @@ cmd = sys.argv[3:]
 pid, fd = pty.fork()
 if pid == 0:
     os.execvp(cmd[0], cmd)
+
+# A forked pty has no window size, and the TUI would fall back to its 40x10
+# minimum -- narrower and shorter than any real terminal.
+fcntl.ioctl(fd, termios.TIOCSWINSZ, struct.pack("HHHH", 24, 80, 0, 0))
 
 screen = b""
 

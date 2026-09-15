@@ -20,6 +20,7 @@
 #   radin-state.sh deps-check <steps-file> <completed-file> <id>  # print "dep<TAB>hash" per dependency, exit 1 naming the first unresolved one
 #   radin-state.sh completed-add <completed-file> <id> <commit-hash>
 #   radin-state.sh completed-get <completed-file> <id>   # prints commit hash, exit 1 if absent
+#   radin-state.sh completed-list <completed-file>       # print "id<TAB>commit" per completion, exit 1 if none
 #   radin-state.sh task-done <namespace-dir> <id> <commit-hash>  # completed-add + backlog remove + steps remove, in crash-safe order
 #   radin-state.sh task-dir <repo-root> <id>              # print the task's worktree if it exists, else <repo-root>
 #   radin-state.sh prepare <namespace-dir> <id>           # create/reuse the task's tree and branch per session.json, print the dir to work in
@@ -307,6 +308,16 @@ completed-get)
 	exit 1
 	;;
 
+completed-list)
+	file="${2:-}"
+	[ -n "$file" ] || die "usage: completed-list <completed-file>"
+	[ -s "$file" ] || exit 1
+	while IFS= read -r line || [ -n "$line" ]; do
+		[ -n "$line" ] || continue
+		printf '%s\t%s\n' "$(json_get id "$line")" "$(json_get commit "$line")"
+	done <"$file"
+	;;
+
 task-done)
 	ns="${2:-}"
 	id="${3:-}"
@@ -437,6 +448,6 @@ journal-tail)
 	;;
 
 *)
-	die "unknown command: ${cmd:-<none>} (steps-init|next-pending|start|stuck|triage|set-status|remove|deps-check|completed-add|completed-get|task-done|task-dir|dirty-check|stash|session-set|session-get|journal-tail)"
+	die "unknown command: ${cmd:-<none>} (steps-init|next-pending|start|stuck|triage|set-status|remove|deps-check|completed-add|completed-get|completed-list|task-done|task-dir|dirty-check|stash|session-set|session-get|journal-tail)"
 	;;
 esac

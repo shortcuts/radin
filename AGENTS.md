@@ -300,18 +300,25 @@ manifest missing one key falls through to the pickers.
 
 ## The human TUI
 
-`radin tui` (`lib/radin-tui.sh`) is the human-facing backlog browser: list,
-preview, `e` edit in `$EDITOR`, `n` new, `d` delete, `c` category, `r`
+`radin tui` (`lib/radin-tui.sh`) is the human-facing backlog browser: an epic
+tree whose headers collapse, a composed detail pane for the selected row, a
+`Tab` Done view, `e` edit in `$EDITOR`, `n` new, `d` delete, `c` category, `r`
 retitle, `/` filter. Not a skill, and no agent invokes it — a TUI needs a
 terminal and a human at it, and every agent-facing path is already a CLI
 subcommand.
 
 Two rules:
 
-- **The TUI draws and dispatches keys, nothing else.** Every mutation shells
-  out to `radin-backlog.sh` (`add`, `remove`, `set-category`, `retitle`,
-  `path`). A key that needs an operation the CLI lacks means adding a CLI
-  subcommand — never writing `index.jsonl` from the TUI.
+- **The TUI draws and dispatches keys, nothing else** — reads as well as
+  mutations. Mutations shell out to `radin-backlog.sh` (`add`, `remove`,
+  `set-category`, `retitle`, `path`); every read goes through `list`,
+  `planned`, `epic-show`, `meta`, `find`, `path` or
+  `radin state completed-list`. A view that needs data no subcommand exposes
+  means adding a CLI subcommand — never parsing `index.jsonl` or
+  `completed.json` from the TUI.
+- **The collapse set is a space-delimited string**, because bash 3.2 has no
+  associative arrays, and navigation skips a collapsed epic's children because
+  `build_rows` never emits them — no key handler knows about collapse.
 - **Raw ANSI only.** `stty` for raw mode and terminal size, `\033[` escapes to
   draw, `read -rsn1` for keys. No `tput`, `dialog`, `whiptail`, `gum` or
   `fzf`, and no vendored bash TUI library (`bash-tui-toolkit` solves this the

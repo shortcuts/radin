@@ -11,6 +11,7 @@ setup() {
   git init -q "$WORK/proj"
   INDEX="$WORK/proj/.claude/.radin/backlog/index.jsonl"
   TASKS="$WORK/proj/.claude/.radin/backlog/tasks"
+  NS="$WORK/proj/.claude/.radin"
   SCREEN="$WORK/screen.txt"
   # An $EDITOR that types for us: writes a fixed body and exits.
   printf '#!/bin/sh\nprintf "typed body\\n" >"$1"\n' >"$WORK/editor.sh"
@@ -25,6 +26,25 @@ teardown() {
 seed() {
   (cd "$WORK/proj" && printf 'Auth times out.\n' | bash "$BACKLOG" add fix "broken auth" >/dev/null)
   (cd "$WORK/proj" && printf 'Add dark mode.\n' | bash "$BACKLOG" add feat "dark mode" >/dev/null)
+}
+
+snapshot() {
+  cp "$INDEX" "$WORK/index.before"
+}
+
+unchanged() {
+  cmp -s "$INDEX" "$WORK/index.before"
+}
+
+bl() {
+  (cd "$WORK/proj" && bash "$BACKLOG" "$@")
+}
+
+two_epics() {
+  bl epic-add aaa-epic <<<"aaa ctx"
+  bl epic-add bbb-epic <<<"bbb ctx"
+  bl add feat "aaa child" --epic aaa-epic <<<"aaa body" >/dev/null
+  bl add feat "bbb child" --epic bbb-epic <<<"bbb body" >/dev/null
 }
 
 tui() {
@@ -135,4 +155,93 @@ tui() {
   [ "$status" -eq 0 ]
   run cat "$SCREEN"
   [[ "$output" == *"P feat"* ]]
+}
+
+@test "epic children render under their epic header" {
+  bl epic-add ui-polish <<<"epic ctx line"
+  bl add feat "nested task" --epic ui-polish <<<"body" >/dev/null
+  bl add feat "loose task" <<<"body" >/dev/null
+  run tui "q"
+  [ "$status" -eq 0 ]
+  run cat "$SCREEN"
+  [[ "$output" == *"epic: ui-polish"* ]]
+  [[ "$output" == *"nested task"* ]]
+  [[ "$output" == *"loose task"* ]]
+}
+
+@test "enter collapses an epic and navigation skips its children" {
+  two_epics
+  run tui "\r|j|j|e|q"
+  [ "$status" -eq 0 ]
+  run cat "$TASKS/bbb-epic/bbb-child.md"
+  [ "$output" = "typed body" ]
+  run cat "$TASKS/aaa-epic/aaa-child.md"
+  [ "$output" = "aaa body" ]
+}
+
+@test "enter on an epic header edits nothing" {
+  two_epics
+  snapshot
+  run tui "\r|e|q"
+  [ "$status" -eq 0 ]
+  run cat "$TASKS/aaa-epic/aaa-child.md"
+  [ "$output" = "aaa body" ]
+  run cat "$TASKS/bbb-epic/bbb-child.md"
+  [ "$output" = "bbb body" ]
+  unchanged
+}
+
+@test "v composes body, epic description, plan and dependency title" {
+  bl add feat "dep target" <<<"target body" >/dev/null
+  bl epic-add ctx-epic <<<"epic ctx line"
+  bl add feat "needs dep" --epic ctx-epic --depends-on dep-target --priority 40 <<<"needs body" >/dev/null
+  mkdir -p "$NS/plans"
+  printf 'plan body line\n' >"$NS/plans/needs-dep.md"
+  bl add-plan needs-dep "$NS/plans/needs-dep.md" >/dev/null
+  snapshot
+  run tui "j|j|v|q"
+  [ "$status" -eq 0 ]
+  run cat "$SCREEN"
+  [[ "$output" == *"plan body line"* ]]
+  [[ "$output" == *"epic ctx line"* ]]
+  [[ "$output" == *"priority: 40"* ]]
+  [[ "$output" == *"dep-target -- dep target"* ]]
+  unchanged
+}
+
+@test "Tab shows the Done view from completed.json" {
+  seed
+  mkdir -p "$NS/state"
+  bash "$REPO_ROOT/lib/radin-state.sh" completed-add "$NS/state/completed.json" shipped-thing abc1234
+  snapshot
+  run tui "\t|q"
+  [ "$status" -eq 0 ]
+  run cat "$SCREEN"
+  [[ "$output" == *"shipped-thing"* ]]
+  [[ "$output" == *"abc1234"* ]]
+  unchanged
+}
+
+@test "the Done view says so when nothing is completed" {
+  seed
+  run tui "\t|q"
+  [ "$status" -eq 0 ]
+  run cat "$SCREEN"
+  [[ "$output" == *"nothing completed yet"* ]]
+}
+
+@test "Tab toggles back to the list" {
+  seed
+  run tui "\t|\t|d|y\r|q"
+  [ "$status" -eq 0 ]
+  [ ! -f "$TASKS/dark-mode.md" ]
+}
+
+@test "the Done view ignores mutating keys" {
+  seed
+  snapshot
+  run tui "\t|d|y\r|n|x|nope\r|q"
+  [ "$status" -eq 0 ]
+  unchanged
+  [ -f "$TASKS/dark-mode.md" ]
 }
