@@ -435,7 +435,21 @@ tui() {
   run tui "G|D| |j| |\r|q"
   [ "$status" -eq 0 ]
   run grep slow-tests "$INDEX"
-  [[ "$output" == *'"depends_on":["broken-auth","dark-mode"]'* ]]
+  # The chooser lists the tasks in the order the list draws them (category
+  # order), because it reads the same loaded arrays; depends_on records the
+  # order they were marked in.
+  [[ "$output" == *'"depends_on":["dark-mode","broken-auth"]'* ]]
+}
+
+@test "D offers a task the filter is hiding" {
+  seed
+  bl add chore "slow tests" <<<"tests are slow" >/dev/null
+  # Filter down to one task, then make the hidden "dark mode" a dependency of
+  # it: the candidate list must still hold every task.
+  run tui "/|slow\r|D| |\r|q"
+  [ "$status" -eq 0 ]
+  run grep slow-tests "$INDEX"
+  [[ "$output" == *'"depends_on":["dark-mode"]'* ]]
 }
 
 @test "G scrolls the Done view past one window" {
@@ -450,4 +464,21 @@ tui() {
   [ "$status" -eq 0 ]
   run cat "$SCREEN"
   [[ "$output" == *"done-30"* ]]
+}
+
+@test "v composes the epic description, the plan file and a dependency title" {
+  bl epic-add ui-polish <<<"the epic's own context"
+  bl add feat "inside epic" --epic ui-polish <<<"child body" >/dev/null
+  bl add fix "broken auth" <<<"Auth times out." >/dev/null
+  bl set-deps inside-epic broken-auth
+  bl add-plan inside-epic plans/inside-epic.md
+  printf 'the plan body\n' >"$NS/plans/inside-epic.md"
+  # The pane no longer carries any of this; `v` is where it lives.
+  # Row 0 is the flat fix, row 1 the epic header, row 2 its child.
+  run tui "j|j|v|q"
+  [ "$status" -eq 0 ]
+  run cat "$SCREEN"
+  [[ "$output" == *"the epic's own context"* ]]
+  [[ "$output" == *"the plan body"* ]]
+  [[ "$output" == *"broken-auth -- broken auth"* ]]
 }

@@ -17,7 +17,7 @@
 #   radin-backlog.sh help [command]              # print every command's usage, or one command's
 #   radin-backlog.sh env [--export]             # print REPO_ROOT/NAMESPACE_DIR/BACKLOG_INDEX/BACKLOG_TASKS_DIR (--export: source-able with export)
 #   radin-backlog.sh show [category]             # print backlog as markdown, or one ## section
-#   radin-backlog.sh list [--category <cat>] [--priority-min <n>] [--priority-max <n>] [--epic <epic-id>] [--json]  # print "id<US>category<US>title<US>file<US>priority<US>depends-on-csv" (US = \037), priority-descending, unset priorities last
+#   radin-backlog.sh list [--category <cat>] [--priority-min <n>] [--priority-max <n>] [--epic <epic-id>] [--planned] [--json]  # print "id<US>category<US>title<US>file<US>priority<US>depends-on-csv" (US = \037), priority-descending, unset priorities last (--planned appends a 7th P/empty field; --json prints the index lines instead)
 #   radin-backlog.sh find <id-or-title>          # print matching "id<TAB>category<TAB>title<TAB>file<TAB>priority<TAB>depends-on-csv" line(s)
 #   radin-backlog.sh count                       # print the number of entries (0 without an index)
 #   radin-backlog.sh add <category> <title> [--epic <epic-id>] [--skill <name>]... [--priority <n>] [--depends-on <csv>]  # create task, body read from stdin, prints its id
@@ -138,14 +138,23 @@ function row(line, sep) {
 AWK_LIST='
 BEGIN { cat = ENVIRON["RADIN_CAT"]; epic = ENVIRON["RADIN_EPIC"]
         pmin = ENVIRON["RADIN_PMIN"]; pmax = ENVIRON["RADIN_PMAX"]
-        json = ENVIRON["RADIN_JSON"] }
+        json = ENVIRON["RADIN_JSON"]; plan = ENVIRON["RADIN_PLANNED"]
+        dir = ENVIRON["RADIN_DIR"] }
 $0 == "" { next }
 { if (cat != "" && jstr($0, "category") != cat) next
   if (epic != "" && fepic(jstr($0, "file")) != epic) next
   p = jraw($0, "priority")
   if (pmin != "" && (p == "" || p + 0 < pmin + 0)) next
   if (pmax != "" && (p == "" || p + 0 > pmax + 0)) next
-  out = (json != "") ? $0 : row($0, US)
+  if (json != "") out = $0
+  else {
+    out = row($0, US)
+    if (plan != "") {
+      pf = dir "/" jstr($0, "file"); flag = ""
+      while ((getline pl < pf) > 0)
+        if (pl ~ /^\*\*Plan:\*\* /) { flag = "P"; break }
+      close(pf)
+      out = out US flag } }
   if (p == "") print "1" TAB "0" TAB out
   else print "0" TAB p TAB out }
 '
@@ -479,6 +488,8 @@ list)
 	RADIN_PMIN=""
 	RADIN_PMAX=""
 	RADIN_JSON=""
+	RADIN_PLANNED=""
+	RADIN_DIR="${BACKLOG_INDEX%/*}"
 	while [ $# -gt 0 ]; do
 		case "$1" in
 		--category)
@@ -506,6 +517,10 @@ list)
 			RADIN_EPIC="$2"
 			shift 2
 			;;
+		--planned)
+			RADIN_PLANNED=1
+			shift
+			;;
 		--json)
 			RADIN_JSON=1
 			shift
@@ -517,7 +532,7 @@ list)
 	# display choice: a consumer reads this order as the human's ranking.
 	# -s keeps equal priorities in index order, and the rank class in field 1
 	# is what puts every unset priority after every set one.
-	export RADIN_CAT RADIN_EPIC RADIN_PMIN RADIN_PMAX RADIN_JSON
+	export RADIN_CAT RADIN_EPIC RADIN_PMIN RADIN_PMAX RADIN_JSON RADIN_PLANNED RADIN_DIR
 	awk "$AWK_JSON$AWK_LIST" "$BACKLOG_INDEX" |
 		sort -s -t"$TAB" -k1,1n -k2,2nr | cut -f3-
 	;;

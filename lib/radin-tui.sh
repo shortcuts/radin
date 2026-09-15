@@ -39,8 +39,11 @@ MODE=list
 # space-delimited string, matched the way radin-backlog.sh matches its own.
 COLLAPSED=""
 TASK_N=0
+# Tasks the filter leaves visible: TASK_N is every loaded task, and the header
+# reports what the human can actually see.
+VIS_N=0
 DETAIL_FILE=""
-DETAIL_FOR=""
+PREVIEW_FOR=""
 DONE_N=0
 DONE_SEL=0
 DONE_TOP=0
@@ -49,8 +52,6 @@ PRIO_MAX=""
 # NO_COLOR is the only opt-out: a non-tty already exits above.
 COLOR=1
 [ -z "${NO_COLOR:-}" ] || COLOR=""
-
-lower() { printf '%s' "$1" | tr '[:upper:]' '[:lower:]'; }
 
 backlog() { bash "$BACKLOG" "$@"; }
 
@@ -65,6 +66,8 @@ prios=()
 deps=()
 epics=()
 colours=()
+visible=()
+preview_lines=()
 row_task=()
 row_epic=()
 done_rows=()
@@ -83,33 +86,23 @@ load() {
 	deps=()
 	epics=()
 	colours=()
-	PRIO_MIN=""
-	PRIO_MAX=""
-	local listing want id cat title file prio dep lq planned epic rest
-	listing="$(backlog list 2>/dev/null || true)"
-	# One call for the whole backlog: `meta` per task is quadratic.
-	planned="$(backlog planned 2>/dev/null || true)"
-	lq="$(lower "$FILTER")"
+	local listing want id cat title file prio dep planned epic rest
+	# One call for the whole backlog, plan flags included: a second `planned`
+	# call is a second ~50ms of the startup budget, and `meta` per task is
+	# quadratic.
+	listing="$(backlog list --planned 2>/dev/null || true)"
+	# Every task the CLI returned is kept, filtered or not: $FILTER is a
+	# row-visibility test in build_rows, so `/` needs no reload and `D` can
+	# offer a dependency the filter is hiding.
 	for want in $CATEGORIES; do
-		while IFS="$US" read -r id cat title file prio dep; do
+		while IFS="$US" read -r id cat title file prio dep planned; do
 			[ -n "$id" ] || continue
 			[ "$cat" = "$want" ] || continue
-			if [ -n "$lq" ]; then
-				case "$(lower "$id $title")" in
-				*"$lq"*) ;;
-				*) continue ;;
-				esac
-			fi
 			ids[${#ids[@]}]="$id"
 			cats[${#cats[@]}]="$cat"
 			titles[${#titles[@]}]="$title"
 			files[${#files[@]}]="$file"
 			prios[${#prios[@]}]="$prio"
-			case "$prio" in '' | *[!0-9]*) ;; *)
-				[ -n "$PRIO_MIN" ] && [ "$prio" -ge "$PRIO_MIN" ] || PRIO_MIN="$prio"
-				[ -n "$PRIO_MAX" ] && [ "$prio" -le "$PRIO_MAX" ] || PRIO_MAX="$prio"
-				;;
-			esac
 			deps[${#deps[@]}]="$dep"
 			epic=""
 			case "$file" in
@@ -119,22 +112,14 @@ load() {
 				;;
 			esac
 			epics[${#epics[@]}]="$epic"
-			# Newline-delimited, so dark-mode never matches dark-mode-2.
-			case "
-$planned
-" in
-			*"
-$id
-"*) flags[${#flags[@]}]="P" ;;
-			*) flags[${#flags[@]}]=" " ;;
-			esac
+			[ -n "$planned" ] || planned=" "
+			flags[${#flags[@]}]="$planned"
 		done <<-LISTING
 			$listing
 		LISTING
 	done
 	TASK_N=${#ids[@]}
-	fill_colours
-	DETAIL_FOR=""
+	PREVIEW_FOR=""
 	build_rows
 }
 
@@ -167,16 +152,50 @@ fill_colours() {
 	done
 }
 
+# Case-insensitive substring on "id title" with no `tr` fork. nocasematch is
+# scoped to this one test so the dispatcher's own `case "$KEY"` stays exact.
+filter_hit() {
+	[ -n "$FILTER" ] || return 0
+	local hit=1
+	shopt -s nocasematch
+	case "${ids[$1]} ${titles[$1]}" in *"$FILTER"*) hit=0 ;; esac
+	shopt -u nocasematch
+	return "$hit"
+}
+
 # The visible rows: ungrouped tasks first, then one collapsible header per
 # epic followed by its children. A collapsed epic's children are absent from
 # the row arrays, which is why j/k/g/G need no collapse logic of their own.
+# Also where $FILTER is applied and where the priority band is recomputed:
+# both are per load/filter/collapse, never per frame.
 build_rows() {
 	row_task=()
 	row_epic=()
-	local i e epic_list
+	visible=()
+	VIS_N=0
+	PRIO_MIN=""
+	PRIO_MAX=""
+	local i e epic_list prio
 	i=0
 	while [ "$i" -lt "$TASK_N" ]; do
-		if [ -z "${epics[$i]}" ]; then
+		if filter_hit "$i"; then
+			visible[i]=1
+			VIS_N=$((VIS_N + 1))
+			prio="${prios[$i]}"
+			case "$prio" in '' | *[!0-9]*) ;; *)
+				[ -n "$PRIO_MIN" ] && [ "$prio" -ge "$PRIO_MIN" ] || PRIO_MIN="$prio"
+				[ -n "$PRIO_MAX" ] && [ "$prio" -le "$PRIO_MAX" ] || PRIO_MAX="$prio"
+				;;
+			esac
+		else
+			visible[i]=""
+		fi
+		i=$((i + 1))
+	done
+	fill_colours
+	i=0
+	while [ "$i" -lt "$TASK_N" ]; do
+		if [ -n "${visible[$i]}" ] && [ -z "${epics[$i]}" ]; then
 			row_task[${#row_task[@]}]="$i"
 			row_epic[${#row_epic[@]}]=""
 		fi
@@ -185,7 +204,7 @@ build_rows() {
 	epic_list="$(
 		i=0
 		while [ "$i" -lt "$TASK_N" ]; do
-			[ -z "${epics[$i]}" ] || printf '%s\n' "${epics[$i]}"
+			[ -z "${visible[$i]}" ] || [ -z "${epics[$i]}" ] || printf '%s\n' "${epics[$i]}"
 			i=$((i + 1))
 		done | sort -u
 	)"
@@ -196,7 +215,7 @@ build_rows() {
 		case " $COLLAPSED " in *" $e "*) continue ;; esac
 		i=0
 		while [ "$i" -lt "$TASK_N" ]; do
-			if [ "${epics[$i]}" = "$e" ]; then
+			if [ -n "${visible[$i]}" ] && [ "${epics[$i]}" = "$e" ]; then
 				row_task[${#row_task[@]}]="$i"
 				row_epic[${#row_epic[@]}]=""
 			fi
@@ -207,12 +226,14 @@ build_rows() {
 	[ "$SEL" -lt "$N" ] || SEL=$((N > 0 ? N - 1 : 0))
 }
 
-# The selected row's task index. Non-zero exit on an epic header (or an empty
-# list), so every caller guards with one `||` instead of a length test.
+# The selected row's task index, left in the global TI. Non-zero exit on an
+# epic header (or an empty list), so every caller guards with one `||` instead
+# of a length test. A global, not a command substitution: the draw path calls
+# this once per frame and a fork there is the cost this TUI is built to avoid.
 cur_task() {
 	[ "$N" -gt 0 ] || return 1
-	[ "${row_task[$SEL]}" -ge 0 ] || return 1
-	printf '%s' "${row_task[$SEL]}"
+	TI="${row_task[$SEL]}"
+	[ "$TI" -ge 0 ] || return 1
 }
 
 toggle_collapse() {
@@ -226,7 +247,7 @@ toggle_collapse() {
 		;;
 	*) COLLAPSED="$COLLAPSED $e" ;;
 	esac
-	DETAIL_FOR=""
+	PREVIEW_FOR=""
 	build_rows
 }
 
@@ -310,7 +331,7 @@ draw() {
 	clamp_top "$SEL" "$TOP" "$list_h"
 	TOP="$CLAMP_TOP"
 
-	header="radin backlog  ${TASK_N} task(s)"
+	header="radin backlog  ${VIS_N} task(s)"
 	[ -z "$FILTER" ] || header="$header  filter:\"$FILTER\""
 	[ "$N" -eq 0 ] || header="$header  [$((SEL + 1))/$N]"
 
@@ -331,14 +352,14 @@ draw() {
 					*" ${row_epic[$i]} "*) marker="+" ;;
 					*) marker="-" ;;
 					esac
-					text="$(printf ' %s epic: %s' "$marker" "${row_epic[$i]}")"
+					printf -v text ' %s epic: %s' "$marker" "${row_epic[$i]}"
 					colour=""
 				else
 					colour="${colours[$ti]}"
 					if [ -n "${epics[$ti]}" ]; then
-						text="$(printf '   %s %-9s %s' "${flags[$ti]}" "${cats[$ti]}" "${titles[$ti]}")"
+						printf -v text '   %s %-9s %s' "${flags[$ti]}" "${cats[$ti]}" "${titles[$ti]}"
 					else
-						text="$(printf ' %s %-9s %s' "${flags[$ti]}" "${cats[$ti]}" "${titles[$ti]}")"
+						printf -v text ' %s %-9s %s' "${flags[$ti]}" "${cats[$ti]}" "${titles[$ti]}"
 					fi
 				fi
 				if [ "$i" -eq "$SEL" ]; then
@@ -356,10 +377,16 @@ draw() {
 		done
 
 		if [ "$N" -gt 0 ]; then
-			ensure_detail
-			row "$(printf -- '-- %s ' "$(pane_label)")"
-			sed -n "1,${preview_h}p" "$DETAIL_FILE" 2>/dev/null | while IFS= read -r line; do
-				row "  $line"
+			if [ "$PREVIEW_FOR" != "$SEL $preview_h" ]; then
+				preview "$preview_h"
+				PREVIEW_FOR="$SEL $preview_h"
+			fi
+			if cur_task; then text="-- ${ids[$TI]} "; else text="-- epic: ${row_epic[$SEL]} "; fi
+			row "$text"
+			i=0
+			while [ "$i" -lt "${#preview_lines[@]}" ]; do
+				row "  ${preview_lines[$i]}"
+				i=$((i + 1))
 			done
 		else
 			row "--"
@@ -376,22 +403,48 @@ task_path() {
 	printf '%s/%s' "$BACKLOG_DIR" "${files[$1]}"
 }
 
-pane_label() {
-	local ti
-	if ti="$(cur_task)"; then
-		printf '%s' "${ids[$ti]}"
+# The detail pane, built into preview_lines[] with no fork at all: it is
+# redrawn on every keypress, so one `cat` or `sed` here is a fork per frame.
+# $1 caps it at the pane's height. The full composed document -- epic
+# description, every plan file, dependency titles -- lives behind `v`.
+preview() {
+	local h="$1" line n i f e
+	preview_lines=()
+	if cur_task; then
+		preview_lines[0]="${titles[$TI]}"
+		preview_lines[1]="id: ${ids[$TI]}  category: ${cats[$TI]}  priority: ${prios[$TI]:-(unset)}"
+		preview_lines[2]=""
+		n=3
+		f="$BACKLOG_DIR/${files[$TI]}"
+		if [ -f "$f" ]; then
+			while [ "$n" -lt "$h" ] && { IFS= read -r line || [ -n "$line" ]; }; do
+				preview_lines[n]="$line"
+				n=$((n + 1))
+			done <"$f"
+		fi
 	else
-		printf 'epic: %s' "${row_epic[$SEL]}"
+		e="${row_epic[$SEL]}"
+		preview_lines[0]="epic: $e"
+		preview_lines[1]=""
+		n=2
+		i=0
+		while [ "$i" -lt "$TASK_N" ] && [ "$n" -lt "$h" ]; do
+			if [ "${epics[$i]}" = "$e" ]; then
+				preview_lines[n]="- ${titles[$i]}"
+				n=$((n + 1))
+			fi
+			i=$((i + 1))
+		done
 	fi
 }
 
 # The whole human-side composition: everything the agent-facing stack keeps
 # behind pointers, gathered for the selected row.
 compose_detail() {
-	local ti plans p abs d t i
+	local plans p abs d t i
 	: >"$DETAIL_FILE"
 	{
-		if ! ti="$(cur_task)"; then
+		if ! cur_task; then
 			printf '# epic: %s\n\n' "${row_epic[$SEL]}"
 			backlog epic-show "${row_epic[$SEL]}" 2>/dev/null || printf '(no description)\n'
 			printf '\n## Tasks\n\n'
@@ -401,20 +454,20 @@ compose_detail() {
 				i=$((i + 1))
 			done
 		else
-			printf '# %s\n\n' "${titles[$ti]}"
+			printf '# %s\n\n' "${titles[$TI]}"
 			printf 'id: %s\ncategory: %s\npriority: %s\n' \
-				"${ids[$ti]}" "${cats[$ti]}" "${prios[$ti]:-(unset)}"
+				"${ids[$TI]}" "${cats[$TI]}" "${prios[$TI]:-(unset)}"
 			printf '\n## Task\n\n'
-			cat "$(task_path "$ti")" 2>/dev/null
+			cat "$BACKLOG_DIR/${files[$TI]}" 2>/dev/null
 			printf '\n## Epic\n\n'
-			if [ -n "${epics[$ti]}" ]; then
-				printf '%s\n\n' "${epics[$ti]}"
-				backlog epic-show "${epics[$ti]}" 2>/dev/null || printf '(no description)\n'
+			if [ -n "${epics[$TI]}" ]; then
+				printf '%s\n\n' "${epics[$TI]}"
+				backlog epic-show "${epics[$TI]}" 2>/dev/null || printf '(no description)\n'
 			else
 				printf '(ungrouped)\n'
 			fi
 			printf '\n## Plans\n\n'
-			plans="$(backlog meta "${ids[$ti]}" 2>/dev/null | sed -n "s/^plan$TAB//p")"
+			plans="$(backlog meta "${ids[$TI]}" 2>/dev/null | sed -n "s/^plan$TAB//p")"
 			if [ -z "$plans" ]; then
 				printf '(no plan)\n'
 			else
@@ -429,26 +482,29 @@ compose_detail() {
 				PLANS
 			fi
 			printf '\n## Depends on\n\n'
-			if [ -z "${deps[$ti]}" ]; then
+			if [ -z "${deps[$TI]}" ]; then
 				printf '(none)\n'
 			else
-				# shellcheck disable=SC2046,SC2086
-				for d in $(printf '%s' "${deps[$ti]}" | tr ',' ' '); do
-					t="$(backlog find "$d" 2>/dev/null | head -n1 | cut -f3)"
+				# shellcheck disable=SC2086
+				for d in ${deps[$TI]//,/ }; do
+					# The loaded arrays hold every task, so a title
+					# costs no CLI call; `find` is the fallback for
+					# an id the index no longer carries.
+					t=""
+					i=0
+					while [ "$i" -lt "$TASK_N" ]; do
+						[ "${ids[$i]}" != "$d" ] || {
+							t="${titles[$i]}"
+							break
+						}
+						i=$((i + 1))
+					done
+					[ -n "$t" ] || t="$(backlog find "$d" 2>/dev/null | head -n1 | cut -f3)"
 					printf -- '- %s -- %s\n' "$d" "${t:-(unknown id)}"
 				done
 			fi
 		fi
 	} >>"$DETAIL_FILE" 2>/dev/null
-}
-
-# Redraws are free; only a selection change pays for the CLI calls.
-ensure_detail() {
-	if [ "$DETAIL_FOR" = "$SEL" ] && [ -s "$DETAIL_FILE" ]; then
-		return 0
-	fi
-	compose_detail
-	DETAIL_FOR="$SEL"
 }
 
 load_done() {
@@ -651,7 +707,7 @@ no_task() {
 # task index, or the footer says why there is none and the caller returns. A
 # global rather than a command substitution -- MSG set in a subshell is lost.
 sel_task() {
-	TI="$(cur_task)" && return 0
+	cur_task && return 0
 	no_task
 	return 1
 }
@@ -673,7 +729,7 @@ edit_body() {
 	sel_task || return 0
 	run_external "${EDITOR:-vi}" "$(task_path "$TI")"
 	MSG="edited ${ids[$TI]}"
-	DETAIL_FOR=""
+	PREVIEW_FOR=""
 }
 
 # One keypress beats typing a category name that then has to be validated.
@@ -766,11 +822,16 @@ set_priority_task() {
 }
 
 edit_deps_task() {
-	local cands marked csv
+	local cands="" marked csv i
 	sel_task || return 0
-	# A fresh list, not the in-memory ids: $FILTER must not hide a legal dependency.
-	cands="$(backlog list 2>/dev/null |
-		awk -F"$US" -v me="${ids[$TI]}" '$1 != "" && $1 != me { printf "%s\t%s -- %s\n", $1, $1, $3 }')"
+	# The loaded arrays hold every task, filtered or not, so $FILTER cannot
+	# hide a legal dependency and this needs no second `backlog list`.
+	i=0
+	while [ "$i" -lt "$TASK_N" ]; do
+		[ "$i" -eq "$TI" ] || cands="$cands${ids[$i]}$TAB${ids[$i]} -- ${titles[$i]}
+"
+		i=$((i + 1))
+	done
 	[ -n "$cands" ] || {
 		MSG="no other task to depend on"
 		return 0
@@ -828,9 +889,11 @@ new_epic() {
 	fi
 }
 
+# `v` composes unconditionally: its CLI calls are a keypress the user chose,
+# not a redraw.
 view_task() {
 	[ "$N" -gt 0 ] || return 0
-	ensure_detail
+	compose_detail
 	run_external "${PAGER:-less}" "$DETAIL_FILE"
 }
 
@@ -843,7 +906,9 @@ help_screen() {
 		  k / up        previous task
 		  g / G         first / last task
 		  enter, e      edit the task body in \$EDITOR (an epic row: collapse/expand)
-		  v             view the composed detail (body, epic, plans, priority, deps) in \$PAGER
+		  v             view the composed detail in \$PAGER: the body, the epic's
+		                own description, every plan file and the dependency titles --
+		                everything the pane leaves out
 		  Tab           the Done view: completed tasks and their commits (read-only)
 		  n             new task (category, title, then body in \$EDITOR)
 		  d             delete the selected task (asks first)
@@ -869,7 +934,10 @@ help_screen() {
 	readkey || true
 }
 
-eval "$(backlog env)"
+# Sourced, not `eval "$(backlog env)"`: namespace resolution is not backlog
+# parsing, and one fewer subshell is ~45ms of the startup budget.
+# shellcheck disable=SC1091
+. "$LIB_DIR/radin-namespace.sh"
 BACKLOG_DIR="${BACKLOG_INDEX%/*}"
 
 DETAIL_FILE="$(mktemp)"
@@ -913,7 +981,7 @@ while :; do
 		continue
 	fi
 	case "$KEY" in
-	e | '') if cur_task >/dev/null; then edit_body; else toggle_collapse; fi ;;
+	e | '') if cur_task; then edit_body; else toggle_collapse; fi ;;
 	v) view_task ;;
 	"$TAB")
 		MODE="done"
@@ -932,7 +1000,8 @@ while :; do
 		FILTER="$REPLY_LINE"
 		SEL=0
 		TOP=0
-		load
+		PREVIEW_FOR=""
+		build_rows
 		;;
 	R)
 		load

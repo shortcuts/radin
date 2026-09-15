@@ -16,6 +16,11 @@ BACKLOG_TASKS_DIR="$NAMESPACE_DIR/backlog/tasks"
 mkdir -p "$NAMESPACE_DIR/state/facts" "$NAMESPACE_DIR/plans" "$NAMESPACE_DIR/reviews" "$BACKLOG_TASKS_DIR"
 BACKLOG_INDEX="$NAMESPACE_DIR/backlog/index.jsonl"
 
+# Sourcing this file resolves the namespace with no fork at all, which is what
+# the TUI's startup budget needs; running it prints the same four variables for
+# every `eval "$(bash radin-namespace.sh)"` caller.
+[ "${BASH_SOURCE[0]}" = "$0" ] || return 0
+
 # %q keeps the output source-able even when the repo path contains spaces.
 printf 'REPO_ROOT=%q\n' "$REPO_ROOT"
 printf 'NAMESPACE_DIR=%q\n' "$NAMESPACE_DIR"
