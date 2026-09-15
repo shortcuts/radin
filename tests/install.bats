@@ -264,10 +264,11 @@ EOF
 @test "the dispatcher routes subcommands to the installed lib scripts" {
   run_install_defaults
   # cd out of the repo: namespace resolution would otherwise count radin's own backlog.
-  run env HOME="$TEST_HOME" bash -c "cd '$TEST_HOME' && bash '$TEST_HOME/.claude/.radin/bin/radin' backlog count"
+  cd "$TEST_HOME"
+  run env HOME="$TEST_HOME" bash "$TEST_HOME/.claude/.radin/bin/radin" backlog count
   [ "$status" -eq 0 ]
   [ "$output" = "0" ]
-  run env HOME="$TEST_HOME" bash -c "cd '$TEST_HOME' && bash '$TEST_HOME/.claude/.radin/bin/radin' nope"
+  run env HOME="$TEST_HOME" bash "$TEST_HOME/.claude/.radin/bin/radin" nope
   [ "$status" -ne 0 ]
 }
 
