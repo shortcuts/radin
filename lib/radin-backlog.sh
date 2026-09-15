@@ -149,10 +149,10 @@ id_taken() {
 	grep -qF "\"id\":\"$1\"" "$BACKLOG_INDEX" 2>/dev/null
 }
 
-# The only definition of "this epic still holds a child task": DESCRIPTION.md is
+# The only definition of "this epic holds no child task": DESCRIPTION.md is
 # the epic's own root context, not a child.
-epic_has_children() {
-	[ -n "$(find "$BACKLOG_TASKS_DIR/$1" -maxdepth 1 -name '*.md' ! -name DESCRIPTION.md -print -quit 2>/dev/null)" ]
+epic_is_empty() {
+	[ -z "$(find "$BACKLOG_TASKS_DIR/$1" -maxdepth 1 -name '*.md' ! -name DESCRIPTION.md -print -quit 2>/dev/null)" ]
 }
 
 # Drop an epic directory once its last child task is gone, so `epics` never
@@ -160,7 +160,7 @@ epic_has_children() {
 prune_empty_epic() {
 	local epic="$1"
 	[ -n "$epic" ] && [ -d "$BACKLOG_TASKS_DIR/$epic" ] || return 0
-	! epic_has_children "$epic" || return 0
+	epic_is_empty "$epic" || return 0
 	rm -f "$BACKLOG_TASKS_DIR/$epic/DESCRIPTION.md"
 	rmdir "$BACKLOG_TASKS_DIR/$epic" 2>/dev/null || true
 }
@@ -724,7 +724,7 @@ epic-remove)
 	[ -n "$epic" ] || die "usage: epic-remove <epic-id>"
 	require_epic_id "$epic"
 	# Never recursively delete tasks: the operator moves them out first.
-	! epic_has_children "$epic" ||
+	epic_is_empty "$epic" ||
 		die "epic $epic still holds child tasks; epic-move them out first"
 	rm -f "$BACKLOG_TASKS_DIR/$epic/DESCRIPTION.md"
 	rmdir "$BACKLOG_TASKS_DIR/$epic"
