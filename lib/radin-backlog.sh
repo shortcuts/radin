@@ -14,9 +14,10 @@
 # number.
 #
 # Usage:
+#   radin-backlog.sh help [command]              # print every command's usage, or one command's
 #   radin-backlog.sh env [--export]             # print REPO_ROOT/NAMESPACE_DIR/BACKLOG_INDEX/BACKLOG_TASKS_DIR (--export: source-able with export)
 #   radin-backlog.sh show [category]             # print backlog as markdown, or one ## section
-#   radin-backlog.sh list                        # print "id<US>category<US>title<US>file<US>priority<US>depends-on-csv" (US = \037), priority-descending, unset priorities last
+#   radin-backlog.sh list [--category <cat>] [--priority-min <n>] [--priority-max <n>] [--epic <epic-id>] [--json]  # print "id<US>category<US>title<US>file<US>priority<US>depends-on-csv" (US = \037), priority-descending, unset priorities last
 #   radin-backlog.sh find <id-or-title>          # print matching "id<TAB>category<TAB>title<TAB>file<TAB>priority<TAB>depends-on-csv" line(s)
 #   radin-backlog.sh count                       # print the number of entries (0 without an index)
 #   radin-backlog.sh add <category> <title> [--epic <epic-id>] [--skill <name>]... [--priority <n>] [--depends-on <csv>]  # create task, body read from stdin, prints its id
@@ -63,6 +64,17 @@ die() {
 	exit 1
 }
 
+# The header comment block above is the only usage text there is: `help`
+# prints it back, and usage_die quotes one line of it, so a new subcommand can
+# never ship undocumented and no hand-maintained second list can drift from it.
+usage_lines() { sed -n 's|^#   radin-backlog\.sh |  |p' "${BASH_SOURCE[0]}"; }
+usage_for() { usage_lines | grep -E "^  $1( |$)" || true; }
+usage_die() {
+	printf 'radin-backlog: %s\n' "$2" >&2
+	usage_for "$1" >&2
+	exit 1
+}
+
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
 . "$LIB_DIR/radin-json.sh"
@@ -76,6 +88,94 @@ TAB="$(printf '\t')"
 # `list` separates with US, not TAB: TAB is IFS whitespace, so an unset
 # priority collapses under `IFS=$TAB read` and shifts depends_on into it.
 US="$(printf '\037')"
+
+# One awk pass per read verb replaces the fork-per-JSON-field json_get loops
+# that made `list` cost 5.5s on a 200-task backlog. Assembled by string
+# concatenation: this prelude plus one per-verb body, which works the same on
+# BWK awk, gawk and mawk. Every caller-supplied string reaches awk through
+# ENVIRON, never `awk -v` -- `-v` interprets backslash escapes in the value, so
+# a title carrying a backslash would arrive mangled.
+#
+# jstr/jraw are awk's copy of json_get/json_get_raw and must stay byte-identical
+# to them: jstr walks the value after the `"key":"` needle one character at a
+# time, consuming `\X` as a literal X and stopping at the first unescaped quote;
+# jraw returns the raw integer or [...] array after `"key":`, empty when the key
+# is absent, because unset must stay distinguishable from any value. A title
+# containing a literal `"file":"` is stored escaped (`\"file\":\"`), so the
+# needle cannot match inside it -- do not add a JSON tokenizer for that.
+AWK_JSON='
+BEGIN { US = sprintf("%c", 31); TAB = sprintf("%c", 9) }
+function jstr(line, key,   s, out, c, i, n) {
+  if (match(line, "\"" key "\":\"") == 0) return ""
+  s = substr(line, RSTART + RLENGTH); out = ""; n = length(s)
+  for (i = 1; i <= n; i++) { c = substr(s, i, 1)
+    if (c == "\\") { i++; out = out substr(s, i, 1); continue }
+    if (c == "\"") break
+    out = out c }
+  return out }
+function jraw(line, key,   s) {
+  if (match(line, "\"" key "\":") == 0) return ""
+  s = substr(line, RSTART + RLENGTH)
+  if (substr(s, 1, 1) == "[") {
+    if (match(s, /^\[[^]]*\]/) == 0) return ""
+    return substr(s, RSTART, RLENGTH) }
+  if (match(s, /^-?[0-9]+/) == 0) return ""
+  return substr(s, RSTART, RLENGTH) }
+function depscsv(raw,   t) { t = raw; gsub(/[][" ]/, "", t); return t }
+function fepic(f,   r) { if (f !~ /^tasks\/[^\/]+\//) return ""
+                         r = substr(f, 7); sub(/\/.*$/, "", r); return r }
+function row(line, sep) {
+  return jstr(line, "id") sep jstr(line, "category") sep jstr(line, "title") \
+         sep jstr(line, "file") sep jraw(line, "priority") \
+         sep depscsv(jraw(line, "depends_on")) }
+'
+
+# `list`: filters and the sort keys in the same pass, so a filter costs no
+# extra fork and two filters compose. The two leading keys are TAB-separated
+# from the row because require_plain_title already rejects a tab in a title,
+# so `cut -f3-` can never split a row.
+# shellcheck disable=SC2016  # $0 is awk's record, not a shell expansion
+AWK_LIST='
+BEGIN { cat = ENVIRON["RADIN_CAT"]; epic = ENVIRON["RADIN_EPIC"]
+        pmin = ENVIRON["RADIN_PMIN"]; pmax = ENVIRON["RADIN_PMAX"]
+        json = ENVIRON["RADIN_JSON"] }
+$0 == "" { next }
+{ if (cat != "" && jstr($0, "category") != cat) next
+  if (epic != "" && fepic(jstr($0, "file")) != epic) next
+  p = jraw($0, "priority")
+  if (pmin != "" && (p == "" || p + 0 < pmin + 0)) next
+  if (pmax != "" && (p == "" || p + 0 > pmax + 0)) next
+  out = (json != "") ? $0 : row($0, US)
+  if (p == "") print "1" TAB "0" TAB out
+  else print "0" TAB p TAB out }
+'
+
+# `matches`: the same three-tier contract as before (exact id, else exact
+# title, else case-insensitive substring), in one pass instead of three.
+# shellcheck disable=SC2016  # $0 is awk's record, not a shell expansion
+AWK_MATCH='
+BEGIN { q = ENVIRON["RADIN_Q"]; lq = tolower(q); n = 0 }
+$0 == "" { next }
+{ n++; lines[n] = $0; ids[n] = jstr($0, "id"); titles[n] = jstr($0, "title") }
+END { hit = 0
+  for (i = 1; i <= n; i++) if (ids[i] == q) { print lines[i]; hit = 1 }
+  if (hit) exit
+  for (i = 1; i <= n; i++) if (titles[i] == q) { print lines[i]; hit = 1 }
+  if (hit) exit
+  for (i = 1; i <= n; i++) if (index(tolower(titles[i]), lq) > 0) print lines[i] }
+'
+
+# `planned`: the index decides which file to read, never a glob over tasks/ --
+# a filename-derived id would also match DESCRIPTION.md.
+# shellcheck disable=SC2016  # $0 is awk's record, not a shell expansion
+AWK_PLANNED='
+BEGIN { dir = ENVIRON["RADIN_DIR"] }
+$0 == "" { next }
+{ f = dir "/" jstr($0, "file"); id = jstr($0, "id")
+  while ((getline line < f) > 0)
+    if (line ~ /^\*\*Plan:\*\* /) { print id; break }
+  close(f) }
+'
 
 # TSV is the agent-facing output format, so a tab/CR/LF in a title corrupts
 # every consumer's field split.
@@ -104,28 +204,11 @@ deps_array() {
 	[ -z "$out" ] || printf '[%s]\n' "$out"
 }
 
-# Prints "id<sep>category<sep>title<sep>file<sep>priority<sep>depends-on-csv"
-# for JSONL line $1, separated by $2 (default TAB). The last two fields are
-# empty when unset.
-fmt_line() {
-	local line="$1" sep="${2-$TAB}" id category title file priority deps
-	id="$(json_get id "$line")"
-	category="$(json_get category "$line")"
-	title="$(json_get title "$line")"
-	file="$(json_get file "$line")"
-	priority="$(json_get_raw priority "$line")"
-	deps="$(deps_ids "$(json_get_raw depends_on "$line")" | tr ' ' ',')"
-	printf '%s\n' "$id$sep$category$sep$title$sep$file$sep$priority$sep$deps"
-}
-
-# fmt_line over a stream of raw index lines, so `find` keeps its TSV contract
-# while `matches` hands callers the line itself.
+# "id<TAB>category<TAB>title<TAB>file<TAB>priority<TAB>depends-on-csv" for a
+# stream of raw index lines, so `find` keeps its TSV contract while `matches`
+# hands callers the line itself. The last two fields are empty when unset.
 fmt_lines() {
-	local line
-	while IFS= read -r line; do
-		[ -n "$line" ] || continue
-		fmt_line "$line"
-	done
+	awk "$AWK_JSON"'$0 != "" { print row($0, TAB) }'
 }
 
 # Absolute path of the task file whose index-relative location is $1.
@@ -273,37 +356,7 @@ remove_by_id() {
 # Matching JSONL lines for query $1: exact id, else exact title, else
 # case-insensitive substring on title.
 matches() {
-	local q="$1" line id title lt lq found
-	found=0
-	while IFS= read -r line; do
-		[ -n "$line" ] || continue
-		id="$(json_get id "$line")"
-		if [ "$id" = "$q" ]; then
-			printf '%s\n' "$line"
-			found=1
-		fi
-	done <"$BACKLOG_INDEX"
-	[ "$found" -eq 1 ] && return 0
-
-	found=0
-	while IFS= read -r line; do
-		[ -n "$line" ] || continue
-		title="$(json_get title "$line")"
-		if [ "$title" = "$q" ]; then
-			printf '%s\n' "$line"
-			found=1
-		fi
-	done <"$BACKLOG_INDEX"
-	[ "$found" -eq 1 ] && return 0
-
-	lq="$(printf '%s' "$q" | tr '[:upper:]' '[:lower:]')"
-	while IFS= read -r line; do
-		[ -n "$line" ] || continue
-		title="$(json_get title "$line")"
-		lt="$(printf '%s' "$title" | tr '[:upper:]' '[:lower:]')"
-		case "$lt" in *"$lq"*) printf '%s\n' "$line" ;; esac
-	done <"$BACKLOG_INDEX"
-	return 0
+	RADIN_Q="$1" awk "$AWK_JSON$AWK_MATCH" "$BACKLOG_INDEX"
 }
 
 # The one matching raw index line for query $1, or die with what was found.
@@ -356,7 +409,23 @@ deps_reaches() {
 
 cmd="${1:-}"
 case "$cmd" in
+help)
+	if [ -n "${2:-}" ]; then
+		out="$(usage_for "$2")"
+		[ -n "$out" ] || die "unknown command: $2
+$(usage_lines)"
+		printf '%s\n' "$out"
+	else
+		usage_lines
+	fi
+	;;
+
 env)
+	case "${2:-}" in
+	'' | --export) ;;
+	*) usage_die env "env takes only --export, got: $2" ;;
+	esac
+	[ $# -le 2 ] || usage_die env "env takes at most one argument, got: $3"
 	if [ "${2:-}" = "--export" ]; then
 		bash "$LIB_DIR/radin-namespace.sh" | sed 's/^/export /'
 	else
@@ -366,67 +435,95 @@ env)
 
 show)
 	require_index
+	[ -z "${2:-}" ] || case "$2" in
+	feat | fix | chore | refactor) ;;
+	*) usage_die show "category must be feat|fix|chore|refactor, got: $2" ;;
+	esac
+	[ $# -le 2 ] || usage_die show "show takes at most one category, got: $3"
 	printf '# Backlog\n'
 	cats="feat fix chore refactor"
 	[ -z "${2:-}" ] || cats="$2"
+	# One awk pass for every field `show` needs, so the markdown below costs
+	# one `cat` per task body and no fork per field.
+	rows="$(awk "$AWK_JSON"'$0 != "" { print jstr($0, "category") US fepic(jstr($0, "file")) US jstr($0, "title") US jstr($0, "file") }' "$BACKLOG_INDEX")"
 	for cat in $cats; do
-		section=""
-		while IFS= read -r line; do
-			[ -n "$line" ] || continue
-			[ "$(json_get category "$line")" = "$cat" ] && section="$section$line
-"
-		done <"$BACKLOG_INDEX"
-		[ -n "$section" ] || continue
-		printf '\n## %s\n' "$cat"
 		# One pass in `file` order: flat tasks first, then each epic's
 		# children below its shared context, so a human reading `show`
 		# sees the hierarchy the `file` paths encode.
-		printf '%s' "$section" | while IFS= read -r line; do
-			[ -n "$line" ] || continue
-			printf '%s\t%s\n' "$(file_epic "$(json_get file "$line")")" "$line"
-		done | sort -s -t"$(printf '\t')" -k1,1 | {
-			cur=""
-			while IFS= read -r keyed; do
-				epic="${keyed%%$'\t'*}"
-				line="${keyed#*$'\t'}"
-				if [ "$epic" != "$cur" ]; then
-					cur="$epic"
-					printf '\n### epic: %s\n' "$epic"
-					[ ! -s "$BACKLOG_TASKS_DIR/$epic/DESCRIPTION.md" ] ||
-						cat "$BACKLOG_TASKS_DIR/$epic/DESCRIPTION.md"
-				fi
-				if [ -z "$epic" ]; then level='###'; else level='####'; fi
-				printf '\n%s %s\n' "$level" "$(json_get title "$line")"
-				cat "$(entry_path "$line")"
-			done
-		}
+		section="$(printf '%s\n' "$rows" | awk -F"$US" -v c="$cat" '$1 == c' | sort -s -t"$US" -k2,2)"
+		[ -n "$section" ] || continue
+		printf '\n## %s\n' "$cat"
+		cur=""
+		while IFS="$US" read -r rcat epic title file; do
+			[ -n "$rcat" ] || continue
+			if [ "$epic" != "$cur" ]; then
+				cur="$epic"
+				printf '\n### epic: %s\n' "$epic"
+				[ ! -s "$BACKLOG_TASKS_DIR/$epic/DESCRIPTION.md" ] ||
+					cat "$BACKLOG_TASKS_DIR/$epic/DESCRIPTION.md"
+			fi
+			if [ -z "$epic" ]; then level='###'; else level='####'; fi
+			printf '\n%s %s\n' "$level" "$title"
+			cat "$(task_path "$file")"
+		done <<-SECTION
+			$section
+		SECTION
 	done
 	;;
 
 list)
 	require_index
+	shift
+	RADIN_CAT=""
+	RADIN_EPIC=""
+	RADIN_PMIN=""
+	RADIN_PMAX=""
+	RADIN_JSON=""
+	while [ $# -gt 0 ]; do
+		case "$1" in
+		--category)
+			case "${2:-}" in
+			feat | fix | chore | refactor) RADIN_CAT="$2" ;;
+			*) usage_die list "--category must be feat|fix|chore|refactor, got: ${2:-<none>}" ;;
+			esac
+			shift 2
+			;;
+		--priority-min)
+			[ -n "${2:-}" ] || usage_die list "--priority-min needs an integer"
+			require_integer "$2"
+			RADIN_PMIN="$2"
+			shift 2
+			;;
+		--priority-max)
+			[ -n "${2:-}" ] || usage_die list "--priority-max needs an integer"
+			require_integer "$2"
+			RADIN_PMAX="$2"
+			shift 2
+			;;
+		--epic)
+			[ -n "${2:-}" ] || usage_die list "--epic needs an epic id"
+			require_epic_id "$2"
+			RADIN_EPIC="$2"
+			shift 2
+			;;
+		--json)
+			RADIN_JSON=1
+			shift
+			;;
+		*) usage_die list "unknown list option: $1" ;;
+		esac
+	done
 	# Priority descending with unset last is the ordering contract, not a
 	# display choice: a consumer reads this order as the human's ranking.
-	# -s keeps equal priorities in index order.
-	ranked=""
-	unranked=""
-	while IFS= read -r line; do
-		[ -n "$line" ] || continue
-		prio="$(json_get_raw priority "$line")"
-		if [ -n "$prio" ]; then
-			ranked="$ranked$prio	$(fmt_line "$line" "$US")
-"
-		else
-			unranked="$unranked$(fmt_line "$line" "$US")
-"
-		fi
-	done <"$BACKLOG_INDEX"
-	[ -z "$ranked" ] || printf '%s' "$ranked" | sort -s -k1,1nr | cut -f2-
-	[ -z "$unranked" ] || printf '%s' "$unranked"
+	# -s keeps equal priorities in index order, and the rank class in field 1
+	# is what puts every unset priority after every set one.
+	export RADIN_CAT RADIN_EPIC RADIN_PMIN RADIN_PMAX RADIN_JSON
+	awk "$AWK_JSON$AWK_LIST" "$BACKLOG_INDEX" |
+		sort -s -t"$TAB" -k1,1n -k2,2nr | cut -f3-
 	;;
 
 find)
-	[ -n "${2:-}" ] || die "usage: find <id-or-title>"
+	[ -n "${2:-}" ] || usage_die find "find needs an id or title"
 	require_index
 	out="$(matches "$2" | fmt_lines)"
 	[ -n "$out" ] || die "no entry matches: $2"
@@ -436,10 +533,10 @@ find)
 add)
 	category="${2:-}"
 	title="${3:-}"
-	[ -n "$title" ] || die "usage: add <category> <title> [--epic <epic-id>] [--skill <name>]... [--priority <n>] [--depends-on <csv>]  (body on stdin)"
+	[ -n "$title" ] || usage_die add "add needs a category and a title, with the body on stdin"
 	case "$category" in
 	feat | fix | chore | refactor) ;;
-	*) die "category must be feat|fix|chore|refactor, got: $category" ;;
+	*) usage_die add "category must be feat|fix|chore|refactor, got: $category" ;;
 	esac
 	shift 3
 	skills=""
@@ -449,13 +546,13 @@ add)
 	while [ $# -gt 0 ]; do
 		case "$1" in
 		--priority)
-			[ -n "${2:-}" ] || die "--priority needs an integer"
+			[ -n "${2:-}" ] || usage_die add "--priority needs an integer"
 			require_integer "$2"
 			priority="$2"
 			shift 2
 			;;
 		--depends-on)
-			[ -n "${2:-}" ] || die "--depends-on needs a csv of task ids"
+			[ -n "${2:-}" ] || usage_die add "--depends-on needs a csv of task ids"
 			deps="$(printf '%s' "$2" | tr ',' ' ')"
 			# Checked before the task file is written, so a bad flag
 			# leaves no orphan body behind.
@@ -464,18 +561,18 @@ add)
 			shift 2
 			;;
 		--skill)
-			[ -n "${2:-}" ] || die "--skill needs a name"
+			[ -n "${2:-}" ] || usage_die add "--skill needs a name"
 			skills="$skills$2
 "
 			shift 2
 			;;
 		--epic)
-			[ -n "${2:-}" ] || die "--epic needs an epic id"
+			[ -n "${2:-}" ] || usage_die add "--epic needs an epic id"
 			epic="$2"
 			require_epic_id "$epic"
 			shift 2
 			;;
-		*) die "unknown add option: $1" ;;
+		*) usage_die add "unknown add option: $1" ;;
 		esac
 	done
 	require_plain_title "$title"
@@ -509,6 +606,7 @@ add)
 	;;
 
 count)
+	[ $# -le 1 ] || usage_die count "count takes no argument, got: $2"
 	if [ -s "$BACKLOG_INDEX" ]; then
 		grep -c . "$BACKLOG_INDEX" || true
 	else
@@ -517,7 +615,7 @@ count)
 	;;
 
 meta)
-	[ -n "${2:-}" ] || die "usage: meta <id-or-title>"
+	[ -n "${2:-}" ] || usage_die meta "meta needs an id or title"
 	require_index
 	entry="$(single_match "$2")"
 	in_acceptance=""
@@ -547,17 +645,12 @@ meta)
 
 planned)
 	require_index
-	while IFS= read -r line; do
-		[ -n "$line" ] || continue
-		f="$(entry_path "$line")"
-		[ -f "$f" ] || continue
-		grep -q '^\*\*Plan:\*\* ' "$f" || continue
-		printf '%s\n' "$(json_get id "$line")"
-	done <"$BACKLOG_INDEX"
+	[ $# -le 1 ] || usage_die planned "planned takes no argument, got: $2"
+	RADIN_DIR="${BACKLOG_INDEX%/*}" awk "$AWK_JSON$AWK_PLANNED" "$BACKLOG_INDEX"
 	;;
 
 append)
-	[ -n "${2:-}" ] || die "usage: append <id-or-title>  (text on stdin)"
+	[ -n "${2:-}" ] || usage_die append "append needs an id or title, with the text on stdin"
 	require_index
 	entry="$(single_match "$2")"
 	BODY="$(cat)"
@@ -569,7 +662,7 @@ append)
 add-plan)
 	query="${2:-}"
 	plan_path="${3:-}"
-	[ -n "$plan_path" ] || die "usage: add-plan <id-or-title> <plan-path>"
+	[ -n "$plan_path" ] || usage_die add-plan "add-plan needs an id or title and a plan path"
 	require_index
 	entry="$(single_match "$query")"
 	printf '**Plan:** %s\n' "$plan_path" >>"$(entry_path "$entry")"
@@ -577,7 +670,7 @@ add-plan)
 	;;
 
 path)
-	[ -n "${2:-}" ] || die "usage: path <id-or-title>"
+	[ -n "${2:-}" ] || usage_die path "path needs an id or title"
 	require_index
 	entry="$(single_match "$2")"
 	entry_path "$entry"
@@ -586,10 +679,10 @@ path)
 set-category)
 	query="${2:-}"
 	newcat="${3:-}"
-	[ -n "$newcat" ] || die "usage: set-category <id-or-title> <feat|fix|chore|refactor>"
+	[ -n "$newcat" ] || usage_die set-category "set-category needs an id or title and a category"
 	case "$newcat" in
 	feat | fix | chore | refactor) ;;
-	*) die "category must be feat|fix|chore|refactor, got: $newcat" ;;
+	*) usage_die set-category "category must be feat|fix|chore|refactor, got: $newcat" ;;
 	esac
 	require_index
 	entry="$(single_match "$query")"
@@ -601,7 +694,7 @@ set-category)
 retitle)
 	query="${2:-}"
 	newtitle="${3:-}"
-	[ -n "$newtitle" ] || die "usage: retitle <id-or-title> <new-title>"
+	[ -n "$newtitle" ] || usage_die retitle "retitle needs an id or title and a new title"
 	require_plain_title "$newtitle"
 	require_index
 	entry="$(single_match "$query")"
@@ -613,7 +706,7 @@ retitle)
 set-priority)
 	query="${2:-}"
 	value="${3:-}"
-	[ -n "$value" ] || die "usage: set-priority <id-or-title> <integer|--none>"
+	[ -n "$value" ] || usage_die set-priority "set-priority needs an id or title and an integer or --none"
 	[ "$value" = "--none" ] || require_integer "$value"
 	require_index
 	entry="$(single_match "$query")"
@@ -627,7 +720,7 @@ set-priority)
 set-deps)
 	query="${2:-}"
 	value="${3:-}"
-	[ -n "$value" ] || die "usage: set-deps <id-or-title> <csv-of-ids|--none>"
+	[ -n "$value" ] || usage_die set-deps "set-deps needs an id or title and a csv of ids or --none"
 	require_index
 	entry="$(single_match "$query")"
 	id="$(json_get id "$entry")"
@@ -651,7 +744,7 @@ set-deps)
 
 remove)
 	query="${2:-}"
-	[ -n "$query" ] || die "usage: remove <id-or-title>"
+	[ -n "$query" ] || usage_die remove "remove needs an id or title"
 	require_index
 	entry="$(single_match "$query")"
 	id="$(json_get id "$entry")"
@@ -670,7 +763,7 @@ reconcile)
 	# task's slug (same title) would be dropped too; clear completed.json
 	# between sessions if that ever bites.
 	completed_file="${2:-}"
-	[ -n "$completed_file" ] || die "usage: reconcile <completed-file>"
+	[ -n "$completed_file" ] || usage_die reconcile "reconcile needs a completed-file path"
 	require_index
 	[ -f "$completed_file" ] || {
 		printf 'reconcile: no completed file, nothing to do\n'
@@ -690,6 +783,7 @@ reconcile)
 	;;
 
 epics)
+	[ $# -le 1 ] || usage_die epics "epics takes no argument, got: $2"
 	# A directory listing is the whole store: an epic index file would be a
 	# second copy of what one `ls` already knows.
 	for d in "$BACKLOG_TASKS_DIR"/*/; do
@@ -701,7 +795,7 @@ epics)
 
 epic-add)
 	epic="${2:-}"
-	[ -n "$epic" ] || die "usage: epic-add <epic-id>  (description on stdin)"
+	[ -n "$epic" ] || usage_die epic-add "epic-add needs an epic id, with the description on stdin"
 	[ "$(slugify "$epic")" = "$epic" ] || die "epic id must be a slug (lowercase, dashes), got: $epic"
 	[ ! -d "$BACKLOG_TASKS_DIR/$epic" ] || die "epic already exists: $epic"
 	id_taken "$epic" && die "a task already uses that id: $epic"
@@ -716,7 +810,7 @@ epic-add)
 
 epic-show)
 	epic="${2:-}"
-	[ -n "$epic" ] || die "usage: epic-show <epic-id>"
+	[ -n "$epic" ] || usage_die epic-show "epic-show needs an epic id"
 	require_epic_id "$epic"
 	[ ! -s "$BACKLOG_TASKS_DIR/$epic/DESCRIPTION.md" ] ||
 		cat "$BACKLOG_TASKS_DIR/$epic/DESCRIPTION.md"
@@ -725,7 +819,7 @@ epic-show)
 epic-move)
 	query="${2:-}"
 	target="${3:-}"
-	[ -n "$target" ] || die "usage: epic-move <id-or-title> <epic-id|--none>"
+	[ -n "$target" ] || usage_die epic-move "epic-move needs an id or title and an epic id or --none"
 	require_index
 	entry="$(single_match "$query")"
 	id="$(json_get id "$entry")"
@@ -745,7 +839,7 @@ epic-move)
 
 epic-remove)
 	epic="${2:-}"
-	[ -n "$epic" ] || die "usage: epic-remove <epic-id>"
+	[ -n "$epic" ] || usage_die epic-remove "epic-remove needs an epic id"
 	require_epic_id "$epic"
 	# Never recursively delete tasks: the operator moves them out first.
 	epic_is_empty "$epic" ||
@@ -756,6 +850,8 @@ epic-remove)
 	;;
 
 *)
-	die "unknown command: ${cmd:-<none>} (env|show|list|count|find|add|add-plan|append|meta|planned|path|set-category|retitle|set-priority|set-deps|remove|reconcile|epics|epic-add|epic-show|epic-move|epic-remove)"
+	# No hand-maintained command list here: the header comment block is it.
+	die "unknown command: ${cmd:-<none>}
+$(usage_lines)"
 	;;
 esac

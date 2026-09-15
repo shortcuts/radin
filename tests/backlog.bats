@@ -759,3 +759,138 @@ EOF
   [ ! -e "$INDEX.tmp" ]
   [ "$(cat "$INDEX")" = "$before" ]
 }
+
+@test "help exits 0 and documents every dispatcher command" {
+  run cli help
+  [ "$status" -eq 0 ]
+  # Derived from the script, not a second hand-maintained list: a new `case`
+  # label with no header line is exactly the drift this guards against.
+  local label
+  while IFS= read -r label; do
+    label="${label%)}"
+    [[ "$output" == *"  $label "* ]] || {
+      echo "help does not document: $label"
+      false
+    }
+  done < <(grep -oE '^[a-z][a-z-]*\)$' "$CLI")
+}
+
+@test "help <command> prints only that command's usage" {
+  run cli help list
+  [ "$status" -eq 0 ]
+  [ "$(printf '%s\n' "$output" | grep -c .)" -eq 1 ]
+  [[ "$output" == *"list "* ]]
+  run cli help nosuchverb
+  [ "$status" -ne 0 ]
+}
+
+@test "list --json emits the index lines in list order" {
+  cli add feat "low" --priority 1 <<<"b1"
+  cli add fix "high" --priority 9 <<<"b2"
+  cli add chore "unset" <<<"b3"
+  run cli list --json
+  [ "$status" -eq 0 ]
+  [ "$(printf '%s\n' "$output" | grep -c .)" -eq 3 ]
+  # Same order as the US-separated default output.
+  local a b
+  a="$(cli list | cut -d$'\037' -f1)"
+  b="$(cli list --json | sed -E 's/^\{"id":"([^"]*)".*/\1/')"
+  [ "$a" = "$b" ]
+}
+
+@test "list --category filters and rejects an unknown category" {
+  cli add feat "a feat" <<<"b1"
+  cli add fix "a fix" <<<"b2"
+  run cli list --category fix
+  [ "$status" -eq 0 ]
+  [ "$(printf '%s\n' "$output" | grep -c .)" -eq 1 ]
+  [[ "$output" == *"a fix"* ]]
+  run cli list --category bogus
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"list "* ]]
+}
+
+@test "list --priority-min and --priority-max bound and drop unset priorities" {
+  cli add feat "p1" --priority 1 <<<"b"
+  cli add feat "p5" --priority 5 <<<"b"
+  cli add feat "p9" --priority 9 <<<"b"
+  cli add feat "pnone" <<<"b"
+  run cli list --priority-min 5
+  [[ "$output" == *"p9"* ]]
+  [[ "$output" == *"p5"* ]]
+  [[ "$output" != *"p1"* ]]
+  [[ "$output" != *"pnone"* ]]
+  run cli list --priority-max 5
+  [[ "$output" == *"p1"* ]]
+  [[ "$output" != *"p9"* ]]
+  [[ "$output" != *"pnone"* ]]
+  run cli list --priority-min notanint
+  [ "$status" -ne 0 ]
+}
+
+@test "list --epic keeps only that epic's children and rejects an unknown epic" {
+  cli epic-add shipping <<<"epic ctx"
+  cli add feat "inside" --epic shipping <<<"b"
+  cli add feat "outside" <<<"b"
+  run cli list --epic shipping
+  [ "$status" -eq 0 ]
+  [ "$(printf '%s\n' "$output" | grep -c .)" -eq 1 ]
+  [[ "$output" == *"inside"* ]]
+  run cli list --epic nosuchepic
+  [ "$status" -ne 0 ]
+}
+
+@test "two list filters intersect" {
+  cli epic-add shipping <<<"epic ctx"
+  cli add feat "in epic low" --epic shipping --priority 1 <<<"b"
+  cli add feat "in epic high" --epic shipping --priority 9 <<<"b"
+  cli add feat "flat high" --priority 9 <<<"b"
+  run cli list --epic shipping --priority-min 5
+  [ "$(printf '%s\n' "$output" | grep -c .)" -eq 1 ]
+  [[ "$output" == *"in epic high"* ]]
+}
+
+@test "an argument-less verb rejects a stray argument with its own usage" {
+  cli add feat "a task" <<<"b"
+  local verb
+  for verb in list count planned epics; do
+    run cli "$verb" bogus
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"  $verb "* ]]
+  done
+  run cli show bogus
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"  show "* ]]
+  run cli env bogus
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"  env "* ]]
+}
+
+@test "a title carrying a JSON-looking key and a backslash round-trips" {
+  local evil='evil "file":"tasks/hack.md" and back\slash'
+  cli add chore "$evil" <<<"escaping fixture"
+  cli add feat "innocent" <<<"b"
+  run cli list
+  [[ "$output" == *"$evil"* ]]
+  # The real file field, not the one smuggled into the title.
+  [[ "$output" == *"tasks/evil-file-tasks-hack-md-and-back-slash.md"* ]]
+  run cli list --json
+  [[ "$output" == *'"file":"tasks/evil-file-tasks-hack-md-and-back-slash.md"'* ]]
+  run cli find "$evil"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"$evil"* ]]
+  run cli find 'back\slash'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"$evil"* ]]
+  [[ "$output" != *"innocent"* ]]
+}
+
+@test "planned reports a plan pointer on an epic child" {
+  cli epic-add shipping <<<"epic ctx"
+  cli add feat "inside" --epic shipping <<<"b"
+  cli add feat "outside" <<<"b"
+  cli add-plan inside plans/inside.md
+  run cli planned
+  [ "$status" -eq 0 ]
+  [ "$output" = "inside" ]
+}
