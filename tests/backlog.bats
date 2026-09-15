@@ -68,7 +68,7 @@ cli() {
   run cli find "auth-bug"
   [ "$status" -eq 0 ]
   [ "${#lines[@]}" -eq 1 ]
-  [[ "${lines[0]}" == "auth-bug"* ]]
+  [[ "${lines[0]}" == "auth-bug"$'\t'"fix"$'\t'"auth bug"$'\t'"tasks/auth-bug.md"$'\t'$'\t' ]]
 }
 
 @test "find falls back to exact title, then case-insensitive substring" {
@@ -332,6 +332,18 @@ nest_task() {
   [ "$status" -ne 0 ]
   run cat "$INDEX"
   [[ "$output" == *'"title":"keepme"'* ]]
+}
+
+@test "path and add-plan follow the index line's file field, not the TSV span" {
+  mkdir -p "$TASKS"
+  printf '{"id":"tabbed","category":"fix","title":"a\tb","file":"tasks/tabbed.md"}\n' >"$INDEX"
+  printf 'body\n' >"$TASKS/tabbed.md"
+  run cli path tabbed
+  [ "$status" -eq 0 ]
+  [ "$output" = "$TASKS/tabbed.md" ]
+  cli add-plan tabbed "/tmp/p.md"
+  run cat "$TASKS/tabbed.md"
+  [[ "$output" == *"**Plan:** /tmp/p.md"* ]]
 }
 
 @test "epic-add creates the directory and DESCRIPTION.md, epics lists it" {

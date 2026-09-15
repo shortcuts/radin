@@ -114,14 +114,19 @@ fmt_line() {
 	printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$id" "$category" "$title" "$file" "$priority" "$deps"
 }
 
+# fmt_line over a stream of raw index lines, so `find` keeps its TSV contract
+# while `matches` hands callers the line itself.
+fmt_lines() {
+	local line
+	while IFS= read -r line; do
+		[ -n "$line" ] || continue
+		fmt_line "$line"
+	done
+}
+
 # Absolute path of the task file whose index-relative location is $1.
 task_path() {
 	printf '%s/%s\n' "${BACKLOG_INDEX%/*}" "$1"
-}
-
-# Same, from a line out of fmt_line.
-span_path() {
-	task_path "$(printf '%s' "$1" | cut -f4)"
 }
 
 # The epic a `file` field belongs to, or empty at the flat tasks/ level.
@@ -242,7 +247,7 @@ matches() {
 		[ -n "$line" ] || continue
 		id="$(json_get id "$line")"
 		if [ "$id" = "$q" ]; then
-			fmt_line "$line"
+			printf '%s\n' "$line"
 			found=1
 		fi
 	done <"$BACKLOG_INDEX"
@@ -253,7 +258,7 @@ matches() {
 		[ -n "$line" ] || continue
 		title="$(json_get title "$line")"
 		if [ "$title" = "$q" ]; then
-			fmt_line "$line"
+			printf '%s\n' "$line"
 			found=1
 		fi
 	done <"$BACKLOG_INDEX"
@@ -264,19 +269,19 @@ matches() {
 		[ -n "$line" ] || continue
 		title="$(json_get title "$line")"
 		lt="$(printf '%s' "$title" | tr '[:upper:]' '[:lower:]')"
-		case "$lt" in *"$lq"*) fmt_line "$line" ;; esac
+		case "$lt" in *"$lq"*) printf '%s\n' "$line" ;; esac
 	done <"$BACKLOG_INDEX"
 	return 0
 }
 
-# One exact-single-match line for query $1, or die with what was found.
+# The one matching raw index line for query $1, or die with what was found.
 single_match() {
 	local found n
 	found="$(matches "$1")"
 	[ -n "$found" ] || die "no entry matches: $1"
 	n="$(printf '%s\n' "$found" | grep -c '.')"
 	[ "$n" -eq 1 ] || die "matches $n entries: $1
-$found"
+$(printf '%s\n' "$found" | fmt_lines)"
 	printf '%s\n' "$found"
 }
 
@@ -384,7 +389,7 @@ list)
 find)
 	[ -n "${2:-}" ] || die "usage: find <id-or-title>"
 	require_index
-	out="$(matches "$2")"
+	out="$(matches "$2" | fmt_lines)"
 	[ -n "$out" ] || die "no entry matches: $2"
 	printf '%s\n' "$out"
 	;;
@@ -478,23 +483,23 @@ count)
 meta)
 	[ -n "${2:-}" ] || die "usage: meta <id-or-title>"
 	require_index
-	span="$(single_match "$2")"
+	entry="$(single_match "$2")"
 	while IFS= read -r line || [ -n "$line" ]; do
 		case "$line" in
 		'**Plan:** '*) printf 'plan\t%s\n' "${line#"**Plan:** "}" ;;
 		'**Skill:** '*) printf 'skill\t%s\n' "${line#"**Skill:** "}" ;;
 		esac
-	done <"$(span_path "$span")"
+	done <"$(task_path "$(json_get file "$entry")")"
 	;;
 
 append)
 	[ -n "${2:-}" ] || die "usage: append <id-or-title>  (text on stdin)"
 	require_index
-	span="$(single_match "$2")"
+	entry="$(single_match "$2")"
 	BODY="$(cat)"
 	[ -n "$BODY" ] || die "append text is empty (pass it on stdin)"
-	printf '\n%s\n' "$BODY" >>"$(span_path "$span")"
-	printf 'appended to "%s"\n' "$(printf '%s' "$span" | cut -f3)"
+	printf '\n%s\n' "$BODY" >>"$(task_path "$(json_get file "$entry")")"
+	printf 'appended to "%s"\n' "$(json_get title "$entry")"
 	;;
 
 add-plan)
@@ -502,16 +507,16 @@ add-plan)
 	plan_path="${3:-}"
 	[ -n "$plan_path" ] || die "usage: add-plan <id-or-title> <plan-path>"
 	require_index
-	span="$(single_match "$query")"
-	printf '**Plan:** %s\n' "$plan_path" >>"$(span_path "$span")"
-	printf 'plan pointer added to "%s"\n' "$(printf '%s' "$span" | cut -f3)"
+	entry="$(single_match "$query")"
+	printf '**Plan:** %s\n' "$plan_path" >>"$(task_path "$(json_get file "$entry")")"
+	printf 'plan pointer added to "%s"\n' "$(json_get title "$entry")"
 	;;
 
 path)
 	[ -n "${2:-}" ] || die "usage: path <id-or-title>"
 	require_index
-	span="$(single_match "$2")"
-	span_path "$span"
+	entry="$(single_match "$2")"
+	task_path "$(json_get file "$entry")"
 	;;
 
 set-category)
@@ -523,10 +528,10 @@ set-category)
 	*) die "category must be feat|fix|chore|refactor, got: $newcat" ;;
 	esac
 	require_index
-	span="$(single_match "$query")"
-	id="$(printf '%s' "$span" | cut -f1)"
+	entry="$(single_match "$query")"
+	id="$(json_get id "$entry")"
 	set_index_fields "$id" "$newcat" ""
-	printf 'moved "%s" to %s\n' "$(printf '%s' "$span" | cut -f3)" "$newcat"
+	printf 'moved "%s" to %s\n' "$(json_get title "$entry")" "$newcat"
 	;;
 
 retitle)
@@ -535,8 +540,8 @@ retitle)
 	[ -n "$newtitle" ] || die "usage: retitle <id-or-title> <new-title>"
 	require_plain_title "$newtitle"
 	require_index
-	span="$(single_match "$query")"
-	id="$(printf '%s' "$span" | cut -f1)"
+	entry="$(single_match "$query")"
+	id="$(json_get id "$entry")"
 	set_index_fields "$id" "" "$newtitle"
 	printf 'retitled %s to "%s"\n' "$id" "$newtitle"
 	;;
@@ -547,8 +552,8 @@ set-priority)
 	[ -n "$value" ] || die "usage: set-priority <id-or-title> <integer|--none>"
 	[ "$value" = "--none" ] || require_integer "$value"
 	require_index
-	span="$(single_match "$query")"
-	id="$(printf '%s' "$span" | cut -f1)"
+	entry="$(single_match "$query")"
+	id="$(json_get id "$entry")"
 	set_index_fields "$id" "" "" "" "$value"
 	printf 'priority of %s set to %s\n' "$id" "$value"
 	;;
@@ -558,8 +563,8 @@ set-deps)
 	value="${3:-}"
 	[ -n "$value" ] || die "usage: set-deps <id-or-title> <csv-of-ids|--none>"
 	require_index
-	span="$(single_match "$query")"
-	id="$(printf '%s' "$span" | cut -f1)"
+	entry="$(single_match "$query")"
+	id="$(json_get id "$entry")"
 	if [ "$value" = "--none" ]; then
 		dep_array="--none"
 	else
@@ -583,9 +588,9 @@ remove)
 	query="${2:-}"
 	[ -n "$query" ] || die "usage: remove <id-or-title>"
 	require_index
-	span="$(single_match "$query")"
-	id="$(printf '%s' "$span" | cut -f1)"
-	title="$(printf '%s' "$span" | cut -f3)"
+	entry="$(single_match "$query")"
+	id="$(json_get id "$entry")"
+	title="$(json_get title "$entry")"
 	remove_by_id "$id"
 	printf 'removed "%s" (id: %s)\n' "$title" "$id"
 	;;
@@ -649,9 +654,9 @@ epic-move)
 	target="${3:-}"
 	[ -n "$target" ] || die "usage: epic-move <id-or-title> <epic-id|--none>"
 	require_index
-	span="$(single_match "$query")"
-	id="$(printf '%s' "$span" | cut -f1)"
-	old_rel="$(printf '%s' "$span" | cut -f4)"
+	entry="$(single_match "$query")"
+	id="$(json_get id "$entry")"
+	old_rel="$(json_get file "$entry")"
 	if [ "$target" = "--none" ]; then
 		new_rel="tasks/$id.md"
 	else
