@@ -491,6 +491,47 @@ draw_done() {
 	} 2>/dev/null
 }
 
+# One frame of pick()'s chooser. Reads pick_vals/pick_labels/pick_marked,
+# sets PICK_TOP to the clamped viewport top.
+pick_draw() {
+	local kind="$1" title="$2" n="$3" sel="$4" ptop="$5" list_h i end mark l footer
+	term_size
+	list_h=$((ROWS - 2))
+	[ "$list_h" -ge 1 ] || list_h=1
+	clamp_top "$sel" "$ptop" "$list_h"
+	ptop="$CLAMP_TOP"
+	PICK_TOP="$ptop"
+	{
+		printf '\033[H\033[2J'
+		bar "$title"
+		end=$((ptop + list_h))
+		[ "$end" -le "$n" ] || end="$n"
+		i="$ptop"
+		while [ "$i" -lt "$end" ]; do
+			if [ "$kind" = multi ]; then
+				mark=" "
+				case " $pick_marked " in *" ${pick_vals[$i]} "*) mark="x" ;; esac
+				l="$(printf ' [%s] %s' "$mark" "${pick_labels[$i]}")"
+			else
+				l="$(printf '  %s' "${pick_labels[$i]}")"
+			fi
+			if [ "$i" -eq "$sel" ]; then row "$l" sel; else row "$l"; fi
+			i=$((i + 1))
+		done
+		i=$((end - ptop))
+		while [ "$i" -lt "$list_h" ]; do
+			row ""
+			i=$((i + 1))
+		done
+		if [ "$kind" = multi ]; then
+			footer="space mark  enter confirm  q cancel"
+		else
+			footer="enter select  q cancel"
+		fi
+		bar "$footer" "$ROWS"
+	} 2>/dev/null
+}
+
 # Read one keypress, mapping the arrow-key escape sequences onto j/k so the
 # dispatcher only ever sees single letters.
 readkey() {
@@ -532,7 +573,7 @@ confirm() {
 # Sets PICK_RESULT to the space-delimited answer ("" is legal in multi mode:
 # it means clear). Returns 1 when the user cancels or there is nothing to pick.
 pick() {
-	local kind="$1" title="$2" items="$3" v l n sel=0 ptop=0 list_h i end mark kept x footer
+	local kind="$1" title="$2" items="$3" v l n sel=0 ptop=0 kept x
 	pick_vals=()
 	pick_labels=()
 	pick_marked="${4:-}"
@@ -547,40 +588,8 @@ pick() {
 	[ "$n" -gt 0 ] || return 1
 	PICK_RESULT=""
 	while :; do
-		term_size
-		list_h=$((ROWS - 2))
-		[ "$list_h" -ge 1 ] || list_h=1
-		clamp_top "$sel" "$ptop" "$list_h"
-		ptop="$CLAMP_TOP"
-		{
-			printf '\033[H\033[2J'
-			bar "$title"
-			end=$((ptop + list_h))
-			[ "$end" -le "$n" ] || end="$n"
-			i="$ptop"
-			while [ "$i" -lt "$end" ]; do
-				if [ "$kind" = multi ]; then
-					mark=" "
-					case " $pick_marked " in *" ${pick_vals[$i]} "*) mark="x" ;; esac
-					l="$(printf ' [%s] %s' "$mark" "${pick_labels[$i]}")"
-				else
-					l="$(printf '  %s' "${pick_labels[$i]}")"
-				fi
-				if [ "$i" -eq "$sel" ]; then row "$l" sel; else row "$l"; fi
-				i=$((i + 1))
-			done
-			i=$((end - ptop))
-			while [ "$i" -lt "$list_h" ]; do
-				row ""
-				i=$((i + 1))
-			done
-			if [ "$kind" = multi ]; then
-				footer="space mark  enter confirm  q cancel"
-			else
-				footer="enter select  q cancel"
-			fi
-			bar "$footer" "$ROWS"
-		} 2>/dev/null
+		pick_draw "$kind" "$title" "$n" "$sel" "$ptop"
+		ptop="$PICK_TOP"
 		readkey || return 1
 		case "$KEY" in
 		j) [ "$sel" -lt $((n - 1)) ] && sel=$((sel + 1)) || true ;;
