@@ -361,31 +361,28 @@ show)
 		done <"$BACKLOG_INDEX"
 		[ -n "$section" ] || continue
 		printf '\n## %s\n' "$cat"
+		# One pass in `file` order: flat tasks first, then each epic's
+		# children below its shared context, so a human reading `show`
+		# sees the hierarchy the `file` paths encode.
 		printf '%s' "$section" | while IFS= read -r line; do
 			[ -n "$line" ] || continue
-			rel="$(json_get file "$line")"
-			[ -z "$(file_epic "$rel")" ] || continue
-			printf '\n### %s\n' "$(json_get title "$line")"
-			cat "$(task_path "$rel")"
-		done
-		# An epic's shared context is printed once, above its children, so a
-		# human reading `show` sees the hierarchy the `file` paths encode.
-		cat_epics="$(printf '%s' "$section" | while IFS= read -r line; do
-			[ -n "$line" ] || continue
-			file_epic "$(json_get file "$line")"
-		done | sort -u)"
-		for epic in $cat_epics; do
-			printf '\n### epic: %s\n' "$epic"
-			[ ! -s "$BACKLOG_TASKS_DIR/$epic/DESCRIPTION.md" ] ||
-				cat "$BACKLOG_TASKS_DIR/$epic/DESCRIPTION.md"
-			printf '%s' "$section" | while IFS= read -r line; do
-				[ -n "$line" ] || continue
-				rel="$(json_get file "$line")"
-				[ "$(file_epic "$rel")" = "$epic" ] || continue
-				printf '\n#### %s\n' "$(json_get title "$line")"
-				cat "$(task_path "$rel")"
+			printf '%s\t%s\n' "$(file_epic "$(json_get file "$line")")" "$line"
+		done | sort -s -t"$(printf '\t')" -k1,1 | {
+			cur=""
+			while IFS= read -r keyed; do
+				epic="${keyed%%$'\t'*}"
+				line="${keyed#*$'\t'}"
+				if [ "$epic" != "$cur" ]; then
+					cur="$epic"
+					printf '\n### epic: %s\n' "$epic"
+					[ ! -s "$BACKLOG_TASKS_DIR/$epic/DESCRIPTION.md" ] ||
+						cat "$BACKLOG_TASKS_DIR/$epic/DESCRIPTION.md"
+				fi
+				if [ -z "$epic" ]; then level='###'; else level='####'; fi
+				printf '\n%s %s\n' "$level" "$(json_get title "$line")"
+				cat "$(task_path "$(json_get file "$line")")"
 			done
-		done
+		}
 	done
 	;;
 

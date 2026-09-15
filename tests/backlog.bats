@@ -552,6 +552,48 @@ nest_task() {
   [ "$(printf '%s\n' "$output" | grep -c 'Shared auth context.')" = "1" ]
 }
 
+@test "show prints flat tasks first, then each epic group in name order" {
+  cli epic-add beta <<<"Beta context."
+  cli epic-add alpha </dev/null
+  cli add feat "flat one" <<<"flat body"
+  cli add feat "beta child" --epic beta <<<"beta body"
+  cli add fix "alpha child" --epic alpha <<<"alpha body"
+  cli add feat "flat two" <<<"flat two body"
+  cli add feat "alpha extra" --epic alpha <<<"alpha extra body"
+  run cli show
+  [ "$status" -eq 0 ]
+  [ "$output" = "$(cat <<'EOF'
+# Backlog
+
+## feat
+
+### flat one
+flat body
+
+### flat two
+flat two body
+
+### epic: alpha
+
+#### alpha extra
+alpha extra body
+
+### epic: beta
+Beta context.
+
+#### beta child
+beta body
+
+## fix
+
+### epic: alpha
+
+#### alpha child
+alpha body
+EOF
+  )" ]
+}
+
 @test "add --priority and --depends-on round-trip through list" {
   cli add feat "first" <<<"b1"
   run cli add fix "second" --priority 70 --depends-on first <<<"b2"
