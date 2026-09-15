@@ -325,22 +325,20 @@ require_known_ids() {
 # True when target $1 is reachable from the ids in "$@". The seen list is what
 # stops a graph that already has a cycle from looping forever.
 deps_reaches() {
-	local target="$1" pending seen="" cur line
+	local target="$1" pending frontier seen="" cur line
 	shift
 	pending="$*"
 	while [ -n "$pending" ]; do
-		cur="${pending%% *}"
-		case "$pending" in
-		*" "*) pending="${pending#* }" ;;
-		*) pending="" ;;
-		esac
-		[ -n "$cur" ] || continue
-		[ "$cur" != "$target" ] || return 0
-		case " $seen " in *" $cur "*) continue ;; esac
-		seen="$seen $cur"
-		line="$(grep -F "\"id\":\"$cur\"" "$BACKLOG_INDEX" || true)"
-		[ -n "$line" ] || continue
-		pending="$pending $(deps_ids "$(json_get_raw depends_on "$line")")"
+		frontier="$pending"
+		pending=""
+		for cur in $frontier; do
+			[ "$cur" != "$target" ] || return 0
+			case " $seen " in *" $cur "*) continue ;; esac
+			seen="$seen $cur"
+			line="$(grep -F "\"id\":\"$cur\"" "$BACKLOG_INDEX" || true)"
+			[ -n "$line" ] || continue
+			pending="$pending $(deps_ids "$(json_get_raw depends_on "$line")")"
+		done
 	done
 	return 1
 }
