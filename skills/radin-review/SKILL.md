@@ -14,6 +14,11 @@ every finding the user agrees to as a backlog entry instead of terminal
 output. That leaves a durable backlog `radin-execute` (or a human) works
 through later.
 
+**Never assume on a broad ask.** When the scope, or what a finding actually
+asks for, reads more than one way, invoke `/mattpocock-skills:grilling` and let
+the user settle it rather than picking one yourself. Non-interactive caller:
+report the readings and stop.
+
 ## Step 1: Resolve scope argument
 
 Resolve the argument (or its absence) via the shared CLI. Don't probe

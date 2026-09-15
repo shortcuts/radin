@@ -20,6 +20,13 @@ the `RADIN_CLI backlog` CLI. It owns the index's schema and
 resolves the per-project namespace, so never hand-edit a backlog file or
 compute its path yourself.
 
+**Never assume on a broad ask.** When what to log, or how to split it, reads
+more than one way, invoke `/mattpocock-skills:grilling` and let the user settle
+it before logging. This skill runs in the user's own thread, so the question can
+actually be asked — a silently picked interpretation becomes an entry nobody
+checked. Step 1's stub is the one shape this doesn't apply to: a clear-boundary,
+fuzzy-work item has nothing concrete to grill yet, so log the stub.
+
 ## Step 1: Decide what to log
 
 The instruction after `/radin-record` sets the scope:

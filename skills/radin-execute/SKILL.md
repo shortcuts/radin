@@ -59,9 +59,14 @@ concern rather than yours.
 
 ## Clarifying Ambiguity
 
-Never guess and never pick a default on the user's behalf. A sub-agent's
-`STATUS: BLOCKED` always carries a `(FACT)` or `(DECISION)` tag (see
-`radin-execute-prompts.md`). Route on it:
+Never guess and never pick a default on the user's behalf. That covers your own
+reading of a task, not only a sub-agent's block: when an entry is broad, vague,
+or needs refinement, invoke `/mattpocock-skills:grilling` before dispatching it,
+so the sub-agent gets the user's answer instead of your guess at what the entry
+meant.
+
+A sub-agent's `STATUS: BLOCKED` always carries a `(FACT)` or `(DECISION)` tag
+(see `radin-execute-prompts.md`). Route on it:
 
 - **`BLOCKED (FACT)`**: checkable, and the sub-agent already failed to verify
   it from the repo. Facts are never the user's job to hand over. Dispatch a

@@ -20,6 +20,11 @@ is interactive-only here: there is no way for it to get an answer. Same for
 never come back within the turn. Each "non-interactive" branch below says
 what to do instead.
 
+**Never assume on a broad ask.** When the entry is broad, vague, or needs
+refinement, invoke `/mattpocock-skills:grilling` and let the user settle it
+before planning — never pick one reading silently and plan against it.
+Non-interactive: report the open question and stop, as each branch below says.
+
 ## Step 1: Resolve project namespace
 
 All backlog reads/writes go through the shared CLI at
