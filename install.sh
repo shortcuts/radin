@@ -55,6 +55,7 @@ step() { printf "\n%b\n" "${BOLD}${MAGENTA}${RAT} $*${RESET}"; }
 # A child that swallowed fd0 used to end the run here with status 0 and a
 # half-populated ~/.claude, silently. Say so instead.
 INSTALL_DONE=""
+# shellcheck disable=SC2154 # st is set by the trap body itself.
 trap 'st=$?; [ -n "$INSTALL_DONE" ] || [ "$st" = 130 ] || printf "%b\n" "${RED}${RAT} install stopped early ($st) -- ~/.claude holds a partial install. Re-run it, or check with: radin doctor${RESET}" >&2' EXIT
 
 printf "%b\n" "${BOLD}${MAGENTA}"
