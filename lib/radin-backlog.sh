@@ -296,6 +296,16 @@ require_integer() {
 	esac
 }
 
+# Every id in "$@" must already exist. A missing index just has no known ids,
+# so `add`'s first task still reports the unknown id rather than the index.
+require_known_ids() {
+	local d
+	for d in "$@"; do
+		grep -qF "\"id\":\"$d\"" "$BACKLOG_INDEX" 2>/dev/null ||
+			die "no such task id: $d"
+	done
+}
+
 # Every id reachable from the space-separated dep list $2, treating it as $1's
 # depends_on. Prints them space-separated, so a caller can ask whether the
 # closure comes back around to $1.
@@ -425,10 +435,8 @@ add)
 			deps="$(printf '%s' "$2" | tr ',' ' ')"
 			# Checked before the task file is written, so a bad flag
 			# leaves no orphan body behind.
-			for d in $deps; do
-				grep -qF "\"id\":\"$d\"" "$BACKLOG_INDEX" 2>/dev/null ||
-					die "--depends-on names an unknown task id: $d"
-			done
+			# shellcheck disable=SC2086
+			require_known_ids $deps
 			shift 2
 			;;
 		--skill)
@@ -606,9 +614,8 @@ set-deps)
 		deps="$(printf '%s' "$value" | tr ',' ' ')"
 		# Validation lives here, not in a skill: an unknown id or a cycle
 		# makes `radin state deps-check` wait forever instead of failing.
-		for d in $deps; do
-			grep -qF "\"id\":\"$d\"" "$BACKLOG_INDEX" || die "no such task id: $d"
-		done
+		# shellcheck disable=SC2086
+		require_known_ids $deps
 		case " $(deps_closure "$id" "$deps") " in
 		*" $id "*) die "depends_on would create a cycle through $id" ;;
 		esac
