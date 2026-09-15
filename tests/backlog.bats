@@ -230,6 +230,7 @@ Body prose.
 - plain bullet
 - [ ] unticked checkbox
 - [x] ticked checkbox
+- [X] uppercase ticked checkbox
   - indented sub-bullet ends the list
 - not collected, the list already ended
 
@@ -237,10 +238,11 @@ Body prose.
 EOF
   run cli meta "several criteria"
   [ "$status" -eq 0 ]
-  [ "${#lines[@]}" -eq 3 ]
+  [ "${#lines[@]}" -eq 4 ]
   [[ "${lines[0]}" == "acceptance"$'\t'"plain bullet" ]]
   [[ "${lines[1]}" == "acceptance"$'\t'"unticked checkbox" ]]
   [[ "${lines[2]}" == "acceptance"$'\t'"ticked checkbox" ]]
+  [[ "${lines[3]}" == "acceptance"$'\t'"uppercase ticked checkbox" ]]
 
   cli add feat "criteria then plan" <<'EOF'
 Body prose.

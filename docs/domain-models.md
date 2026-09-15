@@ -32,7 +32,7 @@ this text, so write enough that a sub-agent given only this entry, with no
 other session context, could act on it correctly.>
 ```
 
-A body may also state its own acceptance criteria: an `**Acceptance:**` label alone on its line, followed by flat hyphen bullets. `radin backlog meta` prints one `acceptance<TAB><criterion>` line per bullet, stripping the bullet marker and any `[ ]`/`[x]` checkbox prefix. The first line that is not a hyphen bullet at column 0 ends the list, so a blank line, the next `**Label:**` line, prose, or EOF all terminate it. An indented or wrapped criterion is not supported — each criterion is one unindented line.
+A body may also state its own acceptance criteria: an `**Acceptance:**` label alone on its line, followed by flat hyphen bullets. `radin backlog meta` prints one `acceptance<TAB><criterion>` line per bullet, stripping the bullet marker and any `[ ]`/`[x]`/`[X]` checkbox prefix. The first line that is not a hyphen bullet at column 0 ends the list, so a blank line, the next `**Label:**` line, prose, or EOF all terminate it. An indented or wrapped criterion is not supported — each criterion is one unindented line.
 
 Every radin agent/skill appending entry classifies into one of four categories, writes same title + description shape via `radin-backlog.sh add`: `radin-review` (code-review findings, usually `fix` for actual bug or `refactor` for structural finding), `radin-record` (feedback/bugs/follow-ups/ideas surfaced in conversation), `radin-execute`/`radin-plan` (own backlog grooming). None invent fifth category or per-entry tag on top.
 
