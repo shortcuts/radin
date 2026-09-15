@@ -176,28 +176,35 @@ compose_line() {
 	printf '%s}\n' "$out"
 }
 
+# Index line $1 with key $2 set to $3 (empty $3 drops the key), printed back.
+# Only place that unpacks a line into compose_line's six arguments.
+line_set_field() {
+	local line="$1" key="$2" value="$3" category title file prio deps
+	category="$(json_get category "$line")"
+	title="$(json_get title "$line")"
+	file="$(json_get file "$line")"
+	prio="$(json_get_raw priority "$line")"
+	deps="$(json_get_raw depends_on "$line")"
+	case "$key" in
+	category) category="$value" ;;
+	title) title="$value" ;;
+	file) file="$value" ;;
+	priority) prio="$value" ;;
+	depends_on) deps="$value" ;;
+	*) die "line_set_field: unknown key: $key" ;;
+	esac
+	compose_line "$(json_get id "$line")" "$category" "$title" "$file" "$prio" "$deps"
+}
+
 # Rewrite one key of the index line for id $1: $2 names the key, $3 is its
 # new value, and an empty $3 drops the key. A key the caller does not name is
 # always kept, so no argument ever has to mean "leave this alone".
 set_index_field() {
-	local id="$1" key="$2" value="$3" line out="" category title file prio deps
+	local id="$1" key="$2" value="$3" line out=""
 	while IFS= read -r line || [ -n "$line" ]; do
 		[ -n "$line" ] || continue
 		if [ "$(json_get id "$line")" = "$id" ]; then
-			category="$(json_get category "$line")"
-			title="$(json_get title "$line")"
-			file="$(json_get file "$line")"
-			prio="$(json_get_raw priority "$line")"
-			deps="$(json_get_raw depends_on "$line")"
-			case "$key" in
-			category) category="$value" ;;
-			title) title="$value" ;;
-			file) file="$value" ;;
-			priority) prio="$value" ;;
-			depends_on) deps="$value" ;;
-			*) die "set_index_field: unknown key: $key" ;;
-			esac
-			line="$(compose_line "$id" "$category" "$title" "$file" "$prio" "$deps")"
+			line="$(line_set_field "$line" "$key" "$value")"
 		fi
 		out="$out$line
 "
@@ -218,12 +225,7 @@ prune_dep() {
 				[ "$dep" = "$gone" ] || kept="$kept $dep"
 			done
 			# shellcheck disable=SC2086
-			line="$(compose_line "$(json_get id "$line")" \
-				"$(json_get category "$line")" \
-				"$(json_get title "$line")" \
-				"$(json_get file "$line")" \
-				"$(json_get_raw priority "$line")" \
-				"$(deps_array $kept)")"
+			line="$(line_set_field "$line" depends_on "$(deps_array $kept)")"
 			;;
 		esac
 		printf '%s\n' "$line"
