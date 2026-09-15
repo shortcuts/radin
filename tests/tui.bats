@@ -418,3 +418,12 @@ tui() {
   [[ "$output" != *"^[[32m"* ]]
   [[ "$output" != *"^[[33m"* ]]
 }
+
+@test "D marks two candidates and writes both dependencies" {
+  seed
+  bl add chore "slow tests" <<<"tests are slow" >/dev/null
+  run tui "G|D| |j| |\r|q"
+  [ "$status" -eq 0 ]
+  run grep slow-tests "$INDEX"
+  [[ "$output" == *'"depends_on":["broken-auth","dark-mode"]'* ]]
+}

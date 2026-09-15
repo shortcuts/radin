@@ -587,7 +587,9 @@ pick() {
 			;;
 		'')
 			if [ "$kind" = multi ]; then
-				PICK_RESULT="$(printf '%s' "$pick_marked" | sed 's/  */ /g; s/^ //; s/ $//')"
+				# shellcheck disable=SC2086  # word splitting is the squeeze: runs collapse, ends trim
+				set -- $pick_marked
+				PICK_RESULT="$*"
 			else
 				PICK_RESULT="${pick_vals[$sel]}"
 			fi
@@ -771,12 +773,12 @@ edit_deps_task() {
 		MSG="no other task to depend on"
 		return 0
 	}
-	marked="$(printf '%s' "${deps[$ti]}" | tr ',' ' ')"
+	marked="${deps[$ti]//,/ }"
 	pick multi "depends_on for ${ids[$ti]}  (space toggles)" "$cands" "$marked" || {
 		MSG="deps cancelled"
 		return 0
 	}
-	csv="$(printf '%s' "$PICK_RESULT" | tr ' ' ',')"
+	csv="${PICK_RESULT// /,}"
 	[ -n "$csv" ] || csv="--none"
 	if out="$(backlog set-deps "${ids[$ti]}" "$csv" 2>&1)"; then
 		MSG="$out"
