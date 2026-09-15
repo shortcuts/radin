@@ -277,6 +277,19 @@ clamp_top() {
 	[ "$CLAMP_TOP" -ge 0 ] || CLAMP_TOP=0
 }
 
+# Moves the selection of whichever view $MODE names, so j/k/g/G exist once.
+move() {
+	local sel n
+	if [ "$MODE" = "done" ]; then sel="$DONE_SEL" n="$DONE_N"; else sel="$SEL" n="$N"; fi
+	case "$1" in
+	down) [ "$sel" -lt $((n - 1)) ] && sel=$((sel + 1)) || true ;;
+	up) [ "$sel" -gt 0 ] && sel=$((sel - 1)) || true ;;
+	first) sel=0 ;;
+	last) [ "$n" -eq 0 ] || sel=$((n - 1)) ;;
+	esac
+	if [ "$MODE" = "done" ]; then DONE_SEL="$sel"; else SEL="$sel"; fi
+}
+
 # Bold full-width header/footer line. $2 draws it at that terminal row; with no
 # $2 it is emitted inline and ends with a newline.
 bar() {
@@ -916,12 +929,26 @@ while :; do
 	if [ "$MODE" = "done" ]; then draw_done; else draw; fi
 	MSG=""
 	readkey || break
+	case "$KEY" in
+	j)
+		move down
+		continue
+		;;
+	k)
+		move up
+		continue
+		;;
+	g)
+		move first
+		continue
+		;;
+	G)
+		move last
+		continue
+		;;
+	esac
 	if [ "$MODE" = "done" ]; then
 		case "$KEY" in
-		j) [ "$DONE_SEL" -lt $((DONE_N - 1)) ] && DONE_SEL=$((DONE_SEL + 1)) || true ;;
-		k) [ "$DONE_SEL" -gt 0 ] && DONE_SEL=$((DONE_SEL - 1)) || true ;;
-		g) DONE_SEL=0 ;;
-		G) [ "$DONE_N" -eq 0 ] || DONE_SEL=$((DONE_N - 1)) ;;
 		"$TAB") MODE="list" ;;
 		R)
 			load_done
@@ -934,10 +961,6 @@ while :; do
 		continue
 	fi
 	case "$KEY" in
-	j) [ "$SEL" -lt $((N - 1)) ] && SEL=$((SEL + 1)) || true ;;
-	k) [ "$SEL" -gt 0 ] && SEL=$((SEL - 1)) || true ;;
-	g) SEL=0 ;;
-	G) [ "$N" -eq 0 ] || SEL=$((N - 1)) ;;
 	e | '') if [ -n "$(cur_task)" ]; then edit_body; else toggle_collapse; fi ;;
 	v) view_task ;;
 	"$TAB")
