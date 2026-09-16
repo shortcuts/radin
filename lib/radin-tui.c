@@ -36,6 +36,7 @@
 #define BIG 4096
 #define SPLIT_MIN 100 /* below this many columns, no right pane */
 #define MAXDET 1024   /* detail lines kept; the rest is not scrollable */
+#define RULE '\001'   /* a detail line drawn as a full-width horizontal rule */
 
 static const char *CATEGORIES[] = {"feat", "fix", "chore", "refactor"};
 #define NCAT 4
@@ -257,7 +258,10 @@ static void bar(const char *text, int at_row) {
 	char buf[1200];
 	if (at_row) printf("\033[%d;1H", at_row);
 	snprintf(buf, sizeof buf, "%.*s", COLS, text);
-	printf("\033[1m%-*s\033[0m", COLS, buf);
+	/* Reverse video, not bold: a bar has to read as chrome against the rows,
+	 * and reverse is the same structural (never colour) cue the selected row
+	 * uses, so NO_COLOR keeps it. */
+	printf("\033[7m%-*s\033[0m", COLS, buf);
 	if (!at_row) printf("\n");
 }
 
@@ -509,8 +513,9 @@ static void build_detail(void) {
 	if (ti >= 0) {
 		det_push("# %s", T[ti].title);
 		det_push("");
-		det_push("id: %s   category: %s   priority: %s", T[ti].id, T[ti].cat,
-			*T[ti].prio ? T[ti].prio : "(unset)");
+		det_push("%s \302\267 %s \302\267 priority %s", T[ti].cat, T[ti].id,
+			*T[ti].prio ? T[ti].prio : "unset");
+		det_push("%c", RULE);
 		det_push("");
 		char path[PATH_MAX];
 		task_path(ti, path, sizeof path);
@@ -525,6 +530,7 @@ static void build_detail(void) {
 		}
 	} else {
 		det_push("# epic: %s", row_epic[SEL]);
+		det_push("%c", RULE);
 		det_push("");
 		for (int i = 0; i < TASK_N; i++)
 			if (!strcmp(T[i].epic, row_epic[SEL])) det_push("- %s", T[i].title);
@@ -538,8 +544,17 @@ static void draw_detail(int top_row, int at_col, int width, int h) {
 	for (int i = 0; i < h; i++) {
 		const char *src = DET_TOP + i < DET_N ? DET[DET_TOP + i] : "";
 		char text[SLOT * 2];
-		const char *style = md_line(src, text, sizeof text);
 		if (at_col) printf("\033[%d;%dH", top_row + i, at_col);
+		/* RULE is the one line md_line cannot render: it needs the pane width,
+		 * which only this function knows. */
+		if (src[0] == RULE) {
+			if (COLOR) printf("\033[2m");
+			for (int c = 0; c < width; c++) printf("\342\224\200");
+			if (COLOR) printf("\033[0m");
+			if (!at_col) printf("\n");
+			continue;
+		}
+		const char *style = md_line(src, text, sizeof text);
 		span_at(text, 0, style, 0, (int)strlen(text), width, at_col ? 0 : 1);
 	}
 }
@@ -581,6 +596,10 @@ static void draw(void) {
 			if (ti < 0) {
 				snprintf(text, sizeof text, " %s epic: %s",
 					in_set(COLLAPSED, row_epic[i]) ? "+" : "-", row_epic[i]);
+				/* Cyan for structure, never for a value: the priority map owns
+				 * red/yellow/green, so an epic header cannot be misread as one. */
+				colour = COLOR ? "\033[36m" : "";
+				len = (int)strlen(text);
 			} else {
 				/* The margin is the tree connector, then the search mark, then
 				 * the flag, so a marked row never shifts the ones around it.
@@ -621,14 +640,21 @@ static void draw(void) {
 		if (DET_TOP > DET_N - list_h) DET_TOP = DET_N - list_h;
 		if (DET_TOP < 0) DET_TOP = 0;
 		draw_detail(2, lw + 2, rw, list_h);
+		/* The gutter column, drawn last so neither pane's padding overwrites
+		 * it: the panes need a border, not just whitespace, to read as two. */
+		for (int r = 2; r < ROWS; r++) {
+			printf("\033[%d;%dH", r, lw + 1);
+			if (COLOR) printf("\033[2m\342\224\202\033[0m");
+			else printf("\342\224\202");
+		}
 	}
 
-	const char *footer = split_on()
-		? "j/k/g/G move  ^d/^u scroll  e edit  v detail  / search  n/N match  "
-		  "a new  d delete  c category  r retitle  Tab done  ? keys  q quit"
-		: "j/k/g/G move  ^d/^u scroll  enter detail  e edit  v detail  / search  "
-		  "n/N match  a new  d delete  c category  r retitle  Tab done  ? keys  q quit";
-	bar(*MSG ? MSG : footer, ROWS);
+	/* One line of the keys a first frame has to teach, short enough to survive
+	 * an 80-column terminal: `?` owns the full list, so a footer that spills
+	 * off the edge teaches less than a footer that fits. */
+	bar(*MSG ? MSG : "j/k move  enter open  e edit  v detail  / search  a new  "
+					 "Tab done  ? keys  q quit",
+		ROWS);
 	fflush(stdout);
 }
 
@@ -1306,7 +1332,9 @@ static void help_screen(void) {
 		"  R             reload from disk\n"
 		"  q             quit\n\n"
 		"The priority column is coloured by a fixed map: 21/13 red, 8/5 yellow,\n"
-		"3/2/1 green, nothing when unset or off the scale.\n"
+		"3/2/1 green, nothing when unset or off the scale. Every other colour is\n"
+		"structural, never a value: an epic header row is cyan, the pane divider\n"
+		"and the detail's rule are dim.\n"
 		"Set NO_COLOR to a non-empty value to turn it off.\n"
 		"A P in the first column marks a task radin-plan has already planned.\n"
 		"A * in the left margin marks a row matching the active / search.\n"

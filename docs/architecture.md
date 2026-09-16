@@ -257,11 +257,22 @@ an epic header's own `DESCRIPTION.md` — the same path `E` writes at creation,
 built in one place so the two keys cannot disagree about where it lives.
 A `P` in the first column marks a task `radin-plan` already planned. A `*`
 marks a row matching the active `/` search, and `n`/`N` walk those matches.
-Priority is its own column left of the category, and the only coloured cell in
-the row: `21`/`13` red, `8`/`5` yellow, `3`/`2`/`1` green. The map is absolute
+Priority is its own column left of the category, and the only coloured cell of
+a task row: `21`/`13` red, `8`/`5` yellow, `3`/`2`/`1` green. The map is absolute
 because the scale is bounded, so no unrelated task's number can move this row's
 colour; anything off the scale -- unset, or a legacy value stored before the
 scale was bounded -- renders plain, and `NO_COLOR` drops the escapes entirely.
+Every other colour is structural rather than a value, so nothing can be misread
+as a priority: an epic header row is cyan, and the pane divider and the detail's
+rule are dim. Reverse video is the one cue `NO_COLOR` keeps, on the header and
+footer bars and on the selected row -- without it a bar would not read as chrome.
+The panes are separated by a `â` gutter column drawn after both, and the
+detail opens with the title, one `category Â· id Â· priority` line and a
+full-width rule before the body. The rule is the one line the markdown subset
+cannot render, because it needs the pane width: it travels through `DET` as a
+one-byte sentinel that `draw_detail()` expands. The footer teaches one short line
+of keys and `?` owns the full list, because a footer that spills off an
+80-column terminal teaches less than one that fits.
 
 Epic children are drawn as a `tree`-style one-level hierarchy: `├──` on every
 child but the last, `└──` on the last, and no connector on an ungrouped task.

@@ -465,7 +465,7 @@ tui() {
   [[ "$output" != *"^[[31m"* ]]
 }
 
-@test "an epic child keeps its colour, the epic header has no colour" {
+@test "an epic child keeps its priority colour, the epic header is cyan" {
   bl epic-add ui-polish <<<"ctx"
   bl add feat "low one" --priority 3 <<<"low body" >/dev/null
   bl add feat "high child" --epic ui-polish --priority 21 <<<"high body" >/dev/null
@@ -475,7 +475,9 @@ tui() {
   [[ "$output" == *"^[[31m21^[[0m"* ]]
   run bash -c "cat -v '$SCREEN' | grep 'epic: ui-polish'"
   [ "$status" -eq 0 ]
-  [[ "$output" != *"^[["* ]]
+  # Cyan is the structural colour, so a header can never read as a priority.
+  [[ "$output" == *"^[[36m"* ]]
+  [[ "$output" != *"^[[31m"* ]]
 }
 
 @test "NO_COLOR disables the priority colours" {
@@ -488,6 +490,7 @@ tui() {
   [[ "$output" != *"^[[31m"* ]]
   [[ "$output" != *"^[[32m"* ]]
   [[ "$output" != *"^[[33m"* ]]
+  [[ "$output" != *"^[[36m"* ]]
 }
 
 @test "D marks two candidates and writes both dependencies" {
@@ -562,6 +565,16 @@ long_body() {
   [[ "$output" != *"# Heading"* ]]
   [[ "$output" != *"> quoted"* ]]
   [[ "$output" != *"**bold**"* ]]
+}
+
+@test "the detail pane is fenced by a divider and a rule under the metadata" {
+  md_body
+  run wide "q"
+  [ "$status" -eq 0 ]
+  run last_frame
+  [[ "$output" == *"feat · dark-mode · priority unset"* ]]
+  [[ "$output" == *"│"* ]]
+  [[ "$output" == *"───"* ]]
 }
 
 @test "no detail pane below 100 columns" {

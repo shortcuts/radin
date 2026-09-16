@@ -20,6 +20,13 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   way to write it was at creation time, via `E`. `v` still opens the fully
   composed document in `$PAGER`.
 
+- `radin tui` looks less bare: the two panes are separated by a `â` divider
+  instead of a blank column, the detail opens with a
+  `category Â· id Â· priority` line and a full-width rule before the body, an
+  epic header row is cyan, the header and footer bars are reverse video, and the
+  footer is one short line of keys that fits an 80-column terminal (`?` still
+  lists every key). Colour stays structural outside the priority cell, so
+  nothing new can be misread as a priority, and `NO_COLOR` drops all of it.
 - Task priority is now the Fibonacci scale `1 2 3 5 8 13 21`, ascending with
   "higher wins" (so `21` is the most important, not the largest estimate).
   `radin backlog add --priority` and `set-priority` reject anything else, and
