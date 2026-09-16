@@ -84,6 +84,12 @@ static int PENDING = -1;
  * cannot reorder an index-ordered list, so no row moves under the cursor.
  * Session-only on purpose: no state file. */
 static char SORT = 'A';
+/* index.jsonl as of the last load(), so another shell's write is spotted with
+ * two syscalls and an idle TUI does no work at all. POLL_MS is how long a key
+ * wait blocks before that check; the tests shorten it. */
+static time_t IDX_MT;
+static off_t IDX_SZ = -1;
+static int POLL_MS = 5000;
 
 static void die(const char *m) {
 	fprintf(stderr, "radin tui: %s\n", m);
@@ -428,10 +434,31 @@ static const char *sort_name(void) {
 	}
 }
 
+/* st_mtime is seconds on macOS and Linux alike (st_mtimespec vs st_mtim are
+ * not), so no platform branch; st_size carries the same-second case. */
+static int index_stamp(time_t *mt, off_t *sz) {
+	char path[PATH_MAX];
+	struct stat st;
+	snprintf(path, sizeof path, "%s/index.jsonl", BACKLOG_DIR);
+	if (stat(path, &st) < 0) return 0;
+	*mt = st.st_mtime;
+	*sz = st.st_size;
+	return 1;
+}
+
+static int index_changed(void) {
+	time_t mt;
+	off_t sz;
+	if (!index_stamp(&mt, &sz)) return 0; /* unreadable: stay quiet */
+	return mt != IDX_MT || sz != IDX_SZ;
+}
+
 /* --order created: index order, so no mutation moves a row. sort_tasks() then
  * applies whatever Shift- key the user pressed this session. */
 static void load(void) {
 	int ok;
+	/* Stamped before the read, so a write racing it is seen on the next poll. */
+	index_stamp(&IDX_MT, &IDX_SZ);
 	char *out = cli(BACKLOG, &ok, 0, NULL, "list", "--order", "created", "--planned", NULL);
 	TASK_N = 0;
 	char *line = out, *nl;
@@ -793,6 +820,27 @@ static int readkey(void) {
 		}
 	}
 	return 'Q' + 1000;
+}
+
+/* Blocks for a key, but wakes every POLL_MS to notice another shell's write to
+ * index.jsonl -- an agent running /radin-record or /radin-execute elsewhere --
+ * and returns -2 for "reload". An unchanged index draws nothing, so the last
+ * keypress's footer MSG survives a timeout, and no `backlog list` runs. Only
+ * the main loop waits here: a poll while $EDITOR or $PAGER owns the terminal
+ * would be meaningless, and those run inside a key handler. */
+#define KEY_REFRESH (-2)
+static int readkey_wait(void) {
+	if (PENDING >= 0) return readkey();
+	for (;;) {
+		struct pollfd p = {0, POLLIN, 0};
+		int r = poll(&p, 1, POLL_MS);
+		if (r > 0) return readkey();
+		if (r < 0) {
+			if (errno == EINTR) continue;
+			return -1;
+		}
+		if (index_changed()) return KEY_REFRESH;
+	}
 }
 
 /* Next (dir 1) / previous (dir -1) row whose task matches the active search,
@@ -1462,6 +1510,28 @@ static void resolve_lib(const char *argv0) {
 		die("cannot find radin-backlog.sh -- set RADIN_LIB to radin's lib directory");
 }
 
+/* An external write is an append or a drop under creation order, so nothing the
+ * user is reading moves. The collapse set, the active sort and TOP are globals
+ * load() does not touch; SEL is a row index an added or removed row shifts, so
+ * re-find the row by identity -- task id, or epic name for a header row. */
+static void refresh(void) {
+	char id[SLOT] = "", epic[SLOT] = "";
+	if (N > 0) {
+		int ti = row_task[SEL];
+		if (ti >= 0) snprintf(id, sizeof id, "%s", T[ti].id);
+		else snprintf(epic, sizeof epic, "%s", row_epic[SEL]);
+	}
+	load();
+	for (int i = 0; i < N; i++) {
+		int ti = row_task[i];
+		if (*id ? (ti >= 0 && !strcmp(T[ti].id, id))
+				: (ti < 0 && !strcmp(row_epic[i], epic))) {
+			SEL = i;
+			break;
+		}
+	}
+}
+
 int main(int argc, char **argv) {
 	(void)argc;
 	if (!isatty(0) || !isatty(1)) {
@@ -1472,6 +1542,8 @@ int main(int argc, char **argv) {
 	}
 	const char *nc = getenv("NO_COLOR");
 	if (nc && *nc) COLOR = 0;
+	const char *pm = getenv("RADIN_TUI_POLL_MS");
+	if (pm && atoi(pm) > 0) POLL_MS = atoi(pm);
 	resolve_lib(argv[0]);
 	resolve_namespace();
 	snprintf(DETAIL_FILE, sizeof DETAIL_FILE, "%s/tui-detail.XXXXXX", NAMESPACE_DIR);
@@ -1487,7 +1559,11 @@ int main(int argc, char **argv) {
 		if (MODE_DONE) draw_done();
 		else draw();
 		MSG[0] = 0;
-		int k = readkey();
+		int k = readkey_wait();
+		if (k == KEY_REFRESH) {
+			refresh();
+			continue;
+		}
 		if (k < 0) break;
 		if (move_key(k)) {
 			coalesce();

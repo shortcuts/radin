@@ -677,3 +677,63 @@ long_body() {
   run head -1 "$TASKS/dark-mode.md"
   [ "$output" = "# Heading" ]
 }
+
+# ---------- polling index.jsonl ----------
+
+# The external write runs from inside $EDITOR: the TUI is parked in a key
+# handler, so the write lands with no keypress left to process, and the frame
+# after it can only come from the poll. RADIN_TUI_POLL_MS shortens the 5s
+# interval so the suite does not sit one out. The two empty key chunks are the
+# wait: an empty chunk writes nothing and pumps the pty until it sees output,
+# so the first absorbs $EDITOR's own repaint and the second waits out the poll
+# interval for the refresh frame -- no fixed sleep, and no 5s test.
+outside_editor() {
+  printf '#!/bin/sh\nprintf "typed body\\n" >"$1"\ncd %s && printf "x\\n" | bash %s %s >/dev/null 2>&1\n' \
+    "$WORK/proj" "$BACKLOG" "$1" >"$WORK/outside.sh"
+  chmod +x "$WORK/outside.sh"
+  export TUI_EDITOR="$WORK/outside.sh"
+  export RADIN_TUI_POLL_MS=10
+}
+
+@test "polling picks up a task another shell added, with no keypress" {
+  seed
+  outside_editor 'add feat "from elsewhere"'
+  run tui "e|||q"
+  [ "$status" -eq 0 ]
+  run last_frame
+  [[ "$output" == *"from elsewhere"* ]]
+  [[ "$output" == *"3 task(s)"* ]]
+}
+
+@test "polling drops a task another shell removed" {
+  seed
+  outside_editor 'remove broken-auth'
+  run tui "e|||q"
+  [ "$status" -eq 0 ]
+  run last_frame
+  [[ "$output" != *"broken auth"* ]]
+  [[ "$output" == *"1 task(s)"* ]]
+}
+
+@test "a refresh keeps the selected task selected when a row above it goes" {
+  seed
+  bl add feat "third task" <<<"third body" >/dev/null
+  # Cursor on row 2 (broken auth), then dark mode disappears under it: the row
+  # index it was selected by now points at third task, the id does not.
+  outside_editor 'remove dark-mode'
+  run tui "j|e|||q"
+  [ "$status" -eq 0 ]
+  [ "$(last_pos)" = "[1/2]" ]
+  run last_frame
+  [[ "$output" == *"broken auth"* ]]
+}
+
+@test "an unchanged index neither redraws nor clears the footer message" {
+  seed
+  export RADIN_TUI_POLL_MS=10
+  run tui "R|q"
+  [ "$status" -eq 0 ]
+  # A poll that reloaded would have repainted the frame without the message.
+  run last_frame
+  [[ "$output" == *"reloaded"* ]]
+}

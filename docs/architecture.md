@@ -283,6 +283,22 @@ one-byte sentinel that `draw_detail()` expands. The footer teaches one short lin
 of keys and `?` owns the full list, because a footer that spills off an
 80-column terminal teaches less than one that fits.
 
+An idle TUI polls, because an agent running `/radin-record` or `/radin-execute`
+in another terminal writes the same `index.jsonl`. `readkey_wait()` blocks in
+`poll()` for 5 seconds instead of blocking in `read()` forever, and on a timeout
+compares `index.jsonl`'s `st_mtime` and `st_size` against the pair `load()`
+stamped -- seconds and a size, because `st_mtimespec`/`st_mtim` is the one
+`stat` field that needs a platform branch and radin has none. Unchanged means
+one `stat` and nothing else: no `backlog list`, no repaint, so the footer
+message of the last keypress survives a timeout. Changed means `refresh()`,
+which is `load()` plus re-finding the selected row by task id or epic name --
+under creation order an external write is an append or a drop, so re-finding by
+identity is all it takes for the collapse set, the scroll offset and the active
+sort (all globals `load()` never touches) to keep the pane exactly where it was.
+Only the main loop waits there, so no poll fires while `$EDITOR` or `$PAGER`
+owns the terminal: those run inside a key handler. `RADIN_TUI_POLL_MS` shortens
+the interval, which is how the tests avoid sitting one out.
+
 Epic children are drawn as a `tree`-style one-level hierarchy: `├──` on every
 child but the last, `└──` on the last, and no connector on an ungrouped task.
 The shape is read off the row arrays at draw time -- the row after the last

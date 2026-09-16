@@ -6,6 +6,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- `radin tui` now notices a backlog another shell changed: every 5 seconds an
+  idle TUI checks `index.jsonl`'s mtime and size, and reloads only when they
+  moved, so a task an agent added in another terminal appears at the bottom and
+  a removed one disappears with no keypress. The reload keeps what you were
+  looking at -- the selected task (by id, not row number), the collapsed epics,
+  the scroll position and the active `Shift-` sort -- and an untouched index
+  costs one `stat` per interval, no `backlog list` call and no repaint, so a
+  footer message stays on screen.
+
 - `radin tui` now lists tasks in creation order, so editing a task no longer
   makes its row jump: changing a category or a priority leaves the row where it
   was, and a new task appends at the bottom. `Shift-A`, `Shift-P`, `Shift-C`
