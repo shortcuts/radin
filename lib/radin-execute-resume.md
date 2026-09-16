@@ -6,14 +6,13 @@ summarized earlier turns away. A fresh run never loads it.
 
 ## Resume
 
-Read `BACKLOG_STEPS.json`, skip completed tasks (already removed), triage
-`in_progress` entries per Phase 1 step 3, treat `failed` and `blocked` entries
-as `pending` for retry, and continue. Phase 2's gate still applies in full: a
-resumed run reprints the list and re-asks both order and task selection.
+Read `BACKLOG_STEPS.json` read-only — this triage is the one exception to
+Phase 0's "never parse it to decide what to do next" — skip completed tasks
+(already removed), triage `in_progress` entries per Phase 1 step 3, treat
+`failed` and `blocked` entries as `pending` for retry, and continue.
 
 One exception: a `blocked` entry whose `note` says it hit `MAX_ATTEMPTS` stays
-blocked. Its `attempts` count persists, so re-dispatching it only trips the cap
-again. It needs the user to look, not another retry.
+blocked — it needs the user to look, not another retry.
 
 ## State Persistence Contract
 

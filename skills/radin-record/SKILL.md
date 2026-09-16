@@ -15,17 +15,11 @@ backlog entries that survive past the conversation. This captures what a
 human said. `radin-review` logs what a diff revealed, and `radin-plan` and
 `radin-execute` consume the backlog afterward.
 
-All writes go through the shared CLI at
-the `RADIN_CLI backlog` CLI. It owns the index's schema and
-resolves the per-project namespace, so never hand-edit a backlog file or
-compute its path yourself.
+All writes go through `RADIN_CLI backlog`.
 
-**Never assume on a broad ask.** When what to log, or how to split it, reads
-more than one way, invoke `/mattpocock-skills:grilling` and let the user settle
-it before logging. This skill runs in the user's own thread, so the question can
-actually be asked — a silently picked interpretation becomes an entry nobody
-checked. Step 1's stub is the one shape this doesn't apply to: a clear-boundary,
-fuzzy-work item has nothing concrete to grill yet, so log the stub.
+Step 1's stub is the one shape the grilling rule does not apply to: a
+clear-boundary, fuzzy-work item has nothing concrete to grill yet, so log the
+stub.
 
 ## Step 1: Decide what to log
 
@@ -46,9 +40,7 @@ limiting on top of new auth middleware" needs the middleware first). Log
 each piece as its own entry, split by the work's shape rather than the user's
 phrasing.
 
-When scope or split is genuinely unclear, invoke
-`/mattpocock-skills:grilling` on that point and let the user settle it before
-logging, mid-scan too. Distinguish that
+Distinguish that
 from an item that is *real but not yet sharp* (clear boundary, fuzzy work,
 as in "figure out caching at some point"): log it as a stub with a short
 title and a body saying plainly it's unspecified and what's known so far.
@@ -193,8 +185,10 @@ dependency is misidentified, not that the flag is optional.
 
 Always append; never scan for near-duplicates or merge with an existing
 entry. A false-positive merge silently drops something the user cared
-about, which is worse than an occasional repeat. Let `radin-execute`, `radin-plan`,
-or a human dedupe later.
+about, which is worse than an occasional repeat. The user dedupes:
+`radin-execute`'s final summary runs `RADIN_CLI backlog duplicates` and flags
+duplicate ids and titles without guessing which copy to drop. No radin skill
+merges entries.
 
 ## Step 6: Report back
 

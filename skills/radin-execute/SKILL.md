@@ -43,7 +43,9 @@ concern rather than yours.
   worktree would have been tidier. Leaving the task undone is the better
   outcome. The worktree/branch pair is enforced for you: it lives in
   `session.json`, and `radin-state.sh prepare` is the only thing that turns
-  it into git commands.
+  it into git commands. Never substitute either answer into a sub-agent prompt
+  and never name a tree for a sub-agent: `prepare` reads `session.json` and
+  decides.
 - **Phase 2's gate is unconditional.** Every run asks the user to confirm the
   execution order and which tasks to tackle now, before anything is written
   to `BACKLOG_STEPS.json` and before any sub-agent is dispatched. There is no
@@ -54,13 +56,15 @@ concern rather than yours.
   debugging sub-agents write no repo code and no shared file, so
   several may share one message whenever you have more than one to send. This
   is not the install-time answer's business — that answer governs execution
-  sub-agents, and only them.
+  sub-agents, and only them. The bullet after this one is the
+  execution-concurrency rule itself, written in at install time from the
+  user's answer — it is the only rule governing execution sub-agents, and it
+  never restates this one.
 <!-- radin:concurrency -->
 
 ## Clarifying Ambiguity
 
-Never guess and never pick a default on the user's behalf. That covers your own
-reading of a task, not only a sub-agent's block: when an entry is broad, vague,
+When an entry is broad, vague,
 or needs refinement, invoke `/mattpocock-skills:grilling` before dispatching it,
 so the sub-agent gets the user's answer instead of your guess at what the entry
 meant.
@@ -90,8 +94,9 @@ sentences it holds.
 All radin state lives in `<repo-root>/.claude/.radin/`. Two CLIs own it:
 `RADIN_CLI backlog` (backlog index + task files) and `RADIN_CLI state`
 (`BACKLOG_STEPS.json` / `completed.json`). They own those files' schema, so
-never hand-edit or hand-parse one. Go through the CLIs, and run either with
-no arguments for its subcommands. Resolve the namespace and verify a backlog exists in the **same Bash
+never hand-edit one and never parse one to decide what to do next;
+`radin-execute-resume.md`'s read-only resume triage is the one exception. Run
+either CLI with no arguments for its subcommands. Resolve the namespace and verify a backlog exists in the **same Bash
 call** (shell state does not persist across calls):
 
 ```bash
@@ -108,11 +113,8 @@ stop here: Phase 1 step 1 owns that branch.
 
 Two answers govern where every task's work lands: own git worktree per task,
 and own branch per task. They are recorded once per repo in
-`state/session.json`. Each execution sub-agent runs `radin-state.sh prepare`
-in Step 4b, and that command is the only thing that acts on them. Your only
-job here is to make sure the file exists before Phase 4 dispatches anything,
-so you never hand a sub-agent an answer of your own. Read the recorded answers
-first:
+`state/session.json`. Your only job here is to make sure the file exists
+before Phase 4 dispatches anything. Read the recorded answers first:
 
 ```bash
 RADIN_CLI state session-get "$NAMESPACE_DIR"
@@ -167,17 +169,13 @@ persist them.
    your order, as one `--rank <csv-of-ids>` flag, and one
    `--infer-deps <id>=<csv>` flag per entry you inferred a dependency for.
    Carry those flags into every later `order` call this session; carry
-   nothing else. The order itself, its `order` numbers and its
-   `dependency override:` lines are `order`'s to re-derive, never yours to
-   hold across phases.
+   nothing else.
 
 ## Phase 2: Confirm Execution Order (MANDATORY GATE)
 
-Every run passes through this gate: fresh backlog, resume, single-task run,
-one remaining task, or a re-invocation alike. Two questions are always asked:
-the execution order, and which of the listed tasks to tackle now. Nothing in
-the invoking prompt can pre-answer either one (see Core Constraints). Phase
-0.5's preferences are the only questions a prompt may pre-answer.
+The gate is unconditional (Core Constraints). Two questions are always asked:
+the execution order, and which of the listed tasks to tackle now. Phase 0.5's
+preferences are the only questions a prompt may pre-answer.
 
 1. Print this verbatim, and compose nothing of your own:
 
@@ -227,9 +225,7 @@ RADIN_CLI backlog order --steps <Phase 1's flags> --defer "<ids Phase 2 excluded
 ```
 
 `--defer` is where the deferred set is persisted, so nothing has to carry it
-to Phase 5: pass the ids Phase 2 excluded (none from **All of them**; every
-id but the first from **Just the first one**; the ones the user did not name
-from **Only the ones I name**). Resolving that free text to ids is yours;
+to Phase 5: pass the ids Phase 2 excluded. Resolving that free text to ids is yours;
 filtering, renumbering and the `depends_on` precedence are not — every listed
 task keeps the `order` number the user just confirmed. Omit `--defer`
 entirely when nothing is deferred.
@@ -280,7 +276,8 @@ one judgment here is yours — is this a single obvious change
 - **Straightforward**: skip planning; the sub-agent implements directly from
   the entry text.
 - **Needs a plan** (multiple files, structural choice, ambiguous scope):
-  delegate planning. Never run `/radin-plan` in this context, because its
+  delegate planning. Never run `/radin-plan` in this context — that is the
+  planning sub-agent's job, not the router's — because its
   codebase exploration is the biggest context bloat a router can take on; the
   plan file on disk is the only handoff needed. Send the **Planning prompt**
   from `radin-execute-prompts.md`, replacing `TASK_ID`.
@@ -317,12 +314,11 @@ RADIN_CLI backlog field "<task id>" <TASK_FILE|TASK_ID|CATEGORY|PLAN_PATHS|SKILL
   discipline skill the sub-agent implements through and `SKILLS` carries the
   user's standing instructions, so never substitute your own read of the
   task's shape or of whether a skill is needed, redundant or a good fit.
-  `SKILLS` is already filtered to what a leaf can run; `ACCEPTANCE` exiting 1
+  `SKILLS` is already filtered by the CLI's own deny-list, so there is no
+  second filter for you to apply; `ACCEPTANCE` exiting 1
   means delete that whole line, per the prompt file's own narration.
 - `NAMESPACE_DIR`: `$NAMESPACE_DIR`. The sub-agent passes it and `TASK_ID` to
-  `radin-state.sh prepare` to get its working tree. Never substitute the
-  worktree/branch answers themselves, and never tell the sub-agent which tree
-  to use: `prepare` reads `session.json` and decides.
+  `radin-state.sh prepare` to get its working tree.
 - `DEPENDS_ON`: the `dep` pairs `task-next` printed as `<id>: <commit hash>`,
   or "none"
 
@@ -393,8 +389,7 @@ the next task. Exit 1: the tree is clean, so route on `STATUS:`:
 - **A report that has no `STATUS:` line** (it asked something, hit an
   interactive skill, or died): no debug pass, straight to failed —
   `RADIN_CLI state task-fail "$NAMESPACE_DIR" "<task id>" --no-status "<its
-  final line>"`, then print its line. Never re-read its prose for intent and
-  never re-dispatch it in this turn. The task keeps its bumped `attempts`, so
+  final line>"`, then print its line. Never re-dispatch it in this turn. The task keeps its bumped `attempts`, so
   the cap still applies.
 - **No report yet.** Not the same thing, and never `FAILED`: the sub-agent is
   still working, and marking it failed while it is mid-edit sets you racing
@@ -443,6 +438,9 @@ Reviewer sub-agent (`model: "RADIN_MODEL_REVIEW"`). The
 `radin-review` skill already owns the review-and-log flow, so send exactly:
 
 ```
+You run non-interactively: you cannot reach the user and have no
+`AskUserQuestion`, so take each non-destructive branch the skill names.
+
 Invoke the `/radin-review` skill with scope: the commit(s) made this session
 (<list of commit hashes recorded in Phase 4>), plus any review instructions
 from the invoking prompt: <instructions, or "none">.

@@ -4,6 +4,40 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Unreleased
 
+### Changed
+
+- Every rule that was stated in more than one prose file now has exactly one
+  owner, with a pointer where a second reader needs it. A verbatim sub-agent
+  fence in `lib/radin-execute-prompts.md` is the one exception, because a
+  fence cannot carry a pointer; `docs/architecture.md` §"One rule, one file"
+  records the ownership rules a future audit checks against. The moves:
+  sub-agent capability limits and "sub-agents never sub-delegate" to
+  `radin-execute`'s Core Constraints (plus each fence); the worktree/branch
+  answers being `state prepare`'s alone to act on, Phase 2's unconditional
+  gate, and "don't set `run_in_background`" to Core Constraints; "never
+  synthesise an acceptance criterion" to `radin-record` Step 5; "never
+  hand-edit the backlog, never guess on a broad ask" to the installed
+  `~/.claude/CLAUDE.md` block; the category list to `radin-record` Step 4; the
+  `--rank-needed` gate and its exit codes to `radin-execute` Phase 1 step 4;
+  and non-interactivity to the prompt that dispatches a skill rather than the
+  skill itself.
+- `lib/radin-prioritization.md` lost its "Parsing the backlog" and "State file
+  schema" sections. `docs/domain-models.md` owns both formats and the state
+  section had already gone stale (no `in_progress`, no `deferred`). The file is
+  now `radin-execute`'s alone, read at Phase 1 step 4 and only when
+  `backlog order --rank-needed` exits 0.
+- Phase 0's "never hand-parse" is narrowed to "never parse state to decide what
+  to do next", which is what the resume triage's read-only pass could already
+  live under. That read is now named as the one exception instead of
+  contradicting the absolute.
+- Backlog deduplication has a named owner: the user, prompted by
+  `backlog duplicates` in `radin-execute`'s final summary. No radin skill
+  merges entries, because a false-positive merge silently drops work.
+- The installed concurrency rule dropped its `run_in_background: false` clause,
+  which contradicted Core Constraints' "fork mode removes the parameter
+  outright, so don't set it". **Re-run `install.sh` (or `radin update`)** to
+  pick up that change and the new `~/.claude/CLAUDE.md` bullet.
+
 ### Fixed
 
 - `/radin-record` now writes a dependency to the backlog's `depends_on` field

@@ -17,7 +17,3 @@ covers all three questions. Then persist them:
 ```bash
 RADIN_CLI state session-set "$NAMESPACE_DIR" "<worktree yes|no>" "<branch yes|no>"
 ```
-
-Keep the two values for Phase 5's summary; nothing else needs them. Never act
-on them yourself — `radin-state.sh prepare`, which each execution sub-agent
-runs in Step 4b, is the only thing that turns them into git commands.

@@ -112,7 +112,7 @@ radin state <steps-init|next-pending|task-next|start|stuck|triage|recover|recove
 
 Both `BACKLOG_STEPS.json` and `completed.json` JSONL (one compact object per line), same convention as backlog's `index.jsonl` — single-entry edit never risks another line, model never parses/rewrites bracketed JSON array by hand.
 
-`radin-execute` and `radin-plan` skill also share `lib/radin-prioritization.md`, single source of truth for backlog parsing rules, task priority criteria, state-file JSON schema. Both read via `$HOME/.claude/.radin/lib/radin-prioritization.md` — `radin-execute` at start of Phase 1, `radin-plan` at start of its Step 2 — instead of embedding own copy. `radin-execute` uses all of it, prioritize/order whole backlog. `radin-plan` uses only parsing section: scoped to single entry caller points at, not whole backlog, so nothing to prioritize, no state file of own.
+`radin-execute` alone reads `lib/radin-prioritization.md`, via `$HOME/.claude/.radin/lib/radin-prioritization.md`, at Phase 1 step 4 and only when `backlog order --rank-needed` exits 0. It holds two things and nothing else: how to rank the unset-priority group, and the bounded dependency inference. Backlog format is `docs/domain-models.md`'s, verb behaviour is the CLI usage comments', so neither is restated there. `radin-plan` reads it not at all — scoped to one entry, nothing to prioritize.
 
 `radin-execute` alone reads six on-demand files, none of them inline in `SKILL.md`, because the skill body sits in the user's own context for the rest of the session. Each one be cold path — trigger fire, file get read, otherwise never:
 
@@ -180,9 +180,11 @@ the prompt. Names appear in four files only:
 fact-finding), and the CLAUDE.md section inside `lib/radin-cbm-hooks.sh`.
 Between them they name `index_repository`, `list_projects`, `search_graph`,
 `search_code`, `trace_path`, `detect_changes`, `query_graph`,
-`get_graph_schema`, `get_code_snippet` and `get_architecture`. Each mention
-also says a graph hit is a pointer: read the file before editing, never claim
-absence from an empty result.
+`get_graph_schema`, `get_code_snippet` and `get_architecture`. Each file names
+only the tools its own role uses — the subsets differ on purpose — and every
+mention carries the same pointer clause verbatim: a graph hit is a pointer,
+read the file before you cite or edit it, never conclude something is absent
+from an empty result.
 
 ## Install manifest
 
@@ -395,4 +397,16 @@ work against radin's own guess.
 `tests/skill-names.bats` pins every `/<name>` written in `skills/**/SKILL.md`
 and `lib/*.md` to a skill radin ships or `install.sh` installs, so a rename or
 typo fails the suite instead of costing a failed call in every sub-agent. A
-new companion needs its plugin prefix in that test's list.
+new companion needs its plugin prefix in that test's list. Not pinned by it:
+the MCP graph tool names and the four-file rule above — those are checked by
+review, not by `tests/skill-names.bats`.
+
+## One rule, one file
+
+What a future audit checks prose against, after the 2026-09 dedup pass:
+
+- **Two audiences, one statement each.** Skill/lib prose is read by the router or a human-thread skill; a verbatim fence in `lib/radin-execute-prompts.md` is read only by its sub-agent, which never sees the surrounding narration. A fence copy is a payload, not a duplicate; within one audience there is exactly one statement, and a pointer where a second place needs it.
+- **Deterministic behaviour is owned by the code that does it** — the usage comments in `lib/radin-backlog.sh` and `lib/radin-state.sh`. Prose names the verb and its exit codes, never what the verb computes.
+- **Formats and schemas are owned by `docs/domain-models.md`.** No installed prose file restates one.
+- **Cross-skill rules live in the `<!-- radin:begin -->` block `install.sh` writes into `~/.claude/CLAUDE.md`** (never hand-edit `.claude/.radin/`; never guess on a broad ask). It costs no file read and ships with the skills.
+- **Non-interactivity is declared by the caller, not the callee.** The dispatching prompt says the sub-agent cannot reach the user; the skill states only the branch defaults a reader could not derive.

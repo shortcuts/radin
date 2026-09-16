@@ -12,10 +12,10 @@ A sub-agent's `STATUS: BLOCKED` always carries a `(FACT)` or `(DECISION)` tag
   fresh sub-agent with the **Fact-finding prompt** from
   `radin-execute-prompts.md`. It investigates read-only and reports in one
   turn.
-  - `STATUS: FOUND`: append the finding to that task's file as a `**Fact:**`
-    line (see below), treat the entry as `pending`, retry from Step 4a. If it
-    reports a `state/facts/<id>.md` path, append `**Facts:** <path>` instead.
-    Either way it stays scoped to the one task that needed it: never copy a
+  - `STATUS: FOUND`: append the finding to that task's file with
+    `backlog append` (labels below; a reported `state/facts/<id>.md` path is
+    the `**Facts:**` case), treat the entry as `pending`, retry from Step 4a.
+    It stays scoped to the one task that needed it: never copy a
     finding onto another entry, and never build a shared notes file. A
     sub-agent's context is small on purpose.
   - `STATUS: NOT FOUND`: it has escalated into a decision. Fall through to

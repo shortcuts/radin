@@ -18,11 +18,9 @@ it.
 RADIN_CLI backlog show
 ```
 
-The CLI renders the backlog from the JSONL index plus each task's own file.
-Never read those files directly. If the user narrows the scope to one
-category ("show me fix items"), pass that category: `show fix`. The
-categories are `feat`, `fix`, `chore`, and `refactor`. With no category, the
-CLI prints the whole backlog.
+If the user narrows the scope to one category ("show me fix items"), pass that
+category: `show fix`. It rejects a category it does not know. With no category,
+the CLI prints the whole backlog.
 
 The CLI resolves the per-project backlog path itself. If it errors with "no
 backlog", tell the user the project has no backlog yet and point them at

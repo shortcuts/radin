@@ -14,11 +14,6 @@ every finding the user agrees to as a backlog entry instead of terminal
 output. That leaves a durable backlog `radin-execute` (or a human) works
 through later.
 
-**Never assume on a broad ask.** When the scope, or what a finding actually
-asks for, reads more than one way, invoke `/mattpocock-skills:grilling` and let
-the user settle it rather than picking one yourself. Non-interactive caller:
-report the readings and stop.
-
 ## Step 1: Resolve scope argument
 
 Resolve the argument (or its absence) via the shared CLI. Don't probe
@@ -39,9 +34,8 @@ main/master). Route on exit code:
   `git log`/`git diff` invocations. Anything else: report it as
   unresolvable.
 - **2**: ambiguous (candidates on stderr, e.g. both a PR number and a
-  directory). Interactive: ask which one. Non-interactive (e.g.
-  radin-execute's reviewer sub-agent): report both readings and stop, so the
-  caller retries with an unambiguous scope or resolves it with the user.
+  directory). Interactive: ask which one. Non-interactive: report both
+  readings and stop.
 
 State the resolved scope in one line before proceeding, e.g.
 `Scope: commit a1b2c3d` or `Scope: directory src/auth/`.
@@ -66,9 +60,7 @@ however real the problem is.
 
 ## Step 2: Record backlog baseline
 
-Backlog writes go through
-the `RADIN_CLI backlog` CLI. Never hand-edit the index or
-task files. Record the baseline for the end-of-run count:
+Record the baseline for the end-of-run count:
 
 ```bash
 RADIN_CLI backlog count
@@ -80,7 +72,8 @@ Start with `codebase-memory-mcp`'s
 `detect_changes` (git diff mapped to affected symbols, with blast radius and
 risk classification), then `trace_path` on the symbols it flags and
 `get_code_snippet` to read them: risk-scored impact beats reading a raw diff
-cold. `detect_changes` reads the working tree, so for a commit or PR scope
+cold — a graph hit is a pointer: read the file before you cite or edit it, and never conclude something is absent from an empty result.
+`detect_changes` reads the working tree, so for a commit or PR scope
 check out or diff that scope first, and fall back to `git show`/`git
 diff`/reading files when the graph has nothing for it.
 
@@ -133,11 +126,12 @@ add a third option for it. If the user types numbers instead of picking,
 restate the surviving set in one line before continuing. Iterate if they
 correct it.
 
-**Non-interactive caller** (e.g. radin-execute's reviewer sub-agent, which
-has no `AskUserQuestion`): skip this gate and Step 5, log every in-scope
+**Non-interactive caller**: skip this gate and Step 5, log every in-scope
 finding, and say in Step 7's report that no triage happened.
 
 ## Step 5: Optional refinement pass
+
+Non-interactive: skipped (Step 4).
 
 Ask one yes/no on `AskUserQuestion`: refine the selected findings before
 logging?
@@ -168,7 +162,8 @@ RADIN_CLI backlog add <fix|refactor> "<short title>" <<'EOF'
 **Acceptance:** <only when Step 5's refinement settled a checkable outcome
 for this finding — one flat `- ` bullet per criterion below this line. Omit
 the label entirely otherwise, and always omit it on the non-interactive path
-(Step 5 does not run there): never synthesise a criterion from the remedy.>
+(Step 5 does not run there): never synthesise one (`radin-record`'s Step 5
+owns that rule).>
 EOF
 ```
 

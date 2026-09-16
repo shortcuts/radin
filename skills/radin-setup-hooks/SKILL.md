@@ -61,4 +61,4 @@ user at radin's `install.sh`), when `python3` is missing (it prints the
 
 Then tell the user to restart Claude Code so the MCP server loads. The graph
 indexes itself on first connection (`install.sh` sets `auto_index`); if a query
-reports no project, ask the agent to index it (`index_repository`).
+reports no project, ask the agent to index the project.

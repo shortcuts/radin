@@ -24,18 +24,14 @@ narration:
   route one into a skill that spawns its own agent and waits
   (`/mattpocock-skills:research`).
 
-Delegation stops here too: no prompt may tell a sub-agent to spawn a sub-agent
-of its own. Whether the *router* runs several of these at once is settled by
+Whether the *router* runs several of these at once is settled by
 the concurrency rule in `skills/radin-execute/SKILL.md`, written there at
 install time from the user's answer. It is never a sub-agent's call, and never
 restated in this file.
 
 Substitute the `UPPERCASE` placeholders before sending. Each prompt below
 names its own model, written in at install time from the user's answer — send
-it with exactly that one. Don't set `run_in_background`: Claude Code picks
-foreground or background itself, and with fork mode on (the default in an
-interactive session) it removes that parameter from the `Agent` tool
-entirely.
+it with exactly that one.
 
 ---
 
@@ -98,18 +94,14 @@ the stdout of `RADIN_CLI backlog field "<id>" <NAME>`, one call per
 placeholder, verbatim. `DEPENDS_ON` is the list of `<id>: <commit hash>`
 pairs `state task-next` printed (or "none" if `depends_on` was empty), and
 `NAMESPACE_DIR` is `$NAMESPACE_DIR`. Send it with
-`model: "RADIN_MODEL_EXECUTION"`. The worktree/branch answers are not
-substituted anywhere: `radin-state.sh prepare` reads them from
-`session.json` itself.
+`model: "RADIN_MODEL_EXECUTION"`.
 
 `ACCEPTANCE` is a whole line, not a value:
 `RADIN_CLI backlog field "<id>" ACCEPTANCE` renders the replacement block and
 prints it ready to substitute. Exit 1 — the common case — means the entry
 states no criteria: delete that line and send nothing in its place, so the
-prompt is exactly what it was before this field existed. Never synthesise a
-criterion, never leave a placeholder, and never ask the sub-agent to invent
-one; a fabricated criterion is worse than none, because it measures the task
-against radin's own guess.
+prompt is exactly what it was before this field existed. Never leave a
+placeholder.
 
 ```
 Execute the task described in TASK_FILE:
@@ -118,7 +110,7 @@ Do the task yourself: never spawn a sub-agent of your own. The `Workflow`
 tool is not available to you, so `/deep-research` and any saved workflow
 command fail rather than run: don't reach for them.
 
-(When exploring the codebase: use `codebase-memory-mcp`'s MCP tools before Grep/Glob/Read — `search_graph` to find a symbol, `trace_path` for its callers and callees before you change it, `get_code_snippet` to read one function, `query_graph` for anything Cypher-shaped after `get_graph_schema`. A graph hit is a pointer: read the file before editing it, and never conclude something doesn't exist from an empty result. When running commands: prefer `rtk`-wrapped commands if `command -v rtk` succeeds for token savings.)
+(When exploring the codebase: use `codebase-memory-mcp`'s MCP tools before Grep/Glob/Read — `search_graph` to find a symbol, `trace_path` for its callers and callees before you change it, `get_code_snippet` to read one function, `query_graph` for anything Cypher-shaped after `get_graph_schema`; a graph hit is a pointer: read the file before you cite or edit it, and never conclude something is absent from an empty result. When running commands: prefer `rtk`-wrapped commands if `command -v rtk` succeeds for token savings.)
 1. Read TASK_FILE to understand the task. Anything the router appended to it
    is part of the task, not commentary: `**Decision:**`, `**Fact:**`,
    and `**Root cause:**` lines are settled and binding. A
@@ -147,8 +139,9 @@ ACCEPTANCE
    planning, so implement directly from the entry text.
 2a. If SKILLS is not "none", invoke each named skill (e.g. `/frontend-design`) before
    implementing. The user chose that skill for this task, so invoke it as instructed and
-   do not judge whether it's needed, redundant, or the right fit. There is one exception,
-   and it is about capability rather than fit: you cannot reach the user, you have no
+   do not judge whether it's needed, redundant, or the right fit. SKILLS is already
+   filtered for what a leaf can run, so this is a runtime fallback, not a second fit
+   judgment: you cannot reach the user, you have no
    `AskUserQuestion`, and you have no `Workflow` tool. If a skill starts asking you
    questions it expects a human to answer, wants to spawn its own agent, or launches a
    workflow, stop invoking it, take the non-destructive path, and name it in your report
@@ -189,8 +182,7 @@ ACCEPTANCE
    investigating, e.g. formatter/linter auto-fixes), either commit it as part of this
    task's commit or a separate scoped commit. Never leave the working tree dirty when
    you report back. Never commit, revert, or otherwise touch anything under
-   `.claude/.radin/`. That is the router's state, not task work, and whether it
-   gets committed at all is the repo owner's call
+   `.claude/.radin/` — it is the router's state, not task work
 9. Before reporting BLOCKED for anything, ask: is this a fact you could go find yourself
    (read more of the repo, check a config, run a read-only command, check how an
    existing similar case was handled), or a real judgment call only the user can make?
@@ -209,13 +201,9 @@ ACCEPTANCE
    blocked. The router acts only on this explicit line, never on intent inferred
    from prose.
 
-Do NOT skip checks. Do NOT commit if checks are failing. Do NOT leave uncommitted
-changes on the branch. Commit everything you touched, or `git checkout`/revert it if
-it turns out to be unnecessary.
-
 Keep your report brief: at most a few lines on what changed, then the STATUS line.
-The router acts only on the STATUS line, and everything else you write bloats
-its context for the rest of the session.
+Everything else you write bloats the router's context for the rest of the
+session.
 ```
 
 ---
@@ -244,7 +232,7 @@ user, and waiting is a hang the router cannot break. Reproduce read-only: rerun 
 (`rtk`-wrapped when `command -v rtk` succeeds), read the code and config
 around it. Find the root cause, not the symptom — if a shared function looks
 wrong, check its other callers before you name it (`trace_path` inbound;
-`detect_changes` maps the uncommitted diff to the symbols it touches). Prefer primary evidence on this
+`detect_changes` maps the uncommitted diff to the symbols it touches) — a graph hit is a pointer: read the file before you cite or edit it, and never conclude something is absent from an empty result. Prefer primary evidence on this
 machine (command output, a file's actual contents) over recollection.
 
 Write nothing except, if the detail runs past ~15 lines,
@@ -282,9 +270,7 @@ Investigate read-only: read the repo, its lockfiles, its vendored
 dependencies, and its config; run read-only commands (`--help`, `--version`, a
 query, a dry run), `rtk`-wrapped when `command -v rtk` succeeds.
 `codebase-memory-mcp`'s `search_code` and `search_graph`
-locate the symbol faster than Grep, and `get_code_snippet` reads it — a graph
-hit is a pointer, so read the file before you cite it, and never answer
-"absent" from an empty result. Prefer primary sources already on this machine
+locate the symbol faster than Grep, and `get_code_snippet` reads it — a graph hit is a pointer: read the file before you cite or edit it, and never conclude something is absent from an empty result. Prefer primary sources already on this machine
 over recollection. Do NOT edit, create, or commit any file. Do NOT invoke a skill
 that asks a human anything or spawns its own agent, background task, or
 workflow: you cannot reach the user, you have no `AskUserQuestion`, and the
