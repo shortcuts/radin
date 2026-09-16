@@ -215,7 +215,13 @@ static void on_signal(int s) {
  * with also clears reverse video, which is why that gets re-armed. */
 static void row_span(const char *text, int selected, const char *colour, int at, int len) {
 	char buf[1200];
-	snprintf(buf, sizeof buf, "%-*.*s", COLS, COLS, text);
+	/* Pad and truncate by bytes, but against a width grown by the UTF-8
+	 * continuation bytes in the text, so a box-drawing connector costs one
+	 * column rather than the three bytes it occupies. */
+	int width = COLS;
+	for (const unsigned char *p = (const unsigned char *)text; *p; p++)
+		if ((*p & 0xC0) == 0x80) width++;
+	snprintf(buf, sizeof buf, "%-*.*s", width, width, text);
 	if (selected) printf("\033[7m");
 	if (colour && *colour && at + len <= (int)strlen(buf)) {
 		printf("%.*s%s%.*s\033[0m", at, buf, colour, len, buf + at);
@@ -492,11 +498,17 @@ static void draw(void) {
 				snprintf(text, sizeof text, " %s epic: %s",
 					in_set(COLLAPSED, row_epic[i]) ? "+" : "-", row_epic[i]);
 			} else {
-				/* The margin's last column is the search mark; the columns
-				 * before it are the epic indent, so a marked row never shifts
-				 * the ones around it. */
+				/* The margin is the tree connector, then the search mark, then
+				 * the flag, so a marked row never shifts the ones around it.
+				 * Children of one epic are contiguous and ungrouped tasks all
+				 * precede them, so the next row being an epic header (or none)
+				 * is what makes this the last child -- the shape is read off
+				 * the rows here, never from the collapse set in a key handler. */
+				const char *conn = "";
+				if (*T[ti].epic)
+					conn = (i + 1 >= N || row_task[i + 1] < 0) ? "└── " : "├── ";
 				char margin[64];
-				snprintf(margin, sizeof margin, "%s%s%s ", *T[ti].epic ? "  " : "",
+				snprintf(margin, sizeof margin, "%s%s%s ", conn,
 					search_hit(ti) ? "*" : " ", T[ti].flag);
 				snprintf(text, sizeof text, "%s%-2s %-9s %s", margin, T[ti].prio,
 					T[ti].cat, T[ti].title);

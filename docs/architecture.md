@@ -244,6 +244,15 @@ because the scale is bounded, so no unrelated task's number can move this row's
 colour; anything off the scale -- unset, or a legacy value stored before the
 scale was bounded -- renders plain, and `NO_COLOR` drops the escapes entirely.
 
+Epic children are drawn as a `tree`-style one-level hierarchy: `├──` on every
+child but the last, `└──` on the last, and no connector on an ungrouped task.
+The shape is read off the row arrays at draw time -- the row after the last
+child is always an epic header or nothing -- so it stays a drawing concern and
+no key handler learns about tree shape or the collapse set. `row_span()` pads
+and truncates by bytes, so it grows its target width by the text's UTF-8
+continuation bytes; a three-byte connector character otherwise costs three
+columns of the row.
+
 Three rules keep it from becoming a second backlog implementation:
 
 - **It draws and dispatches keys, nothing else.** Every mutation shells out to

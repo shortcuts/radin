@@ -18,6 +18,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   longer coloured, and the band is no longer relative to the priorities on
   screen, so an unrelated task's number cannot change this one's colour.
   `NO_COLOR` still turns it off.
+- `radin tui` draws an epic's tasks as a tree: `├──` for each child and `└──`
+  for the last, instead of a two-space indent. Ungrouped tasks stay at the root
+  with no connector, and a collapsed epic keeps its `+`/`-` marker.
 - Bare `radin` on a terminal now opens the TUI instead of printing usage; off a
   terminal it still prints the usage text and exits non-zero. `radin help`
   prints it anywhere.

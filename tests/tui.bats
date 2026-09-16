@@ -55,6 +55,12 @@ bl() {
   (cd "$WORK/proj" && bash "$BACKLOG" "$@")
 }
 
+# Everything the TUI drew after its last screen clear, so an assertion about
+# what a keypress removed is not satisfied by an earlier frame.
+last_frame() {
+  awk 'BEGIN{RS="\033[[]H\033[[]2J"}{f=$0}END{print f}' "$SCREEN"
+}
+
 # The last frame's [sel/total] header, so a wrap back to row 1 is not
 # confused with the frame the TUI opened on.
 last_pos() {
@@ -241,6 +247,36 @@ tui() {
   [[ "$output" == *"epic: ui-polish"* ]]
   [[ "$output" == *"nested task"* ]]
   [[ "$output" == *"loose task"* ]]
+}
+
+@test "an epic's children render as a tree, ungrouped tasks without connectors" {
+  bl epic-add ui-polish <<<"epic ctx line"
+  bl add feat "first child" --epic ui-polish <<<"body" >/dev/null
+  bl add feat "second child" --epic ui-polish <<<"body" >/dev/null
+  bl add feat "third child" --epic ui-polish <<<"body" >/dev/null
+  bl add feat "loose task" <<<"body" >/dev/null
+  run tui "q"
+  [ "$status" -eq 0 ]
+  run bash -c "grep -c '├── ' '$SCREEN'"
+  [ "$output" = "2" ]
+  run bash -c "grep -c '└── ' '$SCREEN'"
+  [ "$output" = "1" ]
+  run bash -c "grep 'loose task' '$SCREEN'"
+  [[ "$output" != *"├"* ]]
+  [[ "$output" != *"└"* ]]
+}
+
+@test "a collapsed epic hides its children and keeps its marker" {
+  bl epic-add ui-polish <<<"epic ctx line"
+  bl add feat "nested task" --epic ui-polish <<<"body" >/dev/null
+  run tui "g|\r|q"
+  [ "$status" -eq 0 ]
+  # Only the last frame: the frames before the collapse still list the child.
+  run last_frame
+  # No child row is drawn (the preview pane still names the child), and the
+  # epic row's collapse marker is still there.
+  [[ "$output" != *"└── "* ]]
+  [[ "$output" == *"+ epic: ui-polish"* ]]
 }
 
 @test "enter collapses an epic and navigation skips its children" {
