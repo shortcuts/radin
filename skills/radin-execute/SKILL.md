@@ -321,9 +321,8 @@ It prints one `plan<TAB><path>` line per `**Plan:**` pointer and one
 `skill<TAB><instruction>` line per `**Skill:**` line, and one
 `acceptance<TAB><criterion>` line per criterion under a `**Acceptance:**`
 label. Any `plan` line: skip
-to Step 4b (keep the `skill` lines). None: invoke `/ponytail:ponytail` and
-apply its ladder. Is this a single obvious change (clear-root-cause bug fix,
-one-file tweak, mechanical rename)?
+to Step 4b (keep the `skill` lines). None: is this a single obvious change
+(clear-root-cause bug fix, one-file tweak, mechanical rename)?
 
 - **Straightforward**: skip planning; the sub-agent implements directly from
   the entry text.
