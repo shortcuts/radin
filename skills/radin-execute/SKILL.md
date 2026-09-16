@@ -153,13 +153,23 @@ persist them.
    never got a terminal status for. Never re-dispatch one blind: read
    `$HOME/.claude/.radin/lib/radin-execute-recovery.md` and follow it for
    each id. Most runs skip this file entirely.
-4. Read `$HOME/.claude/.radin/lib/radin-prioritization.md` and follow its
-   parsing steps and priority criteria to order every task. When every
-   entry's `priority` field is set, the `backlog list` order is the order:
-   read no task body for prioritization.
-5. Assign a sequential `order` number starting from 1. Carry any
-   `dependency override:` line the priority rules produced into the Phase 2
-   report.
+4. Ask the CLI whether a ranking pass is needed at all:
+
+   ```bash
+   RADIN_CLI backlog order --rank-needed
+   ```
+
+   Exit 1: every entry carries a priority. No task body read, no criteria
+   pass, no dependency inference — go to Phase 2. Exit 0: it printed the ids
+   whose `priority` is unset. Read
+   `$HOME/.claude/.radin/lib/radin-prioritization.md` and apply its weighted
+   criteria to those ids alone. It produces two things: the unset group in
+   your order, as one `--rank <csv-of-ids>` flag, and one
+   `--infer-deps <id>=<csv>` flag per entry you inferred a dependency for.
+   Carry those flags into every later `order` call this session; carry
+   nothing else. The order itself, its `order` numbers and its
+   `dependency override:` lines are `order`'s to re-derive, never yours to
+   hold across phases.
 
 ## Phase 2: Confirm Execution Order (MANDATORY GATE)
 
@@ -169,9 +179,15 @@ the execution order, and which of the listed tasks to tackle now. Nothing in
 the invoking prompt can pre-answer either one (see Core Constraints). Phase
 0.5's preferences are the only questions a prompt may pre-answer.
 
-1. Report the prioritized list as `<order>. <title> (id: <id>)`, one line per
-   task, then print each `dependency override:` line from Phase 1 step 5
-   under the list.
+1. Print this verbatim, and compose nothing of your own:
+
+   ```bash
+   RADIN_CLI backlog order --report <Phase 1's --rank/--infer-deps flags>
+   ```
+
+   One `<order>. <title> (id: <id>)` line per task in final order, then one
+   `dependency override:` line per dependency the fix moved up. The verb is
+   idempotent, so re-run it here rather than reusing Phase 1's output.
 2. Ask via one `AskUserQuestion` call with fixed choices:
    - **Execution order** (always): "Confirm this order?" Options: `Yes` /
      `No, I'll explain`.
@@ -186,39 +202,37 @@ the invoking prompt can pre-answer either one (see Core Constraints). Phase
      branch, so this answer applies only under `worktree: no`.
    Write nothing to `BACKLOG_STEPS.json` and launch no sub-agent before the
    answer arrives.
-3. Route on the task-selection answer first, then the order answer:
-   - **All of them**: every listed task goes to `steps-init`.
-   - **Just the first one**: only `order` 1 is `pending` in `steps-init`;
-     every other task goes in as `deferred`.
+3. Route on the task-selection answer first: it decides Phase 3's `--defer`
+   value, and nothing else.
+   - **All of them**: no `--defer` flag.
+   - **Just the first one**: `--defer` every id but `order` 1's.
    - **Only the ones I name** (or "Other" text): read the selection off the
      free text (order numbers, titles, or ids). Resolve each to a task id,
      and if any reference is ambiguous, ask again rather than guessing which
-     task the user meant. Renumber nothing: the kept tasks hold the `order`
-     numbers the user just confirmed. The excluded ones go to `steps-init`
-     as `deferred`.
+     task the user meant. `--defer` the ids the user did not name.
    Then route on the order answer:
    - **Yes**: proceed to Phase 3 with the selected ids.
    - **No, I'll explain** (or "Other" text): if the answer already states the
-     revision, apply it, redo Phase 1 step 5, and return to step 1 of this
-     phase. If it doesn't, ask the user which order to use, and wait.
+     revision, re-run `order` with the revised flags and return to step 1 of
+     this phase. If it doesn't, ask the user which order to use, and wait.
 
 ## Phase 3: Persist Execution Plan
 
-Feed the confirmed order to the state CLI, one
-`id<TAB>order<TAB>depends-on-csv<TAB>status` line per **listed** task,
-deferred ones included. Pass the backlog index too: the CLI reads each
-entry's `depends_on` from its index line, so the third field stays empty for
-any entry that already has one there. It carries only deps the ranking pass
-inferred for an entry the index has none for. The fourth field is `pending`
-for a task Phase 2 selected and `deferred` for one the user excluded — that
-is where the deferred set is persisted, so nothing has to carry it to Phase
-5.
+`order --steps` prints exactly `steps-init`'s stdin format, so the confirmed
+order is one pipe and no composed heredoc:
 
 ```bash
-RADIN_CLI state steps-init "$NAMESPACE_DIR/state/BACKLOG_STEPS.json" "$BACKLOG_INDEX" <<'EOF'
-<id> <order> <inferred depends_on ids, comma-separated; empty when none> <pending|deferred>
-EOF
+RADIN_CLI backlog order --steps <Phase 1's flags> --defer "<ids Phase 2 excluded>" |
+  RADIN_CLI state steps-init "$NAMESPACE_DIR/state/BACKLOG_STEPS.json" "$BACKLOG_INDEX"
 ```
+
+`--defer` is where the deferred set is persisted, so nothing has to carry it
+to Phase 5: pass the ids Phase 2 excluded (none from **All of them**; every
+id but the first from **Just the first one**; the ones the user did not name
+from **Only the ones I name**). Resolving that free text to ids is yours;
+filtering, renumbering and the `depends_on` precedence are not — every listed
+task keeps the `order` number the user just confirmed. Omit `--defer`
+entirely when nothing is deferred.
 
 The CLI writes the schema itself (empty `note`) and records this session's
 baseline counts, which Phase 5's report reads.
@@ -248,28 +262,19 @@ order:
 
 ### Step 4a: Ensure a plan exists
 
-Confirm the entry still exists (the backlog may have drifted since Phase 3):
+Two calls, each answering one question:
 
 ```bash
-RADIN_CLI backlog find "<task id>"
+RADIN_CLI backlog field "<task id>" TASK_FILE
+RADIN_CLI backlog field "<task id>" PLAN_PATHS
 ```
 
-Zero matches (it errors) or several: mark the task `blocked` with the CLI's
-output as its `note` and continue to the next task. Exactly one: the task's
-file is the path `RADIN_CLI backlog path "<id>"` prints — read from the
-index's own `file` field, never composed, and it never goes stale.
+`TASK_FILE` resolves the entry, so a non-zero exit is the drift case (the
+backlog may have moved since Phase 3): mark the task `blocked` with that
+call's output as its `note` and continue to the next task.
 
-Check for existing plan and skill pointers:
-
-```bash
-RADIN_CLI backlog meta "<task id>"
-```
-
-It prints one `plan<TAB><path>` line per `**Plan:**` pointer and one
-`skill<TAB><instruction>` line per `**Skill:**` line, and one
-`acceptance<TAB><criterion>` line per criterion under a `**Acceptance:**`
-label. Any `plan` line: skip
-to Step 4b (keep the `skill` lines). None: is this a single obvious change
+`PLAN_PATHS` exit 0: a plan exists, skip to Step 4b. Exit 1: no plan, so the
+one judgment here is yours — is this a single obvious change
 (clear-root-cause bug fix, one-file tweak, mechanical rename)?
 
 - **Straightforward**: skip planning; the sub-agent implements directly from
@@ -296,42 +301,40 @@ Exit 0 prints `attempts<TAB><n>`. Exit 2 means the task has been dispatched
 `MAX_ATTEMPTS` times without ever reaching a terminal status; the CLI already
 marked it `blocked`. Report it and continue to the next task. Do not retry.
 
-Only if Step 4a dispatched the planning sub-agent, re-run
-`radin-backlog.sh meta "<task id>"` to pick up the plan it wrote. Otherwise
-reuse Step 4a's output: nothing since then can have changed it.
 Dispatch under the concurrency rule in Core Constraints. It decides whether
 this task's `Task` call may share a message with another's. Send the
 **Execution prompt** from `radin-execute-prompts.md`, substituting:
 
-- `TASK_FILE`: the path `RADIN_CLI backlog path "<id>"` prints
-- `PLAN_PATHS`: the `plan` paths in printed order, or "none — implement
-  directly from the entry" if Step 4a skipped planning
-- `CATEGORY`: the entry's category from Step 4a's `find` line. It picks which
-  discipline skill the sub-agent implements through, so pass it verbatim and
-  never substitute your own read of the task's shape.
-- `NAMESPACE_DIR`: `$NAMESPACE_DIR`, and `TASK_ID`: the task's id. The
-  sub-agent passes both to `radin-state.sh prepare` to get its working tree.
-  Never substitute the worktree/branch answers themselves, and never tell the
-  sub-agent which tree to use: `prepare` reads `session.json` and decides.
-- `SKILLS`: the `skill` instruction(s), or "none". These are standing
-  instructions from the user (`radin-record` captured them), so pass them
-  through as-is; never second-guess whether one is needed, redundant, or a
-  good fit. Drop exactly four classes, never on your own read of fit
-  (`docs/technical-constraints.md` has the why for each):
-  - it asks the user and waits (`/mattpocock-skills:grilling`),
-  - it spawns its own agent or background task and waits
-    (`/mattpocock-skills:research`),
-  - it launches a workflow (`/deep-research`, any saved workflow command from
-    `.claude/workflows/` or `~/.claude/workflows/`),
-  - it is a radin entry point that would recurse (`/radin-execute`, and
-    `/radin-plan` or `/radin-review`, which the planning and Phase 6
-    dispatches own instead).
-  Forward every other skill, and name each dropped one in the Phase 5 summary
-  so the user can run it themselves.
-- `ACCEPTANCE`: substituted exactly as the prompt file's own `ACCEPTANCE`
-  narration specifies, the no-criteria case included.
+One call per placeholder, right before substituting — `field` is idempotent,
+so there is nothing to cache and nothing to re-derive:
+
+```bash
+RADIN_CLI backlog field "<task id>" <TASK_FILE|TASK_ID|CATEGORY|PLAN_PATHS|SKILLS|ACCEPTANCE>
+```
+
+- `TASK_FILE`, `TASK_ID`, `CATEGORY`, `PLAN_PATHS`, `SKILLS` and
+  `ACCEPTANCE`: that call's stdout, verbatim. `CATEGORY` picks which
+  discipline skill the sub-agent implements through and `SKILLS` carries the
+  user's standing instructions, so never substitute your own read of the
+  task's shape or of whether a skill is needed, redundant or a good fit.
+  `SKILLS` is already filtered to what a leaf can run; `ACCEPTANCE` exiting 1
+  means delete that whole line, per the prompt file's own narration.
+- `NAMESPACE_DIR`: `$NAMESPACE_DIR`. The sub-agent passes it and `TASK_ID` to
+  `radin-state.sh prepare` to get its working tree. Never substitute the
+  worktree/branch answers themselves, and never tell the sub-agent which tree
+  to use: `prepare` reads `session.json` and decides.
 - `DEPENDS_ON`: the `dep` pairs `task-next` printed as `<id>: <commit hash>`,
   or "none"
+
+Then name every dropped skill in the Phase 5 summary so the user can run it
+themselves:
+
+```bash
+RADIN_CLI backlog field "<task id>" SKILLS_DROPPED
+```
+
+Exit 0 prints the instructions `SKILLS` filtered out; exit 1 means none were
+dropped, the common case.
 
 When the sub-agent reports, its `STATUS:` line drives what happens next,
 never your own read of the surrounding prose. But first, verify the tree the

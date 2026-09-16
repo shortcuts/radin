@@ -14,7 +14,7 @@ One index line:
 
 `id` slug derived from title when task created, deduped with `-2`/`-3` suffix on collision. Never changes afterward, even if title text later edited (`radin backlog retitle`, or `r` in `radin tui`, rewrites only `title`; `set-category` only `category`) — stable key `depends_on` (state schema below) and `radin-plan`/`radin-execute` key off. `file` task body's location relative to `backlog/` directory — `tasks/<id>.md`, or `tasks/<epic-id>/<id>.md` for a task inside an epic. Ids stay globally unique across epics, so `add`'s dedup loop checks the index's own `id` fields, not the task files on disk. `add` decides it; every other verb reads it back, so it's sole authority on where task's body lives (`radin backlog path <id>` prints absolute form).
 
-Two optional keys carry human judgment that must survive a run:
+Two optional keys carry human judgment that must survive a run. They are also `radin backlog order`'s only inputs besides its own `--rank` / `--infer-deps` / `--defer` flags:
 
 ```json
 {"id":"add-route-exports","category":"feat","title":"Add route exports","file":"tasks/add-route-exports.md","priority":70,"depends_on":["split-router"]}
@@ -72,6 +72,22 @@ Earlier revisions described single monolithic `<repo-root>/.claude/.radin/BACKLO
 
 Free-form markdown at `$NAMESPACE_DIR/plans/<id>.md`: files to touch, change in each, order of operations, how to verify it. No fixed schema — sub-agents write it, `radin-execute` (or human) reads it.
 
+## Execution-order output (`backlog order`)
+
+`radin backlog order` is the only thing that composes an execution order, and it prints one of three views of the same computation — the priority order `list` defaults to, with the topological dependency fix applied. It stores nothing: the order is re-derived on every call, which is why no phase of `radin-execute` carries it in context.
+
+- `--rank-needed` — one unset-priority id per line, exit 1 (no output) when every entry has a priority. The gate: exit 1 means skip the ranking work entirely.
+- `--report` — one `<order>. <title> (id: <id>)` line per task in final order, then one line per dependency the fix moved up:
+
+  ```text
+  dependency override: <dep-id> moved above <dependent-id> (priority <N>)
+  ```
+
+  `<N>` is the *dependent's* priority, or the literal `unset`. Emitted only when at least one entry of the pair carries a human priority — otherwise the move overrode no decision. The violated edges are recorded against the pre-move priority order, so the report can never drift from the reordering.
+- `--steps` — `id<TAB>order<TAB>depends-on-csv<TAB>pending|deferred`, one line per task in final order, `order` running `1..n`. Identical to `radin state steps-init`'s stdin format, so the two pipe together. The csv is the entry's index `depends_on` when it has one and the `--infer-deps` value otherwise — the single place that precedence lives. `--defer <csv-of-ids>` is what makes the fourth field `deferred`.
+
+The fix moves a dependency **up**, to immediately before its dependent, and leaves every other relative position alone: the priority order is the human's ranking and a dependency is its one permitted override, so nothing that has no dependency relation is ever reordered.
+
 ## State JSON schema (`BACKLOG_STEPS.json`)
 
 JSONL, one compact object per line — same convention as `index.jsonl`, so single-entry update never touches another entry's line:
@@ -86,7 +102,7 @@ JSONL, one compact object per line — same convention as `index.jsonl`, so sing
 
 Every mutation goes through `lib/radin-state.sh` (`set-status`/`remove`) — `radin-execute` never hand-edits this file's JSON.
 
-- `depends_on` lists `id`s of other tasks in this file whose result this task's plan or implementation assumes. Value comes from task's index line when it has one (`radin state steps-init` reads index it's handed), and from prioritization's overlap inference per `radin-prioritization.md`'s dependency-order criterion (same files, functions, or behavior touched by both) otherwise. Empty when neither.
+- `depends_on` lists `id`s of other tasks in this file whose result this task's plan or implementation assumes. `radin backlog order --steps` resolves the value (index line first, prioritization's bounded overlap inference otherwise, empty when neither) and `steps-init` reapplies the index half; nothing else restates the precedence.
 - `status` one of `pending`, `in_progress`, `failed`, `blocked`, `deferred`. Entry's absence from file means task complete. `deferred` is a task Phase 2's gate listed but the user excluded from this run: only `steps-init` writes it (fourth stdin field), `set-status` refuses it, `next-pending` skips it, `report` lists it. Persisting it is what keeps the excluded set from having to survive in context between Phase 2 and Phase 5.
 - `in_progress` set by `radin-state.sh start` right before orchestrator dispatches execution sub-agent, cleared by task's terminal status. Entry still `in_progress` at startup means previous run died mid-task: `radin-state.sh stuck` lists those, `triage` reports what dead sub-agent left behind (commits on `radin/<id>`, dirty tree, already-recorded hash). Never re-dispatched blind.
 - `attempts` counts `start` calls. `start` exits 2 and marks entry `blocked` once count passes 3, so session that crashes at same task can't retry it forever.

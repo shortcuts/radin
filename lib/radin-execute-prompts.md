@@ -93,33 +93,23 @@ shortcut around exploring the repo.
 
 ## Execution prompt (Step 4b)
 
-Replace `TASK_FILE` with the path `RADIN_CLI backlog path "<id>"` prints,
-`PLAN_PATHS` with the plan file path(s) in order (or "none — implement directly from the
-entry" if Step 4a skipped planning), `CATEGORY` with the entry's category as
-`radin-backlog.sh find` printed it, `SKILLS` with the collected
-`**Skill:**` name(s) or "none", `DEPENDS_ON` with the list of
-`<id>: <commit hash>` pairs gathered in Step 4a-0 (or "none" if
-`depends_on` was empty), `NAMESPACE_DIR` with `$NAMESPACE_DIR`, and
-`TASK_ID` with the task's id. Send it with
+Replace `TASK_FILE`, `PLAN_PATHS`, `CATEGORY`, `SKILLS` and `TASK_ID` with
+the stdout of `RADIN_CLI backlog field "<id>" <NAME>`, one call per
+placeholder, verbatim. `DEPENDS_ON` is the list of `<id>: <commit hash>`
+pairs `state task-next` printed (or "none" if `depends_on` was empty), and
+`NAMESPACE_DIR` is `$NAMESPACE_DIR`. Send it with
 `model: "RADIN_MODEL_EXECUTION"`. The worktree/branch answers are not
 substituted anywhere: `radin-state.sh prepare` reads them from
 `session.json` itself.
 
-`ACCEPTANCE` is a whole line, not a value. When `RADIN_CLI backlog meta`
-printed no `acceptance` line — the common case — delete that line and send
-nothing in its place: the prompt is then exactly what it was before this
-field existed. Never synthesise a criterion, never leave a placeholder, and
-never ask the sub-agent to invent one; a fabricated criterion is worse than
-none, because it measures the task against radin's own guess. When `meta`
-printed one or more, replace the line with this block verbatim, one indented
-`-` bullet per `acceptance` line in printed order, each criterion's text
-exactly as `meta` printed it:
-
-```
-1b. This task states its own acceptance criteria. They are the bar it is
-   measured against, so satisfy every one of them:
-   - <criterion>
-```
+`ACCEPTANCE` is a whole line, not a value:
+`RADIN_CLI backlog field "<id>" ACCEPTANCE` renders the replacement block and
+prints it ready to substitute. Exit 1 — the common case — means the entry
+states no criteria: delete that line and send nothing in its place, so the
+prompt is exactly what it was before this field existed. Never synthesise a
+criterion, never leave a placeholder, and never ask the sub-agent to invent
+one; a fabricated criterion is worse than none, because it measures the task
+against radin's own guess.
 
 ```
 Execute the task described in TASK_FILE:

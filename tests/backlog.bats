@@ -575,3 +575,232 @@ EOF
   [[ "$output" != *"innocent"* ]]
 }
 
+
+
+# --- order -------------------------------------------------------------------
+
+# Priorities descending, unset last, ties in index order: `order`'s baseline is
+# the same contract `list` defaults to.
+# Written straight to the index rather than through `add`/`set-priority`: 11
+# tests share this fixture, and 8 forks each is most of what `make test` would
+# pay for them. Those two verbs have their own tests above.
+prioritized_backlog() {
+  mkdir -p "$TASKS"
+  cat >"$INDEX" <<'IDX'
+{"id":"high","category":"feat","title":"high","file":"tasks/high.md","priority":21}
+{"id":"mid-a","category":"feat","title":"mid a","file":"tasks/mid-a.md","priority":5}
+{"id":"mid-b","category":"feat","title":"mid b","file":"tasks/mid-b.md","priority":5}
+{"id":"low","category":"fix","title":"low","file":"tasks/low.md","priority":1}
+IDX
+}
+
+@test "order --steps numbers the priority order from 1 with an empty deps field" {
+  prioritized_backlog
+  run cli order --steps
+  [ "$status" -eq 0 ]
+  [ "${#lines[@]}" -eq 4 ]
+  [ "${lines[0]}" = "high"$'\t'"1"$'\t'$'\t'"pending" ]
+  [ "${lines[1]}" = "mid-a"$'\t'"2"$'\t'$'\t'"pending" ]
+  [ "${lines[2]}" = "mid-b"$'\t'"3"$'\t'$'\t'"pending" ]
+  [ "${lines[3]}" = "low"$'\t'"4"$'\t'$'\t'"pending" ]
+}
+
+@test "order --steps folds the index depends_on into the third field" {
+  prioritized_backlog
+  cli set-deps high low
+  run cli order --steps
+  [ "$status" -eq 0 ]
+  # low is a dependency of high, so it comes up to position 1.
+  [ "${lines[0]}" = "low"$'\t'"1"$'\t'$'\t'"pending" ]
+  [ "${lines[1]}" = "high"$'\t'"2"$'\t'"low"$'\t'"pending" ]
+}
+
+@test "order --steps takes --infer-deps only where the index has none" {
+  prioritized_backlog
+  run cli order --steps --infer-deps "mid-a=low"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"mid-a"$'\t'"3"$'\t'"low"* ]]
+  cli set-deps mid-b high
+  run cli order --steps --infer-deps "mid-b=low"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"already has depends_on"* ]]
+}
+
+@test "order moves a dependency up and leaves every other position alone" {
+  prioritized_backlog
+  cli set-deps mid-a low
+  run cli order --steps
+  [ "$status" -eq 0 ]
+  run cli order --report
+  [ "$status" -eq 0 ]
+  [ "${lines[0]}" = "1. high (id: high)" ]
+  [ "${lines[1]}" = "2. low (id: low)" ]
+  [ "${lines[2]}" = "3. mid a (id: mid-a)" ]
+  [ "${lines[3]}" = "4. mid b (id: mid-b)" ]
+  [ "${lines[4]}" = "dependency override: low moved above mid-a (priority 5)" ]
+}
+
+@test "order --report prints no override line when no edge is violated" {
+  prioritized_backlog
+  cli set-deps low high
+  run cli order --report
+  [ "$status" -eq 0 ]
+  [ "${#lines[@]}" -eq 4 ]
+  [[ "$output" != *"dependency override"* ]]
+}
+
+@test "order --rank-needed exits 1 when every priority is set, 0 with the ids" {
+  prioritized_backlog
+  run cli order --rank-needed
+  [ "$status" -eq 1 ]
+  [ -z "$output" ]
+  cli add chore "unranked one" <<<"b"
+  cli add chore "unranked two" <<<"b"
+  run cli order --rank-needed
+  [ "$status" -eq 0 ]
+  [ "${#lines[@]}" -eq 2 ]
+  [ "${lines[0]}" = "unranked-one" ]
+  [ "${lines[1]}" = "unranked-two" ]
+}
+
+@test "order --rank reorders the unset group and rejects a partial csv" {
+  prioritized_backlog
+  cli add chore "unranked one" <<<"b"
+  cli add chore "unranked two" <<<"b"
+  run cli order --steps --rank "unranked-two,unranked-one"
+  [ "$status" -eq 0 ]
+  [ "${lines[4]}" = "unranked-two"$'\t'"5"$'\t'$'\t'"pending" ]
+  [ "${lines[5]}" = "unranked-one"$'\t'"6"$'\t'$'\t'"pending" ]
+  run cli order --steps --rank "unranked-one"
+  [ "$status" -ne 0 ]
+  run cli order --steps --rank "unranked-one,unranked-two,nosuchtask"
+  [ "$status" -ne 0 ]
+  run cli order --steps --rank "unranked-one,unranked-two,high"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"already has a priority"* ]]
+}
+
+@test "order --infer-deps rejects a cycle and a self-reference" {
+  prioritized_backlog
+  cli set-deps low high
+  run cli order --steps --infer-deps "high=low"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"cycle"* ]]
+  run cli order --steps --infer-deps "high=high"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"itself"* ]]
+}
+
+@test "order --defer marks the named ids deferred and renumbers nothing" {
+  prioritized_backlog
+  run cli order --steps --defer "mid-a,low"
+  [ "$status" -eq 0 ]
+  [ "${lines[1]}" = "mid-a"$'\t'"2"$'\t'$'\t'"deferred" ]
+  [ "${lines[3]}" = "low"$'\t'"4"$'\t'$'\t'"deferred" ]
+  [ "${lines[0]}" = "high"$'\t'"1"$'\t'$'\t'"pending" ]
+  run cli order --steps --defer "nosuchtask"
+  [ "$status" -ne 0 ]
+}
+
+@test "order needs exactly one mode" {
+  prioritized_backlog
+  run cli order
+  [ "$status" -ne 0 ]
+  run cli order --steps --report
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"exactly one mode"* ]]
+}
+
+# --- field -------------------------------------------------------------------
+
+@test "field prints the index values and follows a non-default file value" {
+  cli add feat "a thing" <<<"body"
+  cli epic-add shipping <<<"epic ctx"
+  cli epic-move a-thing shipping
+  run cli field a-thing TASK_ID
+  [ "$output" = "a-thing" ]
+  run cli field a-thing CATEGORY
+  [ "$output" = "feat" ]
+  run cli field a-thing TASK_FILE
+  [ "$output" = "$TASKS/shipping/a-thing.md" ]
+  run cli field nosuchtask TASK_FILE
+  [ "$status" -ne 0 ]
+  run cli field a-thing NOSUCHFIELD
+  [ "$status" -ne 0 ]
+}
+
+@test "field PLAN_PATHS joins pointers in file order, exit 1 without one" {
+  cli add feat "planned" <<<"body"
+  cli add feat "unplanned" <<<"body"
+  cli add-plan planned /tmp/one.md
+  cli add-plan planned /tmp/two.md
+  run cli field planned PLAN_PATHS
+  [ "$status" -eq 0 ]
+  [ "$output" = "/tmp/one.md, /tmp/two.md" ]
+  run cli field unplanned PLAN_PATHS
+  [ "$status" -eq 1 ]
+  [[ "$output" == "none — implement directly from the entry" ]]
+}
+
+@test "field SKILLS drops the four unrunnable classes and forwards the rest" {
+  mkdir -p "$WORK/proj/.claude/workflows"
+  : >"$WORK/proj/.claude/workflows/ship-it.md"
+  cli add feat "skilled" \
+    --skill /ponytail:ponytail \
+    --skill /mattpocock-skills:grilling \
+    --skill /mattpocock-skills:research \
+    --skill /ship-it \
+    --skill /radin-plan <<<"body"
+  run cli field skilled SKILLS
+  [ "$status" -eq 0 ]
+  [ "${#lines[@]}" -eq 1 ]
+  [[ "${lines[0]}" == *"/ponytail:ponytail"* ]]
+  run cli field skilled SKILLS_DROPPED
+  [ "$status" -eq 0 ]
+  [ "${#lines[@]}" -eq 4 ]
+  [[ "$output" == *"/mattpocock-skills:grilling"* ]]
+  [[ "$output" == *"/mattpocock-skills:research"* ]]
+  [[ "$output" == *"/ship-it"* ]]
+  [[ "$output" == *"/radin-plan"* ]]
+  cli add feat "plain" <<<"body"
+  run cli field plain SKILLS
+  [ "$output" = "none" ]
+  run cli field plain SKILLS_DROPPED
+  [ "$status" -eq 1 ]
+  [ -z "$output" ]
+}
+
+@test "field ACCEPTANCE renders the 1b. block, exit 1 without criteria" {
+  cli add feat "criteria" <<<"body"
+  cli append criteria <<'EOF'
+**Acceptance:**
+- [ ] first one
+- second one
+EOF
+  cli add feat "no criteria" <<<"body"
+  run cli field criteria ACCEPTANCE
+  [ "$status" -eq 0 ]
+  [ "${#lines[@]}" -eq 4 ]
+  [[ "${lines[0]}" == "1b. This task states its own acceptance criteria."* ]]
+  [ "${lines[2]}" = "   - first one" ]
+  [ "${lines[3]}" = "   - second one" ]
+  run cli field no-criteria ACCEPTANCE
+  [ "$status" -eq 1 ]
+  [ -z "$output" ]
+}
+
+# --- duplicates --------------------------------------------------------------
+
+@test "duplicates exits 1 on a clean index, 0 naming the shared id and title" {
+  cli add feat "one" <<<"b"
+  cli add feat "two" <<<"b"
+  run cli duplicates
+  [ "$status" -eq 1 ]
+  [ -z "$output" ]
+  # `add` dedupes ids by design, so a duplicate only arrives by hand-editing.
+  printf '{"id":"one","category":"feat","title":"two","file":"tasks/one.md"}\n' >>"$INDEX"
+  run cli duplicates
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"id"$'\t'"one"$'\t'"one,one"* ]]
+  [[ "$output" == *"title"$'\t'"two"$'\t'"two,one"* ]]
+}

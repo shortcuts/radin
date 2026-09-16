@@ -43,14 +43,17 @@ Replaced earlier `~/.claude/.radin/projects/<repo-slug>/` scheme. That scheme ke
 Every one of `skills/radin-execute/SKILL.md`, `skills/radin-plan/SKILL.md`, `skills/radin-review/SKILL.md`, `skills/radin-record/SKILL.md`, `skills/radin-show/SKILL.md` goes through same shared CLI, `lib/radin-backlog.sh`, for every deterministic backlog op:
 
 ```bash
-radin backlog <env|show|list|count|find|add|add-plan|append|meta|planned|path|set-category|retitle|set-priority|set-deps|remove|reconcile|epics|epic-add|epic-show|epic-move|epic-remove>   # dispatcher at ~/.claude/.radin/bin/radin, symlinked into ~/.local/bin
+radin backlog <env|show|list|count|find|add|add-plan|append|meta|planned|order|field|duplicates|path|set-category|retitle|set-priority|set-deps|remove|reconcile|epics|epic-add|epic-show|epic-move|epic-remove>   # dispatcher at ~/.claude/.radin/bin/radin, symlinked into ~/.local/bin
 ```
 
 The subcommand is what switches the two modes apart, so no flag does. `radin <verb> ...` is the agent and power-user entry point. Bare `radin` is the human one: on a terminal it is exactly `radin tui` (missing-binary message included), and off one it prints the usage text and exits non-zero, because a skill or pipe trapped in a full-screen app would hang the agentic loop until a timeout. `radin help` is the documented way to get that text.
 
 - `env` — namespace resolution (delegates to `lib/radin-namespace.sh`, single source of truth for path logic; prints `REPO_ROOT`, `NAMESPACE_DIR`, `BACKLOG_INDEX`, `BACKLOG_TASKS_DIR`)
 - `show [category]` — render backlog as markdown (all tasks, or one category), reconstructed from `index.jsonl` + each task's file
-- `list` — print `id<US>category<US>title<US>file<US>priority<US>depends-on-csv` per task, ordered by priority descending with unset priorities last; `--order created` gives `index.jsonl` line order instead, and the default stays `priority` so no agent pays a flag for it
+- `list` — print `id<US>category<US>title<US>file<US>priority<US>depends-on-csv` per task, ordered by priority descending with unset priorities last. That order is the human's ranking, not a display choice, and it is what `order` consumes as its baseline; `--order created` gives `index.jsonl` line order instead, and the default stays `priority` so no agent pays a flag for it
+- `order <--rank-needed|--report|--steps> [--rank <csv>] [--infer-deps <id>=<csv>]... [--defer <csv>]` — the execution order, whole. The priority order `list` defaults to is what it consumes, plus the topological dependency fix; `--rank-needed` is the "does the ranking pass run at all" gate (exit 1 = every priority set), `--report` is Phase 2's display block plus one `dependency override:` line per moved dependency, and `--steps` is `radin state steps-init`'s stdin format verbatim, so Phase 3 is a pipe. Writes nothing: an inferred rank or dependency arrives as a flag it validates (unknown id, duplicate, partial rank, self-reference, cycle), never as a `set-priority`/`set-deps` call, so the index stays the human's
+- `field <id-or-title> <TASK_FILE|TASK_ID|CATEGORY|PLAN_PATHS|SKILLS|SKILLS_DROPPED|ACCEPTANCE>` — one Execution-prompt placeholder per call, rendered ready to substitute. One value per call rather than a `NAME<TAB>value` listing, because reading one value out of a listing is the model picking from output again. The resolve dies on zero or several matches, so the call's own exit code is the entry-still-exists check; `PLAN_PATHS` and `ACCEPTANCE` exit 1 to say "no plan" / "no criteria", and `SKILLS` is pre-filtered against the four classes a leaf sub-agent cannot run (asks the user, spawns its own agent, launches a workflow, recurses into radin), matched on the leading `/<name>` token only — `SKILLS_DROPPED` names what it removed
+- `duplicates` — print `id<TAB><value><TAB><ids>` / `title<TAB><value><TAB><ids>` per duplicated value, exit 1 when there are none. Flags what a hand-edited index left behind; never guesses which copy to drop
 - `find <id-or-title>` — locate task, print the same six fields per match (exact id first, then exact title, else case-insensitive substring on title)
 - `add <category> <title> [--epic <epic-id>] [--priority <1|2|3|5|8|13|21>] [--depends-on <csv>]` — create task (body on stdin): slugifies title into id (dedupe on collision against the index's `id` fields), writes file, appends one line to index
 - `add-plan <id-or-title> <path>` — append `**Plan:**` pointer to task's own file
@@ -65,7 +68,7 @@ The subcommand is what switches the two modes apart, so no flag does. `radin <ve
 - `epic-move <id-or-title> <epic-id|--none>` — move the task file and rewrite its `file` field; `--none` returns it to the flat `tasks/` level
 - `epic-remove <epic-id>` — refuse while child tasks remain (exit non-zero, delete nothing): the operator moves them out first
 
-Point: offloading. Id assignment, task lookup, plan-pointer insertion — deterministic ops model used to re-derive from prose rules every run. CLI does them exact; agents/skills supply only judgment (what to log, how to classify, what to plan). Task's file path always read back from its index line's `file` field, never composed by a caller and never computed from stored line number — nothing here goes stale as backlog shape changes.
+Point: offloading. Id assignment, task lookup, plan-pointer insertion, the execution order and its dependency fix, the ranking gate, prompt-field rendering, the duplicate scan — deterministic ops model used to re-derive from prose rules every run. `lib/radin-prioritization.md` is left with the two things that are not computations: how to rank the unset-priority group, and when one entry's body implies a dependency on another's. CLI does them exact; agents/skills supply only judgment (what to log, how to classify, what to plan). Task's file path always read back from its index line's `file` field, never composed by a caller and never computed from stored line number — nothing here goes stale as backlog shape changes.
 
 `install.sh` copies `lib/radin-namespace.sh`, `lib/radin-backlog.sh`, `lib/radin-state.sh` to `~/.claude/.radin/lib/`, and `bin/radin` — a dispatcher mapping `radin <backlog|tui|state|scope|cbm-hooks|cbm-config|update|doctor|uninstall>` to those scripts — to `~/.claude/.radin/bin/`, plus a `~/.local/bin/radin` symlink (an existing non-radin file there is named and left alone, and skills then get the full dispatcher path). Consumer install never has this repo's `lib/` directly, so the scripts dist like any other radin file.
 
@@ -237,6 +240,8 @@ radin/
 ```
 
 ## The human TUI
+
+`list`'s output format is the TUI's parser contract, and `order`/`field`/`duplicates` added no field to it: the TUI still loads `list --order created` and splits on US exactly as before.
 
 `radin tui` — or bare `radin` on a terminal — (`lib/radin-tui.c`) is the human's way into the same backlog the
 skills drive: a two-pane split — the task tree on the left 40% of the width,

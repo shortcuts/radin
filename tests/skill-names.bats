@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
-# Every `/<name>` skill invocation written in skills/**/SKILL.md and lib/*.md
-# must resolve to a skill radin ships itself or one install.sh installs as a
+# Every `/<name>` skill invocation written in skills/**/SKILL.md, lib/*.md and
+# lib/radin-backlog.sh must resolve to a skill radin ships itself or one install.sh installs as a
 # companion. A renamed or mistyped name costs a failed call plus a fallback in
 # every sub-agent that reads the prompt, silently.
 #
@@ -17,6 +17,9 @@ setup() {
   # Names written as illustrations of what a *user* may type, not as radin
   # delegations: a workflow command and two placeholder skill names.
   EXAMPLES="deep-research frontend-design other-skill"
+  # Not a skill name at all: `bin` comes off the `/bin/bash` path in
+  # lib/radin-backlog.sh's header.
+  NOT_SKILLS="bin"
 }
 
 # Slash tokens, allowing leading markdown emphasis/backticks but requiring
@@ -24,7 +27,7 @@ setup() {
 skill_tokens() {
   cd "$REPO_ROOT" || return 1
   grep -ohE '(^|[[:space:]])[*_(]*`?/[a-z0-9][a-z0-9:-]*' \
-    skills/*/SKILL.md lib/*.md |
+    skills/*/SKILL.md lib/*.md lib/radin-backlog.sh |
     tr -d '`*_( ' | sed 's|^/||' | sort -u
 }
 
@@ -44,7 +47,7 @@ skill_tokens() {
         ;;
       *)
         [ -f "$REPO_ROOT/skills/$token/SKILL.md" ] && continue
-        case " $COMPANIONS $EXAMPLES " in
+        case " $COMPANIONS $EXAMPLES $NOT_SKILLS " in
           *" $token "*) continue ;;
         esac
         ;;

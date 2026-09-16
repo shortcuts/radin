@@ -10,5 +10,6 @@ stashes this session created. Two things it cannot do:
   by a sub-agent`, so pass one per skill Step 4b dropped, shaped
   `<task title> — <skill>: asks the user or spawns its own agent.` No
   arguments, no such block.
-- If `RADIN_CLI backlog list` shows a duplicate id or title from manual
-  edits, flag it in the summary rather than guessing which copy to remove.
+- `RADIN_CLI backlog duplicates` finds the duplicate ids and titles manual
+  edits leave behind. Exit 0: flag its output in the summary rather than
+  guessing which copy to remove. Exit 1: nothing to say.

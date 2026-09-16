@@ -31,6 +31,9 @@
 #   radin-backlog.sh set-deps <id-or-title> <csv-of-ids|--none>   # set/clear depends_on (rejects an unknown id and any cycle)
 #   radin-backlog.sh meta <id-or-title>          # print "plan<TAB><path>" / "skill<TAB><instruction>" / "acceptance<TAB><criterion>" lines from the task's file
 #   radin-backlog.sh planned                     # print the id of every task that already has a **Plan:** line
+#   radin-backlog.sh order <--rank-needed|--report|--steps> [--rank <csv-of-ids>] [--infer-deps <id>=<csv>]... [--defer <csv-of-ids>]  # the execution order: the priority order with the topological dependency fix applied (--rank-needed: print every unset-priority id, exit 1 when there are none; --report: "<order>. <title> (id: <id>)" plus one "dependency override:" line per violated edge; --steps: "id<TAB>order<TAB>depends-on-csv<TAB>pending|deferred", which is `radin state steps-init`'s stdin format)
+#   radin-backlog.sh field <id-or-title> <TASK_FILE|TASK_ID|CATEGORY|PLAN_PATHS|SKILLS|SKILLS_DROPPED|ACCEPTANCE>  # one Execution-prompt placeholder, rendered ready to substitute
+#   radin-backlog.sh duplicates                  # print "id<TAB><value><TAB><ids>" / "title<TAB><value><TAB><ids>" per duplicated value, exit 1 when there are none
 #   radin-backlog.sh remove <id-or-title>        # delete task file + index entry (exact single match required)
 #   radin-backlog.sh reconcile <completed-file>  # drop backlog entries whose id is already in completed.json
 #   radin-backlog.sh epics                       # print every epic id, one per line
@@ -188,6 +191,171 @@ $0 == "" { next }
   while ((getline line < f) > 0)
     if (line ~ /^\*\*Plan:\*\* /) { print id; break }
   close(f) }
+'
+
+# `order`: the whole execution order in one pass -- the priority order `list`
+# defaults to, plus the topological dependency fix, plus the three views the
+# orchestrator needs. It exists so no prose has to sort, enumerate or pick:
+# each mode's stdout is used as-is. It writes nothing: the index stays the
+# human's, so an inferred rank or dependency reaches this verb as a flag and
+# never a `set-priority`/`set-deps` call.
+#
+# Every caller string arrives through ENVIRON (never `awk -v`, same reason as
+# above). RADIN_INFER carries the repeated --infer-deps pairs joined by US;
+# ids are slugs, so neither `=` nor US can appear inside one.
+# shellcheck disable=SC2016  # $0 is awk's record, not a shell expansion
+AWK_ORDER='
+function fail(msg) { printf("radin-backlog: %s\n", msg) > "/dev/stderr"; exit 1 }
+# Sort predicate over the key triple: rank class (set priorities before unset),
+# then priority (negated, so descending), then the tie-break -- index order, or
+# --rank order inside the unset block. Same contract as AWK_LIST plus `sort`.
+function less(a, b) {
+  if (kc[a] != kc[b]) return kc[a] < kc[b]
+  if (kp[a] != kp[b]) return kp[a] < kp[b]
+  return ks[a] < ks[b] }
+# DFS colouring over the effective dep graph: 1 = on the stack, 2 = done. The
+# state array is shared across roots, which is what keeps it O(V+E).
+function cyc(v, state,   j, m, d) {
+  if (state[v] == 1) return 1
+  if (state[v] == 2) return 0
+  state[v] = 1
+  m = split(eff[v], d, ",")
+  for (j = 1; j <= m; j++) if (d[j] != "" && cyc(d[j], state)) return 1
+  state[v] = 2
+  return 0 }
+BEGIN { mode = ENVIRON["RADIN_MODE"]; rankcsv = ENVIRON["RADIN_RANK"]
+        infer = ENVIRON["RADIN_INFER"]; defer = ENVIRON["RADIN_DEFER"]; n = 0 }
+$0 == "" { next }
+{ n++; id[n] = jstr($0, "id"); title[n] = jstr($0, "title")
+  prio[n] = jraw($0, "priority"); deps[n] = depscsv(jraw($0, "depends_on"))
+  pos[id[n]] = n }
+END {
+  un = 0
+  for (i = 1; i <= n; i++) if (prio[i] == "") unset[++un] = id[i]
+  if (mode == "rank-needed") {
+    for (k = 1; k <= un; k++) print unset[k]
+    exit (un > 0 ? 0 : 1) }
+
+  # --rank must name every unset id exactly once: a partial rank would drop
+  # tasks from --steps, and a dropped task is a task that never runs.
+  nr = 0
+  if (rankcsv != "") {
+    m = split(rankcsv, r, ",")
+    for (j = 1; j <= m; j++) {
+      v = r[j]; gsub(/[ \t]/, "", v)
+      if (v == "") continue
+      if (!(v in pos)) fail("--rank: no such task id: " v)
+      if (prio[pos[v]] != "") fail("--rank: " v " already has a priority")
+      if (v in rankpos) fail("--rank: duplicate id: " v)
+      rankpos[v] = ++nr }
+    if (nr != un) fail("--rank must name every unset-priority id exactly once: " un " expected, " nr " given") }
+
+  # Effective deps: the index value wins per entry, --infer-deps only fills a
+  # gap. The one place that precedence lives now.
+  for (i = 1; i <= n; i++) eff[id[i]] = deps[i]
+  if (infer != "") {
+    m = split(infer, p, sprintf("%c", 31))
+    for (j = 1; j <= m; j++) {
+      if (p[j] == "") continue
+      q = index(p[j], "=")
+      if (q == 0) fail("--infer-deps needs <id>=<csv>, got: " p[j])
+      a = substr(p[j], 1, q - 1); b = substr(p[j], q + 1)
+      if (!(a in pos)) fail("--infer-deps: no such task id: " a)
+      if (deps[pos[a]] != "") fail("--infer-deps: " a " already has depends_on in the index")
+      nb = split(b, bb, ",")
+      for (t = 1; t <= nb; t++) {
+        if (bb[t] == "") continue
+        if (!(bb[t] in pos)) fail("--infer-deps: no such task id: " bb[t])
+        if (bb[t] == a) fail("--infer-deps: " a " cannot depend on itself") }
+      eff[a] = b } }
+  ndf = split(defer, df, ",")
+  for (j = 1; j <= ndf; j++) {
+    if (df[j] == "") continue
+    if (!(df[j] in pos)) fail("--defer: no such task id: " df[j])
+    isdef[df[j]] = 1 }
+  # set-deps rejects a cycle, so only --infer-deps can introduce one -- and the
+  # fix below only terminates on a DAG.
+  for (i = 1; i <= n; i++) if (cyc(id[i], colour)) fail("--infer-deps would create a cycle through " id[i])
+
+  for (i = 1; i <= n; i++) {
+    if (prio[i] == "") { kc[i] = 1; kp[i] = 0; ks[i] = (nr > 0 ? rankpos[id[i]] : i) }
+    else { kc[i] = 0; kp[i] = -(prio[i] + 0); ks[i] = i } }
+  # ponytail: insertion sort -- no asort on BWK awk, and a backlog is the same
+  # size prune_dep/deps_reaches already accept as O(n^2). Revisit only if a
+  # real backlog ever makes `order` measurably slow.
+  for (i = 1; i <= n; i++) {
+    L[i] = i
+    for (j = i; j > 1 && less(L[j], L[j - 1]); j--) { t = L[j]; L[j] = L[j - 1]; L[j - 1] = t } }
+  for (k = 1; k <= n; k++) at[id[L[k]]] = k
+
+  # The violated edges are a property of the priority order and the dep graph,
+  # recorded before anything moves, so --report can never drift from the fix.
+  nv = 0
+  for (k = 1; k <= n; k++) {
+    m = split(eff[id[L[k]]], d, ",")
+    for (j = 1; j <= m; j++)
+      if (d[j] != "" && at[d[j]] > k) { vdep[++nv] = d[j]; vent[nv] = id[L[k]] } }
+
+  # The fix: move a dependency UP to immediately before its dependent and
+  # leave every other relative position alone. Never Kahn with a priority
+  # tie-break -- that satisfies an edge by demoting the dependent as readily
+  # as by promoting the dep, reordering entries with no dependency relation at
+  # all and discarding more of the human ranking than one override may.
+  k = 1
+  while (k <= n) {
+    m = split(eff[id[L[k]]], d, ",")
+    nd = 0
+    for (j = 1; j <= m; j++) if (d[j] != "" && at[d[j]] > k) D[++nd] = at[d[j]]
+    if (nd == 0) { k++; continue }
+    for (a = 2; a <= nd; a++)
+      for (b = a; b > 1 && D[b] < D[b - 1]; b--) { t = D[b]; D[b] = D[b - 1]; D[b - 1] = t }
+    delete moved
+    for (a = 1; a <= nd; a++) moved[D[a]] = 1
+    nn = 0
+    for (b = 1; b <= n; b++) {
+      if (b in moved) continue
+      if (b == k) for (a = 1; a <= nd; a++) NL[++nn] = L[D[a]]
+      NL[++nn] = L[b] }
+    for (b = 1; b <= n; b++) { L[b] = NL[b]; at[id[NL[b]]] = b }
+    # k does not advance: the deps just pulled up are examined next, so their
+    # own deps get pulled up too. Terminates because the graph is a DAG and
+    # each pass strictly shrinks the violated-edge set.
+  }
+
+  if (mode == "report") {
+    for (k = 1; k <= n; k++) printf("%d. %s (id: %s)\n", k, title[L[k]], id[L[k]])
+    for (v = 1; v <= nv; v++) {
+      pe = prio[pos[vent[v]]]
+      # Silent only when neither entry carries a human priority: then the move
+      # overrode nothing a human decided.
+      if (pe == "" && prio[pos[vdep[v]]] == "") continue
+      printf("dependency override: %s moved above %s (priority %s)\n",
+             vdep[v], vent[v], (pe == "" ? "unset" : pe)) }
+    exit 0 }
+  if (mode == "steps") {
+    for (k = 1; k <= n; k++)
+      printf("%s%s%d%s%s%s%s\n", id[L[k]], TAB, k, TAB, eff[id[L[k]]], TAB,
+             (id[L[k]] in isdef ? "deferred" : "pending"))
+    exit 0 }
+  fail("unknown mode: " mode) }
+'
+
+# `duplicates`: one pass counting both keyed fields. It flags, it never guesses
+# which copy to drop -- that stays the user's call.
+# shellcheck disable=SC2016  # $0 is awk's record, not a shell expansion
+AWK_DUP='
+$0 == "" { next }
+{ i = jstr($0, "id"); t = jstr($0, "title")
+  if (++ic[i] == 1) iord[++ni] = i
+  if (++tc[t] == 1) tord[++nt] = t
+  tids[t] = (tids[t] == "" ? i : tids[t] "," i)
+  iids[i] = (iids[i] == "" ? i : iids[i] "," i) }
+END { hit = 0
+  for (k = 1; k <= ni; k++) if (ic[iord[k]] > 1) {
+    hit = 1; printf("id%s%s%s%s\n", TAB, iord[k], TAB, iids[iord[k]]) }
+  for (k = 1; k <= nt; k++) if (tc[tord[k]] > 1) {
+    hit = 1; printf("title%s%s%s%s\n", TAB, tord[k], TAB, tids[tord[k]]) }
+  exit (hit ? 0 : 1) }
 '
 
 # TSV is the agent-facing output format, so a tab/CR/LF in a title corrupts
@@ -381,6 +549,66 @@ single_match() {
 	[ "$n" -eq 1 ] || die "matches $n entries: $1
 $(printf '%s\n' "$found" | fmt_lines)"
 	printf '%s\n' "$found"
+}
+
+# `plan<TAB><path>` / `skill<TAB><instruction>` / `acceptance<TAB><criterion>`
+# lines from the task file $1. One parser, shared by `meta` and `field`: a
+# second copy would drift the next time a label changes.
+meta_lines() {
+	local line in_acceptance="" crit
+	while IFS= read -r line || [ -n "$line" ]; do
+		if [ -n "$in_acceptance" ]; then
+			case "$line" in
+			'- '*)
+				crit="${line#- }"
+				case "$crit" in
+				'[ ] '* | '[x] '* | '[X] '*)
+					crit="${crit#????}"
+					;;
+				esac
+				printf 'acceptance\t%s\n' "$crit"
+				continue
+				;;
+			*) in_acceptance="" ;;
+			esac
+		fi
+		case "$line" in
+		'**Plan:** '*) printf 'plan\t%s\n' "${line#"**Plan:** "}" ;;
+		'**Skill:** '*) printf 'skill\t%s\n' "${line#"**Skill:** "}" ;;
+		'**Acceptance:**') in_acceptance=1 ;;
+		esac
+	done <"$1"
+}
+
+# Skills an execution sub-agent cannot run: it has no user to ask, no
+# sub-agent of its own, no `Workflow` tool, and a radin entry point would
+# recurse (docs/technical-constraints.md has the why for each).
+# Written with the leading slash a user would type, so tests/skill-names.bats
+# pins each one to a skill radin or a companion actually ships.
+SKILL_DENY="/mattpocock-skills:grilling /mattpocock-skills:research /deep-research /radin-execute /radin-plan /radin-review"
+
+# The leading `/<name>` token of a `**Skill:**` instruction, empty when it has
+# none.
+skill_token() {
+	case "$1" in
+	*/*) ;;
+	*) return 0 ;;
+	esac
+	printf '%s' "${1#*/}" | sed -E 's|[^a-z0-9:_-].*$||'
+}
+
+# True when instruction $1 names a denied skill. Matched on that token alone,
+# never on the surrounding prose: an instruction with no `/<name>` is a
+# standing user instruction and is forwarded untouched, never judged on fit.
+skill_denied() {
+	local name
+	name="$(skill_token "$1")"
+	[ -n "$name" ] || return 1
+	case " $SKILL_DENY " in *" /$name "*) return 0 ;; esac
+	# The one class that needs a filesystem check: any saved workflow command.
+	[ ! -f "$REPO_ROOT/.claude/workflows/$name.md" ] || return 0
+	[ ! -f "$HOME/.claude/workflows/$name.md" ] || return 0
+	return 1
 }
 
 require_integer() {
@@ -664,29 +892,127 @@ meta)
 	[ -n "${2:-}" ] || usage_die meta "meta needs an id or title"
 	require_index
 	entry="$(single_match "$2")"
-	in_acceptance=""
-	while IFS= read -r line || [ -n "$line" ]; do
-		if [ -n "$in_acceptance" ]; then
-			case "$line" in
-			'- '*)
-				crit="${line#- }"
-				case "$crit" in
-				'[ ] '* | '[x] '* | '[X] '*)
-					crit="${crit#????}"
-					;;
-				esac
-				printf 'acceptance\t%s\n' "$crit"
-				continue
-				;;
-			*) in_acceptance="" ;;
-			esac
-		fi
-		case "$line" in
-		'**Plan:** '*) printf 'plan\t%s\n' "${line#"**Plan:** "}" ;;
-		'**Skill:** '*) printf 'skill\t%s\n' "${line#"**Skill:** "}" ;;
-		'**Acceptance:**') in_acceptance=1 ;;
+	meta_lines "$(entry_path "$entry")"
+	;;
+
+order)
+	require_index
+	shift
+	RADIN_MODE=""
+	RADIN_RANK=""
+	RADIN_INFER=""
+	RADIN_DEFER=""
+	while [ $# -gt 0 ]; do
+		case "$1" in
+		--rank-needed | --report | --steps)
+			[ -z "$RADIN_MODE" ] ||
+				usage_die order "order takes exactly one mode, got --$RADIN_MODE and $1"
+			RADIN_MODE="${1#--}"
+			shift
+			;;
+		--rank)
+			[ -n "${2:-}" ] || usage_die order "--rank needs a csv of task ids"
+			RADIN_RANK="$2"
+			shift 2
+			;;
+		--infer-deps)
+			[ -n "${2:-}" ] || usage_die order "--infer-deps needs <id>=<csv>"
+			RADIN_INFER="$RADIN_INFER$2$US"
+			shift 2
+			;;
+		--defer)
+			[ -n "${2:-}" ] || usage_die order "--defer needs a csv of task ids"
+			RADIN_DEFER="$2"
+			shift 2
+			;;
+		*) usage_die order "unknown order option: $1" ;;
 		esac
-	done <"$(entry_path "$entry")"
+	done
+	# No default mode: a default that exits 1 on the healthy path (--rank-needed
+	# does) is a trap for a caller routing on exit codes.
+	[ -n "$RADIN_MODE" ] ||
+		usage_die order "order needs one of --rank-needed, --report, --steps"
+	export RADIN_MODE RADIN_RANK RADIN_INFER RADIN_DEFER
+	awk "$AWK_JSON$AWK_ORDER" "$BACKLOG_INDEX"
+	;;
+
+field)
+	query="${2:-}"
+	fname="${3:-}"
+	[ -n "$fname" ] || usage_die field "field needs an id or title and a placeholder name"
+	require_index
+	# One call per placeholder, each printing that value and nothing else: a
+	# `NAME<TAB>value` listing would put the caller back to picking a line out
+	# of output. The resolve dies on zero or several matches, so this call's
+	# exit code IS the existence check -- no separate `find` needed.
+	entry="$(single_match "$query")"
+	case "$fname" in
+	TASK_ID) printf '%s\n' "$(json_get id "$entry")" ;;
+	CATEGORY) printf '%s\n' "$(json_get category "$entry")" ;;
+	TASK_FILE) entry_path "$entry" ;;
+	PLAN_PATHS | SKILLS | SKILLS_DROPPED | ACCEPTANCE)
+		meta="$(meta_lines "$(entry_path "$entry")")"
+		plans=""
+		kept=""
+		dropped=""
+		crits=""
+		while IFS= read -r line || [ -n "$line" ]; do
+			case "$line" in
+			"plan$TAB"*)
+				[ -z "$plans" ] || plans="$plans, "
+				plans="$plans${line#plan"$TAB"}"
+				;;
+			"skill$TAB"*)
+				inst="${line#skill"$TAB"}"
+				if skill_denied "$inst"; then
+					dropped="$dropped$inst
+"
+				else
+					kept="$kept$inst
+"
+				fi
+				;;
+			"acceptance$TAB"*)
+				crits="$crits   - ${line#acceptance"$TAB"}
+"
+				;;
+			esac
+		done <<-META
+			$meta
+		META
+		case "$fname" in
+		PLAN_PATHS)
+			[ -n "$plans" ] || {
+				printf 'none — implement directly from the entry\n'
+				exit 1
+			}
+			printf '%s\n' "$plans"
+			;;
+		SKILLS)
+			if [ -n "$kept" ]; then printf '%s' "$kept"; else printf 'none\n'; fi
+			;;
+		SKILLS_DROPPED)
+			[ -n "$dropped" ] || exit 1
+			printf '%s' "$dropped"
+			;;
+		ACCEPTANCE)
+			# Exit 1 with no output is the caller's "delete the whole
+			# ACCEPTANCE line" signal. Never synthesise a criterion.
+			[ -n "$crits" ] || exit 1
+			printf '1b. This task states its own acceptance criteria. They are the bar it is\n'
+			printf '   measured against, so satisfy every one of them:\n'
+			printf '%s' "$crits"
+			;;
+		esac
+		;;
+	*) usage_die field "unknown field name: $fname" ;;
+	esac
+	;;
+
+duplicates)
+	require_index
+	[ $# -le 1 ] || usage_die duplicates "duplicates takes no argument, got: $2"
+	awk "$AWK_JSON$AWK_DUP" "$BACKLOG_INDEX"
 	;;
 
 planned)

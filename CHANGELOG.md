@@ -17,6 +17,17 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- `radin backlog` now owns the execution order instead of the model. `order`
+  is the sort, the topological dependency fix and the Phase 2 report in one
+  verb (`--rank-needed` is the "does a ranking pass run at all" gate,
+  `--steps` prints `radin state steps-init`'s stdin format so Phase 3 is a
+  pipe); `field` renders one Execution-prompt placeholder per call, including
+  the plan pointers, the acceptance block and the skill deny-list filter; and
+  `duplicates` scans the index for the duplicate ids and titles a hand edit
+  leaves. `lib/radin-prioritization.md` is down to what is genuinely
+  semantic: how to rank the unset-priority group, and a now-bounded rule for
+  inferring one dependency from two entry bodies. `radin backlog list` is
+  unchanged, default order included, so the TUI's parser still holds.
 - `radin state` now owns `radin-execute`'s execution loop instead of the model.
   New verbs replace prose that composed leaf calls by hand: `task-next` (pick,
   dependency gate, block-and-skip in one call), `task-fail` and
