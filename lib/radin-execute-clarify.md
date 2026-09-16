@@ -11,7 +11,9 @@ A sub-agent's `STATUS: BLOCKED` always carries a `(FACT)` or `(DECISION)` tag
   it from the repo. Facts are never the user's job to hand over. Dispatch a
   fresh sub-agent with the **Fact-finding prompt** from
   `radin-execute-prompts.md`. It investigates read-only and reports in one
-  turn.
+  turn. Holding more than one at once — Phase 3.5's wave is where that
+  happens — every one of their Fact-finding prompts goes in the same message,
+  and each `STATUS: FOUND` is appended to its own task's file.
   - `STATUS: FOUND`: append the finding to that task's file with
     `backlog append` (labels below; a reported `state/facts/<id>.md` path is
     the `**Facts:**` case), treat the entry as `pending`, retry from Step 4a.

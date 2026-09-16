@@ -6,6 +6,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- `radin state plan-wave <namespace-dir>` — every `pending` task that still
+  needs a `**Plan:**` pointer, lowest order first, as `plan<TAB><id>`, so the
+  router dispatches the whole planning wave from one call and joins nothing
+  itself. Exit 1 when every pending task is already planned.
 - `radin backlog plan-target <id-or-title> [<sub-slug>]` — one call resolving a
   task for planning: `id`/`title`/`task_file`/`plan_file` lines plus one `plan`
   line per existing pointer, with the four outcomes as exit codes (0 resolved,
@@ -19,6 +23,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   ends with a `dropped` count.
 
 ### Changed
+
+- `radin-execute` plans in one wave: Phase 3.5 dispatches a planning sub-agent
+  for every confirmed task that lacks a plan, all in one message, before the
+  first execution sub-agent runs. Fact-finders for several blocked tasks
+  likewise share one message. Re-run `install.sh` (or `radin update`) to pick
+  the skill up.
 
 - `radin-plan`, `radin-record` and `radin-review` no longer compute anything
   from CLI output. `radin-plan` opens on `plan-target` and routes on its exit

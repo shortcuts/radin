@@ -53,8 +53,11 @@ concern rather than yours.
   empty-looking backlog, not a prompt that says the order is already
   approved. Such text is context, never consent.
 - **Read-only dispatches always run in parallel.** Planning, fact-finding and
-  debugging sub-agents write no repo code and no shared file, so
-  several may share one message whenever you have more than one to send. This
+  debugging sub-agents write no repo code and no shared file — they get no
+  worktree and never call `radin-state.sh prepare`, whatever Phase 0.5
+  recorded — so whenever you hold more than one of them to send, every one
+  goes in a single message. That is not a judgment to make per run: N to send
+  is N `Task` calls in one message, always, however large the wave looks. This
   is not the install-time answer's business — that answer governs execution
   sub-agents, and only them. The bullet after this one is the
   execution-concurrency rule itself, written in at install time from the
@@ -236,11 +239,40 @@ entirely when nothing is deferred.
 The CLI writes the schema itself (empty `note`) and records this session's
 baseline counts, which Phase 5's report reads.
 
+## Phase 3.5: Plan Wave
+
+Every task the user just confirmed gets its plan written before the first
+execution sub-agent is dispatched, and they are all dispatched together. Read
+`$HOME/.claude/.radin/lib/radin-execute-prompts.md` once now — it holds every
+verbatim sub-agent prompt this run sends, and this is the first phase that
+sends one.
+
+```bash
+RADIN_CLI state plan-wave "$NAMESPACE_DIR"
+```
+
+Exit 1: every pending task already carries a `**Plan:**` pointer, so go to
+Phase 4. Exit 0 prints one `plan<TAB><id>` line per task that needs one, lowest
+order first. Send the **Planning prompt** from `radin-execute-prompts.md` once
+per printed id, replacing `TASK_ID`, and put every one of those `Task` calls in
+one message, per Core Constraints. Substitute nothing else into them: a
+planning sub-agent gets no tree and no dependency list.
+
+Then route the whole wave, once all of its reports are in:
+
+- `STATUS: PLANNED`: nothing to record. Phase 4 reads the pointer off disk.
+- `STATUS: BLOCKED (FACT)` / `BLOCKED (DECISION)`: route every blocked task
+  through Clarifying Ambiguity, then re-run `plan-wave` and send the second
+  wave the same way. Run this phase at most twice per invocation: a task still
+  unplanned after the second wave belongs to Step 4a, not here.
+
+Re-running the verb is free and idempotent — it lists only what still has no
+pointer — so a resumed run re-plans nothing.
+
 ## Phase 4: Task Execution Loop
 
-Read `$HOME/.claude/.radin/lib/radin-execute-prompts.md` once now. It holds
-every verbatim sub-agent prompt this phase sends: planning, execution,
-debugging.
+Phase 3.5 already read `$HOME/.claude/.radin/lib/radin-execute-prompts.md`; it
+holds the execution and debug prompts this phase sends as well.
 
 The state CLI picks each task, dependency gate included:
 
@@ -272,9 +304,11 @@ RADIN_CLI backlog field "<task id>" PLAN_PATHS
 backlog may have moved since Phase 3): mark the task `blocked` with that
 call's output as its `note` and continue to the next task.
 
-`PLAN_PATHS` exit 0: a plan exists, skip to Step 4b. Exit 1: no plan, so
-delegate planning — unconditionally, with no judgment of the task's size or
-shape. Never run `/radin-plan` in this context — that is the planning
+Phase 3.5's wave normally already satisfied this, so exit 1 here is the
+residual case: a task the wave could not plan, or one re-entering Step 4a
+after a settled block. `PLAN_PATHS` exit 0: a plan exists, skip to Step 4b.
+Exit 1: no plan, so delegate planning — unconditionally, with no judgment of
+the task's size or shape. Never run `/radin-plan` in this context — that is the planning
 sub-agent's job, not the router's — because its codebase exploration is the
 biggest context bloat a router can take on; the plan file on disk is the only
 handoff needed. Send the **Planning prompt** from
