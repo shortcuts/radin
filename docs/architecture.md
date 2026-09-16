@@ -225,8 +225,9 @@ radin/
 `radin tui` (`lib/radin-tui.c`) is the human's way into the same backlog the
 skills drive: a full-screen list of every task, a preview of the selected
 task's body, and one key per operation (`e` edit in `$EDITOR`, `v` view in
-`$PAGER`, `n` new, `d` delete, `c` next category, `r` retitle, `/` filter).
-A `P` in the first column marks a task `radin-plan` already planned.
+`$PAGER`, `a` new, `d` delete, `c` next category, `r` retitle, `/` search).
+A `P` in the first column marks a task `radin-plan` already planned. A `*`
+marks a row matching the active `/` search, and `n`/`N` walk those matches.
 
 Three rules keep it from becoming a second backlog implementation:
 

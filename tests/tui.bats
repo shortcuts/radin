@@ -55,6 +55,12 @@ bl() {
   (cd "$WORK/proj" && bash "$BACKLOG" "$@")
 }
 
+# The last frame's [sel/total] header, so a wrap back to row 1 is not
+# confused with the frame the TUI opened on.
+last_pos() {
+  grep -ao '\[[0-9]*/[0-9]*\]' "$SCREEN" | tail -1
+}
+
 two_epics() {
   bl epic-add aaa-epic <<<"aaa ctx"
   bl epic-add bbb-epic <<<"bbb ctx"
@@ -100,8 +106,8 @@ tui() {
   [ "$output" = "typed body" ]
 }
 
-@test "n creates a task from the category key, title and EDITOR body" {
-  run tui "n|x|from tui\r|q"
+@test "a creates a task from the category key, title and EDITOR body" {
+  run tui "a|x|from tui\r|q"
   [ "$status" -eq 0 ]
   run cat "$INDEX"
   [[ "$output" == *'"id":"from-tui"'* ]]
@@ -110,8 +116,8 @@ tui() {
   [ "$output" = "typed body" ]
 }
 
-@test "n cancels on an unknown category key" {
-  run tui "n|z|q"
+@test "a cancels on an unknown category key" {
+  run tui "a|z|q"
   [ "$status" -eq 0 ]
   [ ! -s "$INDEX" ]
 }
@@ -146,13 +152,56 @@ tui() {
   [ -f "$TASKS/dark-mode.md" ]
 }
 
-@test "/ filters the list by title" {
+@test "/ marks matching rows and hides nothing" {
   seed
   run tui "/|auth\r|q"
   [ "$status" -eq 0 ]
   run cat "$SCREEN"
-  [[ "$output" == *"1 task(s)"* ]]
-  [[ "$output" == *'filter:"auth"'* ]]
+  [[ "$output" == *"2 task(s)"* ]]
+  [[ "$output" == *'search:"auth"'* ]]
+  [[ "$output" == *"dark mode"* ]]
+  [[ "$output" == *"broken auth"* ]]
+  [[ "$output" == *"*  fix"* ]]
+}
+
+@test "n walks the search matches and wraps at the end" {
+  seed
+  bl add chore "dark chore" <<<"body" >/dev/null
+  run tui "/|dark\r|n|q"
+  [ "$status" -eq 0 ]
+  [ "$(last_pos)" = "[3/3]" ]
+  run tui "/|dark\r|n|n|q"
+  [ "$status" -eq 0 ]
+  [ "$(last_pos)" = "[1/3]" ]
+}
+
+@test "N walks the search matches backwards and wraps at the start" {
+  seed
+  bl add chore "dark chore" <<<"body" >/dev/null
+  run tui "/|dark\r|N|q"
+  [ "$status" -eq 0 ]
+  [ "$(last_pos)" = "[3/3]" ]
+}
+
+@test "n and N do nothing without an active search, and n creates no task" {
+  seed
+  snapshot
+  run tui "n|N|q"
+  [ "$status" -eq 0 ]
+  [ "$(last_pos)" = "[1/2]" ]
+  run cat "$SCREEN"
+  [[ "$output" != *"[2/2]"* ]]
+  unchanged
+}
+
+@test "g and G select the first and last row" {
+  seed
+  run tui "G|q"
+  [ "$status" -eq 0 ]
+  [ "$(last_pos)" = "[2/2]" ]
+  run tui "G|g|q"
+  [ "$status" -eq 0 ]
+  [ "$(last_pos)" = "[1/2]" ]
 }
 
 @test "j moves the selection down" {
@@ -251,7 +300,7 @@ tui() {
 @test "the Done view ignores mutating keys" {
   seed
   snapshot
-  run tui "\t|d|y\r|n|x|nope\r|p|9\r|D| |\r|m|\r|E|nope\r|q"
+  run tui "\t|d|y\r|a|x|nope\r|p|9\r|D| |\r|m|\r|E|nope\r|q"
   [ "$status" -eq 0 ]
   unchanged
   [ -f "$TASKS/dark-mode.md" ]
@@ -373,15 +422,17 @@ tui() {
   [[ "$output" == *'"depends_on":["dark-mode","broken-auth"]'* ]]
 }
 
-@test "D offers a task the filter is hiding" {
-  seed
-  bl add chore "slow tests" <<<"tests are slow" >/dev/null
-  # Filter down to one task, then make the hidden "dark mode" a dependency of
-  # it: the candidate list must still hold every task.
-  run tui "/|slow\r|D| |\r|q"
+@test "D offers a task a collapsed epic is hiding" {
+  bl epic-add ui-polish <<<"epic ctx"
+  bl add feat "nested task" --epic ui-polish <<<"body" >/dev/null
+  bl add chore "loose task" <<<"body" >/dev/null
+  # Row 1 is the loose task, row 2 the epic header. Collapse it, so the nested
+  # task has no row at all, then make it a dependency of the loose task: the
+  # candidate list must still hold every task.
+  run tui "j|\r|g|D| |\r|q"
   [ "$status" -eq 0 ]
-  run grep slow-tests "$INDEX"
-  [[ "$output" == *'"depends_on":["dark-mode"]'* ]]
+  run grep loose-task "$INDEX"
+  [[ "$output" == *'"depends_on":["nested-task"]'* ]]
 }
 
 @test "G scrolls the Done view past one window" {

@@ -44,15 +44,14 @@ struct task {
 	char id[SLOT], cat[32], title[SLOT], file[SLOT], prio[32], deps[SLOT], epic[SLOT];
 	char flag[8];
 	const char *colour;
-	int visible;
 };
 
 static struct task T[MAXT];
-static int TASK_N, VIS_N;
+static int TASK_N;
 static int row_task[MAXROW];
 static char row_epic[MAXROW][SLOT];
 static int N, SEL, TOP;
-static char FILTER[SLOT], MSG[BIG];
+static char SEARCH[SLOT], MSG[BIG];
 static int ROWS = 24, COLS = 80;
 static int MODE_DONE;
 static char COLLAPSED[BIG];
@@ -298,27 +297,24 @@ static void fill_colours(void) {
 	}
 }
 
-/* Case-insensitive substring on "id title". */
-static int filter_hit(int i) {
-	if (!*FILTER) return 1;
+/* Case-insensitive substring on "id title". No active search means no match,
+ * so nothing is marked and n/N have nowhere to go. */
+static int search_hit(int i) {
+	if (!*SEARCH) return 0;
 	char hay[SLOT * 2], needle[SLOT];
 	snprintf(hay, sizeof hay, "%s %s", T[i].id, T[i].title);
-	snprintf(needle, sizeof needle, "%s", FILTER);
+	snprintf(needle, sizeof needle, "%s", SEARCH);
 	for (char *p = hay; *p; p++) *p = tolower((unsigned char)*p);
 	for (char *p = needle; *p; p++) *p = tolower((unsigned char)*p);
 	return strstr(hay, needle) != NULL;
 }
 
-/* The visible rows: ungrouped tasks first, then one collapsible header per
+/* The rows: ungrouped tasks first, then one collapsible header per
  * epic followed by its children. A collapsed epic's children are absent from
  * the row arrays, which is why j/k/g/G need no collapse logic of their own. */
 static void build_rows(void) {
-	VIS_N = 0;
 	PANY = 0;
 	for (int i = 0; i < TASK_N; i++) {
-		T[i].visible = filter_hit(i);
-		if (!T[i].visible) continue;
-		VIS_N++;
 		if (!is_num(T[i].prio)) continue;
 		int p = atoi(T[i].prio);
 		if (!PANY) {
@@ -333,7 +329,7 @@ static void build_rows(void) {
 
 	N = 0;
 	for (int i = 0; i < TASK_N; i++) {
-		if (T[i].visible && !*T[i].epic) {
+		if (!*T[i].epic) {
 			row_task[N] = i;
 			row_epic[N][0] = 0;
 			N++;
@@ -344,7 +340,7 @@ static void build_rows(void) {
 	for (;;) {
 		const char *next = NULL;
 		for (int i = 0; i < TASK_N; i++) {
-			if (!T[i].visible || !*T[i].epic) continue;
+			if (!*T[i].epic) continue;
 			if (in_set(seen, T[i].epic)) continue;
 			if (!next || strcmp(T[i].epic, next) < 0) next = T[i].epic;
 		}
@@ -355,7 +351,7 @@ static void build_rows(void) {
 		N++;
 		if (in_set(COLLAPSED, next)) continue;
 		for (int i = 0; i < TASK_N; i++) {
-			if (T[i].visible && !strcmp(T[i].epic, next)) {
+			if (!strcmp(T[i].epic, next)) {
 				row_task[N] = i;
 				row_epic[N][0] = 0;
 				N++;
@@ -489,10 +485,10 @@ static void draw(void) {
 	TOP = clamp_top(SEL, TOP, list_h);
 
 	char header[1200], text[1200];
-	snprintf(header, sizeof header, "radin backlog  %d task(s)", VIS_N);
-	if (*FILTER)
+	snprintf(header, sizeof header, "radin backlog  %d task(s)", TASK_N);
+	if (*SEARCH)
 		snprintf(header + strlen(header), sizeof header - strlen(header),
-			"  filter:\"%s\"", FILTER);
+			"  search:\"%s\"", SEARCH);
 	if (N)
 		snprintf(header + strlen(header), sizeof header - strlen(header), "  [%d/%d]",
 			SEL + 1, N);
@@ -503,7 +499,7 @@ static void draw(void) {
 	if (end > N) end = N;
 	int i;
 	if (N == 0) {
-		row("  (no tasks) press n to create one", 0, "");
+		row("  (no tasks) press a to create one", 0, "");
 		i = 1;
 	} else {
 		for (i = TOP; i < end; i++) {
@@ -514,7 +510,11 @@ static void draw(void) {
 					in_set(COLLAPSED, row_epic[i]) ? "+" : "-", row_epic[i]);
 			} else {
 				colour = T[ti].colour;
-				snprintf(text, sizeof text, "%s%s %-9s %s", *T[ti].epic ? "   " : " ",
+				/* The margin's last column is the search mark; the columns
+				 * before it are the epic indent, so a marked row never shifts
+				 * the ones around it. */
+				snprintf(text, sizeof text, "%s%s%s %-9s %s",
+					*T[ti].epic ? "  " : "", search_hit(ti) ? "*" : " ",
 					T[ti].flag, T[ti].cat, T[ti].title);
 			}
 			row(text, i == SEL, colour);
@@ -527,8 +527,8 @@ static void draw(void) {
 	else row("--", 0, "");
 
 	const char *footer =
-		"j/k move  enter edit/collapse  v detail  n new  d delete  c category  "
-		"r retitle  / filter  Tab done  ? keys  q quit";
+		"j/k/g/G move  enter edit/collapse  v detail  / search  n/N match  "
+		"a new  d delete  c category  r retitle  Tab done  ? keys  q quit";
 	bar(*MSG ? MSG : footer, ROWS);
 	fflush(stdout);
 }
@@ -613,6 +613,22 @@ static int readkey(void) {
 	return 'Q' + 1000;
 }
 
+/* Next (dir 1) / previous (dir -1) row whose task matches the active search,
+ * wrapping past the ends. Starting at step 1 means n always leaves the current
+ * row; the step <= N bound lets it come back to it when it is the only match.
+ * A match inside a collapsed epic has no row, so n does not visit it -- the
+ * same blind spot j/k/g/G already have. */
+static void search_jump(int dir) {
+	if (!*SEARCH || N <= 0) return;
+	for (int step = 1; step <= N; step++) {
+		int i = ((SEL + dir * step) % N + N) % N;
+		if (row_task[i] >= 0 && search_hit(row_task[i])) {
+			SEL = i;
+			return;
+		}
+	}
+}
+
 static int move_key(int k) {
 	int *sel = MODE_DONE ? &DONE_SEL : &SEL;
 	int n = MODE_DONE ? DONE_N : N;
@@ -621,6 +637,11 @@ static int move_key(int k) {
 	case 'k': if (*sel > 0) (*sel)--; return 1;
 	case 'g': *sel = 0; return 1;
 	case 'G': if (n) *sel = n - 1; return 1;
+	case 'n':
+	case 'N':
+		if (MODE_DONE) return 0;
+		search_jump(k == 'n' ? 1 : -1);
+		return 1;
 	}
 	return 0;
 }
@@ -895,8 +916,8 @@ static void commas_to_spaces(char *s) {
 
 static void edit_deps_task(int ti) {
 	PN = 0;
-	/* The loaded tasks are every task, filtered or not, so $FILTER cannot hide
-	 * a legal dependency and this needs no second `backlog list`. */
+	/* The loaded tasks are every task, so the active search cannot hide a legal
+	 * dependency and this needs no second `backlog list`. */
 	for (int i = 0; i < TASK_N; i++) {
 		if (i == ti) continue;
 		snprintf(PV[PN].val, SLOT, "%s", T[i].id);
@@ -1107,7 +1128,7 @@ static void help_screen(void) {
 		"                own description, every plan file and the dependency titles --\n"
 		"                everything the pane leaves out\n"
 		"  Tab           the Done view: completed tasks and their commits (read-only)\n"
-		"  n             new task (category, title, then body in $EDITOR)\n"
+		"  a             new task (category, title, then body in $EDITOR)\n"
 		"  d             delete the selected task (asks first)\n"
 		"  c             move the task to the next category\n"
 		"  r             retitle the task (its id never changes)\n"
@@ -1115,13 +1136,15 @@ static void help_screen(void) {
 		"  D             edit depends_on: pick from the other tasks, space toggles\n"
 		"  m             move the task into an epic, or out of one\n"
 		"  E             create an epic, then write its DESCRIPTION.md in $EDITOR\n"
-		"  /             filter by id or title (empty clears)\n"
+		"  /             search id and title; matching rows are marked * (empty clears)\n"
+		"  n / N         next / previous matching row (wraps)\n"
 		"  R             reload from disk\n"
 		"  q             quit\n\n"
 		"Row colour is the priority band, relative to the priorities now shown:\n"
 		"red highest third, yellow middle, green lowest, no colour when unset.\n"
 		"Set NO_COLOR to a non-empty value to turn it off.\n"
 		"A P in the first column marks a task radin-plan has already planned.\n"
+		"A * in the left margin marks a row matching the active / search.\n"
 		"Epic rows are headers; collapse is per-session.\n"
 		"Tasks live in .claude/.radin/backlog/ in this repo.\n\n"
 		"press any key\n");
@@ -1238,7 +1261,7 @@ int main(int argc, char **argv) {
 			MODE_DONE = 1;
 			load_done();
 			break;
-		case 'n': new_task(); break;
+		case 'a': new_task(); break;
 		case 'd': if ((ti = sel_task()) >= 0) delete_task(ti); break;
 		case 'c': if ((ti = sel_task()) >= 0) cycle_category(ti); break;
 		case 'r': if ((ti = sel_task()) >= 0) retitle_task(ti); break;
@@ -1247,10 +1270,9 @@ int main(int argc, char **argv) {
 		case 'm': if ((ti = sel_task()) >= 0) move_epic_task(ti); break;
 		case 'E': new_epic(); break;
 		case '/':
-			prompt("filter: ", FILTER, sizeof FILTER);
+			prompt("search: ", SEARCH, sizeof SEARCH);
 			SEL = 0;
 			TOP = 0;
-			build_rows();
 			break;
 		case 'R':
 			load();

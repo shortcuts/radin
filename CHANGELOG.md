@@ -6,6 +6,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- `radin tui`: `/` is now a search, not a filter -- every row stays visible and
+  matching rows are marked with a `*`. `n`/`N` jump to the next/previous match
+  and wrap. Creating a task moved from `n` to `a`.
 - The `settings.json`/`.claude.json` surgery behind `radin cbm-config` is now C
   (`lib/radin-cbm-json.c`), built by `install.sh` with `cc`. When there is no
   compiler `install.sh` falls back to `radin cbm-hooks`, where it used to fall
