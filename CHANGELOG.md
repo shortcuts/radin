@@ -6,6 +6,18 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- `radin tui`'s detail is now a right-hand pane instead of a strip across the
+  bottom: the tree takes the left 40% of the width, the selected row's detail
+  the right 60%, and the task body renders through a hand-rolled markdown
+  subset (heading bold, `>` quote dim and indented, bullet re-marked `•`, `**`
+  stripped). `ctrl-d`/`ctrl-u` scroll that pane half a pane at a time and never
+  move the tree selection; `j`/`k` still only move the selection. Under 100
+  columns no right pane is drawn and `enter` on a task row opens the same
+  renderer full-screen, dismissed with `q`/ESC -- so `enter` no longer opens
+  `$EDITOR`, `e` is the edit key. On a wider terminal `enter` on a task row
+  does nothing, and on an epic header it still collapses. `v` still opens the
+  fully composed document in `$PAGER`.
+
 - Task priority is now the Fibonacci scale `1 2 3 5 8 13 21`, ascending with
   "higher wins" (so `21` is the most important, not the largest estimate).
   `radin backlog add --priority` and `set-priority` reject anything else, and

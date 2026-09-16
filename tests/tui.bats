@@ -519,3 +519,90 @@ tui() {
   [[ "$output" == *"done-25"* ]]
 }
 
+
+# --- the split detail pane ---
+
+# 120 columns: wide enough for the TUI to draw its right-hand detail pane.
+wide() {
+  (cd "$WORK/proj" && EDITOR="${TUI_EDITOR:-$WORK/editor.sh}" PAGER=cat \
+    PTY_COLS=120 "$PTY_RUN" "$SCREEN" "$1" "$TUI")
+}
+
+# The selected row is the feat task (the list is in category order), so these
+# two rewrite dark-mode's body.
+md_body() {
+  seed
+  printf '# Heading\n\n> quoted\n\n- item\n\n**bold** text\n' >"$TASKS/dark-mode.md"
+}
+
+long_body() {
+  seed
+  awk 'BEGIN{for(i=1;i<=60;i++)printf "line %02d\n", i}' >"$TASKS/dark-mode.md"
+}
+
+@test "the detail pane renders markdown beside the tree at 120 columns" {
+  md_body
+  run wide "q"
+  [ "$status" -eq 0 ]
+  run last_frame
+  [[ "$output" == *"Heading"* ]]
+  [[ "$output" == *"quoted"* ]]
+  [[ "$output" == *"item"* ]]
+  [[ "$output" == *"bold text"* ]]
+  [[ "$output" != *"# Heading"* ]]
+  [[ "$output" != *"> quoted"* ]]
+  [[ "$output" != *"**bold**"* ]]
+}
+
+@test "no detail pane below 100 columns" {
+  md_body
+  run tui "q"
+  [ "$status" -eq 0 ]
+  run last_frame
+  [[ "$output" != *"quoted"* ]]
+}
+
+@test "^d scrolls the detail pane and leaves the selection alone" {
+  long_body
+  run wide "\x04|q"
+  [ "$status" -eq 0 ]
+  run last_frame
+  [[ "$output" == *"line 20"* ]]
+  [[ "$output" != *"line 01"* ]]
+  [ "$(last_pos)" = "[1/2]" ]
+}
+
+@test "j moves the tree selection and does not scroll the detail" {
+  long_body
+  run wide "j|q"
+  [ "$status" -eq 0 ]
+  [ "$(last_pos)" = "[2/2]" ]
+  run last_frame
+  # The other task's body, from its first line: the pane rebuilt from the top.
+  [[ "$output" == *"Auth times out."* ]]
+}
+
+@test "enter opens the detail overlay below 100 columns and q dismisses it" {
+  md_body
+  run tui "\r|q|q"
+  [ "$status" -eq 0 ]
+  run cat "$SCREEN"
+  [[ "$output" == *"q/esc close"* ]]
+  [[ "$output" == *"quoted"* ]]
+  run last_frame
+  [[ "$output" == *"2 task(s)"* ]]
+  # enter is no longer the edit key, so $EDITOR never ran.
+  run head -1 "$TASKS/dark-mode.md"
+  [ "$output" = "# Heading" ]
+}
+
+@test "enter on a task row does nothing at 120 columns" {
+  md_body
+  run wide "\r|q"
+  [ "$status" -eq 0 ]
+  [ "$(last_pos)" = "[1/2]" ]
+  run cat "$SCREEN"
+  [[ "$output" != *"q/esc close"* ]]
+  run head -1 "$TASKS/dark-mode.md"
+  [ "$output" = "# Heading" ]
+}

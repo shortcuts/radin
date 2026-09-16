@@ -233,9 +233,25 @@ radin/
 ## The human TUI
 
 `radin tui` — or bare `radin` on a terminal — (`lib/radin-tui.c`) is the human's way into the same backlog the
-skills drive: a full-screen list of every task, a preview of the selected
-task's body, and one key per operation (`e` edit in `$EDITOR`, `v` view in
-`$PAGER`, `a` new, `d` delete, `c` next category, `r` retitle, `/` search).
+skills drive: a two-pane split — the task tree on the left 40% of the width,
+the selected row's detail on the right 60% — and one key per operation (`e`
+edit in `$EDITOR`, `v` view in `$PAGER`, `a` new, `d` delete, `c` next
+category, `r` retitle, `/` search).
+
+The detail pane renders the task body through a hand-rolled markdown subset:
+an ATX heading goes bold with its `#` gone, a `>` quote goes dim and indented,
+a bullet is re-marked `•`, and `**` is stripped rather than rendered.
+`ctrl-d`/`ctrl-u` scroll that pane half a pane at a time and never move the
+tree selection, exactly as `j`/`k` move the selection and never scroll the
+pane — there is no focus concept and no `Tab`-to-switch. Its limits are
+deliberate: no fenced-code state, so a `#` inside a fence still renders bold,
+and no line wrapping — a long rendered line truncates like every other row.
+Under 100 columns the right pane is not drawn at all and the tree takes the
+full width; `enter` on a task row then opens the same renderer full-screen,
+scrolled by the same two keys and dismissed with `q`/ESC. At 100 columns or
+more the pane is already on screen, so `enter` on a task row is a genuine
+no-op (on an epic header it always collapses). More keystrokes beat an
+unreadable UI, because people read this on a phone.
 A `P` in the first column marks a task `radin-plan` already planned. A `*`
 marks a row matching the active `/` search, and `n`/`N` walk those matches.
 Priority is its own column left of the category, and the only coloured cell in
@@ -248,10 +264,13 @@ Epic children are drawn as a `tree`-style one-level hierarchy: `├──` on ev
 child but the last, `└──` on the last, and no connector on an ungrouped task.
 The shape is read off the row arrays at draw time -- the row after the last
 child is always an epic header or nothing -- so it stays a drawing concern and
-no key handler learns about tree shape or the collapse set. `row_span()` pads
-and truncates by bytes, so it grows its target width by the text's UTF-8
-continuation bytes; a three-byte connector character otherwise costs three
-columns of the row.
+no key handler learns about tree shape or the collapse set. `span_at()` pads
+and truncates by bytes against an explicit width — explicit because a split
+pane works per column rather than against `COLS` — and grows that width by the
+text's UTF-8 continuation bytes; a three-byte connector character otherwise
+costs three columns of the row. The two-argument `row()` and five-argument
+`row_span()` wrappers keep every full-width call site (the Done view, the
+pickers, the padding rows) unchanged.
 
 Three rules keep it from becoming a second backlog implementation:
 

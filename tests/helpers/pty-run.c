@@ -144,8 +144,14 @@ int main(int argc, char **argv) {
 	}
 
 	/* A forked pty has no window size, and the TUI would fall back to its 40x10
-	 * minimum -- narrower and shorter than any real terminal. */
+	 * minimum -- narrower and shorter than any real terminal. 80x24 is the
+	 * default so no existing test changes; PTY_COLS/PTY_ROWS override it, which
+	 * is how a test reaches a terminal wide enough for the TUI's split pane. */
 	struct winsize ws = {24, 80, 0, 0};
+	const char *e = getenv("PTY_ROWS");
+	if (e && atoi(e) > 0) ws.ws_row = (unsigned short)atoi(e);
+	e = getenv("PTY_COLS");
+	if (e && atoi(e) > 0) ws.ws_col = (unsigned short)atoi(e);
 	ioctl(fd, TIOCSWINSZ, &ws);
 
 	/* Put the pty in character mode before the child can read: keys written

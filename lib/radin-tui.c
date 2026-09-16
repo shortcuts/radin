@@ -34,6 +34,8 @@
 #define US '\037'
 #define SLOT 512
 #define BIG 4096
+#define SPLIT_MIN 100 /* below this many columns, no right pane */
+#define MAXDET 1024   /* detail lines kept; the rest is not scrollable */
 
 static const char *CATEGORIES[] = {"feat", "fix", "chore", "refactor"};
 #define NCAT 4
@@ -55,6 +57,14 @@ static int ROWS = 24, COLS = 80;
 static int MODE_DONE;
 static char COLLAPSED[BIG];
 static int COLOR = 1;
+
+/* The detail view's own state: DETAIL_FILE below is the `v`/$PAGER temp file
+ * and unrelated. DET_ROW is the row DET was built for, so a move resets the
+ * scroll from the render path rather than from every key handler. */
+static char DET[MAXDET][SLOT];
+static int DET_N, DET_TOP;
+static int DET_H = 1;
+static int DET_ROW = -1;
 
 static char *done_rows[MAXT];
 static int DONE_N, DONE_SEL, DONE_TOP;
@@ -208,20 +218,23 @@ static void on_signal(int s) {
 	_exit(130);
 }
 
-/* Every row is padded to the full width so the selected row's reverse-video
+/* Every row is padded to its pane's width so the selected row's reverse-video
  * block spans it, and truncated so a long title can never wrap and desync the
  * frame's line count. Colour is applied to one byte span of the already-padded
- * line, so the escape bytes never count against COLS -- and the reset it ends
- * with also clears reverse video, which is why that gets re-armed. */
-static void row_span(const char *text, int selected, const char *colour, int at, int len) {
+ * line, so the escape bytes never count against the width -- and the reset it
+ * ends with also clears reverse video, which is why that gets re-armed. The
+ * width is explicit because a split pane pads and truncates per column; nl is 0
+ * for an absolutely-positioned pane, which must print no newline of its own. */
+static void span_at(const char *text, int selected, const char *colour, int at, int len,
+	int width, int nl) {
 	char buf[1200];
 	/* Pad and truncate by bytes, but against a width grown by the UTF-8
 	 * continuation bytes in the text, so a box-drawing connector costs one
 	 * column rather than the three bytes it occupies. */
-	int width = COLS;
+	int w = width;
 	for (const unsigned char *p = (const unsigned char *)text; *p; p++)
-		if ((*p & 0xC0) == 0x80) width++;
-	snprintf(buf, sizeof buf, "%-*.*s", width, width, text);
+		if ((*p & 0xC0) == 0x80) w++;
+	snprintf(buf, sizeof buf, "%-*.*s", w, w, text);
 	if (selected) printf("\033[7m");
 	if (colour && *colour && at + len <= (int)strlen(buf)) {
 		printf("%.*s%s%.*s\033[0m", at, buf, colour, len, buf + at);
@@ -230,7 +243,12 @@ static void row_span(const char *text, int selected, const char *colour, int at,
 	} else
 		printf("%s", buf);
 	if (selected) printf("\033[0m");
-	printf("\n");
+	if (nl) printf("\n");
+}
+
+/* The full-width wrappers every list outside the split still draws through. */
+static void row_span(const char *text, int selected, const char *colour, int at, int len) {
+	span_at(text, selected, colour, at, len, COLS, 1);
 }
 
 static void row(const char *text, int selected) { row_span(text, selected, "", 0, 0); }
@@ -347,6 +365,7 @@ static void build_rows(void) {
 		}
 	}
 	if (SEL >= N) SEL = N > 0 ? N - 1 : 0;
+	DET_ROW = -1; /* the rows moved under it, so the detail scroll is stale */
 }
 
 static void load(void) {
@@ -418,58 +437,123 @@ static int clamp_top(int sel, int top, int h) {
 	return top < 0 ? 0 : top;
 }
 
-/* The detail pane: the title, the ids, then the task body. The full composed
- * document -- epic description, every plan file, dependency titles -- lives
- * behind `v`. */
-static void draw_preview(int h) {
-	char line[1200];
+/* Renders one markdown source line for a pane: strips the markers into `out`
+ * and returns the ANSI prefix the whole line is painted with ("" for none).
+ * A hand-rolled subset, and deliberately stateless: no fenced-code tracking, so
+ * a `#` inside a fence does render bold, and no line wrapping -- span_at()
+ * truncates a rendered line exactly as it truncates every other row. */
+static const char *md_line(const char *src, char *out, size_t cap) {
+	const char *style = "";
+	const char *p = src;
+	int lead = 0;
+	while (*p == ' ') {
+		p++;
+		lead++;
+	}
+	int hashes = 0;
+	const char *q = p;
+	while (*q == '#') {
+		q++;
+		hashes++;
+	}
+	if (!*p) {
+		out[0] = 0;
+	} else if (hashes && hashes <= 6 && (*q == ' ' || *q == 0)) {
+		while (*q == ' ') q++;
+		snprintf(out, cap, "%s", q);
+		style = "\033[1m";
+	} else if (*p == '>') {
+		int lvl = 0;
+		while (*p == '>') {
+			p++;
+			lvl++;
+			if (*p == ' ') p++;
+		}
+		snprintf(out, cap, "%*s%s", lvl * 2, "", p);
+		style = "\033[2m";
+	} else if ((*p == '-' || *p == '*' || *p == '+') && p[1] == ' ') {
+		snprintf(out, cap, "%*s  \342\200\242 %s", lead, "", p + 2);
+	} else {
+		snprintf(out, cap, "%s", src);
+	}
+	/* Emphasis markers are stripped, never rendered: a bold span inside an
+	 * already-styled line would have to restore the line's own style. */
+	char *d = out, *s = out;
+	while (*s) {
+		if (s[0] == '*' && s[1] == '*') {
+			s += 2;
+			continue;
+		}
+		*d++ = *s++;
+	}
+	*d = 0;
+	return COLOR ? style : "";
+}
+
+static void det_push(const char *fmt, ...) {
+	if (DET_N >= MAXDET) return;
+	va_list ap;
+	va_start(ap, fmt);
+	vsnprintf(DET[DET_N++], SLOT, fmt, ap);
+	va_end(ap);
+}
+
+/* Fills DET with the selected row's detail document as markdown source. Reads
+ * the task file directly -- no cli() call, so a frame still forks nothing. The
+ * full composed document (epic description, every plan file, dependency
+ * titles) lives behind `v`. */
+static void build_detail(void) {
+	DET_N = 0;
+	if (N <= 0) return;
 	int ti = cur_task();
-	int n = 0;
 	if (ti >= 0) {
-		snprintf(line, sizeof line, "-- %s ", T[ti].id);
-		row(line, 0);
-		snprintf(line, sizeof line, "  %s", T[ti].title);
-		row(line, 0);
-		snprintf(line, sizeof line, "  id: %s  category: %s  priority: %s", T[ti].id,
-			T[ti].cat, *T[ti].prio ? T[ti].prio : "(unset)");
-		row(line, 0);
-		row("  ", 0);
-		n = 3;
+		det_push("# %s", T[ti].title);
+		det_push("");
+		det_push("id: %s   category: %s   priority: %s", T[ti].id, T[ti].cat,
+			*T[ti].prio ? T[ti].prio : "(unset)");
+		det_push("");
 		char path[PATH_MAX];
 		task_path(ti, path, sizeof path);
 		FILE *f = fopen(path, "r");
 		if (f) {
 			char buf[1200];
-			while (n < h && fgets(buf, sizeof buf, f)) {
+			while (DET_N < MAXDET && fgets(buf, sizeof buf, f)) {
 				chomp(buf);
-				snprintf(line, sizeof line, "  %s", buf);
-				row(line, 0);
-				n++;
+				det_push("%s", buf);
 			}
 			fclose(f);
 		}
 	} else {
-		snprintf(line, sizeof line, "-- epic: %s ", row_epic[SEL]);
-		row(line, 0);
-		snprintf(line, sizeof line, "  epic: %s", row_epic[SEL]);
-		row(line, 0);
-		row("  ", 0);
-		n = 2;
-		for (int i = 0; i < TASK_N && n < h; i++) {
-			if (strcmp(T[i].epic, row_epic[SEL])) continue;
-			snprintf(line, sizeof line, "  - %s", T[i].title);
-			row(line, 0);
-			n++;
-		}
+		det_push("# epic: %s", row_epic[SEL]);
+		det_push("");
+		for (int i = 0; i < TASK_N; i++)
+			if (!strcmp(T[i].epic, row_epic[SEL])) det_push("- %s", T[i].title);
 	}
 }
 
+/* Paints DET[DET_TOP..] into a pane. at_col 0 means "here, one row per line,
+ * newline-terminated"; non-zero means absolute positioning at that column, and
+ * then the pane prints no newline so it cannot scroll the frame. */
+static void draw_detail(int top_row, int at_col, int width, int h) {
+	for (int i = 0; i < h; i++) {
+		const char *src = DET_TOP + i < DET_N ? DET[DET_TOP + i] : "";
+		char text[SLOT * 2];
+		const char *style = md_line(src, text, sizeof text);
+		if (at_col) printf("\033[%d;%dH", top_row + i, at_col);
+		span_at(text, 0, style, 0, (int)strlen(text), width, at_col ? 0 : 1);
+	}
+}
+
+/* The detail is a right-hand pane, except on a terminal too narrow to split:
+ * more keystrokes beat an unreadable UI. */
+static int split_on(void) { return COLS >= SPLIT_MIN; }
+
 static void draw(void) {
 	term_size();
-	int preview_h = (ROWS - 4) / 3;
-	if (preview_h < 4) preview_h = 4;
-	int list_h = ROWS - preview_h - 4;
+	int list_h = ROWS - 2; /* row 1 is the header bar, ROWS the footer */
 	if (list_h < 1) list_h = 1;
+	int lw = split_on() ? COLS * 2 / 5 : COLS; /* 40% */
+	int rw = split_on() ? COLS - lw - 1 : 0;   /* one blank gutter column */
 	TOP = clamp_top(SEL, TOP, list_h);
 
 	char header[1200], text[1200];
@@ -487,7 +571,7 @@ static void draw(void) {
 	if (end > N) end = N;
 	int i;
 	if (N == 0) {
-		row("  (no tasks) press a to create one", 0);
+		span_at("  (no tasks) press a to create one", 0, "", 0, 0, lw, 1);
 		i = 1;
 	} else {
 		for (i = TOP; i < end; i++) {
@@ -519,18 +603,31 @@ static void draw(void) {
 				len = (int)strlen(T[ti].prio);
 				if (len < 2) len = 2;
 			}
-			row_span(text, i == SEL, colour, at, len);
+			span_at(text, i == SEL, colour, at, len, lw, 1);
 		}
 		i = end - TOP;
 	}
-	for (; i < list_h; i++) row("", 0);
+	for (; i < list_h; i++) span_at("", 0, "", 0, 0, lw, 1);
 
-	if (N > 0) draw_preview(preview_h);
-	else row("--", 0);
+	if (N > 0 && split_on()) {
+		/* Scroll bookkeeping lives here and in the overlay loop, nowhere else,
+		 * so no future key handler can forget to reset it on a move. */
+		if (SEL != DET_ROW) {
+			DET_ROW = SEL;
+			DET_TOP = 0;
+		}
+		build_detail();
+		DET_H = list_h;
+		if (DET_TOP > DET_N - list_h) DET_TOP = DET_N - list_h;
+		if (DET_TOP < 0) DET_TOP = 0;
+		draw_detail(2, lw + 2, rw, list_h);
+	}
 
-	const char *footer =
-		"j/k/g/G move  enter edit/collapse  v detail  / search  n/N match  "
-		"a new  d delete  c category  r retitle  Tab done  ? keys  q quit";
+	const char *footer = split_on()
+		? "j/k/g/G move  ^d/^u scroll  e edit  v detail  / search  n/N match  "
+		  "a new  d delete  c category  r retitle  Tab done  ? keys  q quit"
+		: "j/k/g/G move  ^d/^u scroll  enter detail  e edit  v detail  / search  "
+		  "n/N match  a new  d delete  c category  r retitle  Tab done  ? keys  q quit";
 	bar(*MSG ? MSG : footer, ROWS);
 	fflush(stdout);
 }
@@ -643,6 +740,16 @@ static int move_key(int k) {
 	case 'N':
 		if (MODE_DONE) return 0;
 		search_jump(k == 'n' ? 1 : -1);
+		return 1;
+	/* ^d / ^u: half a pane of the detail, which is what vi and less bind them
+	 * to. They never touch SEL, and the motion keys never touch DET_TOP beyond
+	 * the render path's reset, so the two panes cannot move each other. draw()
+	 * clamps, so no bound is needed here. Handled as a motion so a held burst
+	 * coalesces into one frame like j/k does. */
+	case 4:
+	case 21:
+		if (MODE_DONE || !split_on()) return 0;
+		DET_TOP += (k == 4 ? 1 : -1) * (DET_H / 2 > 0 ? DET_H / 2 : 1);
 		return 1;
 	}
 	return 0;
@@ -1133,6 +1240,30 @@ static void view_task(void) {
 	run_external(pager && *pager ? pager : "less", DETAIL_FILE);
 }
 
+/* The full-screen detail a narrow terminal gets instead of a right pane: the
+ * same DET buffer and the same renderer, scrolled by ^d/^u. Modal -- a resize
+ * past SPLIT_MIN while it is open does not dismiss it. */
+static void detail_overlay(void) {
+	DET_TOP = 0;
+	for (;;) {
+		term_size();
+		int h = ROWS - 2;
+		if (h < 1) h = 1;
+		build_detail();
+		DET_H = h;
+		if (DET_TOP > DET_N - h) DET_TOP = DET_N - h;
+		if (DET_TOP < 0) DET_TOP = 0;
+		printf("\033[H\033[2J");
+		bar("detail", 0);
+		draw_detail(2, 0, COLS, h);
+		bar("^d/^u scroll  q/esc close", ROWS);
+		fflush(stdout);
+		int k = readkey();
+		if (k < 0 || k == 'q' || k > 1000) return; /* EOF, q, bare ESC */
+		if (k == 4 || k == 21) DET_TOP += (k == 4 ? 1 : -1) * (h / 2 > 0 ? h / 2 : 1);
+	}
+}
+
 static void help_screen(void) {
 	printf("\033[H\033[2J");
 	printf(
@@ -1140,7 +1271,10 @@ static void help_screen(void) {
 		"  j / down      next task\n"
 		"  k / up        previous task\n"
 		"  g / G         first / last task\n"
-		"  enter, e      edit the task body in $EDITOR (an epic row: collapse/expand)\n"
+		"  e             edit the task body in $EDITOR (an epic row: collapse/expand)\n"
+		"  enter         an epic row: collapse/expand. A task row: nothing, unless\n"
+		"                the terminal is under 100 columns -- then the detail overlay\n"
+		"  ^d / ^u       scroll the detail half a pane\n"
 		"  v             view the composed detail in $PAGER: the body, the epic's\n"
 		"                own description, every plan file and the dependency titles --\n"
 		"                everything the pane leaves out\n"
@@ -1163,6 +1297,8 @@ static void help_screen(void) {
 		"A P in the first column marks a task radin-plan has already planned.\n"
 		"A * in the left margin marks a row matching the active / search.\n"
 		"Epic rows are headers; collapse is per-session.\n"
+		"At 100 columns or more the detail is the right-hand 60%% of the screen;\n"
+		"under that it is not drawn at all and enter opens it full-screen.\n"
 		"Tasks live in .claude/.radin/backlog/ in this repo.\n\n"
 		"press any key\n");
 	fflush(stdout);
@@ -1267,11 +1403,17 @@ int main(int argc, char **argv) {
 		int ti;
 		switch (k) {
 		case 'e':
-		case '\r':
-		case '\n':
 			ti = cur_task();
 			if (ti >= 0) edit_body(ti);
 			else toggle_collapse();
+			break;
+		/* enter is the narrow terminal's way to the detail, and a genuine no-op
+		 * where the pane is already on screen -- no message, because the next
+		 * draw() has to repaint an identical frame. */
+		case '\r':
+		case '\n':
+			if (cur_task() < 0) toggle_collapse();
+			else if (!split_on()) detail_overlay();
 			break;
 		case 'v': view_task(); break;
 		case '\t':
