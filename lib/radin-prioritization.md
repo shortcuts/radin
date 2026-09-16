@@ -27,12 +27,6 @@ One rule is left, and it is a rule rather than a computation:
    cannot store an explicitly empty `depends_on`, so an absent one is the
    human's "no dependencies", not a gap to fill.
 
-`order` moves a dependency **up** to immediately before its dependent and
-leaves every other relative position alone — the human's ranking survives as
-far as the dependency graph allows. It reports each such move as a
-`dependency override:` line in `--report`, so the user's confirm-or-revise
-answer still decides.
-
 ### Weighted criteria for unset entries (in order of weight)
 
 - **Blocking issues** (bugs that prevent core functionality) → highest priority

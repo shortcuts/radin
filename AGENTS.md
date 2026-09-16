@@ -56,6 +56,22 @@ it ask user nothing and spawn no agent
 companion gate on `command -v` and carry escape clause: drop skill,
 never wait on it.
 
+## Writing prose for agents
+
+- **No-op test.** Sentence that not change what model do versus its default
+  pay load and say nothing. Delete whole sentence, never trim word out of it.
+- **Positive over prohibition.** Ban drag banned behaviour into context and
+  half-read as instruction to do it. State target behaviour. Keep prohibition
+  only as hard guardrail with no positive phrasing, then pair it with target.
+- **Leading word.** One word model already hold, repeated as token, replace
+  restated triad or sentence that gesture at one idea.
+- **Completion criterion.** Step end on bound model can check and that demand
+  whole job ("every listed task", not "a report").
+
+Rest live elsewhere: `/mattpocock-skills:writing-for-agents` full rule set,
+`STE` output style sentence craft, `no-ai-slop` human-facing prose,
+[one rule, one file](docs/architecture.md#one-rule-one-file) where rule live.
+
 ## Delegation: one owner per job
 
 If shipped tool do job, name it; never write radin own version. Each
@@ -70,6 +86,7 @@ delegation named in exactly one file — second copy drift silent, and
 | Implementation discipline | `/caveman:surgical-patch` (fix), `safe-refactor`, `lean-build` (feat) |
 | Code structure questions | codebase-memory-mcp's MCP tools |
 | Output compression · structural search/diff | `rtk` · `headroom sg`/`diff`/`loc` |
+| Agent-doc writing rules | `/mattpocock-skills:writing-for-agents` |
 
 Graph tool name live in four files only and must exist in upstream table —
 wrong one cost failed call in every sub-agent

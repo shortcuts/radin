@@ -7,9 +7,7 @@ description: |
 ---
 # Show Backlog
 
-Print the current project's backlog as markdown. This skill is read-only.
-
-## Step 1: Print it
+Print the current project's backlog as markdown.
 
 ```bash
 RADIN_CLI backlog show

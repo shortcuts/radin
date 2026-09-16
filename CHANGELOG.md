@@ -24,6 +24,11 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Every skill and the on-demand `lib/*.md` files drop their explanations of how
+  radin's CLI works internally; each CLI call now carries at most one line
+  saying what it does. `AGENTS.md` gains a `Writing prose for agents` section
+  with the rules that keep them that way. No behaviour change.
+
 - `install.sh` no longer relays `codebase-memory-mcp`'s per-item configuration
   trace or upstream's per-client inventory; both go to
   `~/.claude/.radin/cbm-config.log`, named only when the step did not come out

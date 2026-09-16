@@ -8,16 +8,11 @@ description: |
 ---
 # Doctor
 
-A read-only health check for radin's own install under `~/.claude`. It mutates
-nothing.
-
-## Step 1: Run it
+A read-only health check for radin's own install under `~/.claude`.
 
 ```bash
 RADIN_CLI doctor
 ```
-
-## Step 2: Report it
 
 Print the full output to the user as-is. It already lists every checked item
 with its status.

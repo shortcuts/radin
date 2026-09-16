@@ -1,8 +1,7 @@
 # Shared: radin-execute Blocked-Task Routing
 
 `radin-execute` reads this file when a sub-agent reports `STATUS: BLOCKED`, at
-any of the phases that can produce one. A run where nothing blocks never loads
-it.
+any of the phases that can produce one.
 
 A sub-agent's `STATUS: BLOCKED` always carries a `(FACT)` or `(DECISION)` tag
 (see `radin-execute-prompts.md`). Route on it:
@@ -18,8 +17,7 @@ A sub-agent's `STATUS: BLOCKED` always carries a `(FACT)` or `(DECISION)` tag
     `backlog append` (labels below; a reported `state/facts/<id>.md` path is
     the `**Facts:**` case), treat the entry as `pending`, retry from Step 4a.
     It stays scoped to the one task that needed it: never copy a
-    finding onto another entry, and never build a shared notes file. A
-    sub-agent's context is small on purpose.
+    finding onto another entry, and never build a shared notes file.
   - `STATUS: NOT FOUND`: it has escalated into a decision. Fall through to
     `(DECISION)`, with its report as context.
 - **`BLOCKED (DECISION)`**: a judgment call the entry or plan doesn't settle.

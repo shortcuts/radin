@@ -15,19 +15,7 @@ reach the user says so in its prompt; the branches below marked
 "non-interactive" are then the defaults, and anything only the user could
 settle is reported and stops the run.
 
-## Step 1: Resolve project namespace
-
-All backlog reads/writes go through the `RADIN_CLI backlog` CLI. Get the paths
-(this also creates the state/plans/reviews/tasks directories):
-
-```bash
-RADIN_CLI backlog env
-```
-
-Read `REPO_ROOT`, `NAMESPACE_DIR`, `BACKLOG_INDEX`, `BACKLOG_TASKS_DIR` from
-its output. Re-run this line in any later Bash call that uses them.
-
-## Step 2: Resolve the task scope
+## Step 1: Resolve the task scope
 
 ```bash
 RADIN_CLI backlog plan-target "<scope id/title/keyword>"
@@ -55,7 +43,7 @@ It prints `id`/`title`/`task_file`/`plan_file` lines, plus one
 - **3**: already planned; the `plan` lines are the existing paths. Show them and
   ask whether to re-plan (overwrite) or stop. Stop unless confirmed.
 
-## Step 3: Judge whether the scope should split
+## Step 2: Judge whether the scope should split
 
 Invoke `/ponytail:ponytail` and apply its ladder: does this entry need more than one
 plan? Lean toward NOT splitting. Split only when the entry genuinely
@@ -69,13 +57,13 @@ Non-interactive: take the default (no split) without asking.
   description each, full coverage, no overlap) and confirm. Confirmed or
   edited: use that list. Rejected: fall back to the single-item list.
 
-## Step 4: Write each plan
+## Step 3: Write each plan
 
-Step 2 printed `task_file` and `plan_file`; a task's file never moves, so
+Step 1 printed `task_file` and `plan_file`; a task's file never moves, so
 neither is re-resolved between sub-tasks. For each sub-task, in order:
 
 1. Read the entry's file. A sub-task from a split has only its one-line
-   Step 3 description as scope, so plan just that part.
+   Step 2 description as scope, so plan just that part.
 2. Explore the codebase: structure, affected files, patterns, constraints.
    Use `codebase-memory-mcp`'s MCP tools before Grep/Glob/Read: `get_architecture` for the shape of an unfamiliar area,
    `search_graph` to find the symbols in scope, `trace_path` for every
@@ -104,7 +92,7 @@ neither is re-resolved between sub-tasks. For each sub-task, in order:
    leave zero decisions to whoever executes it. Non-interactive: an
    unresolvable question stops the run, so report it rather than plan around
    it.
-4. Save the plan at the `plan_file` path Step 2 printed. For a sub-task from a
+4. Save the plan at the `plan_file` path Step 1 printed. For a sub-task from a
    split, re-run `plan-target "<id>" "<sub-slug>"` with the sub-task's short
    title in lowercase-hyphen form and use the `plan_file` it prints.
 5. Insert the pointer via the CLI (appends `**Plan:** <path>` to the task's
@@ -115,7 +103,7 @@ neither is re-resolved between sub-tasks. For each sub-task, in order:
    ```
 
 6. Report: `✅ <id> planned. Plan: <path>. Review findings: <n or none>.` The
-   count comes from Step 5, so write this line after that sub-task's review
+   count comes from Step 4, so write this line after that sub-task's review
    pass, not before it.
 
 Planning and executing are separate tools: edit no source file, run no
@@ -123,7 +111,7 @@ build/test, create no commit anywhere in this skill. Never touch the scoped
 task's file beyond the appended `**Plan:**` line(s), and never touch any
 other task's file.
 
-## Step 5: Review each plan before handing it off
+## Step 4: Review each plan before handing it off
 
 A plan is a proposal, so review it before `radin-execute` builds on it. For
 each plan file just written:
@@ -134,12 +122,11 @@ each plan file just written:
 2. Invoke `/ponytail:ponytail-review` against the same file: speculative
    flexibility, reinvented stdlib, single-caller layers?
 3. Fix each finding by editing the plan file in place. The fix belongs in
-   the plan itself, and nothing goes to the backlog (unlike `radin-review`,
-   this plan hasn't executed yet, so there is no review record to keep).
+   the plan itself, and nothing goes to the backlog.
 4. Zero findings: leave the file untouched.
 
-## Step 6: Report back
+## Step 5: Report back
 
-One line per plan, as Step 4's step 6 already printed it, then:
+One line per plan, as Step 3's step 6 already printed it, then:
 
 `Next: radin-execute (or a human) can implement from the plan(s) above.`

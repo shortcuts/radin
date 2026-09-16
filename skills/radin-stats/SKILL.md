@@ -12,7 +12,7 @@ compute a merged total: the numbers use incompatible units -- real
 per-session tokens, static benchmark medians, and a counted per-repo ledger.
 A sum would misrepresent all three. Display each output as-is.
 
-## Step 1: Run every source
+## Run every source
 
 Run all five. Do not probe first: a source that is not installed fails
 visibly, and that failure is the skip -- never an error, never worth retrying.
@@ -28,12 +28,3 @@ visibly, and that failure is the skip -- never an error, never worth retrying.
 - **`headroom savings`** -- measured: headroom's compression ledger. "No
   savings recorded yet" is a normal empty result: nothing has been routed
   through its proxy or MCP tool.
-
-If a source finds nothing to report, treat that as a normal empty result:
-one quick check, then move on. Do not keep searching for entries that are
-not there. This output is informative only, so it does not need to be exact.
-
-## Step 2: Display, don't merge
-
-Print each tool's output as-is, under its own heading, in the order above.
-Print no combined total row: the units do not compose.

@@ -2,9 +2,7 @@
 
 The verbatim prompts `radin-execute` hands to its sub-agents. The skill
 reads this file at the start of Phase 4, once per session, and copies the
-relevant prompt into each `Task` call. They live here rather than inline in
-`skills/radin-execute/SKILL.md`, because a session that stops at Phase 2 (the
-common first turn) never reaches Phase 4 and never needs them.
+relevant prompt into each `Task` call.
 
 Every one of these runs in a sub-agent. Three tool-pool facts decide what a
 prompt here may ask for, and each fence carries a short correct version of

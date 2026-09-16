@@ -23,9 +23,7 @@ git/gh by hand:
 RADIN_CLI scope [<arg>]
 ```
 
-It settles commit hashes, PR references, directory paths, ranges, and the
-no-argument default (working branch's diff against its merge-base with
-main/master). Route on exit code:
+Route on exit code:
 
 - **0**: resolved. It prints `type`/`scope`/`command`/`passes` lines; run the
   printed command to get the scope's content.
@@ -92,8 +90,7 @@ above. It narrows what both rubrics look at, never how hard they look.
 ## Step 3: Present findings and get agreement
 
 Nothing reaches the backlog until the user agrees to it. First drop the
-out-of-scope findings — both passes read whole files and surface findings this
-skill must not log:
+out-of-scope findings:
 
 ```bash
 printf '%s\n' "<path:line per finding, one per line>" |

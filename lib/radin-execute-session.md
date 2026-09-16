@@ -1,9 +1,7 @@
 # Shared: radin-execute Worktree/Branch Answers
 
 `radin-execute` reads this file only when `radin-state.sh session-get` exits 1
-at Phase 0.5 — no worktree/branch answer is recorded for this repo yet. That
-is the first run in a repo and nothing after it: every later run reads the
-answers back and asks nothing.
+at Phase 0.5 — no worktree/branch answer is recorded for this repo yet.
 
 The two answers are not independent. A worktree cannot share the checkout's
 branch, so `worktree: yes` always creates `radin/<task-id>` and the `branch`

@@ -2,7 +2,7 @@
 
 `radin-execute` reads this file only when a run is not starting clean:
 `BACKLOG_STEPS.json` already exists at startup, or a context compaction
-summarized earlier turns away. A fresh run never loads it.
+summarized earlier turns away.
 
 ## Resume
 

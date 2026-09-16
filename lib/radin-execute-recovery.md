@@ -2,7 +2,6 @@
 
 `radin-execute` reads this file only when `radin-state.sh stuck` exits 0 —
 a previous run dispatched a task and never got a terminal status for it.
-Most runs never load it.
 
 A stuck task's sub-agent died with the session, so what it left on disk is
 unknown. Never re-dispatch one blind. For each id `stuck` printed:

@@ -5,15 +5,13 @@ description: Wire codebase-memory-mcp into this repo when install.sh could not d
 # radin: Set Up Companion-Tool Hooks
 
 `install.sh` normally wires codebase-memory-mcp globally: it runs upstream's
-own configuration (skill, three graph agents, hooks, user-scope MCP entry) and
-restores whatever that write dropped. When it did that, **there is nothing for
+own configuration and restores whatever that write dropped. When it did that, **there is nothing for
 this skill to do** — the graph works in every repo with no per-project step.
 
 This skill is the fallback for two cases:
 
 - A C compiler was missing at install time, so `radin-cbm-json` was never built
-  and `install.sh` installed the binary only -- it will not run upstream's
-  configuration without the helper that puts your own hooks back.
+  and `install.sh` installed the binary only.
 - The user ran `codebase-memory-mcp uninstall` but kept radin.
 
 Check first with `RADIN_CLI doctor` and read its

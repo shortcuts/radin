@@ -1,7 +1,7 @@
 # Shared: radin-execute Final Summary
 
-`radin-execute` reads this file at Phase 5, once the execution loop has
-exited. `RADIN_CLI state report "$NAMESPACE_DIR" [<dropped-skill line>...]`
+`radin-execute` reads this file at Phase 5.
+`RADIN_CLI state report "$NAMESPACE_DIR" [<dropped-skill line>...]`
 prints the report itself — the residual-changes check, the commit-location
 lines, every `failed`, `blocked` and `deferred` entry with its note, and the
 stashes this session created. Two things it cannot do:

@@ -94,12 +94,10 @@ sentences it holds.
 
 ## Phase 0: Resolve Project Namespace
 
-All radin state lives in `<repo-root>/.claude/.radin/`. Two CLIs own it:
-`RADIN_CLI backlog` (backlog index + task files) and `RADIN_CLI state`
-(`BACKLOG_STEPS.json` / `completed.json`). They own those files' schema, so
-never hand-edit one and never parse one to decide what to do next;
-`radin-execute-resume.md`'s read-only resume triage is the one exception. Run
-either CLI with no arguments for its subcommands. Resolve the namespace and verify a backlog exists in the **same Bash
+`RADIN_CLI backlog` and `RADIN_CLI state` own every radin state file. Never
+hand-edit one, and never parse one to decide what to do next;
+`radin-execute-resume.md`'s read-only resume triage is the one exception.
+Resolve the namespace and verify a backlog exists in the **same Bash
 call** (shell state does not persist across calls):
 
 ```bash
@@ -222,22 +220,17 @@ preferences are the only questions a prompt may pre-answer.
 
 ## Phase 3: Persist Execution Plan
 
-`order --steps` prints exactly `steps-init`'s stdin format, so the confirmed
-order is one pipe and no composed heredoc:
+The confirmed order is persisted by exactly this pipe:
 
 ```bash
 RADIN_CLI backlog order --steps <Phase 1's flags> --defer "<ids Phase 2 excluded>" |
   RADIN_CLI state steps-init "$NAMESPACE_DIR/state/BACKLOG_STEPS.json" "$BACKLOG_INDEX"
 ```
 
-`--defer` is where the deferred set is persisted, so nothing has to carry it
-to Phase 5: pass the ids Phase 2 excluded. Resolving that free text to ids is yours;
+`--defer` takes the ids Phase 2 excluded; omit the flag entirely when nothing
+is deferred. Resolving that free text to ids is yours;
 filtering, renumbering and the `depends_on` precedence are not — every listed
-task keeps the `order` number the user just confirmed. Omit `--defer`
-entirely when nothing is deferred.
-
-The CLI writes the schema itself (empty `note`) and records this session's
-baseline counts, which Phase 5's report reads.
+task keeps the `order` number the user just confirmed.
 
 ## Phase 3.5: Plan Wave
 
@@ -265,9 +258,6 @@ Then route the whole wave, once all of its reports are in:
   through Clarifying Ambiguity, then re-run `plan-wave` and send the second
   wave the same way. Run this phase at most twice per invocation: a task still
   unplanned after the second wave belongs to Step 4a, not here.
-
-Re-running the verb is free and idempotent — it lists only what still has no
-pointer — so a resumed run re-plans nothing.
 
 ## Phase 4: Task Execution Loop
 
@@ -335,8 +325,7 @@ Dispatch under the concurrency rule in Core Constraints. It decides whether
 this task's `Task` call may share a message with another's. Send the
 **Execution prompt** from `radin-execute-prompts.md`, substituting:
 
-One call per placeholder, right before substituting — `field` is idempotent,
-so there is nothing to cache and nothing to re-derive:
+One call per placeholder, right before substituting:
 
 ```bash
 RADIN_CLI backlog field "<task id>" <TASK_FILE|TASK_ID|CATEGORY|PLAN_PATHS|SKILLS|ACCEPTANCE>
@@ -447,16 +436,13 @@ are never redone. Long backlogs are fine to run straight through.
 
 ## Phase 5: Final Summary
 
-Always runs once the loop exits. It is the one place the user learns what
-needs manual attention or a decision, and the CLI prints it whole:
+Always runs once the loop exits, and the CLI prints it whole:
 
 ```bash
 RADIN_CLI state report "$NAMESPACE_DIR" "<one dropped-skill line per skill Step 4b dropped>"
 ```
 
-Print its output verbatim — it already holds the residual-changes check, the
-where-did-commits-land lines, this session's commits, and every `failed`,
-`blocked` and `deferred` entry with its note. Read
+Print its output verbatim. Read
 `$HOME/.claude/.radin/lib/radin-execute-reporting.md` for the two things it
 cannot do.
 

@@ -165,18 +165,14 @@ Once every confirmed item is added -- each `add` prints its id -- record Step
 RADIN_CLI backlog set-deps <dependent-id> <csv-of-ids-it-depends-on>
 ```
 
-Always after all the adds, never as `--depends-on` on `add`: a dependency the
-batch has not created yet is rejected as unknown, and the batch order is not
-the dependency order. Each noted title is either an id an `add` just printed, or, for
+Always after all the adds, never as `--depends-on` on `add`. Each noted title is either an id an `add` just printed, or, for
 a task that already existed, `RADIN_CLI backlog field "<title>" TASK_ID`. The CLI rejects an unknown id and any cycle, so a rejection means the
 dependency is misidentified, not that the flag is optional.
 
 Always append; never scan for near-duplicates or merge with an existing
 entry. A false-positive merge silently drops something the user cared
-about, which is worse than an occasional repeat. The user dedupes:
-`radin-execute`'s final summary runs `RADIN_CLI backlog duplicates` and flags
-duplicate ids and titles without guessing which copy to drop. No radin skill
-merges entries.
+about, which is worse than an occasional repeat. The user dedupes. No radin
+skill merges entries.
 
 ## Step 6: Report back
 
