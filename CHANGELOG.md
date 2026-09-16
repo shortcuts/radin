@@ -12,6 +12,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `radin tui`'s `p` picks from the seven values plus a clear entry instead of
   reading typed text. Validation is write-only: priorities already stored
   off-scale keep loading, listing and rendering, and nothing rewrites them.
+- `radin tui` now shows priority as its own column, left of the category, and
+  colours only that cell from a fixed map: `21`/`13` red, `8`/`5` yellow,
+  `3`/`2`/`1` green, nothing when unset or off the scale. The row itself is no
+  longer coloured, and the band is no longer relative to the priorities on
+  screen, so an unrelated task's number cannot change this one's colour.
+  `NO_COLOR` still turns it off.
 - Bare `radin` on a terminal now opens the TUI instead of printing usage; off a
   terminal it still prints the usage text and exits non-zero. `radin help`
   prints it anywhere.

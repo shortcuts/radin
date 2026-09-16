@@ -238,6 +238,11 @@ task's body, and one key per operation (`e` edit in `$EDITOR`, `v` view in
 `$PAGER`, `a` new, `d` delete, `c` next category, `r` retitle, `/` search).
 A `P` in the first column marks a task `radin-plan` already planned. A `*`
 marks a row matching the active `/` search, and `n`/`N` walk those matches.
+Priority is its own column left of the category, and the only coloured cell in
+the row: `21`/`13` red, `8`/`5` yellow, `3`/`2`/`1` green. The map is absolute
+because the scale is bounded, so no unrelated task's number can move this row's
+colour; anything off the scale -- unset, or a legacy value stored before the
+scale was bounded -- renders plain, and `NO_COLOR` drops the escapes entirely.
 
 Three rules keep it from becoming a second backlog implementation:
 

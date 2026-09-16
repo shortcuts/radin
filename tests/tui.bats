@@ -161,7 +161,7 @@ tui() {
   [[ "$output" == *'search:"auth"'* ]]
   [[ "$output" == *"dark mode"* ]]
   [[ "$output" == *"broken auth"* ]]
-  [[ "$output" == *"*  fix"* ]]
+  [[ "$output" =~ \*[[:space:]]+fix ]]
 }
 
 @test "n walks the search matches and wraps at the end" {
@@ -228,7 +228,7 @@ tui() {
   run tui "q"
   [ "$status" -eq 0 ]
   run cat "$SCREEN"
-  [[ "$output" == *"P feat"* ]]
+  [[ "$output" =~ P[[:space:]]+feat ]]
 }
 
 @test "epic children render under their epic header" {
@@ -378,33 +378,61 @@ tui() {
 }
 
 
-@test "priority rows render three relative colour bands, red highest" {
-  bl add feat "low one" --priority 1 <<<"low body" >/dev/null
-  bl add feat "mid one" --priority 5 <<<"mid body" >/dev/null
-  bl add feat "high one" --priority 13 <<<"high body" >/dev/null
+@test "the priority column is coloured by the fixed Fibonacci map" {
+  bl add feat "low one" --priority 3 <<<"low body" >/dev/null
+  bl add feat "mid one" --priority 8 <<<"mid body" >/dev/null
+  bl add feat "high one" --priority 21 <<<"high body" >/dev/null
+  run tui "q"
+  [ "$status" -eq 0 ]
+  run cat -v "$SCREEN"
+  [[ "$output" == *"^[[31m21^[[0m"* ]]
+  [[ "$output" == *"^[[33m8 ^[[0m"* ]]
+  [[ "$output" == *"^[[32m3 ^[[0m"* ]]
+  # Only the cell is painted: one red escape on the frame, and the title that
+  # follows the reset is not inside it.
+  run bash -c "cat -v '$SCREEN' | grep -c '\\^\\[\\[31m'"
+  [ "$output" -eq 1 ]
+}
+
+@test "a task with no priority gets an empty cell and no escape codes" {
+  bl add feat "high one" --priority 21 <<<"high body" >/dev/null
   bl add feat "no prio" <<<"none body" >/dev/null
   run tui "q"
   [ "$status" -eq 0 ]
-  run cat -v "$SCREEN"
-  [[ "$output" == *"^[[31m"*"high one"* ]]
-  [[ "$output" == *"^[[33m"*"mid one"* ]]
-  [[ "$output" == *"^[[32m"*"low one"* ]]
+  run bash -c "cat -v '$SCREEN' | grep 'no prio'"
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"^[["* ]]
 }
 
-@test "an epic child keeps its band, the epic header has no colour" {
+@test "an off-scale legacy priority renders uncoloured" {
+  bl add feat "legacy one" --priority 21 <<<"legacy body" >/dev/null
+  bl add feat "high one" --priority 21 <<<"high body" >/dev/null
+  # 70 is off the bounded scale, so only a pre-scale index can carry it.
+  sed '/legacy-one/s/"priority":21/"priority":70/' "$INDEX" >"$INDEX.new"
+  mv "$INDEX.new" "$INDEX"
+  grep -q '"priority":70' "$INDEX"
+  run tui "q"
+  [ "$status" -eq 0 ]
+  run bash -c "cat -v '$SCREEN' | grep 'legacy one'"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"70"* ]]
+  [[ "$output" != *"^[[31m"* ]]
+}
+
+@test "an epic child keeps its colour, the epic header has no colour" {
   bl epic-add ui-polish <<<"ctx"
-  bl add feat "low one" --priority 1 <<<"low body" >/dev/null
-  bl add feat "high child" --epic ui-polish --priority 13 <<<"high body" >/dev/null
+  bl add feat "low one" --priority 3 <<<"low body" >/dev/null
+  bl add feat "high child" --epic ui-polish --priority 21 <<<"high body" >/dev/null
   run tui "q"
   [ "$status" -eq 0 ]
   run cat -v "$SCREEN"
-  [[ "$output" == *"^[[31m"*"high child"* ]]
+  [[ "$output" == *"^[[31m21^[[0m"* ]]
   run bash -c "cat -v '$SCREEN' | grep 'epic: ui-polish'"
   [ "$status" -eq 0 ]
   [[ "$output" != *"^[["* ]]
 }
 
-@test "NO_COLOR disables the priority bands" {
+@test "NO_COLOR disables the priority colours" {
   bl add feat "low one" --priority 1 <<<"low body" >/dev/null
   bl add feat "high one" --priority 13 <<<"high body" >/dev/null
   export NO_COLOR=1

@@ -43,7 +43,6 @@ static const char *BODY_HINT =
 struct task {
 	char id[SLOT], cat[32], title[SLOT], file[SLOT], prio[32], deps[SLOT], epic[SLOT];
 	char flag[8];
-	const char *colour;
 };
 
 static struct task T[MAXT];
@@ -55,7 +54,6 @@ static char SEARCH[SLOT], MSG[BIG];
 static int ROWS = 24, COLS = 80;
 static int MODE_DONE;
 static char COLLAPSED[BIG];
-static int PMIN, PMAX, PANY;
 static int COLOR = 1;
 
 static char *done_rows[MAXT];
@@ -212,16 +210,24 @@ static void on_signal(int s) {
 
 /* Every row is padded to the full width so the selected row's reverse-video
  * block spans it, and truncated so a long title can never wrap and desync the
- * frame's line count. */
-static void row(const char *text, int selected, const char *colour) {
+ * frame's line count. Colour is applied to one byte span of the already-padded
+ * line, so the escape bytes never count against COLS -- and the reset it ends
+ * with also clears reverse video, which is why that gets re-armed. */
+static void row_span(const char *text, int selected, const char *colour, int at, int len) {
 	char buf[1200];
-	snprintf(buf, sizeof buf, "%.*s", COLS, text);
-	if (colour && *colour) printf("%s", colour);
+	snprintf(buf, sizeof buf, "%-*.*s", COLS, COLS, text);
 	if (selected) printf("\033[7m");
-	printf("%-*s", COLS, buf);
-	if (selected || (colour && *colour)) printf("\033[0m");
+	if (colour && *colour && at + len <= (int)strlen(buf)) {
+		printf("%.*s%s%.*s\033[0m", at, buf, colour, len, buf + at);
+		if (selected) printf("\033[7m");
+		printf("%s", buf + at + len);
+	} else
+		printf("%s", buf);
+	if (selected) printf("\033[0m");
 	printf("\n");
 }
+
+static void row(const char *text, int selected) { row_span(text, selected, "", 0, 0); }
 
 static void bar(const char *text, int at_row) {
 	char buf[1200];
@@ -232,13 +238,6 @@ static void bar(const char *text, int at_row) {
 }
 
 /* ---------- model ---------- */
-
-static int is_num(const char *s) {
-	if (!*s) return 0;
-	for (; *s; s++)
-		if (!isdigit((unsigned char)*s)) return 0;
-	return 1;
-}
 
 static int in_set(const char *set, const char *word) {
 	const char *p = set;
@@ -277,24 +276,21 @@ static void copy_field(char *dst, size_t cap, const char *src, size_t len) {
 	dst[len] = 0;
 }
 
-/* Bands are relative to the priorities now visible, so this row's colour moves
- * when an unrelated task's number does -- chosen over a fixed palette because
- * priority is an unbounded integer. */
-static void fill_colours(void) {
-	int span = PANY ? PMAX - PMIN : -1;
-	if (!COLOR) span = -1;
-	for (int i = 0; i < TASK_N; i++) {
-		T[i].colour = "";
-		if (!is_num(T[i].prio)) continue;
-		int p = atoi(T[i].prio);
-		if (span == 0) T[i].colour = "\033[33m";
-		else if (span > 0) {
-			int off = (p - PMIN) * 3;
-			if (off >= span * 2) T[i].colour = "\033[31m";
-			else if (off >= span) T[i].colour = "\033[33m";
-			else T[i].colour = "\033[32m";
-		}
-	}
+/* A fixed map over the Fibonacci scale: absolute, so an unrelated task's
+ * number cannot move this one's colour. Anything off the scale -- unset, or a
+ * legacy value stored before the scale was bounded -- renders uncoloured. */
+static const char *prio_colour(const char *prio) {
+	static const char *const RED[] = {"13", "21", NULL};
+	static const char *const YELLOW[] = {"5", "8", NULL};
+	static const char *const GREEN[] = {"1", "2", "3", NULL};
+	if (!COLOR) return "";
+	for (int i = 0; RED[i]; i++)
+		if (!strcmp(prio, RED[i])) return "\033[31m";
+	for (int i = 0; YELLOW[i]; i++)
+		if (!strcmp(prio, YELLOW[i])) return "\033[33m";
+	for (int i = 0; GREEN[i]; i++)
+		if (!strcmp(prio, GREEN[i])) return "\033[32m";
+	return "";
 }
 
 /* Case-insensitive substring on "id title". No active search means no match,
@@ -313,20 +309,6 @@ static int search_hit(int i) {
  * epic followed by its children. A collapsed epic's children are absent from
  * the row arrays, which is why j/k/g/G need no collapse logic of their own. */
 static void build_rows(void) {
-	PANY = 0;
-	for (int i = 0; i < TASK_N; i++) {
-		if (!is_num(T[i].prio)) continue;
-		int p = atoi(T[i].prio);
-		if (!PANY) {
-			PMIN = PMAX = p;
-			PANY = 1;
-		} else {
-			if (p < PMIN) PMIN = p;
-			if (p > PMAX) PMAX = p;
-		}
-	}
-	fill_colours();
-
 	N = 0;
 	for (int i = 0; i < TASK_N; i++) {
 		if (!*T[i].epic) {
@@ -439,13 +421,13 @@ static void draw_preview(int h) {
 	int n = 0;
 	if (ti >= 0) {
 		snprintf(line, sizeof line, "-- %s ", T[ti].id);
-		row(line, 0, "");
+		row(line, 0);
 		snprintf(line, sizeof line, "  %s", T[ti].title);
-		row(line, 0, "");
+		row(line, 0);
 		snprintf(line, sizeof line, "  id: %s  category: %s  priority: %s", T[ti].id,
 			T[ti].cat, *T[ti].prio ? T[ti].prio : "(unset)");
-		row(line, 0, "");
-		row("  ", 0, "");
+		row(line, 0);
+		row("  ", 0);
 		n = 3;
 		char path[PATH_MAX];
 		task_path(ti, path, sizeof path);
@@ -455,22 +437,22 @@ static void draw_preview(int h) {
 			while (n < h && fgets(buf, sizeof buf, f)) {
 				chomp(buf);
 				snprintf(line, sizeof line, "  %s", buf);
-				row(line, 0, "");
+				row(line, 0);
 				n++;
 			}
 			fclose(f);
 		}
 	} else {
 		snprintf(line, sizeof line, "-- epic: %s ", row_epic[SEL]);
-		row(line, 0, "");
+		row(line, 0);
 		snprintf(line, sizeof line, "  epic: %s", row_epic[SEL]);
-		row(line, 0, "");
-		row("  ", 0, "");
+		row(line, 0);
+		row("  ", 0);
 		n = 2;
 		for (int i = 0; i < TASK_N && n < h; i++) {
 			if (strcmp(T[i].epic, row_epic[SEL])) continue;
 			snprintf(line, sizeof line, "  - %s", T[i].title);
-			row(line, 0, "");
+			row(line, 0);
 			n++;
 		}
 	}
@@ -499,32 +481,40 @@ static void draw(void) {
 	if (end > N) end = N;
 	int i;
 	if (N == 0) {
-		row("  (no tasks) press a to create one", 0, "");
+		row("  (no tasks) press a to create one", 0);
 		i = 1;
 	} else {
 		for (i = TOP; i < end; i++) {
 			const char *colour = "";
+			int at = 0, len = 0;
 			int ti = row_task[i];
 			if (ti < 0) {
 				snprintf(text, sizeof text, " %s epic: %s",
 					in_set(COLLAPSED, row_epic[i]) ? "+" : "-", row_epic[i]);
 			} else {
-				colour = T[ti].colour;
 				/* The margin's last column is the search mark; the columns
 				 * before it are the epic indent, so a marked row never shifts
 				 * the ones around it. */
-				snprintf(text, sizeof text, "%s%s%s %-9s %s",
-					*T[ti].epic ? "  " : "", search_hit(ti) ? "*" : " ",
-					T[ti].flag, T[ti].cat, T[ti].title);
+				char margin[64];
+				snprintf(margin, sizeof margin, "%s%s%s ", *T[ti].epic ? "  " : "",
+					search_hit(ti) ? "*" : " ", T[ti].flag);
+				snprintf(text, sizeof text, "%s%-2s %-9s %s", margin, T[ti].prio,
+					T[ti].cat, T[ti].title);
+				/* Only the priority cell is coloured, so the span starts where
+				 * the margin ends and is as wide as the cell actually printed. */
+				colour = prio_colour(T[ti].prio);
+				at = (int)strlen(margin);
+				len = (int)strlen(T[ti].prio);
+				if (len < 2) len = 2;
 			}
-			row(text, i == SEL, colour);
+			row_span(text, i == SEL, colour, at, len);
 		}
 		i = end - TOP;
 	}
-	for (; i < list_h; i++) row("", 0, "");
+	for (; i < list_h; i++) row("", 0);
 
 	if (N > 0) draw_preview(preview_h);
-	else row("--", 0, "");
+	else row("--", 0);
 
 	const char *footer =
 		"j/k/g/G move  enter edit/collapse  v detail  / search  n/N match  "
@@ -574,13 +564,13 @@ static void draw_done(void) {
 	int end = DONE_TOP + list_h, i;
 	if (end > DONE_N) end = DONE_N;
 	if (DONE_N == 0) {
-		row("  (nothing completed yet)", 0, "");
+		row("  (nothing completed yet)", 0);
 		i = 1;
 	} else {
-		for (i = DONE_TOP; i < end; i++) row(done_rows[i], i == DONE_SEL, "");
+		for (i = DONE_TOP; i < end; i++) row(done_rows[i], i == DONE_SEL);
 		i = end - DONE_TOP;
 	}
-	for (; i < list_h; i++) row("", 0, "");
+	for (; i < list_h; i++) row("", 0);
 	bar(*MSG ? MSG : "j/k move  Tab back  R reload  q quit  (read-only)", ROWS);
 	fflush(stdout);
 }
@@ -742,9 +732,9 @@ static void pick_draw(int multi, const char *title, int sel, int *ptop) {
 			snprintf(line, sizeof line, " [%s] %s",
 				in_set(PICK_MARKED, PV[i].val) ? "x" : " ", PV[i].label);
 		else snprintf(line, sizeof line, "  %s", PV[i].label);
-		row(line, i == sel, "");
+		row(line, i == sel);
 	}
-	for (i = end - *ptop; i < list_h; i++) row("", 0, "");
+	for (i = end - *ptop; i < list_h; i++) row("", 0);
 	bar(multi ? "space mark  enter confirm  q cancel" : "enter select  q cancel", ROWS);
 	fflush(stdout);
 }
@@ -1155,8 +1145,8 @@ static void help_screen(void) {
 		"  n / N         next / previous matching row (wraps)\n"
 		"  R             reload from disk\n"
 		"  q             quit\n\n"
-		"Row colour is the priority band, relative to the priorities now shown:\n"
-		"red highest third, yellow middle, green lowest, no colour when unset.\n"
+		"The priority column is coloured by a fixed map: 21/13 red, 8/5 yellow,\n"
+		"3/2/1 green, nothing when unset or off the scale.\n"
 		"Set NO_COLOR to a non-empty value to turn it off.\n"
 		"A P in the first column marks a task radin-plan has already planned.\n"
 		"A * in the left margin marks a row matching the active / search.\n"
