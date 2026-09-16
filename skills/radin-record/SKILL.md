@@ -17,10 +17,6 @@ human said. `radin-review` logs what a diff revealed, and `radin-plan` and
 
 All writes go through `RADIN_CLI backlog`.
 
-Step 1's stub is the one shape the grilling rule does not apply to: a
-clear-boundary, fuzzy-work item has nothing concrete to grill yet, so log the
-stub.
-
 ## Step 1: Decide what to log
 
 The instruction after `/radin-record` sets the scope:
@@ -45,8 +41,7 @@ from an item that is *real but not yet sharp* (clear boundary, fuzzy work,
 as in "figure out caching at some point"): log it as a stub with a short
 title and a body saying plainly it's unspecified and what's known so far.
 `radin-plan`
-sharpens it when someone picks it up; grilling now has nothing concrete to
-grill about.
+sharpens it when someone picks it up.
 
 ## Step 2: Chart each item's open decisions (MANDATORY GATE)
 
@@ -136,32 +131,26 @@ confirm before running the CLI. A session scan is a guess about what the
 user wants captured; don't let the guess become entries unchecked.
 **Specific ask**: log directly, nothing to check.
 
+The body carries four labels. `radin-execute` and `radin-plan` act on this entry
+with no other session context, so don't compress the description to one line, and
+quote rather than paraphrase — your paraphrase is the only version that survives.
+
 For each confirmed item:
 
 ```bash
 RADIN_CLI backlog add <category> "<short title>" [--skill <skill-name>] <<'EOF'
-<as exhaustive a description as the situation warrants: what was being
-worked on when this came up, the item close to how the user stated it, and
-why it matters. radin-execute/radin-plan act on this entry with no other
-session context, so don't compress it to one line.>
+<the description: what was being worked on, the item close to how the user
+stated it, why it matters>
 
-<a `**Raised as:**` block quoting the triggering text verbatim: the user's
-words, plus any error string, path, or snippet they pasted. Quote, don't
-summarize: the executor cannot see this conversation, so your paraphrase is
-the only version that survives. Omit the block only when the ask carried no
-literal content to quote.>
+<**Raised as:** and the triggering text verbatim — the user's words plus any
+error string, path or snippet they pasted. Omit when the ask quoted nothing.>
 
-<one `**Decision:** <question — settled answer>` line per Step 2 answer, using
-the same marker radin-execute appends when it settles one, so downstream
-readers see one vocabulary. Then any open facts or deferred decisions, in
-plain prose.>
+<one **Decision:** <question — settled answer> line per Step 2 answer, then any
+open facts or deferred decisions in plain prose.>
 
-<when the session already stated a checkable outcome for this item, an
-`**Acceptance:**` line followed by one flat `- ` bullet per criterion, each
-one thing a later reader can check against a diff or a command's output.
-Omit the whole block otherwise: never ask the user for criteria, and never
-synthesise one. Each criterion is one unindented line; an indented sub-bullet
-ends the list.>
+<**Acceptance:** and one flat `- ` bullet per criterion, only when the session
+already stated a checkable outcome. Omit otherwise: never ask for criteria,
+never synthesise one.>
 EOF
 ```
 
@@ -178,9 +167,8 @@ RADIN_CLI backlog set-deps <dependent-id> <csv-of-ids-it-depends-on>
 
 Always after all the adds, never as `--depends-on` on `add`: a dependency the
 batch has not created yet is rejected as unknown, and the batch order is not
-the dependency order. Resolve each noted title to the id its `add` printed, or
-to `RADIN_CLI backlog find "<title>"`'s first field for a task that already
-existed. The CLI rejects an unknown id and any cycle, so a rejection means the
+the dependency order. Each noted title is either an id an `add` just printed, or, for
+a task that already existed, `RADIN_CLI backlog field "<title>" TASK_ID`. The CLI rejects an unknown id and any cycle, so a rejection means the
 dependency is misidentified, not that the flag is optional.
 
 Always append; never scan for near-duplicates or merge with an existing

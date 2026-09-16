@@ -30,18 +30,16 @@ its output. Re-run this line in any later Bash call that uses them.
 ## Step 2: Resolve the task scope
 
 ```bash
-RADIN_CLI backlog find "<scope id/title/keyword>"
+RADIN_CLI backlog plan-target "<scope id/title/keyword>"
 ```
 
-It prints one `id<TAB>category<TAB>title<TAB>file<TAB>priority<TAB>depends-on-csv`
-line per match (exact id first, then exact title, else substring on title).
+It prints `id`/`title`/`task_file`/`plan_file` lines, plus one
+`plan<TAB><path>` line per plan the entry already has. Route on its exit code:
 
-- **One match**: use it.
-- **Several**: list them and ask which one. Non-interactive: report the
-  candidates and stop.
-- **None**: the task isn't in the backlog yet. Create it
-  without asking. Classify it into `feat`/`fix`/`chore`/`refactor` (rubric in
-  `skills/radin-record/SKILL.md`), then:
+- **0**: resolved and unplanned. Use it.
+- **1**: nothing matches. The task isn't in the backlog yet: classify it into
+  `feat`/`fix`/`chore`/`refactor` (rubric in `skills/radin-record/SKILL.md`),
+  create it without asking, then re-run `plan-target` on the printed id.
 
   ```bash
   RADIN_CLI backlog add <category> "<short title>" <<'EOF'
@@ -50,15 +48,12 @@ line per match (exact id first, then exact title, else substring on title).
   EOF
   ```
 
-  Report the new entry, then continue with it as the scoped entry.
-  Non-interactive: the scope always came from an existing entry, so no
-  match means backlog drift. Report and stop instead of writing a
-  duplicate.
-- **Already planned**: `RADIN_CLI backlog meta "<id>"` prints one
-  `plan<TAB><path>` line per existing pointer. If any, show the path(s) and
+  Non-interactive: the scope always came from an existing entry, so no match
+  means backlog drift. Report and stop instead of writing a duplicate.
+- **2**: several entries match; it prints them as `candidate` lines on stderr.
+  Ask which one. Non-interactive: report the candidates and stop.
+- **3**: already planned; the `plan` lines are the existing paths. Show them and
   ask whether to re-plan (overwrite) or stop. Stop unless confirmed.
-
-Record the entry's `id` and `title`; the id is the `parent_id`.
 
 ## Step 3: Judge whether the scope should split
 
@@ -76,8 +71,8 @@ Non-interactive: take the default (no split) without asking.
 
 ## Step 4: Write each plan
 
-Resolve the entry's file once with `RADIN_CLI backlog path "<parent_id>"`.
-For each sub-task, in order:
+Step 2 printed `task_file` and `plan_file`; a task's file never moves, so
+neither is re-resolved between sub-tasks. For each sub-task, in order:
 
 1. Read the entry's file. A sub-task from a split has only its one-line
    Step 3 description as scope, so plan just that part.
@@ -109,15 +104,19 @@ For each sub-task, in order:
    leave zero decisions to whoever executes it. Non-interactive: an
    unresolvable question stops the run, so report it rather than plan around
    it.
-4. Save the plan at `$NAMESPACE_DIR/plans/<sub-task-id>.md`.
+4. Save the plan at the `plan_file` path Step 2 printed. For a sub-task from a
+   split, re-run `plan-target "<id>" "<sub-slug>"` with the sub-task's short
+   title in lowercase-hyphen form and use the `plan_file` it prints.
 5. Insert the pointer via the CLI (appends `**Plan:** <path>` to the task's
    file, after any earlier `**Plan:**` lines):
 
    ```bash
-   RADIN_CLI backlog add-plan "<parent_id>" "$NAMESPACE_DIR/plans/<sub-task-id>.md"
+   RADIN_CLI backlog add-plan "<id>" "<the plan_file path>"
    ```
 
-6. Report: `✅ <sub-task-id> planned. Plan: <path>.`
+6. Report: `✅ <id> planned. Plan: <path>. Review findings: <n or none>.` The
+   count comes from Step 5, so write this line after that sub-task's review
+   pass, not before it.
 
 Planning and executing are separate tools: edit no source file, run no
 build/test, create no commit anywhere in this skill. Never touch the scoped
@@ -141,12 +140,6 @@ each plan file just written:
 
 ## Step 6: Report back
 
-```
-✅ Entry planned.
+One line per plan, as Step 4's step 6 already printed it, then:
 
-| Sub-task | Plan | Review findings |
-|------|------|------|
-| <id> | $NAMESPACE_DIR/plans/<id>.md | <count of fixes applied, or "none"> |
-
-Next: radin-execute (or a human) can implement from the plan(s) above.
-```
+`Next: radin-execute (or a human) can implement from the plan(s) above.`

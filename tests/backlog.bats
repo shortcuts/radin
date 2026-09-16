@@ -804,3 +804,57 @@ EOF
   [[ "$output" == *"id"$'\t'"one"$'\t'"one,one"* ]]
   [[ "$output" == *"title"$'\t'"two"$'\t'"two,one"* ]]
 }
+
+# --- plan-target -------------------------------------------------------------
+
+@test "plan-target resolves one unplanned match to four key lines" {
+  cli add feat "cache layer" <<<"body"
+  run cli plan-target cache-layer
+  [ "$status" -eq 0 ]
+  [ "${lines[0]}" = "id"$'\t'"cache-layer" ]
+  [ "${lines[1]}" = "title"$'\t'"cache layer" ]
+  [ "${lines[2]}" = "task_file"$'\t'"$TASKS/cache-layer.md" ]
+  [ "${lines[3]}" = "plan_file"$'\t'"$WORK/proj/.claude/.radin/plans/cache-layer.md" ]
+  [ "${#lines[@]}" -eq 4 ]
+}
+
+@test "plan-target exits 1 with nothing on stdout when no entry matches" {
+  cli add feat "cache layer" <<<"body"
+  run cli plan-target nothing-like-this
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"no entry matches: nothing-like-this"* ]]
+  run bash -c "(cd '$WORK/proj' && bash '$CLI' plan-target nothing-like-this 2>/dev/null)"
+  [ -z "$output" ]
+}
+
+@test "plan-target exits 2 listing candidates on stderr, stdout empty" {
+  cli add feat "cache layer" <<<"body"
+  cli add fix "cache eviction" <<<"body"
+  run cli plan-target cache
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"matches several entries"* ]]
+  [[ "$output" == *"candidate"$'\t'"cache-layer"* ]]
+  [[ "$output" == *"candidate"$'\t'"cache-eviction"* ]]
+  run bash -c "(cd '$WORK/proj' && bash '$CLI' plan-target cache 2>/dev/null)"
+  [ -z "$output" ]
+}
+
+@test "plan-target exits 3 printing every existing plan pointer" {
+  cli add feat "cache layer" <<<"body"
+  cli add-plan cache-layer /tmp/one.md
+  cli add-plan cache-layer /tmp/two.md
+  run cli plan-target cache-layer
+  [ "$status" -eq 3 ]
+  [ "${lines[4]}" = "plan"$'\t'"/tmp/one.md" ]
+  [ "${lines[5]}" = "plan"$'\t'"/tmp/two.md" ]
+}
+
+@test "plan-target's sub-slug suffixes the plan file, and a third argument is a usage error" {
+  cli add feat "cache layer" <<<"body"
+  run cli plan-target cache-layer evict-policy
+  [ "$status" -eq 0 ]
+  [ "${lines[3]}" = "plan_file"$'\t'"$WORK/proj/.claude/.radin/plans/cache-layer-evict-policy.md" ]
+  run cli plan-target cache-layer a b
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"plan-target"* ]]
+}

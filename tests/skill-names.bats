@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
-# Every `/<name>` skill invocation written in skills/**/SKILL.md, lib/*.md and
-# lib/radin-backlog.sh must resolve to a skill radin ships itself or one install.sh installs as a
+# Every `/<name>` skill invocation written in skills/**/SKILL.md, lib/*.md,
+# lib/radin-backlog.sh and lib/radin-scope.sh must resolve to a skill radin ships itself or one install.sh installs as a
 # companion. A renamed or mistyped name costs a failed call plus a fallback in
 # every sub-agent that reads the prompt, silently.
 #
@@ -17,18 +17,20 @@ setup() {
   # Names written as illustrations of what a *user* may type, not as radin
   # delegations: a workflow command and two placeholder skill names.
   EXAMPLES="deep-research frontend-design other-skill"
-  # Not a skill name at all: `bin` comes off the `/bin/bash` path in
-  # lib/radin-backlog.sh's header.
-  NOT_SKILLS="bin"
+  # Not skill names at all: `bin` comes off a `/bin/bash` shebang path, `dev`
+  # off awk's `/dev/stderr` in lib/radin-backlog.sh.
+  NOT_SKILLS="bin dev"
 }
 
-# Slash tokens, allowing leading markdown emphasis/backticks but requiring
-# whitespace or line start before them -- so `git diff`/reading is not a hit.
+# Slash tokens, allowing leading markdown emphasis, backticks, quotes and one
+# `=` (a name inside a shell string literal, as radin-scope.sh's `passes`
+# values are) but requiring whitespace or line start before them -- so
+# `git diff`/reading is not a hit.
 skill_tokens() {
   cd "$REPO_ROOT" || return 1
-  grep -ohE '(^|[[:space:]])[*_(]*`?/[a-z0-9][a-z0-9:-]*' \
-    skills/*/SKILL.md lib/*.md lib/radin-backlog.sh |
-    tr -d '`*_( ' | sed 's|^/||' | sort -u
+  grep -ohE "(^|[[:space:]=])[*_('\"]*\`?/[a-z0-9][a-z0-9:-]*" \
+    skills/*/SKILL.md lib/*.md lib/radin-backlog.sh lib/radin-scope.sh |
+    tr -d "\`*_( '\"=" | sed 's|^/||' | sort -u
 }
 
 @test "every /<skill> name in skills/ and lib/ resolves to a shipped skill" {
@@ -65,7 +67,8 @@ skill_tokens() {
   run skill_tokens
   [ "$status" -eq 0 ]
   for expected in radin-plan thermo-nuclear ponytail:ponytail \
-    caveman:caveman-commit mattpocock-skills:grilling; do
+    caveman:caveman-commit mattpocock-skills:grilling \
+    ponytail:ponytail-review ponytail:ponytail-audit ponytail:ponytail-debt; do
     [[ "$output" == *"$expected"* ]] || {
       echo "extractor missed $expected"
       false

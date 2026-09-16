@@ -25,6 +25,7 @@
 #   radin-backlog.sh add-plan <id-or-title> <path>  # append "**Plan:** <path>" to the task's file
 #   radin-backlog.sh append <id-or-title>        # append text from stdin to the task's file
 #   radin-backlog.sh path <id-or-title>          # print the task file's absolute path
+#   radin-backlog.sh plan-target <id-or-title> [<sub-slug>]  # resolve one task for planning: "id"/"title"/"task_file"/"plan_file" TAB lines plus one "plan<TAB><path>" per existing pointer; exit 1 no match, 2 several (candidates on stderr), 3 already planned
 #   radin-backlog.sh set-category <id-or-title> <category>  # move a task to another category
 #   radin-backlog.sh retitle <id-or-title> <title>  # change a task's title (its id never changes)
 #   radin-backlog.sh set-priority <id-or-title> <1|2|3|5|8|13|21|--none>  # set/clear the priority (higher wins)
@@ -400,6 +401,17 @@ task_path() {
 # Absolute path of the task file the index line $1 points at.
 entry_path() {
 	task_path "$(json_get file "$1")"
+}
+
+# The plan-file convention, owned here because `add-plan` takes a path and
+# `radin-plan` has to write the file before it can point at it. $2 is an
+# optional sub-task slug for a split plan.
+plan_path() {
+	if [ -n "${2:-}" ]; then
+		printf '%s/plans/%s-%s.md\n' "$NAMESPACE_DIR" "$1" "$2"
+	else
+		printf '%s/plans/%s.md\n' "$NAMESPACE_DIR" "$1"
+	fi
 }
 
 # The epic a `file` field belongs to, or empty at the flat tasks/ level.
@@ -1046,6 +1058,33 @@ path)
 	require_index
 	entry="$(single_match "$2")"
 	entry_path "$entry"
+	;;
+
+plan-target)
+	[ -n "${2:-}" ] || usage_die plan-target "plan-target needs an id or title"
+	[ $# -le 3 ] || usage_die plan-target "plan-target takes an id or title and at most one sub-slug, got: $4"
+	require_index
+	# `single_match` dies the same way on zero and on several, so the four
+	# routes are resolved here instead of by a caller counting `find` lines.
+	found="$(matches "$2")"
+	if [ -z "$found" ]; then
+		printf 'radin-backlog: no entry matches: %s\n' "$2" >&2
+		exit 1
+	fi
+	if [ "$(printf '%s\n' "$found" | grep -c '.')" -ne 1 ]; then
+		printf 'radin-backlog: "%s" matches several entries:\n' "$2" >&2
+		printf '%s\n' "$found" | fmt_lines | sed 's/^/candidate\t/' >&2
+		exit 2
+	fi
+	tid="$(json_get id "$found")"
+	printf 'id\t%s\ntitle\t%s\ntask_file\t%s\nplan_file\t%s\n' \
+		"$tid" "$(json_get title "$found")" \
+		"$(entry_path "$found")" "$(plan_path "$tid" "${3:-}")"
+	plans="$(meta_lines "$(entry_path "$found")" | grep "^plan$TAB" || true)"
+	[ -z "$plans" ] || {
+		printf '%s\n' "$plans"
+		exit 3
+	}
 	;;
 
 set-category)

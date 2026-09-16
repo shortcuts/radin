@@ -1,23 +1,32 @@
 #!/usr/bin/env bash
 # Deterministic review-scope resolution for radin-review, so the skill
-# doesn't probe git/gh by hand. Natural-language ranges ("since yesterday")
-# stay the caller's job -- this script only settles the mechanical cases.
+# doesn't probe git/gh by hand. A date phrase ("since yesterday") stays the
+# caller's job: git's approxidate accepts any garbage and reports an empty log
+# either way, so there is no exit code to route on.
 # Installed to ~/.claude/.radin/lib/radin-scope.sh by install.sh.
 #
 # Usage: radin-scope.sh [arg]
+#        radin-scope.sh --in-scope [arg]   # classify "path:line" lines on stdin
 #
 # No arg: the current branch's diff against its merge-base with main/master.
-# With arg: a commit-ish, a PR reference (#123, 123, GitHub PR URL), or a
-# directory path.
+# With arg: a commit-ish, a PR reference (#123, 123, GitHub PR URL), a
+# directory path, or a range (`last commit`, `last <n> commits`, `<rev>..<rev>`).
 #
 # Output (TAB-separated key/value lines):
-#   type    commit|pr|dir|branch-diff
+#   type    commit|pr|dir|branch-diff|range
 #   scope   <normalized scope>
 #   command <the diff/read command to run>
-# Exit: 0 resolved; 1 unrecognized (caller decides, e.g. a natural-language
-# range); 2 ambiguous (each candidate reading printed to stderr).
+#   passes  <the ponytail skill(s) this scope type calls for>
+# --in-scope resolves the same scope, then prints one `in<TAB>path:line` /
+# `out<TAB>path:line` line per stdin citation in input order, then one final
+# `dropped<TAB><n>`. A citation is `in` when the scope introduced that line:
+# under the directory for a dir scope, inside a diff hunk otherwise.
+# Exit: 0 resolved (--in-scope too, even when everything is dropped);
+# 1 unrecognized; 2 ambiguous (each candidate reading printed to stderr).
 # Must stay bash-3.2-compatible (macOS /bin/bash).
 set -euo pipefail
+
+TAB="$(printf '\t')"
 
 die() {
 	printf 'radin-scope: %s\n' "$*" >&2
@@ -25,7 +34,16 @@ die() {
 }
 
 emit() {
-	printf 'type\t%s\nscope\t%s\ncommand\t%s\n' "$1" "$2" "$3"
+	# The type-dependent ponytail passes are named here, not in the skill:
+	# mapping type -> pass was the last thing radin-review computed from this
+	# script's own output. thermo-nuclear is unconditional, so it stays named
+	# in the skill -- there is no mapping to own.
+	local passes
+	case "$1" in
+	dir) passes='/ponytail:ponytail-audit /ponytail:ponytail-debt' ;;
+	*) passes='/ponytail:ponytail-review' ;;
+	esac
+	printf 'type\t%s\nscope\t%s\ncommand\t%s\npasses\t%s\n' "$1" "$2" "$3" "$passes"
 }
 
 pr_ok() {
@@ -34,6 +52,55 @@ pr_ok() {
 	# shellcheck disable=SC2086
 	gh pr view "$1" ${2:-} >/dev/null 2>&1
 }
+
+# --in-scope re-resolves through this same script rather than restructuring
+# every `emit ... ; exit 0` into a capture, so there is one resolution path.
+if [ "${1:-}" = "--in-scope" ]; then
+	shift
+	resolved="$(bash "$0" "${1:-}")" || exit $?
+	stype="$(printf '%s\n' "$resolved" | sed -n "s/^type$TAB//p")"
+	sscope="$(printf '%s\n' "$resolved" | sed -n "s/^scope$TAB//p")"
+	scommand="$(printf '%s\n' "$resolved" | sed -n "s/^command$TAB//p")"
+	if [ "$stype" = dir ]; then
+		exec awk -v dir="${sscope%/}/" '
+			$0 != "" { p = $0; sub(/^\.\//, "", p)
+				if (index(p, dir) == 1) print "in\t" $0
+				else { print "out\t" $0; d++ } }
+			END { printf "dropped\t%d\n", d + 0 }'
+	fi
+	# ponytail: PR diffs keep default context, so a citation within 3 lines of
+	# a hunk counts as in-scope; render gh pr diff through -U0 if the
+	# over-keeping ever matters.
+	case "$scommand" in 'git diff'*) scommand="$scommand --unified=0" ;; esac
+	diff_file="$(mktemp)"
+	cites_file="$(mktemp)"
+	trap 'rm -f "$diff_file" "$cites_file"' EXIT
+	cat >"$cites_file"
+	# The command comes from this script's own `emit`, never from stdin.
+	# shellcheck disable=SC2086
+	eval $scommand >"$diff_file"
+	awk '
+		NR == FNR {
+			if (substr($0, 1, 4) == "+++ ") { f = $2; sub(/^b\//, "", f); next }
+			if (substr($0, 1, 3) == "@@ ") {
+				r = $3; sub(/^\+/, "", r)
+				n = index(r, ",")
+				if (n) { s = substr(r, 1, n - 1) + 0; c = substr(r, n + 1) + 0 }
+				else { s = r + 0; c = 1 }
+				for (i = 0; i < c; i++) seen[f SUBSEP (s + i)] = 1
+			}
+			next
+		}
+		$0 != "" {
+			p = $0; sub(/:[^:]*$/, "", p); sub(/^\.\//, "", p)
+			l = $0; sub(/^.*:/, "", l); sub(/-.*$/, "", l)
+			if ((p SUBSEP (l + 0)) in seen) print "in\t" $0
+			else { print "out\t" $0; d++ }
+		}
+		END { printf "dropped\t%d\n", d + 0 }
+	' "$diff_file" "$cites_file"
+	exit 0
+fi
 
 arg="${1:-}"
 
@@ -73,6 +140,38 @@ https://github.com/*/pull/*)
 		exit 1
 	}
 	emit pr "#$num ($repo)" "gh pr diff $num --repo $repo"
+	exit 0
+	;;
+esac
+
+# Two range shapes the script can validate without parsing English.
+case "$arg" in
+'last commit')
+	git rev-parse --git-dir >/dev/null 2>&1 || die "not in a git repo: $arg"
+	emit range "HEAD~1..HEAD" "git diff HEAD~1..HEAD"
+	exit 0
+	;;
+'last '*' commits')
+	n="${arg#last }"
+	n="${n% commits}"
+	case "$n" in '' | *[!0-9]*) die "not a commit count: $arg" ;; esac
+	git rev-parse --git-dir >/dev/null 2>&1 || die "not in a git repo: $arg"
+	git rev-parse --verify -q "HEAD~$n" >/dev/null 2>&1 ||
+		die "history is shorter than $n commits"
+	emit range "HEAD~$n..HEAD" "git diff HEAD~$n..HEAD"
+	exit 0
+	;;
+*..*)
+	git rev-parse --git-dir >/dev/null 2>&1 || die "not in a git repo: $arg"
+	left="${arg%%..*}"
+	right="${arg##*..}"
+	right="${right#.}"
+	for rev in "$left" "$right"; do
+		[ -z "$rev" ] && continue
+		git rev-parse --verify -q "$rev" >/dev/null 2>&1 ||
+			die "not a revision: $rev"
+	done
+	emit range "$arg" "git diff $arg"
 	exit 0
 	;;
 esac
@@ -119,5 +218,5 @@ if [ "$candidates" -gt 1 ]; then
 	done
 	exit 2
 fi
-printf 'radin-scope: "%s" is not a commit, PR, or directory here\n' "$arg" >&2
+printf 'radin-scope: "%s" is not a commit, PR, directory, or range here\n' "$arg" >&2
 exit 1

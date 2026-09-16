@@ -44,7 +44,7 @@ Once `radin-plan` processes task, appends one more line to that task's own file:
 
 `radin-plan` skill, not agent — runs inline in whichever context invokes it. Scoped to single task, not whole backlog; caller points it at one task by id or title. If scope broad enough to split into independent sub-tasks, and user confirms split, appends one `**Plan:**` line per plan, in order, to same file instead of just one.
 
-## Task-file annotations (`radin-execute` appends)
+## Task-file annotations
 
 These labels are the shared vocabulary of a task file's annotations, and the table names who writes each. Most are appended by `radin-execute` through `radin-backlog.sh append`, one labeled line per piece of settled material. Every label is task-scoped by design: an execution sub-agent reads its task file and nothing else, so no other task's context reaches it.
 
@@ -57,6 +57,11 @@ These labels are the shared vocabulary of a task file's annotations, and the tab
 | `**Root cause:** <cause + fix direction>` | debug sub-agent returned `STATUS: DIAGNOSED` | `radin state task-diagnosis` |
 | `**Facts:** <path>` | the long form went to `state/facts/<task-id>.md` | `radin-execute` |
 | `**Acceptance:** <checklist>` | the session surfaced checkable criteria | radin-record, radin-review, or a human |
+| `**Raised as:** <verbatim ask>` | the triggering text, quoted | `radin-record` |
+| `**Scope:** <what was reviewed>` | the review surface | `radin-review` |
+| `**Location:** <path:line>` | where the finding is | `radin-review` |
+| `**Finding:**` | the problem, as the review stated it | `radin-review` |
+| `**Preferred remedy:**` | the restructuring suggested | `radin-review` |
 
 Every one of them is binding on the next sub-agent that reads the file, not commentary on it.
 
@@ -70,7 +75,22 @@ Earlier revisions described single monolithic `<repo-root>/.claude/.radin/BACKLO
 
 ## Plan-file format (`radin-plan` output)
 
-Free-form markdown at `$NAMESPACE_DIR/plans/<id>.md`: files to touch, change in each, order of operations, how to verify it. No fixed schema — sub-agents write it, `radin-execute` (or human) reads it.
+Free-form markdown at `<NAMESPACE_DIR>/plans/<task-id>.md`, or `<NAMESPACE_DIR>/plans/<task-id>-<sub-slug>.md` for one sub-task of a split, where `<sub-slug>` is the sub-task's short title in lowercase-hyphen form. `backlog plan-target` prints that path as its `plan_file` line and is the only place the convention lives; nothing composes it by hand. Contents: files to touch, change in each, order of operations, how to verify it. No fixed schema — sub-agents write it, `radin-execute` (or human) reads it.
+
+## Review-scope output (`radin scope`)
+
+TAB-separated key/value lines, one call per review:
+
+| Key | Value |
+| --- | --- |
+| `type` | `commit`, `pr`, `dir`, `branch-diff` or `range` |
+| `scope` | the normalized scope (`#123`, `HEAD~3..HEAD`, a directory path) |
+| `command` | the diff or read command that yields the scope's content |
+| `passes` | the `/ponytail:*` skill(s) this type calls for — `ponytail-audit` plus `ponytail-debt` for `dir`, `ponytail-review` otherwise |
+
+Exit 0 resolved, 1 unrecognized, 2 ambiguous (each candidate reading on stderr).
+
+`radin scope --in-scope [<arg>]` resolves the same scope, then reads `path:line` citations on stdin and prints, in input order, `in<TAB><citation>` when the scope introduced that line and `out<TAB><citation>` otherwise, then one `dropped<TAB><n>`. `in` means under the directory for a `dir` scope, and inside a diff hunk of that path for every other type; paths compare repo-relative exactly as the diff spells them, a leading `./` aside. Exit 0 once resolved, even when every citation is dropped; resolution failures keep exits 1 and 2.
 
 ## Execution-order output (`backlog order`)
 

@@ -4,7 +4,33 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Unreleased
 
+### Added
+
+- `radin backlog plan-target <id-or-title> [<sub-slug>]` — one call resolving a
+  task for planning: `id`/`title`/`task_file`/`plan_file` lines plus one `plan`
+  line per existing pointer, with the four outcomes as exit codes (0 resolved,
+  1 no match, 2 several with candidates on stderr, 3 already planned). It also
+  owns the `plans/<task-id>.md` path convention, including the
+  `<task-id>-<sub-slug>.md` form a split plan uses.
+- `radin scope` now resolves ranges (`last commit`, `last <n> commits`,
+  `<rev>..<rev>`) as `type range`, prints a `passes` line naming the ponytail
+  skill(s) that scope type calls for, and gained `--in-scope`, which classifies
+  `path:line` citations on stdin as `in`/`out` against the resolved scope and
+  ends with a `dropped` count.
+
 ### Changed
+
+- `radin-plan`, `radin-record` and `radin-review` no longer compute anything
+  from CLI output. `radin-plan` opens on `plan-target` and routes on its exit
+  code instead of counting `find` lines and following up with `meta`, and its
+  report is the lines it already printed rather than a hand-built table.
+  `radin-review` drops its `backlog count` baseline and subtraction, takes its
+  ponytail passes from the `passes` line, and drops out-of-scope findings
+  through `scope --in-scope` instead of eyeballing each citation against the
+  diff. Its `fix`-versus-`refactor` split is stated once, as a rule.
+  `radin-record`'s body template is four one-line imperatives, and the stub
+  exemption to the grilling gate is stated once, at the gate. Re-run
+  `install.sh` (or `radin update`) to pick the three skills up.
 
 - `radin-execute`'s Step 4a no longer judges whether a task is "a single
   obvious change": a task with no plan always gets a planning sub-agent, which
