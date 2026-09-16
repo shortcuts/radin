@@ -33,7 +33,6 @@ printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-cbm-
   : > "$TEST_HOME/.claude/.radin/lib/radin-execute-reporting.md"
   : > "$TEST_HOME/.claude/.radin/lib/radin-execute-clarify.md"
   : > "$TEST_HOME/.claude/.radin/lib/radin-execute-session.md"
-  : > "$TEST_HOME/.claude/.radin/lib/radin-execute-dirty.md"
   : > "$TEST_HOME/.claude/.radin/lib/radin-execute-resume.md"
   printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-doctor.sh"
   cp "$CLI" "$TEST_HOME/.claude/.radin/lib/radin-uninstall.sh"
@@ -59,7 +58,6 @@ printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-cbm-
   [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-execute-reporting.md" ]
   [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-execute-clarify.md" ]
   [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-execute-session.md" ]
-  [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-execute-dirty.md" ]
   [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-execute-resume.md" ]
   [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-doctor.sh" ]
   [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-uninstall.sh" ]

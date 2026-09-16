@@ -90,12 +90,12 @@ JSON object per line, same convention as the backlog index (`index.jsonl`)
 another line:
 
 ```json
-{"id":"add-route-exports","order":1,"status":"pending","depends_on":[],"note":""}
+{"id":"add-route-exports","order":1,"status":"pending","depends_on":[],"attempts":0,"debugged":0,"note":""}
 ```
 
 Never write this JSON by hand. `radin-state.sh steps-init <steps-file>
-[<backlog-index>]` creates the file from `id<TAB>order<TAB>depends-on-csv`
-lines on stdin; the index argument is what seeds `depends_on`, since each
+[<backlog-index>]` creates the file from
+`id<TAB>order<TAB>depends-on-csv<TAB>pending|deferred` lines on stdin; the index argument is what seeds `depends_on`, since each
 entry's value comes from its index line and the stdin csv is used only where
 the index line has none. Every later
 mutation (marking an entry `blocked`/`failed`, recording a completed task

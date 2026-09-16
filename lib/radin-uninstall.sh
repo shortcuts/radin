@@ -63,7 +63,6 @@ remove_path "radin-execute-recovery.md" "$CLAUDE_DIR/.radin/lib/radin-execute-re
 remove_path "radin-execute-reporting.md" "$CLAUDE_DIR/.radin/lib/radin-execute-reporting.md"
 remove_path "radin-execute-clarify.md" "$CLAUDE_DIR/.radin/lib/radin-execute-clarify.md"
 remove_path "radin-execute-session.md" "$CLAUDE_DIR/.radin/lib/radin-execute-session.md"
-remove_path "radin-execute-dirty.md" "$CLAUDE_DIR/.radin/lib/radin-execute-dirty.md"
 remove_path "radin-execute-resume.md" "$CLAUDE_DIR/.radin/lib/radin-execute-resume.md"
 remove_path "radin-update.sh" "$CLAUDE_DIR/.radin/lib/radin-update.sh"
 remove_path "radin-doctor.sh" "$CLAUDE_DIR/.radin/lib/radin-doctor.sh"

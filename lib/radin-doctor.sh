@@ -88,7 +88,6 @@ check_file "radin-execute-recovery.md" "$CLAUDE_DIR/.radin/lib/radin-execute-rec
 check_file "radin-execute-reporting.md" "$CLAUDE_DIR/.radin/lib/radin-execute-reporting.md"
 check_file "radin-execute-clarify.md" "$CLAUDE_DIR/.radin/lib/radin-execute-clarify.md"
 check_file "radin-execute-session.md" "$CLAUDE_DIR/.radin/lib/radin-execute-session.md"
-check_file "radin-execute-dirty.md" "$CLAUDE_DIR/.radin/lib/radin-execute-dirty.md"
 check_file "radin-execute-resume.md" "$CLAUDE_DIR/.radin/lib/radin-execute-resume.md"
 check_lib_script "radin-update.sh" "$CLAUDE_DIR/.radin/lib/radin-update.sh"
 check_lib_script "radin-doctor.sh" "$CLAUDE_DIR/.radin/lib/radin-doctor.sh"

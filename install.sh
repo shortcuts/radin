@@ -156,7 +156,7 @@ for f in radin-namespace.sh radin-json.sh radin-backlog.sh radin-tui.c \
 	radin-scope.sh radin-prioritization.md radin-execute-prompts.md \
 	radin-execute-recovery.md radin-execute-reporting.md \
 	radin-execute-clarify.md radin-execute-session.md \
-	radin-execute-dirty.md radin-execute-resume.md radin-cbm-hooks.sh \
+	radin-execute-resume.md radin-cbm-hooks.sh \
 	radin-cbm-config.sh radin-update.sh \
 	radin-doctor.sh radin-uninstall.sh; do
 	cp "$RADIN_ROOT/lib/$f" "$HOME/.claude/.radin/lib/"
@@ -480,7 +480,7 @@ set_cli() {
 # shellcheck disable=SC2016  # backticks here are markdown code spans, not command substitution
 SEQUENTIAL_RULE='- **One execution sub-agent at a time.** Dispatch one task, wait for its `STATUS:` line, finish its bookkeeping, then dispatch the next. Never put two `Task` calls in one message, however independent the tasks look. Batching other tool calls stays fine -- this rule is about `Task` only, and about execution sub-agents only: read-only dispatches stay parallel per Core Constraints.'
 # shellcheck disable=SC2016  # backticks here are markdown code spans, not command substitution
-PARALLEL_RULE='- **Concurrency allowed, and only under these conditions.** Several execution sub-agents may run in the same turn when they share no `depends_on` chain and no files, and only when Phase 0.5 recorded the worktree answer as yes -- parallel agents in one worktree corrupt each other commits. Worktree answer is no, or file overlap is at all unclear: dispatch strictly one at a time. Launch parallel ones in one message, every one still `run_in_background: false`: a background task cannot notify a sub-agent turn, so you would wait forever. Per-task steps stay unchanged, and each targets that task own tree via `radin-state.sh task-dir` -- its own `dirty-check`, its own commit, its own `task-done`. Never `dirty-check` the shared checkout while another agent is in flight: you would stash a sibling task work out from under it.'
+PARALLEL_RULE='- **Concurrency allowed, and only under these conditions.** Several execution sub-agents may run in the same turn when they share no `depends_on` chain and no files, and only when Phase 0.5 recorded the worktree answer as yes -- parallel agents in one worktree corrupt each other commits. Worktree answer is no, or file overlap is at all unclear: dispatch strictly one at a time. Launch parallel ones in one message, every one still `run_in_background: false`: a background task cannot notify a sub-agent turn, so you would wait forever. Per-task steps stay unchanged, and each targets that task own tree, resolved for you by `radin-state.sh dirty-recover` -- its own dirty check, its own commit, its own `task-done`. Never check the shared checkout while another agent is in flight: you would stash a sibling task work out from under it.'
 
 set_concurrency() {
 	local file="$1" rule="$2" tmp
@@ -735,7 +735,7 @@ set_cli "$HOME/.claude/.radin/lib/radin-execute-recovery.md" "$RADIN_CLI_VALUE"
 set_cli "$HOME/.claude/.radin/lib/radin-prioritization.md" "$RADIN_CLI_VALUE"
 set_cli "$HOME/.claude/.radin/lib/radin-execute-clarify.md" "$RADIN_CLI_VALUE"
 set_cli "$HOME/.claude/.radin/lib/radin-execute-session.md" "$RADIN_CLI_VALUE"
-set_cli "$HOME/.claude/.radin/lib/radin-execute-dirty.md" "$RADIN_CLI_VALUE"
+set_cli "$HOME/.claude/.radin/lib/radin-execute-reporting.md" "$RADIN_CLI_VALUE"
 
 step "Agent guidance"
 # A short section in ~/.claude/CLAUDE.md telling Claude when to reach for
@@ -837,7 +837,6 @@ cat >"$MANIFEST_FILE" <<EOF
     "radin-execute-reporting.md",
     "radin-execute-clarify.md",
     "radin-execute-session.md",
-    "radin-execute-dirty.md",
     "radin-execute-resume.md",
     "radin-cbm-hooks.sh",
     "radin-cbm-config.sh",

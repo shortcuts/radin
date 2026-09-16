@@ -8,23 +8,19 @@ A stuck task's sub-agent died with the session, so what it left on disk is
 unknown. Never re-dispatch one blind. For each id `stuck` printed:
 
 ```bash
-RADIN_CLI state triage "$NAMESPACE_DIR" "<task id>"
+RADIN_CLI state recover "$NAMESPACE_DIR" "<task id>"
 ```
 
-It prints facts only (`attempts`, `completed`, `worktree`, `branch`, each
-`branch_commit`, and `dirty_files`) and decides nothing. Route on them:
+Exit 0: it already finished the recovery — print the
+`recovered<TAB><id><TAB><what it did>` line it printed and move on.
 
-- `completed` names a hash: the crash hit between the commit and the
-  bookkeeping. Re-run `task-done` with that hash; the CLI skips whatever
-  already happened.
-- `branch_commit` lines exist: the dead sub-agent committed the work but
-  never reported. Read those commits (`git show`) against the task file. They
-  satisfy the task: run `task-done` with the last hash. They don't: treat the
-  partial work as the user's call, so mark the task `blocked`, `note` naming
+Exit 3: the one branch no command can settle. A dead sub-agent committed work
+on the task's branch but never reported, so it printed the `branch`,
+`worktree` and `branch_commit` lines. Read those commits (`git show`) against
+the task file and answer:
+
+- They satisfy the task: `RADIN_CLI state task-done "$NAMESPACE_DIR" "<task
+  id>" "<last hash>"`.
+- They don't: `RADIN_CLI state recover-reject "$NAMESPACE_DIR" "<task id>"`.
+  Partial work is the user's call, and the command blocks the entry naming
   the branch and worktree to inspect.
-- No commits, `dirty_files` is 0: nothing was left behind. `set-status` back
-  to `pending` and let the loop retry it normally.
-- No commits but `dirty_files` is non-zero: `stash` the tree it names, then
-  `set-status` `pending` with the stash ref in the `note`.
-
-Report every recovery decision in the Phase 5 summary.

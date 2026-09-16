@@ -120,8 +120,9 @@ RADIN_CLI state session-get "$NAMESPACE_DIR"
 
 Exit 0 prints `worktree<TAB><yes|no>` and `branch<TAB><yes|no>`: the repo has
 already answered, so ask nothing and change nothing. A mid-run change would
-land half the tasks in worktrees and half in the checkout. Keep the two
-values for Phase 5's summary; nothing else needs them. Exit 1 means no answer
+land half the tasks in worktrees and half in the checkout. Nothing else needs
+the values: `prepare` and Phase 5's report read them back themselves. Exit 1
+means no answer
 is recorded yet — only the first run in a repo — so read
 `$HOME/.claude/.radin/lib/radin-execute-session.md` and follow it to ask and
 persist them.
@@ -187,15 +188,14 @@ the invoking prompt can pre-answer either one (see Core Constraints). Phase
    answer arrives.
 3. Route on the task-selection answer first, then the order answer:
    - **All of them**: every listed task goes to `steps-init`.
-   - **Just the first one**: only `order` 1 goes to `steps-init`. The rest
-     stay in the backlog untouched and are listed in the Phase 5 summary
-     under `Deferred at your request (left in the backlog):`.
+   - **Just the first one**: only `order` 1 is `pending` in `steps-init`;
+     every other task goes in as `deferred`.
    - **Only the ones I name** (or "Other" text): read the selection off the
      free text (order numbers, titles, or ids). Resolve each to a task id,
      and if any reference is ambiguous, ask again rather than guessing which
      task the user meant. Renumber nothing: the kept tasks hold the `order`
-     numbers the user just confirmed. List the excluded titles in the Phase 5
-     summary under `Deferred at your request (left in the backlog):`.
+     numbers the user just confirmed. The excluded ones go to `steps-init`
+     as `deferred`.
    Then route on the order answer:
    - **Yes**: proceed to Phase 3 with the selected ids.
    - **No, I'll explain** (or "Other" text): if the answer already states the
@@ -205,18 +205,23 @@ the invoking prompt can pre-answer either one (see Core Constraints). Phase
 ## Phase 3: Persist Execution Plan
 
 Feed the confirmed order to the state CLI, one
-`id<TAB>order<TAB>depends-on-csv` line per task. Pass the backlog index too:
-the CLI reads each entry's `depends_on` from its index line, so the third
-field stays empty for any entry that already has one there. It carries only
-deps the ranking pass inferred for an entry the index has none for.
+`id<TAB>order<TAB>depends-on-csv<TAB>status` line per **listed** task,
+deferred ones included. Pass the backlog index too: the CLI reads each
+entry's `depends_on` from its index line, so the third field stays empty for
+any entry that already has one there. It carries only deps the ranking pass
+inferred for an entry the index has none for. The fourth field is `pending`
+for a task Phase 2 selected and `deferred` for one the user excluded — that
+is where the deferred set is persisted, so nothing has to carry it to Phase
+5.
 
 ```bash
 RADIN_CLI state steps-init "$NAMESPACE_DIR/state/BACKLOG_STEPS.json" "$BACKLOG_INDEX" <<'EOF'
-<id> <order> <inferred depends_on ids, comma-separated; empty when none>
+<id> <order> <inferred depends_on ids, comma-separated; empty when none> <pending|deferred>
 EOF
 ```
 
-The CLI writes the schema itself (every entry `pending`, empty `note`).
+The CLI writes the schema itself (empty `note`) and records this session's
+baseline counts, which Phase 5's report reads.
 
 ## Phase 4: Task Execution Loop
 
@@ -224,29 +229,22 @@ Read `$HOME/.claude/.radin/lib/radin-execute-prompts.md` once now. It holds
 every verbatim sub-agent prompt this phase sends: planning, execution,
 debugging.
 
-The state CLI picks each task:
+The state CLI picks each task, dependency gate included:
 
 ```bash
-RADIN_CLI state next-pending "$NAMESPACE_DIR/state/BACKLOG_STEPS.json"
+RADIN_CLI state task-next "$NAMESPACE_DIR"
 ```
 
-Exit 0 prints the next task as `id<TAB>order<TAB>depends-on-csv`. Exit 1
-means no pending entry remains, so go to Phase 5.
+Exit 1 means nothing is left to run, so go to Phase 5. Exit 0 prints, in
+order:
 
-### Step 4a-0: Check dependencies
-
-```bash
-RADIN_CLI state deps-check "$NAMESPACE_DIR/state/BACKLOG_STEPS.json" "$NAMESPACE_DIR/state/completed.json" "<task id>"
-```
-
-- Exit 0: prints one `<id><TAB><commit hash>` line per dependency. Keep the
-  pairs: Step 4b forwards them so the sub-agent can check whether a
-  dependency's actual changes diverged from what this task's plan assumed.
-- Exit non-zero: the message names the first unresolved dependency. Either an
-  ordering bug (fix `BACKLOG_STEPS.json`) or the dependency is
-  `failed`/`blocked`. Either way, mark this task `blocked` with the CLI's
-  message as its `note` (via `set-status`), report it, and skip to the next
-  task.
+- zero or more `blocked<TAB><id><TAB><why>` lines — tasks it skipped because
+  a dependency is unresolved. It already marked each one `blocked` with that
+  note; report each as skipped.
+- `id<TAB><id>` and `order<TAB><n>` for the task to run now.
+- zero or more `dep<TAB><id><TAB><commit hash>` lines. Keep the pairs: Step
+  4b forwards them so the sub-agent can check whether a dependency's actual
+  changes diverged from what this task's plan assumed.
 
 ### Step 4a: Ensure a plan exists
 
@@ -332,64 +330,69 @@ this task's `Task` call may share a message with another's. Send the
   so the user can run it themselves.
 - `ACCEPTANCE`: substituted exactly as the prompt file's own `ACCEPTANCE`
   narration specifies, the no-criteria case included.
-- `DEPENDS_ON`: the Step 4a-0 `<id>: <commit hash>` pairs, or "none"
+- `DEPENDS_ON`: the `dep` pairs `task-next` printed as `<id>: <commit hash>`,
+  or "none"
 
 When the sub-agent reports, its `STATUS:` line drives what happens next,
 never your own read of the surrounding prose. But first, verify the tree the
-sub-agent actually worked in. In worktree mode that is not `$REPO_ROOT`, and
-checking the wrong one reports clean while work sits uncommitted elsewhere:
+sub-agent actually worked in — the CLI resolves it, stashes it and fails the
+task if it is dirty, whatever the `STATUS:` said:
 
 ```bash
-TASK_DIR="$(RADIN_CLI state task-dir "$REPO_ROOT" "<task id>")"
-RADIN_CLI state dirty-check "$TASK_DIR"
+RADIN_CLI state dirty-recover "$NAMESPACE_DIR" "<task id>" "<STATUS value>"
 ```
 
-`dirty-check`'s built-in exclusion of `.claude/.radin/` matters: your own
-state writes must never count as dirty. Non-empty output means the sub-agent
-violated the no-dirty-tree contract regardless of its `STATUS:`: read
-`$HOME/.claude/.radin/lib/radin-execute-dirty.md` and follow it, then continue
-to the next task.
-
-On a clean tree, route on `STATUS:`:
+Exit 0: it printed the finished report line, so print that and continue to
+the next task. Exit 1: the tree is clean, so route on `STATUS:`:
 
 - **`SUCCESS`**: note the commit hash (or the pre-existing hash it cites),
   then run the bookkeeping command now, not deferred to Phase 5, since a stop
-  can prevent Phase 5 from running. It records the hash in `completed.json`,
-  removes the backlog entry, and removes the `BACKLOG_STEPS.json` line, in
-  crash-safe order:
+  can prevent Phase 5 from running. It validates the hash, records it in
+  `completed.json`, removes the backlog entry, and removes the
+  `BACKLOG_STEPS.json` line, in crash-safe order:
 
   ```bash
   RADIN_CLI state task-done "$NAMESPACE_DIR" "<task id>" "<commit hash>"
   ```
 
   Report: `✅ Task <order> '<title>' complete. <STATUS detail>. Remaining: <count>.`
+  Exit 3 means the hash is not a commit reachable from the task's branch, so
+  the `SUCCESS` is unsupported: treat it as `FAILED` below, with the CLI's
+  message as the reason.
 
   Never verify a `SUCCESS` yourself: no verification sub-agent, and no
   re-reading the diff — that read is the cost Phase 6's `/radin-review` pass
   exists to avoid.
 - **`BLOCKED (FACT)` / `BLOCKED (DECISION)`**: route per Clarifying
   Ambiguity. Once settled, re-run this task from Step 4a.
-- **`FAILED`**: diagnose once before you park it. A retry that carries no new
-  information fails the same way and burns another attempt, so send the
-  **Debug prompt** from `radin-execute-prompts.md` (substituting `FAILURE`
-  with the reason from the `STATUS:` line) — once per task per session, never
-  twice.
-  - `STATUS: DIAGNOSED`: append it to the task's file as a `**Root cause:**`
-    line (`radin-backlog.sh append`, signature in
-    `radin-execute-clarify.md`), then re-run
-    this task from Step 4b. `start` bumps `attempts` again, so the cap still
-    ends it.
-  - `STATUS: NOT DIAGNOSED`, or the task fails again after a diagnosis: mark
-    the entry `failed` via `set-status`, `note` set to the reason from the
-    `STATUS:` line, the diagnosis if there is one, plus any recovery pointer
-    (e.g. a stash ref). Report: `❌ Task <order> '<title>' failed: <reason>.
-    Continuing to next task.` Continue.
+- **`FAILED`**: hand the reason to the CLI, which decides whether this task
+  still has a debug pass left:
+
+  ```bash
+  RADIN_CLI state task-fail "$NAMESPACE_DIR" "<task id>" "<reason from the STATUS: line>"
+  ```
+
+  Exit 3 means diagnose first — a retry carrying no new information fails the
+  same way and burns another attempt — so send the **Debug prompt** from
+  `radin-execute-prompts.md`, substituting `FAILURE` with the reason.
+  - `STATUS: DIAGNOSED`: record it, then re-run this task from Step 4b.
+    `start` bumps `attempts` again, so the cap still ends it.
+
+    ```bash
+    RADIN_CLI state task-diagnosis "$NAMESPACE_DIR" "<task id>" <<'EOF'
+    <the diagnosis>
+    EOF
+    ```
+
+  - `STATUS: NOT DIAGNOSED`, or the task fails again after a diagnosis: run
+    `task-fail` again with the reason. It exits 0 this time, having marked
+    the entry `failed` with the note, and prints the report line.
 - **A report that has no `STATUS:` line** (it asked something, hit an
-  interactive skill, or died): treat it as `FAILED`, `note` `"sub-agent
-  returned no STATUS line, likely an interactive skill or a spawned
-  background task; last words: <its final line>"`. Never re-read its prose
-  for intent and never re-dispatch it in this turn. The task keeps its bumped
-  `attempts`, so the cap still applies.
+  interactive skill, or died): no debug pass, straight to failed —
+  `RADIN_CLI state task-fail "$NAMESPACE_DIR" "<task id>" --no-status "<its
+  final line>"`, then print its line. Never re-read its prose for intent and
+  never re-dispatch it in this turn. The task keeps its bumped `attempts`, so
+  the cap still applies.
 - **No report yet.** Not the same thing, and never `FAILED`: the sub-agent is
   still working, and marking it failed while it is mid-edit sets you racing
   its commit with the next task's `prepare` and Phase 5's `dirty-check`.
@@ -399,23 +402,30 @@ On a clean tree, route on `STATUS:`:
 
 ### Step 4c: Repeat
 
-Re-run `next-pending`. Exit 0: process that task. Exit 1: go to Phase 5.
-Failed and blocked entries stay in the file for the user to retry or decide
-later. They are not retried within this session, and never block the loop
+Re-run `task-next`. Exit 0: process that task. Exit 1: go to Phase 5.
+Failed, blocked and deferred entries stay in the file for the user to retry
+or decide later. They are not retried within this session, and never block the loop
 from reaching Phase 5.
 
 Every task's state is durable the moment it lands (Step 4b's
-`task-done`/`set-status` calls), so an interruption here costs nothing: the
+`task-done`/`task-fail`/`dirty-recover` calls), so an interruption here costs nothing: the
 user can stop you at any point and re-invoke to resume, and completed tasks
 are never redone. Long backlogs are fine to run straight through.
 
 ## Phase 5: Final Summary
 
 Always runs once the loop exits. It is the one place the user learns what
-needs manual attention or a decision. Read
-`$HOME/.claude/.radin/lib/radin-execute-reporting.md` and follow it: it holds
-the residual-changes check, the where-did-commits-land rules, and the report
-template.
+needs manual attention or a decision, and the CLI prints it whole:
+
+```bash
+RADIN_CLI state report "$NAMESPACE_DIR" "<one dropped-skill line per skill Step 4b dropped>"
+```
+
+Print its output verbatim — it already holds the residual-changes check, the
+where-did-commits-land lines, this session's commits, and every `failed`,
+`blocked` and `deferred` entry with its note. Read
+`$HOME/.claude/.radin/lib/radin-execute-reporting.md` for the two things it
+cannot do.
 
 ## Phase 6: Review
 

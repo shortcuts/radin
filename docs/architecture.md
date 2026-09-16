@@ -82,20 +82,28 @@ Creates `state/`, `plans/`, `reviews/`, `backlog/tasks/` under `$NAMESPACE_DIR`,
 `radin-execute`'s own state files (`BACKLOG_STEPS.json`, `completed.json`) get same treatment as backlog. Sibling CLI, `lib/radin-state.sh`, only way agent mutates either file — never hand-written JSON edit in agent's own prose.
 
 ```bash
-radin state <start|stuck|triage|set-status|remove|completed-add|completed-get|completed-list|task-dir|prepare|dirty-check|session-set|session-get|journal-tail>
+radin state <steps-init|next-pending|task-next|start|stuck|triage|recover|recover-reject|set-status|remove|deps-check|completed-add|completed-get|completed-list|task-done|task-fail|task-diagnosis|dirty-recover|report|task-dir|prepare|dirty-check|stash|session-set|session-get|journal-tail>
 ```
 
 - `start <steps-file> <id>` — claim task before dispatch: `status` `in_progress`, `attempts` +1. Exits 2 having marked entry `blocked` once `attempts` passes `MAX_ATTEMPTS` (3), so crash loop can't burn tokens forever
+- `task-next <namespace-dir>` — the whole picker in one call: lowest-order `pending` entry, dependency gate, and the block-and-skip route for one whose dependency is unresolved. Prints the `blocked` lines it wrote, then `id`/`order`/`dep` for the task to run. Exit 1 when nothing is left, so orchestrator filters, sorts and joins nothing
 - `stuck <steps-file>` — list `in_progress` entries: tasks dispatched by run that died before terminal status. Recovery entry point
 - `triage <namespace-dir> <id>` — facts about what dead sub-agent left: `attempts`, `completed` hash, `worktree`, `branch`, `branch_commit` lines, `dirty_files` count. Prints facts, decides nothing — agent routes on them (see `radin-execute` Phase 1 step 3). Worktree path and branch name derived from task id, never recorded: execution prompt pins them to `../<repo>-<id>` / `radin/<id>`
-- `set-status <steps-file> <id> <pending|in_progress|failed|blocked> [note]` — rewrite one entry's `status`/`note` in place, `order`/`depends_on`/`attempts` untouched
+- `recover <namespace-dir> <id>` — act on `triage`'s facts: finish the bookkeeping when a hash is already recorded, return a clean tree to `pending`, stash a dirty one first. Exit 3 prints the commits a dead sub-agent left on `radin/<id>` — the one branch no verb can settle, because only the model can say whether they satisfy the task. It answers with `task-done` or `recover-reject`
+- `recover-reject <namespace-dir> <id>` — those commits do not satisfy the task: entry `blocked`, note naming branch and worktree to inspect
+- `set-status <steps-file> <id> <pending|in_progress|failed|blocked> [note]` — rewrite one entry's `status`/`note` in place, `order`/`depends_on`/`attempts`/`debugged` untouched
 - `remove <steps-file> <id>` — delete one completed entry's line
-- `completed-add <completed-file> <id> <hash>` — append completed task's commit, create file if absent
+- `completed-add <completed-file> <id> <hash> [title]` — append completed task's commit, create file if absent. Title stored because completion deletes backlog entry, so nothing else can name task in final report
 - `completed-get <completed-file> <id>` — print completed task's commit hash (exit 1 if not recorded), for later task's `depends_on` check
 - `completed-list <completed-file>` — print `id<TAB>commit` per completion in file order (exit 1 when nothing is recorded), for `radin tui`'s Done view: completion deletes the backlog entry, so this file is the only record left
+- `task-done <namespace-dir> <id> <hash>` — record success, drop backlog and steps entries, crash-safe order. Validates hash first: must be commit reachable from `radin/<id>` (or `HEAD`) in the task's tree, else exit 3 and nothing written. Hash comes off a sub-agent's free-text `STATUS:` line, so nothing else checks it
+- `task-fail <namespace-dir> <id> <reason>` — the `FAILED` route. First call per task per session flips the entry's `debugged` flag and exits 3, the caller's signal to send the Debug prompt; second call marks entry `failed` with the composed note and prints the finished report line. `--no-status <last line>` never offers the debug pass
+- `task-diagnosis <namespace-dir> <id>` — stdin becomes a `**Root cause:**` line on the task file (only place that label is written). Changes no status: the retry's `start` bumps `attempts`, so `MAX_ATTEMPTS` still ends the loop
+- `dirty-recover <namespace-dir> <id> <status-word>` — sub-agent left a dirty tree whatever its `STATUS:` said: resolve the tree with `task-dir`, `stash` it, mark the entry `failed` with the recovery commands in the note, print the report line. Exit 1 when the tree is clean, so the caller routes on `STATUS:` instead
+- `report <namespace-dir> [<dropped-skill line>...]` — the finished Phase 5 report text: residual-changes check (stash, never commit), this session's commits with their landing lines per `session.json`, every `failed`/`blocked`/`deferred` entry with its note, the session's stashes, one bullet per extra argument. Scoped to this session by `state/baseline.json`, written by `steps-init`
 - `task-dir <repo-root> <id>` — print task's worktree (`<repo-root>-<id>`) when it exists, else repo root. Everything checking or parking one task's files (`dirty-check`, `stash`) goes through it: in worktree mode repo root is not tree sub-agent worked in, and checking wrong one reports clean while work sits uncommitted elsewhere
 - `prepare <namespace-dir> <id>` — read `session.json`, create or reuse `<repo-root>-<id>` worktree and `radin/<id>` branch exactly as recorded answers require, print single directory execution sub-agent works in. Only place those two answers turn into git commands, so a model can't reinterpret `no` into a worktree it prefers. Fails when nothing recorded yet
-- `dirty-check <dir>` — `git status --porcelain`, `.claude/.radin` excluded so radin's own state writes never read as dirty tree
+- `dirty-check <dir>` — `git status --porcelain`, `.claude/.radin` excluded so radin's own state writes never read as dirty tree. Execution loop calls `dirty-recover`, not this: leaf verb stays for `report`'s residual check and anything asking the bare question
 - `session-set`/`session-get <namespace-dir>` — persist and read Phase 0.5's worktree/branch answers, so resumed run reuses them instead of asking again and splitting session between worktrees and checkout. `prepare` consumes them; orchestrator only reads them back for its final summary
 - `journal-tail <namespace-dir> [n]` — last n events from append-only `state/journal.jsonl`, written by every mutation above. Lets agent reconstruct what session already did after context compaction. Forensics only, never control flow
 
@@ -103,14 +111,13 @@ Both `BACKLOG_STEPS.json` and `completed.json` JSONL (one compact object per lin
 
 `radin-execute` and `radin-plan` skill also share `lib/radin-prioritization.md`, single source of truth for backlog parsing rules, task priority criteria, state-file JSON schema. Both read via `$HOME/.claude/.radin/lib/radin-prioritization.md` — `radin-execute` at start of Phase 1, `radin-plan` at start of its Step 2 — instead of embedding own copy. `radin-execute` uses all of it, prioritize/order whole backlog. `radin-plan` uses only parsing section: scoped to single entry caller points at, not whole backlog, so nothing to prioritize, no state file of own.
 
-`radin-execute` alone reads seven on-demand files, none of them inline in `SKILL.md`, because the skill body sits in the user's own context for the rest of the session. Each one be cold path — trigger fire, file get read, otherwise never:
+`radin-execute` alone reads six on-demand files, none of them inline in `SKILL.md`, because the skill body sits in the user's own context for the rest of the session. Each one be cold path — trigger fire, file get read, otherwise never:
 
 - `lib/radin-execute-prompts.md` — the four verbatim sub-agent prompts (planning, execution, debug, fact-finding), read at start of Phase 4. A session that stops at Phase 2 (common first turn) never reaches Phase 4, so never loads them.
 - `lib/radin-execute-recovery.md` — `triage` routing for tasks a dead session left `in_progress`, read only when `radin-state.sh stuck` exits 0. Most runs never load it.
-- `lib/radin-execute-reporting.md` — residual-changes check, commit-location rules, final report template, read at Phase 5.
+- `lib/radin-execute-reporting.md` — the two things `state report` cannot do: dropped-skill bullets it must be handed, and the duplicate id/title scan. Read at Phase 5.
 - `lib/radin-execute-clarify.md` — `BLOCKED (FACT)`/`(DECISION)` routing, fact-finder handoff, `backlog append` labels, read when a sub-agent block. Run where nothing block never load it.
 - `lib/radin-execute-session.md` — how to ask and persist Phase 0.5's worktree/branch answers, read only when `session-get` exit 1. First run in repo, nothing after.
-- `lib/radin-execute-dirty.md` — stash-and-fail steps when Step 4b's `dirty-check` print something. Sub-agent that commit its work never trigger it.
 - `lib/radin-execute-resume.md` — resume triage, `MAX_ATTEMPTS` exception, state-persistence contract, read only when `BACKLOG_STEPS.json` already exist at startup or compaction ate earlier turns.
 
 ## Why every entry point is a skill
@@ -220,7 +227,6 @@ radin/
     radin-execute-reporting.md
     radin-execute-clarify.md
     radin-execute-session.md
-    radin-execute-dirty.md
     radin-execute-resume.md
     radin-namespace.sh
     radin-prioritization.md
@@ -369,6 +375,10 @@ pass. A per-task refuter sub-agent used to run here; it cost an extra
 sub-agent per successful task for findings the Phase 6 pass finds anyway.
 Don't reintroduce one, and don't have the router re-read the diff instead —
 that read is the cost the single end-of-session pass exists to avoid.
+
+The one Debug pass a `FAILED` task gets is enforced by the `debugged` flag on
+its steps entry, flipped by `radin state task-fail`, not by a counter the
+router holds — a counter cannot survive a resume or a compaction.
 
 A task body may state its own `**Acceptance:**` criteria, which
 `radin backlog meta` reports and the execution prompt is handed. A task with

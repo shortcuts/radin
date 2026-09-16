@@ -164,7 +164,6 @@ run_install_defaults() {
   [ -f "$TEST_HOME/.claude/.radin/lib/radin-execute-reporting.md" ]
   [ -f "$TEST_HOME/.claude/.radin/lib/radin-execute-clarify.md" ]
   [ -f "$TEST_HOME/.claude/.radin/lib/radin-execute-session.md" ]
-  [ -f "$TEST_HOME/.claude/.radin/lib/radin-execute-dirty.md" ]
   [ -f "$TEST_HOME/.claude/.radin/lib/radin-execute-resume.md" ]
   [ -f "$TEST_HOME/.claude/skills/thermo-nuclear/SKILL.md" ]
   [ -d "$TEST_HOME/.claude/skills/radin-execute" ]

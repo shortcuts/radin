@@ -54,7 +54,7 @@ These labels are the shared vocabulary of a task file's annotations, and the tab
 | `**Skill:** <instruction>` | user named a skill for this task | `radin-record` |
 | `**Decision:** <answer>` | user settled a `BLOCKED (DECISION)` | `radin-execute` |
 | `**Fact:** <answer>` | fact-finder returned `STATUS: FOUND` | `radin-execute` |
-| `**Root cause:** <cause + fix direction>` | debug sub-agent returned `STATUS: DIAGNOSED` | `radin-execute` |
+| `**Root cause:** <cause + fix direction>` | debug sub-agent returned `STATUS: DIAGNOSED` | `radin state task-diagnosis` |
 | `**Facts:** <path>` | the long form went to `state/facts/<task-id>.md` | `radin-execute` |
 | `**Acceptance:** <checklist>` | the session surfaced checkable criteria | radin-record, radin-review, or a human |
 
@@ -77,7 +77,7 @@ Free-form markdown at `$NAMESPACE_DIR/plans/<id>.md`: files to touch, change in 
 JSONL, one compact object per line — same convention as `index.jsonl`, so single-entry update never touches another entry's line:
 
 ```json
-{"id":"add-route-exports","order":1,"status":"pending","depends_on":[],"attempts":0,"note":""}
+{"id":"add-route-exports","order":1,"status":"pending","depends_on":[],"attempts":0,"debugged":0,"note":""}
 ```
 
 `id` matches task's id in `index.jsonl`. File located through index's `file` field (`radin backlog path <id>`), so schema no longer carries line range — task's file path fixed at creation, never goes stale.
@@ -87,12 +87,23 @@ JSONL, one compact object per line — same convention as `index.jsonl`, so sing
 Every mutation goes through `lib/radin-state.sh` (`set-status`/`remove`) — `radin-execute` never hand-edits this file's JSON.
 
 - `depends_on` lists `id`s of other tasks in this file whose result this task's plan or implementation assumes. Value comes from task's index line when it has one (`radin state steps-init` reads index it's handed), and from prioritization's overlap inference per `radin-prioritization.md`'s dependency-order criterion (same files, functions, or behavior touched by both) otherwise. Empty when neither.
-- `status` one of `pending`, `in_progress`, `failed`, `blocked`. Entry's absence from file means task complete.
+- `status` one of `pending`, `in_progress`, `failed`, `blocked`, `deferred`. Entry's absence from file means task complete. `deferred` is a task Phase 2's gate listed but the user excluded from this run: only `steps-init` writes it (fourth stdin field), `set-status` refuses it, `next-pending` skips it, `report` lists it. Persisting it is what keeps the excluded set from having to survive in context between Phase 2 and Phase 5.
 - `in_progress` set by `radin-state.sh start` right before orchestrator dispatches execution sub-agent, cleared by task's terminal status. Entry still `in_progress` at startup means previous run died mid-task: `radin-state.sh stuck` lists those, `triage` reports what dead sub-agent left behind (commits on `radin/<id>`, dirty tree, already-recorded hash). Never re-dispatched blind.
 - `attempts` counts `start` calls. `start` exits 2 and marks entry `blocked` once count passes 3, so session that crashes at same task can't retry it forever.
+- `debugged` `0` or `1`: whether this task already got its one Debug pass this session. `radin state task-fail` flips it and exits 3 the first time, marks the entry `failed` the second. Same lifetime as `attempts` — `steps-init` rewrites the file every run — which is exactly the lifetime the rule needs, and why the rule is not a counter the router holds.
 - `note` optional, empty for `pending` entries. `failed` entries carry short reason plus recovery pointer (e.g. `git stash` ref) — what Phase 4 final summary reports back to user. `blocked` entries carry decision question, candidate options, agent's recommendation — final summary asks user to decide.
 - `failed`/`blocked` entry never blocks execution loop from reaching Phase 4 — loop exits once no `pending` entries remain, not only when file empty.
 - Never stores full task text. Task's own file (`radin backlog path <id>`) stays source of truth for each task's body.
+
+## Session baseline (`baseline.json`)
+
+Single line, written by `radin-state.sh steps-init` each run, so Phase 5 can scope "this session" without the router carrying counts across phases:
+
+```json
+{"backlog_count":7,"completed_count":2}
+```
+
+`radin state report` is the only consumer: completions past `completed_count` are this session's, and `backlog_count` against `backlog count` now gives the net-new entry count. Absent (a file written before this key existed): `report` reports every completion and omits the net-new line.
 
 ## Session preferences (`session.json`)
 
@@ -121,11 +132,13 @@ Append-only, one event per line, written by every `radin-state.sh` mutation (`st
 JSONL, one compact object per line:
 
 ```json
-{"id":"add-route-exports","commit":"abc1234"}
+{"id":"add-route-exports","commit":"abc1234","title":"Add route exports"}
 ```
 
 Appended to `$NAMESPACE_DIR/state/completed.json` via `lib/radin-state.sh
 completed-add` on every `STATUS: SUCCESS`. Task's entry in `BACKLOG_STEPS.json` deleted once complete, so can no longer carry commit hash. Later task whose `depends_on` names completed `id` looks its commit up here via `radin-state.sh completed-get`, forwards to that task's execution sub-agent, so sub-agent can check whether dependency's actual changes still match what this task's plan assumed.
+
+`title` recorded because `task-done` deletes backlog entry, so nothing else can name the task in Phase 5's report; empty when entry was already gone. `completed-list`'s output stays two fields (`id<TAB>commit`) even so — `radin tui`'s Done view parses that.
 
 ## Install manifest (`manifest.json`)
 

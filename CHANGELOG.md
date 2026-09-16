@@ -17,6 +17,19 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- `radin state` now owns `radin-execute`'s execution loop instead of the model.
+  New verbs replace prose that composed leaf calls by hand: `task-next` (pick,
+  dependency gate, block-and-skip in one call), `task-fail` and
+  `task-diagnosis` (the `FAILED` route, its notes and its one Debug pass),
+  `dirty-recover` (stash-and-fail a sub-agent's dirty tree), `recover` and
+  `recover-reject` (crash triage), and `report` (the finished end-of-session
+  report text). `task-done` now rejects a commit hash that is not a commit
+  reachable from the task's branch, so an unsupported `SUCCESS` can no longer
+  record one. A task the user defers at the Phase 2 gate is persisted as a
+  `deferred` entry rather than remembered in context, and the one Debug pass a
+  failing task gets is enforced by a flag on its entry, so it survives a
+  resume. `lib/radin-execute-dirty.md` is gone — it was one CLI call.
+
 - `radin tui` now notices a backlog another shell changed: every 5 seconds an
   idle TUI checks `index.jsonl`'s mtime and size, and reloads only when they
   moved, so a task an agent added in another terminal appears at the bottom and
