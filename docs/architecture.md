@@ -252,6 +252,9 @@ scrolled by the same two keys and dismissed with `q`/ESC. At 100 columns or
 more the pane is already on screen, so `enter` on a task row is a genuine
 no-op (on an epic header it always collapses). More keystrokes beat an
 unreadable UI, because people read this on a phone.
+`e` is the other half of that split and only ever edits: a task row's body, or
+an epic header's own `DESCRIPTION.md` — the same path `E` writes at creation,
+built in one place so the two keys cannot disagree about where it lives.
 A `P` in the first column marks a task `radin-plan` already planned. A `*`
 marks a row matching the active `/` search, and `n`/`N` walk those matches.
 Priority is its own column left of the category, and the only coloured cell in

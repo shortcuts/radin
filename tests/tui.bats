@@ -289,6 +289,16 @@ tui() {
   [ "$output" = "aaa body" ]
 }
 
+@test "e on an epic header edits that epic's DESCRIPTION.md" {
+  two_epics
+  run tui "e|q"
+  [ "$status" -eq 0 ]
+  run cat "$TASKS/aaa-epic/DESCRIPTION.md"
+  [ "$output" = "typed body" ]
+  # The other epic and the children are untouched.
+  run cat "$TASKS/bbb-epic/DESCRIPTION.md"
+  [ "$output" = "bbb ctx" ]
+}
 
 @test "a task key on an epic header reports no task and changes nothing" {
   two_epics

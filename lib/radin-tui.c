@@ -908,6 +908,21 @@ static void edit_body(int ti) {
 	setmsg("edited %s", T[ti].id);
 }
 
+/* The epic's own context file, written by E at creation and otherwise
+ * unreachable from here. Caller owns desc so new_epic can stat it after. */
+static void edit_desc(const char *epic, char *desc, size_t n) {
+	snprintf(desc, n, "%s/%s/DESCRIPTION.md", BACKLOG_TASKS_DIR, epic);
+	const char *ed = getenv("EDITOR");
+	run_external(ed && *ed ? ed : "vi", desc);
+}
+
+static void edit_epic_desc(void) {
+	if (N <= 0 || !*row_epic[SEL]) return;
+	char desc[PATH_MAX];
+	edit_desc(row_epic[SEL], desc, sizeof desc);
+	setmsg("edited %s description", row_epic[SEL]);
+}
+
 static void toggle_collapse(void) {
 	if (N <= 0 || !*row_epic[SEL]) return;
 	if (in_set(COLLAPSED, row_epic[SEL])) set_remove(COLLAPSED, row_epic[SEL]);
@@ -1120,9 +1135,7 @@ static void new_epic(void) {
 	}
 	free(out);
 	char desc[PATH_MAX];
-	snprintf(desc, sizeof desc, "%s/%s/DESCRIPTION.md", BACKLOG_TASKS_DIR, epic);
-	const char *ed = getenv("EDITOR");
-	run_external(ed && *ed ? ed : "vi", desc);
+	edit_desc(epic, desc, sizeof desc);
 	struct stat st;
 	if (stat(desc, &st) == 0 && st.st_size > 0) setmsg("created epic %s", epic);
 	else setmsg("created epic %s -- description left empty", epic);
@@ -1271,7 +1284,8 @@ static void help_screen(void) {
 		"  j / down      next task\n"
 		"  k / up        previous task\n"
 		"  g / G         first / last task\n"
-		"  e             edit the task body in $EDITOR (an epic row: collapse/expand)\n"
+		"  e             edit in $EDITOR: a task row's body, or an epic row's\n"
+		"                own DESCRIPTION.md\n"
 		"  enter         an epic row: collapse/expand. A task row: nothing, unless\n"
 		"                the terminal is under 100 columns -- then the detail overlay\n"
 		"  ^d / ^u       scroll the detail half a pane\n"
@@ -1405,7 +1419,7 @@ int main(int argc, char **argv) {
 		case 'e':
 			ti = cur_task();
 			if (ti >= 0) edit_body(ti);
-			else toggle_collapse();
+			else edit_epic_desc();
 			break;
 		/* enter is the narrow terminal's way to the detail, and a genuine no-op
 		 * where the pane is already on screen -- no message, because the next

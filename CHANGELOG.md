@@ -15,8 +15,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   columns no right pane is drawn and `enter` on a task row opens the same
   renderer full-screen, dismissed with `q`/ESC -- so `enter` no longer opens
   `$EDITOR`, `e` is the edit key. On a wider terminal `enter` on a task row
-  does nothing, and on an epic header it still collapses. `v` still opens the
-  fully composed document in `$PAGER`.
+  does nothing, and on an epic header it still collapses. `e` on an epic header
+  now opens that epic's `DESCRIPTION.md` in `$EDITOR` -- previously the only
+  way to write it was at creation time, via `E`. `v` still opens the fully
+  composed document in `$PAGER`.
 
 - Task priority is now the Fibonacci scale `1 2 3 5 8 13 21`, ascending with
   "higher wins" (so `21` is the most important, not the largest estimate).
