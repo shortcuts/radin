@@ -11,6 +11,7 @@
  *   MOCK_LOG_DIR    append "<args>" to <dir>/<name>.log on every call
  *   MOCK_FAIL       space-separated names that exit 1
  *   MOCK_NPX        "fail" exits 1, "eat-stdin" reads fd 0 to EOF
+ *   MOCK_CBM        "fail-install" prints an editor inventory and exits 1 for `install`
  *   MOCK_PLUGINS    what `claude plugin list` prints
  *
  * cc -O1 -o mock mock.c
@@ -146,6 +147,17 @@ int main(int argc, char **argv) {
 				fprintf(f, "stub thermo-nuclear\n");
 				fclose(f);
 			}
+		}
+		return 0;
+	}
+	if (named("codebase-memory-mcp")) {
+		const char *mode = getenv("MOCK_CBM");
+		if (mode && !strcmp(mode, "fail-install") && has_arg(argc, argv, "install")) {
+			/* Upstream's own per-client inventory: the block install.sh used to
+			 * relay to the terminal on a PARTIAL run. */
+			printf("Claude Code:\n  hooks: SessionStart (MCP usage reminder on startup)\n");
+			printf("OpenCode:\n  mcp: /dev/null/opencode.json\n");
+			return 1;
 		}
 		return 0;
 	}

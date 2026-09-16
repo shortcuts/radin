@@ -177,6 +177,8 @@ cmd_install() {
 		restore "${SNAP_SETTINGS:-}" "${SNAP_CLAUDE_JSON:-}"
 		adopt_staged_mcp
 		cbm_wired || exit 1
+		# install.sh greps this log for '^PARTIAL ' to tell a clean wiring from
+		# this one -- exit is 0 either way. Keep the prefix if the wording moves.
 		printf 'PARTIAL  %s reported a failure after configuring Claude Code -- hooks and MCP entry are in place\n' "$CBM_NAME" >&2
 		exit 0
 	fi

@@ -24,6 +24,11 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- `install.sh` no longer relays `codebase-memory-mcp`'s per-item configuration
+  trace or upstream's per-client inventory; both go to
+  `~/.claude/.radin/cbm-config.log`, named only when the step did not come out
+  clean. A first install now ends with what to run next.
+
 - `radin-execute` plans in one wave: Phase 3.5 dispatches a planning sub-agent
   for every confirmed task that lacks a plan, all in one message, before the
   first execution sub-agent runs. Fact-finders for several blocked tasks

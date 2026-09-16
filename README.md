@@ -96,7 +96,10 @@ can sit under an epic whose `DESCRIPTION.md` every child inherits.
 Two caveats: a graph answer is a pointer, never proof of absence — read the
 file before editing. And after `codebase-memory-mcp update`, run
 `radin cbm-config repair`, because that update reruns a config write which
-drops other tools' hooks. Full list in
+drops other tools' hooks. radin snapshots `~/.claude/settings.json` and
+`~/.claude.json` into `~/.claude/.radin/backups/` before that write and never
+deletes a snapshot; `codebase-memory-mcp uninstall` undoes upstream's own side.
+Full list in
 [docs/technical-constraints.md](docs/technical-constraints.md).
 
 Hacking on radin itself? [AGENTS.md](AGENTS.md),

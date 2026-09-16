@@ -645,9 +645,7 @@ if CBM_BIN="$(cbm_bin)"; then
 	# auto_index is off upstream, which leaves a wired session querying an empty
 	# graph until someone indexes by hand. Idempotent, so it also fixes an
 	# install that predates this line.
-	if "$CBM_BIN" config set auto_index true >/dev/null 2>&1; then
-		ok "codebase-memory-mcp auto-index enabled (new projects index on first connection)."
-	else
+	if ! "$CBM_BIN" config set auto_index true >/dev/null 2>&1; then
 		warn "could not enable codebase-memory-mcp auto-index -- run: codebase-memory-mcp config set auto_index true"
 	fi
 
@@ -661,25 +659,25 @@ if CBM_BIN="$(cbm_bin)"; then
 	# entries stay, yours come back, and `codebase-memory-mcp update` can be
 	# followed by `radin cbm-config repair` for the same reason.
 	if [ -x "$HOME/.claude/.radin/bin/radin-cbm-json" ]; then
-		# Its per-step trace (SNAPSHOT paths, the #1722 SYMLINK note) is what a
-		# failure needs and noise on success, so keep it in a log and print only
-		# the RESTORED/INTACT/CBM result lines when it worked.
-		CBM_LOG="$(mktemp)"
+		# Same contract as install_tool: the per-item trace (SNAPSHOT/STASHED/
+		# RESTORED/INTACT/CBM, and upstream's own 45-client inventory on a
+		# failed run) is what a failure needs and noise on success, so it all
+		# stays in one log and never reaches the terminal. Its own exit code
+		# only says whether the graph came out wired: a PARTIAL run exits 0,
+		# so read that back out of the log rather than claiming success.
+		CBM_LOG="$HOME/.claude/.radin/cbm-config.log"
 		if bash "$HOME/.claude/.radin/lib/radin-cbm-config.sh" install >"$CBM_LOG" 2>&1 </dev/null; then
-			grep -v '^\(SNAPSHOT\|SYMLINK\) ' "$CBM_LOG" || true
-			rm -f "$CBM_LOG"
 			CBM_AGENT_CONFIG="true"
-			ok "codebase-memory-mcp wired: skill, graph agents, hooks, user-scope MCP."
-			info "Every repo works with no per-project step. Snapshots stay in"
-			# shellcheck disable=SC2088  # literal path in a message, not a path to expand
-			info "~/.claude/.radin/backups; undo upstream's side with:"
-			info "  codebase-memory-mcp uninstall"
+			if grep -q '^PARTIAL ' "$CBM_LOG"; then
+				warn "codebase-memory-mcp reported a failure while configuring Claude Code,"
+				warn "but its hooks and MCP entry are in place. Details: ${BOLD}$CBM_LOG${RESET}"
+			else
+				ok "codebase-memory-mcp wired: skill, graph agents, hooks, user-scope MCP (every repo, no per-project step)."
+			fi
 		else
-			cat "$CBM_LOG" >&2
-			rm -f "$CBM_LOG"
 			warn "codebase-memory-mcp configuration failed -- radin itself is unaffected."
-			info "Your own hooks were restored from the snapshot. Falling back to"
-			info "radin's merge-only wiring:"
+			warn "Your own hooks were restored from the snapshot. Details: ${BOLD}$CBM_LOG${RESET}"
+			info "Falling back to radin's merge-only wiring:"
 			bash "$HOME/.claude/.radin/lib/radin-cbm-hooks.sh" claude-md || true
 			info "Then run /radin-setup-hooks in each repo for its .mcp.json entry."
 		fi
@@ -863,5 +861,7 @@ if [ -n "$UPDATE" ]; then
 	ok "radin updated. ${DIM}Go be stingy with those tokens.${RESET}"
 else
 	ok "radin installed. ${DIM}Go be stingy with those tokens.${RESET}"
+	info "Open Claude Code in a repo and run ${BOLD}/radin-record${RESET} to file your first"
+	info "task, then ${BOLD}/radin-execute${RESET} to work the backlog. ${BOLD}radin${RESET} opens the TUI."
 fi
-info "Update the whole stack later with: ${BOLD}radin update${RESET}"
+info "${BOLD}radin doctor${RESET} checks this install · ${BOLD}radin update${RESET} updates the whole stack."

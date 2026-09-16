@@ -389,6 +389,25 @@ pick_with_keys() {
   [[ "$output" == *"radin installed."* ]]
 }
 
+# A PARTIAL codebase-memory-mcp config exits 0, so install.sh takes its success
+# branch. The failure still has to reach the user, and the per-item trace plus
+# upstream's own per-client inventory still has to stay off the terminal.
+@test "a partial codebase-memory-mcp config warns without relaying the log" {
+  ln "$MOCK_BIN/mock" "$MOCK_BIN/codebase-memory-mcp" 2>/dev/null ||
+    ln -s "$MOCK_BIN/mock" "$MOCK_BIN/codebase-memory-mcp"
+  export MOCK_CBM=fail-install
+  run real_install
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"reported a failure while configuring Claude Code"* ]]
+  [[ "$output" == *"cbm-config.log"* ]]
+  [[ "$output" != *"OpenCode:"* ]]
+  [[ "$output" != *"hooks: SessionStart"* ]]
+  [[ "$output" != *"wired: skill"* ]]
+  grep -q '^PARTIAL ' "$TEST_HOME/.claude/.radin/cbm-config.log"
+  grep -q 'OpenCode:' "$TEST_HOME/.claude/.radin/cbm-config.log"
+}
+
+
 # `radin update` runs install.sh --update: no question is asked again, and the
 # answers come from the manifest the previous install wrote.
 @test "--update reuses the recorded behaviour answers instead of asking" {
