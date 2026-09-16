@@ -398,10 +398,24 @@ The one Debug pass a `FAILED` task gets is enforced by the `debugged` flag on
 its steps entry, flipped by `radin state task-fail`, not by a counter the
 router holds — a counter cannot survive a resume or a compaction.
 
+Planning is unconditional for the same reason. Step 4a used to skip the
+planning sub-agent for a "single obvious change"; the router cannot size a
+task without reading the code, and that read is the cost the leaf-worker split
+exists to avoid. A task with no `**Plan:**` pointer always gets a planning
+sub-agent, which sizes the task with the codebase in front of it and writes a
+three-line plan when three lines is what the task needs.
+
 A task body may state its own `**Acceptance:**` criteria, which
 `radin backlog meta` reports and the execution prompt is handed. A task with
 no criteria adds no prompt content: a synthesised criterion would measure the
 work against radin's own guess.
+
+Those criteria are also the bar for the one recovery branch no command can
+settle: `radin state recover` exiting 3 hands the router commits a dead
+sub-agent left behind, and `lib/radin-execute-recovery.md` accepts them only
+when they meet every criterion the entry states. An entry stating none is a
+`recover-reject` and the user's look, never the router's reconstruction of what
+the task wanted.
 
 ## Delegation is pinned by a test
 

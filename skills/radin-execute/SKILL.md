@@ -16,9 +16,9 @@ plan a task's approach yourself: `/radin-plan` is the planner. A task with a
 approach.
 
 Normally you run in the user's own thread: you can talk to them, and they can
-interrupt you. Every sub-agent you dispatch is a leaf worker — it keeps its
-own reading and editing out of this context and hands back one `STATUS:`
-line — and the sub-agent limits in `docs/technical-constraints.md` are its
+interrupt you. Every sub-agent you dispatch keeps its own reading and editing
+out of this context and hands back one `STATUS:` line — and the sub-agent
+limits in `docs/technical-constraints.md` are its
 concern rather than yours.
 
 ## Core Constraints
@@ -122,8 +122,7 @@ RADIN_CLI state session-get "$NAMESPACE_DIR"
 
 Exit 0 prints `worktree<TAB><yes|no>` and `branch<TAB><yes|no>`: the repo has
 already answered, so ask nothing and change nothing. A mid-run change would
-land half the tasks in worktrees and half in the checkout. Nothing else needs
-the values: `prepare` and Phase 5's report read them back themselves. Exit 1
+land half the tasks in worktrees and half in the checkout. Exit 1
 means no answer
 is recorded yet — only the first run in a repo — so read
 `$HOME/.claude/.radin/lib/radin-execute-session.md` and follow it to ask and
@@ -200,19 +199,23 @@ preferences are the only questions a prompt may pre-answer.
      branch, so this answer applies only under `worktree: no`.
    Write nothing to `BACKLOG_STEPS.json` and launch no sub-agent before the
    answer arrives.
-3. Route on the task-selection answer first: it decides Phase 3's `--defer`
-   value, and nothing else.
-   - **All of them**: no `--defer` flag.
-   - **Just the first one**: `--defer` every id but `order` 1's.
-   - **Only the ones I name** (or "Other" text): read the selection off the
-     free text (order numbers, titles, or ids). Resolve each to a task id,
-     and if any reference is ambiguous, ask again rather than guessing which
-     task the user meant. `--defer` the ids the user did not name.
-   Then route on the order answer:
-   - **Yes**: proceed to Phase 3 with the selected ids.
-   - **No, I'll explain** (or "Other" text): if the answer already states the
-     revision, re-run `order` with the revised flags and return to step 1 of
-     this phase. If it doesn't, ask the user which order to use, and wait.
+3. The two answers are routed independently, and each is routed once.
+   - **Task selection** decides Phase 3's `--defer` value, and nothing else:
+     - **All of them**: no `--defer` flag.
+     - **Just the first one**: `--defer` every id but `order` 1's.
+     - **Only the ones I name** (or "Other" text): read the selection off the
+       free text (order numbers, titles, or ids). Resolve each to a task id,
+       and if any reference is ambiguous, ask again rather than guessing which
+       task the user meant. `--defer` the ids the user did not name.
+   - **Execution order**:
+     - **Yes**: proceed to Phase 3 with the selected ids.
+     - **No, I'll explain** (or "Other" text): if the answer already states
+       the revision, re-run `order --report` with the revised flags, print it,
+       and ask the order question **alone** — one `AskUserQuestion` carrying
+       that one question. If the answer does not state the revision, ask which
+       order to use, and wait. Either way the task selection just given
+       stands, as the ids it already resolved to: it is never re-asked, and
+       never re-resolved against the revised order.
 
 ## Phase 3: Persist Execution Plan
 
@@ -269,21 +272,17 @@ RADIN_CLI backlog field "<task id>" PLAN_PATHS
 backlog may have moved since Phase 3): mark the task `blocked` with that
 call's output as its `note` and continue to the next task.
 
-`PLAN_PATHS` exit 0: a plan exists, skip to Step 4b. Exit 1: no plan, so the
-one judgment here is yours — is this a single obvious change
-(clear-root-cause bug fix, one-file tweak, mechanical rename)?
+`PLAN_PATHS` exit 0: a plan exists, skip to Step 4b. Exit 1: no plan, so
+delegate planning — unconditionally, with no judgment of the task's size or
+shape. Never run `/radin-plan` in this context — that is the planning
+sub-agent's job, not the router's — because its codebase exploration is the
+biggest context bloat a router can take on; the plan file on disk is the only
+handoff needed. Send the **Planning prompt** from
+`radin-execute-prompts.md`, replacing `TASK_ID`.
 
-- **Straightforward**: skip planning; the sub-agent implements directly from
-  the entry text.
-- **Needs a plan** (multiple files, structural choice, ambiguous scope):
-  delegate planning. Never run `/radin-plan` in this context — that is the
-  planning sub-agent's job, not the router's — because its
-  codebase exploration is the biggest context bloat a router can take on; the
-  plan file on disk is the only handoff needed. Send the **Planning prompt**
-  from `radin-execute-prompts.md`, replacing `TASK_ID`.
-  - `STATUS: PLANNED`: proceed to Step 4b.
-  - `STATUS: BLOCKED (FACT|DECISION)`: route per Clarifying Ambiguity, then
-    retry Step 4a.
+- `STATUS: PLANNED`: proceed to Step 4b.
+- `STATUS: BLOCKED (FACT|DECISION)`: route per Clarifying Ambiguity, then
+  retry Step 4a.
 
 ### Step 4b: Execution sub-agent
 
@@ -386,17 +385,19 @@ the next task. Exit 1: the tree is clean, so route on `STATUS:`:
   - `STATUS: NOT DIAGNOSED`, or the task fails again after a diagnosis: run
     `task-fail` again with the reason. It exits 0 this time, having marked
     the entry `failed` with the note, and prints the report line.
-- **A report that has no `STATUS:` line** (it asked something, hit an
-  interactive skill, or died): no debug pass, straight to failed —
+- **A report with no `STATUS:` line** (it asked something, hit an interactive
+  skill, or died mid-turn): no debug pass, straight to failed —
   `RADIN_CLI state task-fail "$NAMESPACE_DIR" "<task id>" --no-status "<its
-  final line>"`, then print its line. Never re-dispatch it in this turn. The task keeps its bumped `attempts`, so
-  the cap still applies.
-- **No report yet.** Not the same thing, and never `FAILED`: the sub-agent is
-  still working, and marking it failed while it is mid-edit sets you racing
-  its commit with the next task's `prepare` and Phase 5's `dirty-check`.
-  Wait. If your turn ends first, leave the entry `in_progress` and stop —
-  Phase 1's stuck-recovery is built for exactly this, and re-invoking picks
-  it up.
+  final line>"`, then print its line. Never re-dispatch it in this turn. The
+  task keeps its bumped `attempts`, so the cap still applies.
+- **No report at all.** Not the same thing, and never `FAILED`. One observable
+  separates the two, and nothing else does: whether the `Task` call has handed
+  you content. It has, and the last line is not a `STATUS:` line → the bullet
+  above. It has not → the sub-agent is still working, whatever the elapsed
+  time suggests, and marking it failed while it is mid-edit sets you racing
+  its commit with the next task's `prepare` and Phase 5's `dirty-check`. Wait.
+  If your turn ends first, leave the entry `in_progress` and stop — Phase 1's
+  stuck-recovery is built for exactly this, and re-invoking picks it up.
 
 ### Step 4c: Repeat
 

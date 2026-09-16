@@ -6,6 +6,17 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- `radin-execute`'s Step 4a no longer judges whether a task is "a single
+  obvious change": a task with no plan always gets a planning sub-agent, which
+  can size it with the codebase in front of it. Phase 2 routes the order and
+  the task-selection answers once each, and a revision loop re-asks the order
+  alone — the selection already given stands. The router's "no report yet"
+  versus "report without a `STATUS:` line" split now keys off one observable,
+  whether the dispatch handed back content. Crash recovery's accept-or-reject
+  branch is measured against the entry's own `**Acceptance:**` criteria, and an
+  entry stating none is always the user's look.
+- The execution sub-agent prompt states its `STATUS:` contract first instead of
+  ninth, and its capability rules once instead of five times.
 - Every rule that was stated in more than one prose file now has exactly one
   owner, with a pointer where a second reader needs it. A verbatim sub-agent
   fence in `lib/radin-execute-prompts.md` is the one exception, because a

@@ -104,13 +104,42 @@ prompt is exactly what it was before this field existed. Never leave a
 placeholder.
 
 ```
-Execute the task described in TASK_FILE:
+Execute the task described in TASK_FILE.
 
-Do the task yourself: never spawn a sub-agent of your own. The `Workflow`
-tool is not available to you, so `/deep-research` and any saved workflow
-command fail rather than run: don't reach for them.
+Report back the LAST line of your response as exactly one of:
+`STATUS: SUCCESS — <commit hash(es), or "no new commit, already satisfied by <existing
+hash>">`
+`STATUS: FAILED — <reason>`
+`STATUS: BLOCKED (FACT) — <what's unverifiable from here and why, e.g. a third-party
+API/library behavior local code and repo exploration can't settle>`
+`STATUS: BLOCKED (DECISION) — <the decision question, the candidate options, and your
+recommendation>`
+This line is mandatory whether the task was implemented, found already done, or
+blocked. The router acts only on this explicit line, never on intent inferred
+from prose. Keep the rest of your report to at most a few lines on what
+changed: everything else you write bloats the router's context for the rest of
+the session.
 
-(When exploring the codebase: use `codebase-memory-mcp`'s MCP tools before Grep/Glob/Read — `search_graph` to find a symbol, `trace_path` for its callers and callees before you change it, `get_code_snippet` to read one function, `query_graph` for anything Cypher-shaped after `get_graph_schema`; a graph hit is a pointer: read the file before you cite or edit it, and never conclude something is absent from an empty result. When running commands: prefer `rtk`-wrapped commands if `command -v rtk` succeeds for token savings.)
+Ground rules, applying to every step below:
+- Do the task yourself: never spawn a sub-agent of your own. The `Workflow`
+  tool is not available to you, so `/deep-research` and any saved workflow
+  command fail rather than run: don't reach for them.
+- You cannot reach the user and have no `AskUserQuestion`. If any skill you
+  invoke starts asking questions it expects a human to answer, wants to spawn
+  its own agent, or launches a workflow, stop invoking it, take the
+  non-destructive path, and name it in your report as skipped. Never wait on
+  it: a wait here is a hang the router cannot break.
+- Before reporting BLOCKED for anything, ask: is this a fact you could go find
+  yourself (read more of the repo, check a config, run a read-only command,
+  check how an existing similar case was handled), or a real judgment call
+  only the user can make? Go find the fact yourself first, and never block on
+  something checkable. Tag the judgment call BLOCKED (DECISION) — revert
+  anything you touched and leave the tree clean — and the unverifiable fact
+  BLOCKED (FACT).
+- Never commit, revert, or otherwise touch anything under `.claude/.radin/` —
+  it is the router's state, not task work.
+- When exploring the codebase: use `codebase-memory-mcp`'s MCP tools before Grep/Glob/Read — `search_graph` to find a symbol, `trace_path` for its callers and callees before you change it, `get_code_snippet` to read one function, `query_graph` for anything Cypher-shaped after `get_graph_schema`; a graph hit is a pointer: read the file before you cite or edit it, and never conclude something is absent from an empty result. When running commands: prefer `rtk`-wrapped commands if `command -v rtk` succeeds for token savings.
+
 1. Read TASK_FILE to understand the task. Anything the router appended to it
    is part of the task, not commentary: `**Decision:**`, `**Fact:**`,
    and `**Root cause:**` lines are settled and binding. A
@@ -140,12 +169,8 @@ ACCEPTANCE
 2a. If SKILLS is not "none", invoke each named skill (e.g. `/frontend-design`) before
    implementing. The user chose that skill for this task, so invoke it as instructed and
    do not judge whether it's needed, redundant, or the right fit. SKILLS is already
-   filtered for what a leaf can run, so this is a runtime fallback, not a second fit
-   judgment: you cannot reach the user, you have no
-   `AskUserQuestion`, and you have no `Workflow` tool. If a skill starts asking you
-   questions it expects a human to answer, wants to spawn its own agent, or launches a
-   workflow, stop invoking it, take the non-destructive path, and name it in your report
-   as skipped. Never wait on it: a wait here is a hang the router cannot break.
+   filtered for what a leaf can run, so the ground rules' drop-and-name path is a
+   runtime fallback, not a second fit judgment.
 2b. If DEPENDS_ON is not "none", this task's scope/plan was written assuming certain
    other tasks in this backlog would land a certain way. Those tasks already committed
    this session at the listed hashes. Run `git show --stat <hash>` for each and skim
@@ -159,7 +184,7 @@ ACCEPTANCE
      adjusted in your report.
    - They diverged in a way that changes a design decision the plan made (not just a
      mechanical detail): do not guess which way to resolve it. Report
-     `STATUS: BLOCKED (DECISION)` per step 9, describing the divergence.
+     `STATUS: BLOCKED (DECISION)`, describing the divergence.
 3. Invoke the skill that matches CATEGORY and implement through it. Each one
    carries the discipline for that shape of change, so don't reinvent it:
    `fix` -> `/caveman:surgical-patch` (narrowest layer, regression proof),
@@ -169,8 +194,7 @@ ACCEPTANCE
    case and apply its ladder: the minimum code that satisfies the task, reusing
    what the repo already has. For a mechanical multi-file rename or signature
    change, `headroom sg` (ast-grep) beats hand-editing each site when
-   `command -v headroom` succeeds. Step 2a's capability rule applies to these
-   too: one that starts asking a human questions gets dropped, not waited on.
+   `command -v headroom` succeeds.
 4. Where the task changes behavior (not a pure deletion/rename), add or update a unit
    test that pins the expected behavior, following existing test conventions in the repo
 5. Run any required checks (lint, tests, format) per project conventions
@@ -181,29 +205,7 @@ ACCEPTANCE
    If anything is still uncommitted (including changes made incidentally while
    investigating, e.g. formatter/linter auto-fixes), either commit it as part of this
    task's commit or a separate scoped commit. Never leave the working tree dirty when
-   you report back. Never commit, revert, or otherwise touch anything under
-   `.claude/.radin/` — it is the router's state, not task work
-9. Before reporting BLOCKED for anything, ask: is this a fact you could go find yourself
-   (read more of the repo, check a config, run a read-only command, check how an
-   existing similar case was handled), or a real judgment call only the user can make?
-   Go find the fact yourself first, and never block on something checkable.
-   Report back the LAST line of your response as exactly one of:
-   `STATUS: SUCCESS — <commit hash(es), or "no new commit, already satisfied by <existing
-   hash>">`
-   `STATUS: FAILED — <reason>`
-   `STATUS: BLOCKED (FACT) — <what's unverifiable from here and why, e.g. a third-party
-   API/library behavior local code and repo exploration can't settle>`
-   `STATUS: BLOCKED (DECISION) — <the decision question, the candidate options, and your
-   recommendation>`
-   Tag the judgment call BLOCKED (DECISION) — revert anything you touched and leave the
-   tree clean — and the unverifiable fact BLOCKED (FACT).
-   This line is mandatory whether the task was implemented, found already done, or
-   blocked. The router acts only on this explicit line, never on intent inferred
-   from prose.
-
-Keep your report brief: at most a few lines on what changed, then the STATUS line.
-Everything else you write bloats the router's context for the rest of the
-session.
+   you report back.
 ```
 
 ---

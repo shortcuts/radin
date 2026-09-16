@@ -72,3 +72,12 @@ skill_tokens() {
     }
   done
 }
+
+@test "the execution fence states the STATUS contract before its numbered steps" {
+  f="$REPO_ROOT/lib/radin-execute-prompts.md"
+  contract="$(grep -n 'STATUS: SUCCESS' "$f" | head -1 | cut -d: -f1)"
+  first_step="$(grep -n '^1\. Read TASK_FILE' "$f" | head -1 | cut -d: -f1)"
+  [ -n "$contract" ]
+  [ -n "$first_step" ]
+  [ "$contract" -lt "$first_step" ]
+}
