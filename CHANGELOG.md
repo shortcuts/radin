@@ -4,6 +4,17 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Unreleased
 
+### Fixed
+
+- `/radin-record` now writes a dependency to the backlog's `depends_on` field
+  instead of only to the entry body. It logged dependencies as prose on the
+  grounds that `radin-execute`'s prioritization read entry bodies for that
+  signal, which stopped being true once prioritization moved to the index
+  line's `depends_on`: every dependency it recorded was invisible to the
+  ordering pass built to consume it. It now runs `radin backlog set-deps` once
+  per dependent entry after the batch is added, and still names the reason in
+  the body.
+
 ### Changed
 
 - `radin tui` now notices a backlog another shell changed: every 5 seconds an

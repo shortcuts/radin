@@ -110,11 +110,12 @@ resolved, which is exactly what this form exists to avoid.
 
 Does landing this item require another item in the batch (or an existing
 backlog task) to land first, whether by sharing a file/function/behavior or by an explicit
-build-on? If so, the dependent entry's description must name the other
-entry's exact title and say why it comes first, in plain prose, e.g.
-"Depends on the '<other title>' entry, which adds the endpoint it needs."
-`radin-execute`'s prioritization reads entry bodies for exactly this
-signal; leave it out and it stays invisible.
+build-on? If so, note the other entry's exact title: Step 5 records it with
+`set-deps`, and that `depends_on` field is the only dependency signal
+`radin-execute`'s prioritization reads. Say why it comes first in the
+dependent entry's description too, e.g. "Depends on the '<other title>'
+entry, which adds the endpoint it needs." The field carries the ordering, the
+prose carries the reason a human needs.
 
 Classify into exactly one category (conventional-commit vocabulary):
 
@@ -175,6 +176,20 @@ EOF
 Pass Step 3's skill(s) as `--skill <skill-name>` (repeatable). The CLI
 appends the canonical `**Skill:**` instruction line itself; never write it
 by hand. Omit the flag when no skill applies.
+
+Once every confirmed item is added -- each `add` prints its id -- record Step
+4's dependencies, one call per dependent entry:
+
+```bash
+RADIN_CLI backlog set-deps <dependent-id> <csv-of-ids-it-depends-on>
+```
+
+Always after all the adds, never as `--depends-on` on `add`: a dependency the
+batch has not created yet is rejected as unknown, and the batch order is not
+the dependency order. Resolve each noted title to the id its `add` printed, or
+to `RADIN_CLI backlog find "<title>"`'s first field for a task that already
+existed. The CLI rejects an unknown id and any cycle, so a rejection means the
+dependency is misidentified, not that the flag is optional.
 
 Always append; never scan for near-duplicates or merge with an existing
 entry. A false-positive merge silently drops something the user cared
