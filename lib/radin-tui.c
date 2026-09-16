@@ -900,13 +900,28 @@ static void retitle_task(int ti) {
 	mutate("retitle", T[ti].id, answer, NULL);
 }
 
+/* The Fibonacci scale `radin backlog set-priority` enforces, ascending with
+ * "higher wins" -- picked, not typed, so no keystroke can miss the scale. */
+static const char *PRIORITIES[] = {"1", "2", "3", "5", "8", "13", "21"};
+#define NPRIO ((int)(sizeof PRIORITIES / sizeof *PRIORITIES))
+
 static void set_priority_task(int ti) {
-	char label[1200], answer[64];
-	snprintf(label, sizeof label, "priority for %s (empty clears, higher wins): ", T[ti].id);
-	prompt(label, answer, sizeof answer);
-	/* set-priority has no empty-value form: an empty 3rd arg dies on the usage
-	 * line. */
-	mutate("set-priority", T[ti].id, *answer ? answer : "--none", NULL);
+	PN = 0;
+	for (int i = NPRIO - 1; i >= 0; i--) {
+		snprintf(PV[PN].val, SLOT, "%s", PRIORITIES[i]);
+		snprintf(PV[PN].label, SLOT, "%s", PRIORITIES[i]);
+		PN++;
+	}
+	snprintf(PV[PN].val, SLOT, "--none");
+	snprintf(PV[PN].label, SLOT, "(none) -- clear the priority");
+	PN++;
+	char title[1200];
+	snprintf(title, sizeof title, "priority for %s (higher wins)", T[ti].id);
+	if (!pick(0, title, NULL)) {
+		setmsg("priority cancelled");
+		return;
+	}
+	mutate("set-priority", T[ti].id, PICK_RESULT, NULL);
 }
 
 static void commas_to_spaces(char *s) {
@@ -1132,7 +1147,7 @@ static void help_screen(void) {
 		"  d             delete the selected task (asks first)\n"
 		"  c             move the task to the next category\n"
 		"  r             retitle the task (its id never changes)\n"
-		"  p             set priority (empty input clears it; higher wins)\n"
+		"  p             set priority: pick from 21 13 8 5 3 2 1 or clear it\n"
 		"  D             edit depends_on: pick from the other tasks, space toggles\n"
 		"  m             move the task into an epic, or out of one\n"
 		"  E             create an epic, then write its DESCRIPTION.md in $EDITOR\n"

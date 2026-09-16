@@ -25,7 +25,7 @@
         },
         "priority": {
           "type": "integer",
-          "description": "Human-set importance, higher is more important. Gaps and duplicates are allowed, so inserting a task never forces a renumber. The key is absent when unset, and absent must stay distinguishable from any number: \"did a human decide this?\" is the question a prioritization pass has to answer, so no verb defaults it. `radin-backlog.sh list` orders set priorities descending with unset entries after every set one."
+          "description": "Human-set importance, one of the Fibonacci values 1 2 3 5 8 13 21, higher is more important. The scale ascends with radin's \"higher wins\", so 21 is the most important rather than the largest estimate. `radin-backlog.sh add --priority` and `set-priority` enforce the scale, so every caller inherits the check; validation runs on write only, so an index line written before the scale existed (say \"priority\":70) still loads, lists and renders and no verb rewrites it — hence the permissive integer type here. Duplicates are allowed, so inserting a task never forces a renumber. The key is absent when unset, and absent must stay distinguishable from any number: \"did a human decide this?\" is the question a prioritization pass has to answer, so no verb defaults it. `radin-backlog.sh list` orders set priorities descending with unset entries after every set one."
         },
         "depends_on": {
           "type": "array",

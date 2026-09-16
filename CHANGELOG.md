@@ -6,6 +6,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Task priority is now the Fibonacci scale `1 2 3 5 8 13 21`, ascending with
+  "higher wins" (so `21` is the most important, not the largest estimate).
+  `radin backlog add --priority` and `set-priority` reject anything else, and
+  `radin tui`'s `p` picks from the seven values plus a clear entry instead of
+  reading typed text. Validation is write-only: priorities already stored
+  off-scale keep loading, listing and rendering, and nothing rewrites them.
 - Bare `radin` on a terminal now opens the TUI instead of printing usage; off a
   terminal it still prints the usage text and exits non-zero. `radin help`
   prints it anywhere.

@@ -267,7 +267,7 @@ tui() {
 @test "v composes body, epic description, plan and dependency title" {
   bl add feat "dep target" <<<"target body" >/dev/null
   bl epic-add ctx-epic <<<"epic ctx line"
-  bl add feat "needs dep" --epic ctx-epic --depends-on dep-target --priority 40 <<<"needs body" >/dev/null
+  bl add feat "needs dep" --epic ctx-epic --depends-on dep-target --priority 8 <<<"needs body" >/dev/null
   mkdir -p "$NS/plans"
   printf 'plan body line\n' >"$NS/plans/needs-dep.md"
   bl add-plan needs-dep "$NS/plans/needs-dep.md" >/dev/null
@@ -277,7 +277,7 @@ tui() {
   run cat "$SCREEN"
   [[ "$output" == *"plan body line"* ]]
   [[ "$output" == *"epic ctx line"* ]]
-  [[ "$output" == *"priority: 40"* ]]
+  [[ "$output" == *"priority: 8"* ]]
   [[ "$output" == *"dep-target -- dep target"* ]]
   unchanged
 }
@@ -307,13 +307,19 @@ tui() {
   [ ! -d "$TASKS/nope" ]
 }
 
-@test "p sets and then clears the priority" {
+@test "p picks a Fibonacci priority and then clears it" {
   seed
-  run tui "p|7\r|q"
+  # The picker lists 21 13 8 5 3 2 1 then the clear entry: enter takes the
+  # top value, G jumps to the clear entry. Typed digits are no longer read.
+  run tui "p|\r|q"
   [ "$status" -eq 0 ]
   run grep dark-mode "$INDEX"
-  [[ "$output" == *'"priority":7'* ]]
-  run tui "p|\r|q"
+  [[ "$output" == *'"priority":21'* ]]
+  run tui "p|j|\r|q"
+  [ "$status" -eq 0 ]
+  run grep dark-mode "$INDEX"
+  [[ "$output" == *'"priority":13'* ]]
+  run tui "p|G|\r|q"
   [ "$status" -eq 0 ]
   run grep dark-mode "$INDEX"
   [[ "$output" != *'"priority"'* ]]
@@ -375,7 +381,7 @@ tui() {
 @test "priority rows render three relative colour bands, red highest" {
   bl add feat "low one" --priority 1 <<<"low body" >/dev/null
   bl add feat "mid one" --priority 5 <<<"mid body" >/dev/null
-  bl add feat "high one" --priority 9 <<<"high body" >/dev/null
+  bl add feat "high one" --priority 13 <<<"high body" >/dev/null
   bl add feat "no prio" <<<"none body" >/dev/null
   run tui "q"
   [ "$status" -eq 0 ]
@@ -388,7 +394,7 @@ tui() {
 @test "an epic child keeps its band, the epic header has no colour" {
   bl epic-add ui-polish <<<"ctx"
   bl add feat "low one" --priority 1 <<<"low body" >/dev/null
-  bl add feat "high child" --epic ui-polish --priority 9 <<<"high body" >/dev/null
+  bl add feat "high child" --epic ui-polish --priority 13 <<<"high body" >/dev/null
   run tui "q"
   [ "$status" -eq 0 ]
   run cat -v "$SCREEN"
@@ -400,7 +406,7 @@ tui() {
 
 @test "NO_COLOR disables the priority bands" {
   bl add feat "low one" --priority 1 <<<"low body" >/dev/null
-  bl add feat "high one" --priority 9 <<<"high body" >/dev/null
+  bl add feat "high one" --priority 13 <<<"high body" >/dev/null
   export NO_COLOR=1
   run tui "q"
   [ "$status" -eq 0 ]

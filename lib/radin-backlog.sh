@@ -4,7 +4,8 @@
 #
 # Storage: $BACKLOG_INDEX is a JSONL file (one compact JSON object per line,
 # one per task: {"id":...,"category":...,"title":...,"file":...}), plus the
-# optional "priority":<int> and "depends_on":[<id>,...] keys a human sets.
+# optional "priority":<1|2|3|5|8|13|21> and "depends_on":[<id>,...] keys a human
+# sets.
 # Each line's `file` field, relative to the backlog directory, is the
 # authoritative location of that task's body (description prose, and any
 # **Plan:** pointer lines radin-plan appends): `add` decides it, every other
@@ -20,13 +21,13 @@
 #   radin-backlog.sh list [--category <cat>] [--priority-min <n>] [--priority-max <n>] [--epic <epic-id>] [--planned] [--json]  # print "id<US>category<US>title<US>file<US>priority<US>depends-on-csv" (US = \037), priority-descending, unset priorities last (--planned appends a 7th P/empty field; --json prints the index lines instead)
 #   radin-backlog.sh find <id-or-title>          # print matching "id<TAB>category<TAB>title<TAB>file<TAB>priority<TAB>depends-on-csv" line(s)
 #   radin-backlog.sh count                       # print the number of entries (0 without an index)
-#   radin-backlog.sh add <category> <title> [--epic <epic-id>] [--skill <name>]... [--priority <n>] [--depends-on <csv>]  # create task, body read from stdin, prints its id
+#   radin-backlog.sh add <category> <title> [--epic <epic-id>] [--skill <name>]... [--priority <1|2|3|5|8|13|21>] [--depends-on <csv>]  # create task, body read from stdin, prints its id
 #   radin-backlog.sh add-plan <id-or-title> <path>  # append "**Plan:** <path>" to the task's file
 #   radin-backlog.sh append <id-or-title>        # append text from stdin to the task's file
 #   radin-backlog.sh path <id-or-title>          # print the task file's absolute path
 #   radin-backlog.sh set-category <id-or-title> <category>  # move a task to another category
 #   radin-backlog.sh retitle <id-or-title> <title>  # change a task's title (its id never changes)
-#   radin-backlog.sh set-priority <id-or-title> <integer|--none>  # set/clear the priority (higher wins)
+#   radin-backlog.sh set-priority <id-or-title> <1|2|3|5|8|13|21|--none>  # set/clear the priority (higher wins)
 #   radin-backlog.sh set-deps <id-or-title> <csv-of-ids|--none>   # set/clear depends_on (rejects an unknown id and any cycle)
 #   radin-backlog.sh meta <id-or-title>          # print "plan<TAB><path>" / "skill<TAB><instruction>" / "acceptance<TAB><criterion>" lines from the task's file
 #   radin-backlog.sh planned                     # print the id of every task that already has a **Plan:** line
@@ -388,6 +389,19 @@ require_integer() {
 	esac
 }
 
+# Fibonacci sizing scale, ascending with radin's "higher wins", so 21 is the
+# most important. Seven candidates is a smaller decision for an agent than an
+# unbounded integer. Enforced on write only: index lines written before the
+# scale existed keep loading, listing and rendering, and no verb rewrites them.
+PRIORITY_SCALE="1 2 3 5 8 13 21"
+
+require_priority() {
+	case " $PRIORITY_SCALE " in
+	*" $1 "*) ;;
+	*) die "priority must be one of $PRIORITY_SCALE (higher wins), got: $1" ;;
+	esac
+}
+
 # Every id in "$@" must already exist. A missing index just has no known ids,
 # so `add`'s first task still reports the unknown id rather than the index.
 require_known_ids() {
@@ -564,8 +578,8 @@ add)
 	while [ $# -gt 0 ]; do
 		case "$1" in
 		--priority)
-			[ -n "${2:-}" ] || usage_die add "--priority needs an integer"
-			require_integer "$2"
+			[ -n "${2:-}" ] || usage_die add "--priority needs one of $PRIORITY_SCALE"
+			require_priority "$2"
 			priority="$2"
 			shift 2
 			;;
@@ -724,8 +738,8 @@ retitle)
 set-priority)
 	query="${2:-}"
 	value="${3:-}"
-	[ -n "$value" ] || usage_die set-priority "set-priority needs an id or title and an integer or --none"
-	[ "$value" = "--none" ] || require_integer "$value"
+	[ -n "$value" ] || usage_die set-priority "set-priority needs an id or title and one of $PRIORITY_SCALE or --none"
+	[ "$value" = "--none" ] || require_priority "$value"
 	require_index
 	entry="$(single_match "$query")"
 	id="$(json_get id "$entry")"

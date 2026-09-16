@@ -357,17 +357,19 @@ EOF
 
 @test "add --priority and --depends-on round-trip through list" {
   cli add feat "first" <<<"b1"
-  run cli add fix "second" --priority 70 --depends-on first <<<"b2"
+  run cli add fix "second" --priority 13 --depends-on first <<<"b2"
   [ "$status" -eq 0 ]
   run cat "$INDEX"
-  [[ "$output" == *'"priority":70'* ]]
+  [[ "$output" == *'"priority":13'* ]]
   [[ "$output" == *'"depends_on":["first"]'* ]]
   run cli find second
-  [ "$output" = "second	fix	second	tasks/second.md	70	first" ]
+  [ "$output" = "second	fix	second	tasks/second.md	13	first" ]
 }
 
-@test "add rejects a non-integer priority and an unknown dependency" {
+@test "add rejects an off-scale priority and an unknown dependency" {
   run cli add feat "bad prio" --priority high <<<"b"
+  [ "$status" -ne 0 ]
+  run cli add feat "x" --priority 4 <<<"b"
   [ "$status" -ne 0 ]
   run cli add feat "bad dep" --depends-on ghost <<<"b"
   [ "$status" -ne 0 ]
@@ -377,16 +379,35 @@ EOF
 
 @test "set-priority sets, changes and clears the priority" {
   cli add feat "ranked" <<<"b"
-  run cli set-priority ranked 40
+  run cli set-priority ranked 8
   [ "$status" -eq 0 ]
-  [[ "$(cat "$INDEX")" == *'"priority":40'* ]]
-  cli set-priority ranked 90
-  [[ "$(cat "$INDEX")" == *'"priority":90'* ]]
+  [[ "$(cat "$INDEX")" == *'"priority":8'* ]]
+  cli set-priority ranked 21
+  [[ "$(cat "$INDEX")" == *'"priority":21'* ]]
   run cli set-priority ranked --none
   [ "$status" -eq 0 ]
   [[ "$(cat "$INDEX")" != *'"priority"'* ]]
   run cli set-priority ranked twelve
   [ "$status" -ne 0 ]
+}
+
+@test "set-priority takes only the Fibonacci scale, and off-scale stored values still load" {
+  cli add feat "ranked" <<<"b"
+  run cli set-priority ranked 7
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"1 2 3 5 8 13 21"* ]]
+  [[ "$(cat "$INDEX")" != *'"priority"'* ]]
+  # A line written before the scale existed: validation is write-only, so it
+  # keeps loading and listing untouched.
+  cli set-priority ranked 21
+  sed -i.bak 's/"priority":21/"priority":70/' "$INDEX"
+  rm -f "$INDEX.bak"
+  run cli list
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"70"* ]]
+  run cli find ranked
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"70"* ]]
 }
 
 @test "set-deps sets and clears depends_on" {
@@ -432,10 +453,10 @@ EOF
 
 
 @test "list orders by priority descending with unset entries last" {
-  cli add feat "low" --priority 10 <<<"b"
+  cli add feat "low" --priority 3 <<<"b"
   cli add feat "none at all" <<<"b"
-  cli add feat "high" --priority 90 <<<"b"
-  cli add feat "mid" --priority 50 <<<"b"
+  cli add feat "high" --priority 21 <<<"b"
+  cli add feat "mid" --priority 8 <<<"b"
   run cli list
   [ "$status" -eq 0 ]
   [ "$(printf '%s\n' "$output" | cut -d$'\037' -f1 | tr '\n' ' ')" = "high mid low none-at-all " ]
@@ -444,12 +465,12 @@ EOF
 
 @test "set-category and epic-move preserve priority and depends_on" {
   cli add feat "anchor" <<<"b"
-  cli add feat "mover" --priority 60 --depends-on anchor <<<"b"
+  cli add feat "mover" --priority 8 --depends-on anchor <<<"b"
   cli epic-add grouped <<<"ctx"
   cli set-category mover fix
   cli epic-move mover grouped
   run cat "$INDEX"
-  [[ "$output" == *'{"id":"mover","category":"fix","title":"mover","file":"tasks/grouped/mover.md","priority":60,"depends_on":["anchor"]}'* ]]
+  [[ "$output" == *'{"id":"mover","category":"fix","title":"mover","file":"tasks/grouped/mover.md","priority":8,"depends_on":["anchor"]}'* ]]
 }
 
 @test "a failed index rewrite leaves no .tmp behind and keeps the index intact" {
@@ -495,19 +516,14 @@ EOF
 }
 
 @test "list --priority-min and --priority-max bound and drop unset priorities" {
-  cli add feat "p1" --priority 1 <<<"b"
-  cli add feat "p5" --priority 5 <<<"b"
-  cli add feat "p9" --priority 9 <<<"b"
-  cli add feat "pnone" <<<"b"
+  cli add feat "lowest" --priority 1 <<<"b"
+  cli add feat "middle" --priority 5 <<<"b"
+  cli add feat "highest" --priority 13 <<<"b"
+  cli add feat "unset one" <<<"b"
   run cli list --priority-min 5
-  [[ "$output" == *"p9"* ]]
-  [[ "$output" == *"p5"* ]]
-  [[ "$output" != *"p1"* ]]
-  [[ "$output" != *"pnone"* ]]
+  [ "$(printf '%s\n' "$output" | cut -d$'\037' -f1 | tr '\n' ' ')" = "highest middle " ]
   run cli list --priority-max 5
-  [[ "$output" == *"p1"* ]]
-  [[ "$output" != *"p9"* ]]
-  [[ "$output" != *"pnone"* ]]
+  [ "$(printf '%s\n' "$output" | cut -d$'\037' -f1 | tr '\n' ' ')" = "middle lowest " ]
   run cli list --priority-min notanint
   [ "$status" -ne 0 ]
 }
