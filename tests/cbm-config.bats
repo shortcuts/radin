@@ -351,7 +351,7 @@ EOF
   [[ "$output" == *"cbm-hooks all"* ]]
 }
 
-@test "install rewrites upstream's absolute hook paths to the ~/ form" {
+@test "install rewrites ~/ hook paths to absolute, leaving another tool's alone" {
   mkdir -p "$TEST_HOME/.claude/hooks"
   touch "$TEST_HOME/.claude/hooks/cbm-session-reminder" "$TEST_HOME/other-tool-hook"
   # Upstream writes its hook command as a quoted absolute path; another tool's
@@ -369,7 +369,9 @@ json.dump({"hooks": {"SessionStart": [
     {"matcher": "startup", "hooks": [{"type": "command",
      "command": "'%s/.claude/hooks/cbm-session-reminder'" % home}]},
     {"matcher": "", "hooks": [{"type": "command",
-     "command": "%s/other-tool-hook" % home}]}]}},
+     "command": "%s/other-tool-hook" % home}]},
+    {"matcher": "startup", "hooks": [{"type": "command",
+     "command": "~/.local/bin/codebase-memory-mcp"}]}]}},
     open(os.path.join(home, ".claude", "settings.json"), "w"), indent=2)
 json.dump({"mcpServers": {"codebase-memory-mcp": {
     "command": "%s/.local/bin/codebase-memory-mcp" % home}}},
@@ -380,13 +382,14 @@ EOF
   touch "$TEST_HOME/.local/bin/codebase-memory-mcp"
   run bash "$CLI" install
   [ "$status" -eq 0 ]
-  [[ "$output" == *PORTABLE*"~/.claude/hooks/cbm-session-reminder"* ]]
+  [[ "$output" == *ABSOLUTE*"$TEST_HOME/.claude/hooks/cbm-session-reminder"* ]]
   run python3 -c "
 import json
 h = json.load(open('$TEST_HOME/.claude/settings.json'))['hooks']
 cmds = [k['command'] for e in h['SessionStart'] for k in e['hooks']]
-assert cmds == ['~/.claude/hooks/cbm-session-reminder', '$TEST_HOME/other-tool-hook'], cmds
-# posix_spawn does not expand ~, so the MCP command keeps its absolute path.
+assert cmds == ['$TEST_HOME/.claude/hooks/cbm-session-reminder', '$TEST_HOME/other-tool-hook', '$TEST_HOME/.local/bin/codebase-memory-mcp'], cmds
+# posix_spawn does not expand ~ in a hook command either, which is why the
+# rewrite goes this way; the MCP command was always absolute.
 c = json.load(open('$TEST_HOME/.claude.json'))['mcpServers']['codebase-memory-mcp']['command']
 assert c == '$TEST_HOME/.local/bin/codebase-memory-mcp', c
 "

@@ -109,18 +109,20 @@ covered.
 - **A stale `mcpServers` command is replaced, not kept.** `adopt_staged_mcp`
   overwrites an existing entry whose `command` is a path that does not exist,
   for the same shared-`~/.claude` reason.
-- **`~` expands in a hook `command`, never in an `mcpServers` command.**
-  Measured against Claude Code 2.1.236, not inferred from upstream's docs. A
-  hook command runs through a shell, so both `~/.claude/hooks/cbm-session-reminder`
-  and `sh ~/.claude/hooks/cbm-session-reminder` fire; `restore_settings`'
-  `normalize_cbm` therefore rewrites upstream's quoted absolute hook paths to
-  their `~/`-relative form (bare, since a tilde inside quotes does not
-  expand), and only for `cbm-*`/`codebase-memory-mcp` entries — radin does not
-  rewrite another tool's hook. An `mcpServers.<name>.command` is posix_spawned
-  directly: `~/tilde-probe.sh` fails with
-  `ENOENT ... posix_spawn '~/tilde-probe.sh'` while the same path spelled
-  absolutely spawns. That entry keeps its absolute path, so a shared
-  `~/.claude.json` still needs `stale()` — don't retry the rewrite there.
+- **A hook `command` must be an absolute, unquoted path.** Measured against
+  Claude Code 2.1.236 and 2.1.24x. Claude Code posix_spawns a single-word hook
+  command verbatim: `~/.local/bin/codebase-memory-mcp` dies with
+  `ENOENT ... posix_spawn '~/.local/bin/codebase-memory-mcp'`, and so does
+  upstream's quoted `'/Users/<you>/.local/bin/...'` — the quotes are part of
+  the file name. Only a command carrying further words (`sh ~/.claude/hooks/x`)
+  reaches a shell, which is what the earlier "`~` expands in a hook command"
+  note measured and over-generalised; radin wrote the `~/` form for a while and
+  broke every single-word cbm hook. `restore_settings`' `normalize_cbm` now
+  rewrites `cbm-*`/`codebase-memory-mcp` hook commands to absolute and
+  unquoted, and another tool's hook is still left alone. A `~/.claude` shared
+  between machines is handled by the prune step, not by a portable spelling.
+  `mcpServers.<name>.command` is posix_spawned the same way, and keeps its
+  absolute path for the same reason.
 - **Newest snapshot wins.** `repair` reads the newest `*.bak` pair, which
   after one successful install already contains upstream's entries. It is the
   right input after an upstream `update`, and the wrong input for

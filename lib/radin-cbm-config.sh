@@ -182,27 +182,31 @@ def prune_dead(new_hooks, settings_path):
 
 
 # Upstream writes its hook commands as a quoted absolute path, so a ~/.claude
-# shared between machines carries the other machine's $HOME and the entry is
-# pruned above instead of running. A hook command goes through a shell, which
-# expands an unquoted leading ~, so the ~/ form is valid on every machine
-# (verified -- docs/technical-constraints.md). Rewritten words go in bare: a
-# tilde inside quotes does not expand. Only cbm entries: radin does not
+# shared between machines carries the other machine's $HOME. The fix is the
+# prune above, not a ~/ rewrite: Claude Code posix_spawns a single-word hook
+# command directly, and a lone `~/.local/bin/codebase-memory-mcp` then dies with
+# `ENOENT ... posix_spawn`. Only a command with further words reaches a shell
+# that would expand the tilde (docs/technical-constraints.md), so every hook
+# command gets an absolute path here, unquoted -- including the ~/ form radin
+# itself wrote before this was understood. Only cbm entries: radin does not
 # rewrite another tool's hook.
-def portable(command):
+def absolute(command):
     if not isinstance(command, str) or not command.strip():
         return command
     try:
         words = shlex.split(command)
     except ValueError:
         return command
-    rewritten, changed = [], False
+    rewritten = []
     for word in words:
-        if word.startswith(HOME + "/"):
-            rewritten.append("~" + word[len(HOME):])
-            changed = True
-        else:
-            rewritten.append(shlex.quote(word))
-    return " ".join(rewritten) if changed else command
+        if word == "~" or word.startswith("~/"):
+            word = HOME + word[1:]
+        rewritten.append(shlex.quote(word))
+    # Re-quoting also drops upstream's quotes around a lone absolute path: a
+    # single-word command is posix_spawned verbatim, so "'/abs/path'" is a file
+    # name with quotes in it and dies the same way a bare ~ does.
+    out = " ".join(rewritten)
+    return out if out != command else command
 
 
 def normalize_cbm(new_hooks, settings_path):
@@ -217,11 +221,11 @@ def normalize_cbm(new_hooks, settings_path):
             for h in hooks:
                 if not isinstance(h, dict):
                     continue
-                command = portable(h.get("command"))
+                command = absolute(h.get("command"))
                 if command != h.get("command"):
                     h["command"] = command
                     changed = True
-                    print(f"PORTABLE {settings_path} (hooks.{event}: {command!r})")
+                    print(f"ABSOLUTE {settings_path} (hooks.{event}: {command!r})")
     return changed
 
 
