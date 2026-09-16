@@ -18,7 +18,7 @@
 #   radin-backlog.sh help [command]              # print every command's usage, or one command's
 #   radin-backlog.sh env [--export]             # print REPO_ROOT/NAMESPACE_DIR/BACKLOG_INDEX/BACKLOG_TASKS_DIR (--export: source-able with export)
 #   radin-backlog.sh show [category]             # print backlog as markdown, or one ## section
-#   radin-backlog.sh list [--category <cat>] [--priority-min <n>] [--priority-max <n>] [--epic <epic-id>] [--planned] [--json]  # print "id<US>category<US>title<US>file<US>priority<US>depends-on-csv" (US = \037), priority-descending, unset priorities last (--planned appends a 7th P/empty field; --json prints the index lines instead)
+#   radin-backlog.sh list [--category <cat>] [--priority-min <n>] [--priority-max <n>] [--epic <epic-id>] [--order created|priority] [--planned] [--json]  # print "id<US>category<US>title<US>file<US>priority<US>depends-on-csv" (US = \037), priority-descending by default, unset priorities last (--order created gives index order; --planned appends a 7th P/empty field; --json prints the index lines instead)
 #   radin-backlog.sh find <id-or-title>          # print matching "id<TAB>category<TAB>title<TAB>file<TAB>priority<TAB>depends-on-csv" line(s)
 #   radin-backlog.sh count                       # print the number of entries (0 without an index)
 #   radin-backlog.sh add <category> <title> [--epic <epic-id>] [--skill <name>]... [--priority <1|2|3|5|8|13|21>] [--depends-on <csv>]  # create task, body read from stdin, prints its id
@@ -507,6 +507,7 @@ list)
 	RADIN_JSON=""
 	RADIN_PLANNED=""
 	RADIN_DIR="${BACKLOG_INDEX%/*}"
+	order=priority
 	while [ $# -gt 0 ]; do
 		case "$1" in
 		--category)
@@ -534,6 +535,13 @@ list)
 			RADIN_EPIC="$2"
 			shift 2
 			;;
+		--order)
+			case "${2:-}" in
+			created | priority) order="$2" ;;
+			*) usage_die list "--order must be created|priority, got: ${2:-<none>}" ;;
+			esac
+			shift 2
+			;;
 		--planned)
 			RADIN_PLANNED=1
 			shift
@@ -549,9 +557,15 @@ list)
 	# display choice: a consumer reads this order as the human's ranking.
 	# -s keeps equal priorities in index order, and the rank class in field 1
 	# is what puts every unset priority after every set one.
+	# --order created is index order, which is creation order because
+	# index.jsonl is append-only: the TUI wants a list no mutation reorders.
 	export RADIN_CAT RADIN_EPIC RADIN_PMIN RADIN_PMAX RADIN_JSON RADIN_PLANNED RADIN_DIR
-	awk "$AWK_JSON$AWK_LIST" "$BACKLOG_INDEX" |
-		sort -s -t"$TAB" -k1,1n -k2,2nr | cut -f3-
+	if [ "$order" = created ]; then
+		awk "$AWK_JSON$AWK_LIST" "$BACKLOG_INDEX" | cut -f3-
+	else
+		awk "$AWK_JSON$AWK_LIST" "$BACKLOG_INDEX" |
+			sort -s -t"$TAB" -k1,1n -k2,2nr | cut -f3-
+	fi
 	;;
 
 find)

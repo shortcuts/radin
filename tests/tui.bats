@@ -28,14 +28,15 @@ teardown() {
 }
 
 # The two-task store every test starts from, built once per file: the index
-# holds relative paths, so a copy works from any directory.
+# holds relative paths, so a copy works from any directory. dark mode is added
+# first because the list draws creation order, so it is always row 1.
 setup_file() {
   REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
   export SEED_TREE="$BATS_FILE_TMPDIR/seed"
   mkdir -p "$SEED_TREE"
   (cd "$SEED_TREE" &&
-    printf 'Auth times out.\n' | bash "$REPO_ROOT/lib/radin-backlog.sh" add fix "broken auth" >/dev/null &&
-    printf 'Add dark mode.\n' | bash "$REPO_ROOT/lib/radin-backlog.sh" add feat "dark mode" >/dev/null)
+    printf 'Add dark mode.\n' | bash "$REPO_ROOT/lib/radin-backlog.sh" add feat "dark mode" >/dev/null &&
+    printf 'Auth times out.\n' | bash "$REPO_ROOT/lib/radin-backlog.sh" add fix "broken auth" >/dev/null)
 }
 
 seed() {
@@ -372,6 +373,53 @@ tui() {
 }
 
 
+# The task titles in the order the last frame drew them.
+row_titles() {
+  last_frame | grep -oE 'dark mode|broken auth|later thing' | tr '\n' ' '
+}
+
+@test "a mutation leaves the row where it was, and a creates at the bottom" {
+  seed
+  # Raising the second row's priority above the first's reorders nothing.
+  run tui "j|p|\r|q"
+  [ "$status" -eq 0 ]
+  run grep broken-auth "$INDEX"
+  [[ "$output" == *'"priority":21'* ]]
+  run tui "q"
+  [ "$(row_titles)" = "dark mode broken auth " ]
+  # And a category change keeps its row too.
+  # The trailing j only redraws with an empty footer: a mutation's message
+  # names the task, and row_titles reads the whole frame.
+  run tui "c|j|q"
+  [ "$status" -eq 0 ]
+  [ "$(row_titles)" = "dark mode broken auth " ]
+  run tui "a|f|later thing\r|j|q"
+  [ "$status" -eq 0 ]
+  [ "$(row_titles)" = "dark mode broken auth later thing " ]
+}
+
+@test "Shift-P sorts by priority, Shift-A returns to creation order" {
+  seed
+  bl set-priority broken-auth 21 >/dev/null
+  run tui "P|q"
+  [ "$status" -eq 0 ]
+  [ "$(row_titles)" = "broken auth dark mode " ]
+  run last_frame
+  [[ "$output" == *"sort:priority"* ]]
+  run tui "P|A|q"
+  [ "$status" -eq 0 ]
+  [ "$(row_titles)" = "dark mode broken auth " ]
+  run last_frame
+  [[ "$output" == *"sort:created"* ]]
+  # Session-only: a restart is back to creation order whatever was pressed.
+  run tui "P|q"
+  run tui "q"
+  [ "$status" -eq 0 ]
+  [ "$(row_titles)" = "dark mode broken auth " ]
+  run last_frame
+  [[ "$output" == *"sort:created"* ]]
+}
+
 @test "D clears depends_on when nothing stays marked" {
   seed
   bl set-deps dark-mode broken-auth >/dev/null
@@ -499,7 +547,7 @@ tui() {
   run tui "G|D| |j| |\r|q"
   [ "$status" -eq 0 ]
   run grep slow-tests "$INDEX"
-  # The chooser lists the tasks in the order the list draws them (category
+  # The chooser lists the tasks in the order the list draws them (creation
   # order), because it reads the same loaded arrays; depends_on records the
   # order they were marked in.
   [[ "$output" == *'"depends_on":["dark-mode","broken-auth"]'* ]]
@@ -541,8 +589,8 @@ wide() {
     PTY_COLS=120 "$PTY_RUN" "$SCREEN" "$1" "$TUI")
 }
 
-# The selected row is the feat task (the list is in category order), so these
-# two rewrite dark-mode's body.
+# The selected row is dark mode (row 1 in creation order), so these two
+# rewrite dark-mode's body.
 md_body() {
   seed
   printf '# Heading\n\n> quoted\n\n- item\n\n**bold** text\n' >"$TASKS/dark-mode.md"

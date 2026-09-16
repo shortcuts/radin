@@ -528,6 +528,20 @@ EOF
   [ "$status" -ne 0 ]
 }
 
+@test "list --order created gives index order, the default stays priority" {
+  cli add feat "added first" --priority 1 <<<"b"
+  cli add feat "added second" --priority 13 <<<"b"
+  run cli list
+  [ "$(printf '%s\n' "$output" | cut -d$'\037' -f1 | tr '\n' ' ')" = "added-second added-first " ]
+  run cli list --order priority
+  [ "$(printf '%s\n' "$output" | cut -d$'\037' -f1 | tr '\n' ' ')" = "added-second added-first " ]
+  run cli list --order created
+  [ "$(printf '%s\n' "$output" | cut -d$'\037' -f1 | tr '\n' ' ')" = "added-first added-second " ]
+  run cli list --order bogus
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"list "* ]]
+}
+
 @test "list --epic keeps only that epic's children and rejects an unknown epic" {
   cli epic-add shipping <<<"epic ctx"
   cli add feat "inside" --epic shipping <<<"b"

@@ -50,7 +50,7 @@ The subcommand is what switches the two modes apart, so no flag does. `radin <ve
 
 - `env` — namespace resolution (delegates to `lib/radin-namespace.sh`, single source of truth for path logic; prints `REPO_ROOT`, `NAMESPACE_DIR`, `BACKLOG_INDEX`, `BACKLOG_TASKS_DIR`)
 - `show [category]` — render backlog as markdown (all tasks, or one category), reconstructed from `index.jsonl` + each task's file
-- `list` — print `id<US>category<US>title<US>file<US>priority<US>depends-on-csv` per task, ordered by priority descending with unset priorities last
+- `list` — print `id<US>category<US>title<US>file<US>priority<US>depends-on-csv` per task, ordered by priority descending with unset priorities last; `--order created` gives `index.jsonl` line order instead, and the default stays `priority` so no agent pays a flag for it
 - `find <id-or-title>` — locate task, print the same six fields per match (exact id first, then exact title, else case-insensitive substring on title)
 - `add <category> <title> [--epic <epic-id>] [--priority <1|2|3|5|8|13|21>] [--depends-on <csv>]` — create task (body on stdin): slugifies title into id (dedupe on collision against the index's `id` fields), writes file, appends one line to index
 - `add-plan <id-or-title> <path>` — append `**Plan:**` pointer to task's own file
@@ -255,6 +255,15 @@ unreadable UI, because people read this on a phone.
 `e` is the other half of that split and only ever edits: a task row's body, or
 an epic header's own `DESCRIPTION.md` — the same path `E` writes at creation,
 built in one place so the two keys cannot disagree about where it lives.
+The tree is drawn in creation order -- `list --order created`, which is
+`index.jsonl` line order because the index is append-only. That is what keeps a
+row still: `c`, `p`, `r` and `D` all reload, and none of them can move a task
+in the index, so nothing jumps out from under the cursor. The one reorder is
+the one the user asks for: `Shift-A`/`Shift-P`/`Shift-C`/`Shift-T` sort by
+creation order, priority, category or title (k9s's `Shift-<column initial>`
+convention, since k9s is the reference for any later keybinding question), the
+active one shows in the header as `sort:created`, and it is session-only -- a
+restart is back to `sort:created`, with no state file to hold otherwise.
 A `P` in the first column marks a task `radin-plan` already planned. A `*`
 marks a row matching the active `/` search, and `n`/`N` walk those matches.
 Priority is its own column left of the category, and the only coloured cell of

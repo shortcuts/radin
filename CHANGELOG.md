@@ -6,6 +6,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- `radin tui` now lists tasks in creation order, so editing a task no longer
+  makes its row jump: changing a category or a priority leaves the row where it
+  was, and a new task appends at the bottom. `Shift-A`, `Shift-P`, `Shift-C`
+  and `Shift-T` sort by creation order, priority, category and title when a
+  reorder is what you want; the active one shows in the header
+  (`sort:created`), and it lasts for the session only. `radin backlog list`
+  gains `--order created|priority` and still defaults to `priority`, so nothing
+  agent-facing changes.
+
 - `radin tui`'s detail is now a right-hand pane instead of a strip across the
   bottom: the tree takes the left 40% of the width, the selected row's detail
   the right 60%, and the task body renders through a hand-rolled markdown

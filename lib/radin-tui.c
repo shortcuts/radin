@@ -23,6 +23,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
@@ -46,6 +47,7 @@ static const char *BODY_HINT =
 struct task {
 	char id[SLOT], cat[32], title[SLOT], file[SLOT], prio[32], deps[SLOT], epic[SLOT];
 	char flag[8];
+	int ord; /* index.jsonl line order, so any sort can be undone */
 };
 
 static struct task T[MAXT];
@@ -77,6 +79,11 @@ static char DETAIL_FILE[PATH_MAX];
 static struct termios TIO_SAVE;
 static int TIO_SAVED;
 static int PENDING = -1;
+/* The active sort, k9s style: the Shift-<column initial> that set it.
+ * 'A' is creation order and the default every start returns to -- a mutation
+ * cannot reorder an index-ordered list, so no row moves under the cursor.
+ * Session-only on purpose: no state file. */
+static char SORT = 'A';
 
 static void die(const char *m) {
 	fprintf(stderr, "radin tui: %s\n", m);
@@ -372,55 +379,104 @@ static void build_rows(void) {
 	DET_ROW = -1; /* the rows moved under it, so the detail scroll is stale */
 }
 
+static int cat_index(const char *c) {
+	for (int i = 0; i < NCAT; i++)
+		if (!strcmp(c, CATEGORIES[i])) return i;
+	return NCAT; /* an unknown category sorts after the known ones */
+}
+
+static int cmp_ord(const void *a, const void *b) {
+	return ((const struct task *)a)->ord - ((const struct task *)b)->ord;
+}
+
+/* Priority descending with unset last, the same contract `backlog list`
+ * defaults to. Every comparator breaks its tie on ord, so a sort is stable
+ * and Shift-A can always get the index order back. */
+static int cmp_prio(const void *a, const void *b) {
+	const struct task *x = a, *y = b;
+	int xs = *x->prio != 0, ys = *y->prio != 0;
+	if (xs != ys) return ys - xs;
+	if (xs && atoi(x->prio) != atoi(y->prio)) return atoi(y->prio) - atoi(x->prio);
+	return cmp_ord(a, b);
+}
+
+static int cmp_cat(const void *a, const void *b) {
+	int d = cat_index(((const struct task *)a)->cat) -
+		cat_index(((const struct task *)b)->cat);
+	return d ? d : cmp_ord(a, b);
+}
+
+static int cmp_title(const void *a, const void *b) {
+	int d = strcasecmp(((const struct task *)a)->title, ((const struct task *)b)->title);
+	return d ? d : cmp_ord(a, b);
+}
+
+static void sort_tasks(void) {
+	int (*cmp)(const void *, const void *) = cmp_ord;
+	if (SORT == 'P') cmp = cmp_prio;
+	else if (SORT == 'C') cmp = cmp_cat;
+	else if (SORT == 'T') cmp = cmp_title;
+	qsort(T, TASK_N, sizeof T[0], cmp);
+}
+
+static const char *sort_name(void) {
+	switch (SORT) {
+	case 'P': return "priority";
+	case 'C': return "category";
+	case 'T': return "title";
+	default: return "created";
+	}
+}
+
+/* --order created: index order, so no mutation moves a row. sort_tasks() then
+ * applies whatever Shift- key the user pressed this session. */
 static void load(void) {
 	int ok;
-	char *out = cli(BACKLOG, &ok, 0, NULL, "list", "--planned", NULL);
+	char *out = cli(BACKLOG, &ok, 0, NULL, "list", "--order", "created", "--planned", NULL);
 	TASK_N = 0;
-	/* Category order, not index order: the list groups by category. */
-	for (int c = 0; c < NCAT; c++) {
-		char *line = out, *nl;
-		while (*line) {
-			nl = strchr(line, '\n');
-			size_t llen = nl ? (size_t)(nl - line) : strlen(line);
-			if (llen) {
-				const char *f[7] = {0};
-				size_t fl[7] = {0};
-				int nf = 0;
-				const char *s = line, *end = line + llen;
-				while (nf < 7) {
-					const char *sep = memchr(s, US, end - s);
-					f[nf] = s;
-					fl[nf] = sep ? (size_t)(sep - s) : (size_t)(end - s);
-					nf++;
-					if (!sep) break;
-					s = sep + 1;
-				}
-				if (fl[0] && fl[1] == strlen(CATEGORIES[c]) &&
-					!strncmp(f[1], CATEGORIES[c], fl[1]) && TASK_N < MAXT) {
-					struct task *t = &T[TASK_N++];
-					memset(t, 0, sizeof *t);
-					copy_field(t->id, sizeof t->id, f[0], fl[0]);
-					copy_field(t->cat, sizeof t->cat, f[1], fl[1]);
-					copy_field(t->title, sizeof t->title, f[2], fl[2]);
-					copy_field(t->file, sizeof t->file, f[3], fl[3]);
-					copy_field(t->prio, sizeof t->prio, f[4], fl[4]);
-					copy_field(t->deps, sizeof t->deps, f[5], fl[5]);
-					char planned[8] = "";
-					copy_field(planned, sizeof planned, f[6] ? f[6] : "", fl[6]);
-					snprintf(t->flag, sizeof t->flag, "%s", *planned ? planned : " ");
-					/* tasks/<epic>/<id>.md is the only nesting the index has. */
-					if (!strncmp(t->file, "tasks/", 6)) {
-						const char *rest = t->file + 6;
-						const char *slash = strchr(rest, '/');
-						if (slash) copy_field(t->epic, sizeof t->epic, rest, slash - rest);
-					}
+	char *line = out, *nl;
+	while (*line) {
+		nl = strchr(line, '\n');
+		size_t llen = nl ? (size_t)(nl - line) : strlen(line);
+		if (llen) {
+			const char *f[7] = {0};
+			size_t fl[7] = {0};
+			int nf = 0;
+			const char *s = line, *end = line + llen;
+			while (nf < 7) {
+				const char *sep = memchr(s, US, end - s);
+				f[nf] = s;
+				fl[nf] = sep ? (size_t)(sep - s) : (size_t)(end - s);
+				nf++;
+				if (!sep) break;
+				s = sep + 1;
+			}
+			if (fl[0] && TASK_N < MAXT) {
+				struct task *t = &T[TASK_N];
+				memset(t, 0, sizeof *t);
+				t->ord = TASK_N++;
+				copy_field(t->id, sizeof t->id, f[0], fl[0]);
+				copy_field(t->cat, sizeof t->cat, f[1], fl[1]);
+				copy_field(t->title, sizeof t->title, f[2], fl[2]);
+				copy_field(t->file, sizeof t->file, f[3], fl[3]);
+				copy_field(t->prio, sizeof t->prio, f[4], fl[4]);
+				copy_field(t->deps, sizeof t->deps, f[5], fl[5]);
+				char planned[8] = "";
+				copy_field(planned, sizeof planned, f[6] ? f[6] : "", fl[6]);
+				snprintf(t->flag, sizeof t->flag, "%s", *planned ? planned : " ");
+				/* tasks/<epic>/<id>.md is the only nesting the index has. */
+				if (!strncmp(t->file, "tasks/", 6)) {
+					const char *rest = t->file + 6;
+					const char *slash = strchr(rest, '/');
+					if (slash) copy_field(t->epic, sizeof t->epic, rest, slash - rest);
 				}
 			}
-			if (!nl) break;
-			line = nl + 1;
 		}
+		if (!nl) break;
+		line = nl + 1;
 	}
 	free(out);
+	sort_tasks();
 	build_rows();
 }
 
@@ -572,7 +628,8 @@ static void draw(void) {
 	TOP = clamp_top(SEL, TOP, list_h);
 
 	char header[1200], text[1200];
-	snprintf(header, sizeof header, "radin backlog  %d task(s)", TASK_N);
+	snprintf(header, sizeof header, "radin backlog  %d task(s)  sort:%s", TASK_N,
+		sort_name());
 	if (*SEARCH)
 		snprintf(header + strlen(header), sizeof header - strlen(header),
 			"  search:\"%s\"", SEARCH);
@@ -1329,6 +1386,9 @@ static void help_screen(void) {
 		"  E             create an epic, then write its DESCRIPTION.md in $EDITOR\n"
 		"  /             search id and title; matching rows are marked * (empty clears)\n"
 		"  n / N         next / previous matching row (wraps)\n"
+		"  A / P / C / T sort by creation order / priority / category / title.\n"
+		"                Creation order is the default every start returns to, and\n"
+		"                the order no edit reshuffles\n"
 		"  R             reload from disk\n"
 		"  q             quit\n\n"
 		"The priority column is coloured by a fixed map: 21/13 red, 8/5 yellow,\n"
@@ -1470,6 +1530,16 @@ int main(int argc, char **argv) {
 		case 'D': if ((ti = sel_task()) >= 0) edit_deps_task(ti); break;
 		case 'm': if ((ti = sel_task()) >= 0) move_epic_task(ti); break;
 		case 'E': new_epic(); break;
+		/* k9s binds Shift-<column initial> per column; radin follows it. */
+		case 'A':
+		case 'P':
+		case 'C':
+		case 'T':
+			SORT = (char)k;
+			sort_tasks();
+			build_rows();
+			setmsg("sort:%s", sort_name());
+			break;
 		case '/':
 			prompt("search: ", SEARCH, sizeof SEARCH);
 			SEL = 0;

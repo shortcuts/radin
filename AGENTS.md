@@ -94,6 +94,10 @@ wrong one cost failed call in every sub-agent
   `radin cbm-config`, and `radin cbm-hooks mcp` print entry to paste by hand,
   rest still install
   ([rules](docs/architecture.md#the-human-tui)).
+- **TUI load `backlog list --order created`**, so mutation reorder nothing and
+  row stay put. `Shift-A`/`Shift-P`/`Shift-C`/`Shift-T` be only reorder,
+  session-only, active one in header. CLI default stay `priority` — that be
+  ordering contract `radin-prioritization.md` read.
 
 ## Before committing
 
