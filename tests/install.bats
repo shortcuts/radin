@@ -237,6 +237,18 @@ run_install_defaults() {
   grep -q '"$HOME/.claude/.radin/bin/radin" backlog' "$TEST_HOME/.claude/skills/radin-execute/SKILL.md"
 }
 
+# radin-execute reads its rare-need lib docs with the Read tool, which takes no
+# `$HOME`. set_lib resolves RADIN_LIB at install time, so the installed skill
+# carries a path Read accepts. The replayed tree was installed under
+# $TEMPLATE/home, which is the HOME the recorded run resolved against.
+@test "RADIN_LIB resolves to the installed lib directory" {
+  run_install_defaults
+  agent="$TEST_HOME/.claude/skills/radin-execute/SKILL.md"
+  ! grep -rq 'RADIN_LIB' "$TEST_HOME/.claude/skills"
+  ! grep -q '$HOME/.claude/.radin/lib' "$agent"
+  grep -q "$TEMPLATE/home/.claude/.radin/lib/radin-execute-prompts.md" "$agent"
+}
+
 
 @test "the dispatcher routes subcommands to the installed lib scripts" {
   run_install_defaults

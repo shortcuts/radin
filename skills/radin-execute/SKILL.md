@@ -73,7 +73,7 @@ so the sub-agent gets the user's answer instead of your guess at what the entry
 meant.
 
 A sub-agent's `STATUS: BLOCKED` always carries a `(FACT)` or `(DECISION)` tag.
-Read `$HOME/.claude/.radin/lib/radin-execute-clarify.md` and follow it: it holds
+Read `RADIN_LIB/radin-execute-clarify.md` and follow it: it holds
 the routing for both tags, the fact-finder handoff, and the `backlog append`
 labels that put a settled answer where planning and execution sub-agents read
 it.
@@ -126,7 +126,7 @@ already answered, so ask nothing and change nothing. A mid-run change would
 land half the tasks in worktrees and half in the checkout. Exit 1
 means no answer
 is recorded yet — only the first run in a repo — so read
-`$HOME/.claude/.radin/lib/radin-execute-session.md` and follow it to ask and
+`RADIN_LIB/radin-execute-session.md` and follow it to ask and
 persist them.
 
 ## Phase 1: Read and Prioritize
@@ -153,7 +153,7 @@ persist them.
    Exit 1: nothing to recover, continue to step 4. Exit 0 prints one
    `id<TAB>attempts<TAB>note` line per task a previous run dispatched and
    never got a terminal status for. Never re-dispatch one blind: read
-   `$HOME/.claude/.radin/lib/radin-execute-recovery.md` and follow it for
+   `RADIN_LIB/radin-execute-recovery.md` and follow it for
    each id. Most runs skip this file entirely.
 4. Ask the CLI whether a ranking pass is needed at all:
 
@@ -164,7 +164,7 @@ persist them.
    Exit 1: every entry carries a priority. No task body read, no criteria
    pass, no dependency inference — go to Phase 2. Exit 0: it printed the ids
    whose `priority` is unset. Read
-   `$HOME/.claude/.radin/lib/radin-prioritization.md` and apply its weighted
+   `RADIN_LIB/radin-prioritization.md` and apply its weighted
    criteria to those ids alone. It produces two things: the unset group in
    your order, as one `--rank <csv-of-ids>` flag, and one
    `--infer-deps <id>=<csv>` flag per entry you inferred a dependency for.
@@ -236,7 +236,7 @@ task keeps the `order` number the user just confirmed.
 
 Every task the user just confirmed gets its plan written before the first
 execution sub-agent is dispatched, and they are all dispatched together. Read
-`$HOME/.claude/.radin/lib/radin-execute-prompts.md` once now — it holds every
+`RADIN_LIB/radin-execute-prompts.md` once now — it holds every
 verbatim sub-agent prompt this run sends, and this is the first phase that
 sends one.
 
@@ -261,7 +261,7 @@ Then route the whole wave, once all of its reports are in:
 
 ## Phase 4: Task Execution Loop
 
-Phase 3.5 already read `$HOME/.claude/.radin/lib/radin-execute-prompts.md`; it
+Phase 3.5 already read `RADIN_LIB/radin-execute-prompts.md`; it
 holds the execution and debug prompts this phase sends as well.
 
 The state CLI picks each task, dependency gate included:
@@ -443,7 +443,7 @@ RADIN_CLI state report "$NAMESPACE_DIR" "<one dropped-skill line per skill Step 
 ```
 
 Print its output verbatim. Read
-`$HOME/.claude/.radin/lib/radin-execute-reporting.md` for the two things it
+`RADIN_LIB/radin-execute-reporting.md` for the two things it
 cannot do.
 
 ## Phase 6: Review
@@ -471,7 +471,7 @@ from the invoking prompt: <instructions, or "none">.
 
 - **Resume, and recovery after a compaction**: `BACKLOG_STEPS.json` already
   exists at startup, or earlier turns got summarized away. Either way, read
-  `$HOME/.claude/.radin/lib/radin-execute-resume.md` and follow it: it holds
+  `RADIN_LIB/radin-execute-resume.md` and follow it: it holds
   the resume triage, the `MAX_ATTEMPTS` exception, and the state-persistence
   contract that lets you continue from disk rather than memory. A run that
   starts clean and stays in context never loads it.

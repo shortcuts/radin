@@ -474,6 +474,22 @@ set_cli() {
 	fi
 }
 
+# Skills carry a RADIN_LIB token instead of a literal `$HOME/.claude/.radin/lib`
+# -- same contract as RADIN_CLI. The Read tool needs an absolute path, so a
+# literal `$HOME` would leave the model expanding it before every on-demand
+# doc read.
+set_lib() {
+	local file="$1" tmp
+	tmp="$(mktemp)"
+	sed 's|RADIN_LIB|'"$HOME/.claude/.radin/lib"'|g' "$file" >"$tmp" && mv "$tmp" "$file"
+	# A surviving token reaches the model as a literal path and every on-demand
+	# doc read fails -- louder to stop here than to debug that.
+	if grep -q 'RADIN_LIB' "$file"; then
+		printf "%b\n" "${RED}${RAT} failed to write the lib path into $file.${RESET} Re-run the installer." >&2
+		exit 1
+	fi
+}
+
 # The agent ships no concurrency rule of its own -- only a marker line. awk
 # swaps that line for whichever rule the answer below picks, so the agent file
 # never carries a variant the user didn't choose.
@@ -734,6 +750,7 @@ set_cli "$HOME/.claude/.radin/lib/radin-prioritization.md" "$RADIN_CLI_VALUE"
 set_cli "$HOME/.claude/.radin/lib/radin-execute-clarify.md" "$RADIN_CLI_VALUE"
 set_cli "$HOME/.claude/.radin/lib/radin-execute-session.md" "$RADIN_CLI_VALUE"
 set_cli "$HOME/.claude/.radin/lib/radin-execute-reporting.md" "$RADIN_CLI_VALUE"
+set_lib "$HOME/.claude/skills/radin-execute/SKILL.md"
 
 step "Agent guidance"
 # A short section in ~/.claude/CLAUDE.md telling Claude when to reach for

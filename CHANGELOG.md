@@ -24,6 +24,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- `radin-execute` names its on-demand `lib/*.md` docs through a `RADIN_LIB`
+  token that `install.sh` resolves to an absolute path. The Read tool takes no
+  `$HOME`, so the previous literal path made the model expand it first.
 - Every skill and the on-demand `lib/*.md` files drop their explanations of how
   radin's CLI works internally; each CLI call now carries at most one line
   saying what it does. `AGENTS.md` gains a `Writing prose for agents` section
