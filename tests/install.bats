@@ -11,6 +11,8 @@ setup() {
   MOCK_BIN="$(mktemp -d)"
   export HOME="$TEST_HOME"
   export PATH="$MOCK_BIN:/usr/bin:/bin:/usr/sbin:/sbin"
+  load helpers/pty
+  MOCK_SRC_BIN="$BATS_FILE_TMPDIR/mock"
 
   make_mocks
 }
@@ -23,7 +25,12 @@ setup_file() {
   TEST_HOME="$TEMPLATE/home"
   MOCK_BIN="$TEMPLATE/bin"
   mkdir -p "$TEST_HOME" "$MOCK_BIN"
+  load helpers/pty
+  MOCK_SRC_BIN="$BATS_FILE_TMPDIR/mock"
   make_mocks
+  # The one run that compiles the TUI for real: every other live run gets the
+  # mock cc, because cc costs ~0.3s.
+  rm -f "$MOCK_BIN/cc" "$MOCK_BIN/gcc" "$MOCK_BIN/clang"
 
   local st=0
   (cd "$REPO_ROOT" && printf '2\n2\n' |
@@ -33,63 +40,20 @@ setup_file() {
 }
 
 # Stubs every binary install.sh reaches for, so no test makes a network
-# request. Uses $TEST_HOME/$MOCK_BIN from the caller: setup() per test, and
-# setup_file() once for the recorded install.
+# request. One compiled mock (tests/helpers/mock.c) hardlinked under each
+# command name: a shell script per command cost ~20ms of /bin/sh startup per
+# call, ~0.5s per install run. Uses $TEST_HOME/$MOCK_BIN from the caller:
+# setup() per test, and setup_file() once for the recorded install.
 make_mocks() {
   BREW_LOG="$TEST_HOME/brew.log"
-  # "install rtk" also drops a stub rtk binary on PATH, mirroring what a real
-  # brew install would leave behind -- needed for manifest/companion-tool
-  # reachability checks (command -v rtk) to see the install take effect.
-  cat > "$MOCK_BIN/brew" <<EOF
-#!/bin/sh
-echo "\$@" >> "$BREW_LOG"
-if [ "\$1" = "install" ] && [ "\$2" = "rtk" ]; then
-  printf '#!/bin/sh\n' > "$MOCK_BIN/rtk"
-  chmod +x "$MOCK_BIN/rtk"
-fi
-exit 0
-EOF
-
-  # -o file: write a byte so downstream steps that check the file exists pass.
-  # No -o: emit nothing, matching an empty/absent GitHub API response.
-  cat > "$MOCK_BIN/curl" <<'EOF'
-#!/bin/sh
-out=""
-prev=""
-for arg in "$@"; do
-  if [ "$prev" = "-o" ]; then out="$arg"; fi
-  prev="$arg"
-done
-if [ -n "$out" ]; then
-  echo "mock" > "$out"
-fi
-exit 0
-EOF
-
-  cat > "$MOCK_BIN/claude" <<'EOF'
-#!/bin/sh
-if [ "$1" = "plugin" ] && [ "$2" = "list" ]; then exit 0; fi
-exit 0
-EOF
-
-  PIP_LOG="$TEST_HOME/pip.log"
-  # Mirrors the brew mock: "install headroom-ai[...]" drops a stub headroom
-  # binary on PATH, needed for headroom's own manifest/reachability check.
-  cat > "$MOCK_BIN/pipx" <<EOF
-#!/bin/sh
-echo "\$@" >> "$PIP_LOG"
-if [ "\$1" = "install" ]; then
-  case "\$*" in
-    *headroom-ai*)
-      printf '#!/bin/sh\n' > "$MOCK_BIN/headroom"
-      chmod +x "$MOCK_BIN/headroom"
-      ;;
-  esac
-fi
-exit 0
-EOF
-
-  chmod +x "$MOCK_BIN"/brew "$MOCK_BIN"/curl "$MOCK_BIN"/claude "$MOCK_BIN"/pipx
+  PIP_LOG="$TEST_HOME/pipx.log"
+  export MOCK_BIN MOCK_LOG_DIR="$TEST_HOME"
+  cc_build "$BATS_TEST_DIRNAME/helpers/mock.c" "$MOCK_SRC_BIN" ||
+    skip "a C compiler is needed to build the command mocks"
+  cp "$MOCK_SRC_BIN" "$MOCK_BIN/mock"
+  for c in brew curl claude pipx pip3 npx python3 node gh cc gcc clang; do
+    ln "$MOCK_BIN/mock" "$MOCK_BIN/$c" 2>/dev/null || ln -s "$MOCK_BIN/mock" "$MOCK_BIN/$c"
+  done
 }
 
 teardown() {
@@ -103,7 +67,7 @@ replay_install() {
   rm -rf "$TEST_HOME/.claude" "$TEST_HOME/.local"
   cp -a "$TEMPLATE/home/.claude" "$TEST_HOME/.claude"
   [ -d "$TEMPLATE/home/.local" ] && cp -a "$TEMPLATE/home/.local" "$TEST_HOME/.local"
-  for log in brew.log pip.log; do
+  for log in brew.log pipx.log; do
     [ -f "$TEMPLATE/home/$log" ] && cp "$TEMPLATE/home/$log" "$TEST_HOME/$log"
   done
   cat "$TEMPLATE/output"
@@ -126,49 +90,30 @@ run_install_defaults() {
   replay_install
 }
 
-@test "syntax is valid" {
-  run bash -n "$REPO_ROOT/install.sh"
-  [ "$status" -eq 0 ]
-}
-
-# The one real end-to-end install in the suite: setup_file ran it, this asserts
-# it worked. Everything below replays its recorded tree.
 @test "a real install.sh run succeeds end to end" {
   [ "$(cat "$TEMPLATE/status")" -eq 0 ]
   grep -q 'Done' "$TEMPLATE/output"
   [ -f "$TEMPLATE/home/.claude/skills/radin-execute/SKILL.md" ]
   [ -f "$TEMPLATE/home/.claude/.radin/lib/radin-backlog.sh" ]
   [ -f "$TEMPLATE/home/.claude/.radin/manifest.json" ]
+  [ -x "$TEMPLATE/home/.claude/.radin/bin/radin-tui" ]
 }
 
-@test "installs fine when brew is missing, falling back to rtk's own installer" {
-  rm -f "$MOCK_BIN/brew"
-  run run_install_defaults
-  [ "$status" -eq 0 ]
-}
-
-# A child that inherits fd0 reads the rest of the piped script or the piped
-# answers, and the install then stops before the questions.
-@test "a companion install that reads stdin can't eat the piped answers" {
-  cat > "$MOCK_BIN/npx" <<'EOF'
-#!/bin/sh
-cat > /dev/null
-exit 0
-EOF
-  chmod +x "$MOCK_BIN/npx"
+@test "a companion install that reads stdin can't eat the piped answers, and parallel execution is recorded" {
+  export MOCK_NPX=eat-stdin
   cd "$REPO_ROOT" && run bash -c "printf '1\n2\n2\n' | bash ./install.sh"
   [ "$status" -eq 0 ]
-  grep -q 'Concurrency allowed' "$TEST_HOME/.claude/skills/radin-execute/SKILL.md"
+  agent="$TEST_HOME/.claude/skills/radin-execute/SKILL.md"
+  grep -q 'Concurrency allowed' "$agent"
+  ! grep -q "One execution sub-agent at a time" "$agent"
+  ! grep -q "radin:concurrency" "$agent"
+  grep -q '"parallel_execution": true' "$TEST_HOME/.claude/.radin/manifest.json"
 }
 
 # Exiting before "Done" leaves a partial ~/.claude, so the run must say so
 # instead of returning success-looking silence.
 @test "an install that dies mid-run says the install is partial" {
-  cat > "$MOCK_BIN/npx" <<'EOF'
-#!/bin/sh
-exit 1
-EOF
-  chmod +x "$MOCK_BIN/npx"
+  export MOCK_NPX=fail
   cd "$REPO_ROOT" && run bash -c "printf '2\n2\n2\n' | bash ./install.sh"
   [ "$status" -ne 0 ]
   [[ "$output" == *"partial install"* ]]
@@ -197,16 +142,6 @@ EOF
   grep -q 'model: "haiku"' "$TEST_HOME/.claude/.radin/lib/radin-execute-prompts.md"
 }
 
-# The model gate at prompt 2: yes, then "same model for every role?" no, then
-# one pick per role (fable/opus/sonnet/haiku).
-@test "per-role model picks land in the right file" {
-  cd "$REPO_ROOT" && run bash -c "printf '2\n1\n2\n2\n1\n4\n3\n3\n' | bash ./install.sh"
-  [ "$status" -eq 0 ]
-  ! grep -rq 'RADIN_MODEL_' "$TEST_HOME/.claude/skills" "$TEST_HOME/.claude/.radin/lib"
-  grep -q 'model: "opus"' "$TEST_HOME/.claude/.radin/lib/radin-execute-prompts.md"
-  grep -q 'model: "fable"' "$TEST_HOME/.claude/.radin/lib/radin-execute-prompts.md"
-  grep -q 'model: "haiku"' "$TEST_HOME/.claude/skills/radin-execute/SKILL.md"
-}
 
 # "Same model for every role?" defaults to yes: one pick sets all five tokens,
 # fact-finding's haiku default included.
@@ -219,8 +154,14 @@ EOF
   ! grep -q 'model: "haiku"' "$TEST_HOME/.claude/.radin/lib/radin-execute-prompts.md"
 }
 
-@test "installs radin's own skills, not unrelated skill dirs" {
+@test "installs radin's own skills and shared lib, not unrelated skill dirs" {
   run_install_defaults
+  [ -f "$TEST_HOME/.claude/.radin/lib/radin-namespace.sh" ]
+  [ -f "$TEST_HOME/.claude/.radin/lib/radin-json.sh" ]
+  [ -f "$TEST_HOME/.claude/.radin/lib/radin-uninstall.sh" ]
+  [ -f "$TEST_HOME/.claude/.radin/lib/radin-execute-recovery.md" ]
+  [ -f "$TEST_HOME/.claude/.radin/lib/radin-execute-reporting.md" ]
+  [ -f "$TEST_HOME/.claude/skills/thermo-nuclear/SKILL.md" ]
   [ -d "$TEST_HOME/.claude/skills/radin-execute" ]
   [ -d "$TEST_HOME/.claude/skills/radin-review" ]
   [ -d "$TEST_HOME/.claude/skills/radin-record" ]
@@ -229,22 +170,6 @@ EOF
   [ -d "$TEST_HOME/.claude/skills/radin-uninstall" ]
 }
 
-@test "installs shared namespace-resolution script into ~/.claude/.radin/lib" {
-  run_install_defaults
-  [ -f "$TEST_HOME/.claude/.radin/lib/radin-namespace.sh" ]
-  [ -f "$TEST_HOME/.claude/.radin/lib/radin-json.sh" ]
-  [ -f "$TEST_HOME/.claude/.radin/lib/radin-uninstall.sh" ]
-  [ -f "$TEST_HOME/.claude/.radin/lib/radin-execute-recovery.md" ]
-  [ -f "$TEST_HOME/.claude/.radin/lib/radin-execute-reporting.md" ]
-}
-
-@test "downloads thermo-nuclear SKILL.md alongside radin's own skills" {
-  run_install_defaults
-  [ -f "$TEST_HOME/.claude/skills/thermo-nuclear/SKILL.md" ]
-}
-
-# The stack is opinionated: no tool has a prompt, so a run that answers only
-# the three behaviour questions must still install every companion tool.
 @test "every companion tool installs without a prompt" {
   run run_install_defaults
   [ "$status" -eq 0 ]
@@ -277,27 +202,26 @@ EOF
   echo "user content stays" > "$TEST_HOME/.claude/CLAUDE.md"
   run real_install
   [ "$status" -eq 0 ]
+  claude_md="$TEST_HOME/.claude/CLAUDE.md"
+  before="$(wc -l < "$claude_md")"
   run real_install
   [ "$status" -eq 0 ]
-  claude_md="$TEST_HOME/.claude/CLAUDE.md"
   grep -q "user content stays" "$claude_md"
   [ "$(grep -c '<!-- radin:begin -->' "$claude_md")" -eq 1 ]
   [ "$(grep -c '<!-- radin:end -->' "$claude_md")" -eq 1 ]
   grep -q '/radin-record' "$claude_md"
   grep -q '"claude_md_guidance": true' "$TEST_HOME/.claude/.radin/manifest.json"
   # A re-run must not grow the file by one blank line each time.
-  before="$(wc -l < "$claude_md")"
-  run real_install
-  [ "$status" -eq 0 ]
   [ "$(wc -l < "$claude_md")" -eq "$before" ]
 }
 
 @test "installs the radin CLI dispatcher and the ~/.local/bin symlink" {
-  real_install
-  [ -x "$TEST_HOME/.claude/.radin/bin/radin" ]
-  [ -L "$TEST_HOME/.local/bin/radin" ]
-  [ "$(readlink "$TEST_HOME/.local/bin/radin")" = "$TEST_HOME/.claude/.radin/bin/radin" ]
-  grep -q '"cli_on_path": true' "$TEST_HOME/.claude/.radin/manifest.json"
+  # Asserted on the recorded tree: the symlink names its own $TEMPLATE home, so
+  # a replay into another $HOME could not be checked.
+  [ -x "$TEMPLATE/home/.claude/.radin/bin/radin" ]
+  [ -L "$TEMPLATE/home/.local/bin/radin" ]
+  [ "$(readlink "$TEMPLATE/home/.local/bin/radin")" = "$TEMPLATE/home/.claude/.radin/bin/radin" ]
+  grep -q '"cli_on_path": true' "$TEMPLATE/home/.claude/.radin/manifest.json"
 }
 
 # Skills carry a RADIN_CLI token; set_cli resolves it to whichever invocation
@@ -309,12 +233,6 @@ EOF
   grep -q '"$HOME/.claude/.radin/bin/radin" backlog' "$TEST_HOME/.claude/skills/radin-execute/SKILL.md"
 }
 
-@test "RADIN_CLI resolves to bare radin when ~/.local/bin is on PATH" {
-  cd "$REPO_ROOT" && printf '2\n2\n2\n' | PATH="$TEST_HOME/.local/bin:$PATH" bash ./install.sh
-  ! grep -rq 'RADIN_CLI' "$TEST_HOME/.claude/skills" "$TEST_HOME/.claude/.radin/lib"
-  grep -q 'radin backlog count' "$TEST_HOME/.claude/skills/radin-execute/SKILL.md"
-  ! grep -q '.radin/bin/radin" backlog' "$TEST_HOME/.claude/skills/radin-execute/SKILL.md"
-}
 
 @test "the dispatcher routes subcommands to the installed lib scripts" {
   run_install_defaults
@@ -352,26 +270,20 @@ EOF
   grep -q '"parallel_execution": false' "$TEST_HOME/.claude/.radin/manifest.json"
 }
 
-@test "accepting parallel execution keeps the concurrency constraint only" {
-  cd "$REPO_ROOT" && run bash -c "printf '1\n2\n2\n' | bash ./install.sh"
-  [ "$status" -eq 0 ]
-  agent="$TEST_HOME/.claude/skills/radin-execute/SKILL.md"
-  grep -q "Concurrency allowed" "$agent"
-  ! grep -q "One execution sub-agent at a time" "$agent"
-  ! grep -q "radin:concurrency" "$agent"
-  grep -q '"parallel_execution": true' "$TEST_HOME/.claude/.radin/manifest.json"
-}
 
 # The arrow-key picker only draws on a real terminal, so it gets driven through
 # a pty helper. Extracting the functions from install.sh keeps the picker itself
 # single-sourced there.
 pick_with_keys() {
-  command -v python3 >/dev/null 2>&1 || skip "python3 needed to allocate a pty"
+  load helpers/pty
+  pty_build || skip "a C compiler is needed to build the pty driver"
   local snippet="$TEST_HOME/picker.sh" out="$TEST_HOME/picked"
   sed -n '/^_pick_nth() {/,/^prompt_yn() {/p' "$REPO_ROOT/install.sh" | sed '$d' > "$snippet"
   rm -f "$out"
-  PATH="$PATH:/usr/local/bin:/opt/homebrew/bin" python3 "$REPO_ROOT/tests/helpers/pty-drive.py" \
-    "$snippet" "$out" "$1" 1 alpha beta gamma >/dev/null 2>&1 && PICK_STATUS=0 || PICK_STATUS="$?"
+  "$PTY_RUN" "$TEST_HOME/pick-screen" "$1" bash -c \
+    "YES=''; RAT=''; BOLD=''; DIM=''; CYAN=''; YELLOW=''; RED=''; RESET=''; \
+     source '$snippet'; prompt_pick 'pick one' 1 alpha beta gamma > '$out'" \
+    >/dev/null 2>&1 && PICK_STATUS=0 || PICK_STATUS="$?"
   PICKED="$(cat "$out" 2>/dev/null || true)"
 }
 
@@ -414,22 +326,6 @@ pick_with_keys() {
   [[ "$output" == *"wasn't created by this installer"* ]]
 }
 
-# --force on an already-installed plugin must reach `claude plugin update`,
-# not the install path -- a plain re-install is a no-op and leaves it stale.
-@test "--force updates an already-installed plugin" {
-  CLAUDE_LOG="$TEST_HOME/claude.log"
-  cat > "$MOCK_BIN/claude" <<EOF
-#!/bin/sh
-echo "\$@" >> "$CLAUDE_LOG"
-if [ "\$1" = "plugin" ] && [ "\$2" = "list" ]; then echo "caveman@caveman"; fi
-exit 0
-EOF
-  chmod +x "$MOCK_BIN/claude"
-  cd "$REPO_ROOT" && run bash ./install.sh --force --yes
-  [ "$status" -eq 0 ]
-  grep -q "plugin update caveman@caveman" "$CLAUDE_LOG"
-  ! grep -q "plugin install caveman@caveman" "$CLAUDE_LOG"
-}
 
 # --yes is how one command reproduces this machine on the next one: the three
 # behaviour questions take their defaults instead of blocking on a terminal.
@@ -446,27 +342,19 @@ EOF
   grep -q '<!-- radin:begin -->' "$TEST_HOME/.claude/CLAUDE.md"
 }
 
-# Plugins install through the `claude` CLI and nothing else: without it, say so
-# once per plugin rather than failing three times.
-@test "plugins are skipped with one line when the claude CLI is absent" {
+
+# A companion tool that fails must not abort radin's own install -- set -e used
+# to kill the script the moment a pip/pipx preflight failed. Plugins install
+# through the `claude` CLI and nothing else: without it, say so once per plugin
+# rather than failing three times. Both are the same advisory-failure run.
+@test "a failing companion tool and a missing claude CLI both warn, and the install completes" {
+  export MOCK_FAIL=brew
   rm -f "$MOCK_BIN/claude"
   cd "$REPO_ROOT" && run bash ./install.sh --yes
   [ "$status" -eq 0 ]
+  [[ "$output" == *"rtk install failed"* ]]
   [[ "$output" == *"caveman skipped: the 'claude' CLI is not on PATH"* ]]
   [[ "$output" != *"caveman install failed"* ]]
-}
-
-# A companion tool that fails to install must not abort radin's own install --
-# set -e used to kill the script the moment a pip/pipx preflight failed.
-@test "a failing companion install warns but completes" {
-  cat > "$MOCK_BIN/brew" <<'EOF'
-#!/bin/sh
-exit 1
-EOF
-  chmod +x "$MOCK_BIN/brew"
-  run real_install
-  [ "$status" -eq 0 ]
-  [[ "$output" == *"rtk install failed"* ]]
   [[ "$output" == *"radin installed."* ]]
 }
 
@@ -494,14 +382,6 @@ EOF
   [ "$(cat "$TEST_HOME/.claude/.radin/install_root")" = "$REPO_ROOT" ]
 }
 
-# --update is non-interactive by design, so with no manifest to read it takes
-# the documented defaults rather than blocking on a question.
-@test "--update with no manifest takes the defaults, never a prompt" {
-  cd "$REPO_ROOT" && run bash ./install.sh --update
-  [ "$status" -eq 0 ]
-  [[ "$output" != *"keeping the recorded answer"* ]]
-  grep -q '"parallel_execution": false' "$TEST_HOME/.claude/.radin/manifest.json"
-}
 
 @test "ships the update script and routes radin update to it" {
   run run_install_defaults

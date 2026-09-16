@@ -26,7 +26,7 @@ os.chdir(cwd)
 spawned = time.time()
 pid, fd = pty.fork()
 if pid == 0:
-    os.execvp("bash", ["bash", tui])
+    os.execvp(tui, [tui])
 
 fcntl.ioctl(fd, termios.TIOCSWINSZ, struct.pack("HHHH", ROWS, COLS, 0, 0))
 

@@ -1,6 +1,6 @@
 # radin — Agent Reference
 
-Read before touch any file here. radin be Claude Code plugin: skills, CLI, install glue. Bash only, macOS and Linux.
+Read before touch any file here. radin be Claude Code plugin: skills, CLI, install glue. Bash, plus one C file (the TUI). macOS and Linux.
 
 ## Hard rules
 
@@ -85,14 +85,18 @@ wrong one cost failed call in every sub-agent
 - **`lib/radin-cbm-config.sh` snapshot before upstream write**, because that
   installer replace whole hook array instead of merge; drop it and
   machine lose hooks silent ([limits](docs/technical-constraints.md)).
-- **TUI draw and dispatch keys, nothing else** — raw ANSI and `stty`,
-  mutation through one `mutate` helper ([rules](docs/architecture.md#the-human-tui)).
+- **TUI be C (`lib/radin-tui.c`), and draw and dispatch keys only** — raw ANSI,
+  `termios`, every mutation shell out to `radin-backlog.sh`. `install.sh` build
+  it with `cc`, advisory: no compiler mean no `radin tui`, rest still install
+  ([rules](docs/architecture.md#the-human-tui)).
 
 ## Before committing
 
-- `make lint` and `make test` clean. Exactly one test run `install.sh` end to
-  end; every other replay its recorded tree. Mock anything radin not
-  control: no test make network request.
+- `make lint` and `make test` clean, and `make test` stay under 20s. Keep it
+  there: one recorded `install.sh` run every tree-only test replay, live run
+  only for install-time behaviour, mock command be `tests/helpers/mock.c` (one
+  compiled binary, not a shell stub per command — `/bin/sh` startup cost 20ms
+  a call), and no test make network request.
 - Docs updated in same commit: `docs/architecture.md` (layout, namespace
   resolution), `docs/domain-models.md` (format), README (new skill or
   companion), `CHANGELOG.md` (user-facing change).

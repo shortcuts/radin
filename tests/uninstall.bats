@@ -35,11 +35,6 @@ printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-cbm-
   cp "$CLI" "$TEST_HOME/.claude/.radin/lib/radin-uninstall.sh"
 }
 
-@test "syntax is valid" {
-  run bash -n "$CLI"
-  [ "$status" -eq 0 ]
-}
-
 @test "removes every expected skill and lib file" {
   install_all_expected
   run env HOME="$TEST_HOME" bash "$TEST_HOME/.claude/.radin/lib/radin-uninstall.sh"

@@ -20,11 +20,6 @@ cli() {
   bash "$CLI" "$@"
 }
 
-@test "syntax is valid" {
-  run bash -n "$CLI"
-  [ "$status" -eq 0 ]
-}
-
 @test "set-status updates one line, preserving order, depends_on and attempts" {
   printf '{"id":"a","order":1,"status":"in_progress","depends_on":["b"],"attempts":2,"note":""}\n' > "$STEPS"
   printf '{"id":"c","order":2,"status":"pending","depends_on":[],"attempts":0,"note":""}\n' >> "$STEPS"

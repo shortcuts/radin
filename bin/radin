@@ -9,7 +9,16 @@ LIB="$HOME/.claude/.radin/lib"
 
 cmd="${1:-}"
 case "$cmd" in
-backlog | tui | state | scope | cbm-hooks | cbm-config | update | doctor | uninstall)
+tui)
+	shift
+	# The only compiled subcommand; install.sh builds it from lib/radin-tui.c.
+	[ -x "$HOME/.claude/.radin/bin/radin-tui" ] || {
+		printf 'radin tui: not built (no C compiler at install time). Use "radin backlog show".\n' >&2
+		exit 1
+	}
+	RADIN_LIB="$LIB" exec "$HOME/.claude/.radin/bin/radin-tui" "$@"
+	;;
+backlog | state | scope | cbm-hooks | cbm-config | update | doctor | uninstall)
 	shift
 	exec bash "$LIB/radin-$cmd.sh" "$@"
 	;;

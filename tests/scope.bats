@@ -32,11 +32,6 @@ EOF
   chmod +x "$MOCK_BIN/gh"
 }
 
-@test "syntax is valid" {
-  run bash -n "$CLI"
-  [ "$status" -eq 0 ]
-}
-
 @test "no argument resolves to the branch diff against main's merge-base" {
   ( cd "$WORK/repo"
     git checkout -qb feature

@@ -20,11 +20,6 @@ teardown() {
   rm -rf "$TEST_HOME" "$MOCK_BIN"
 }
 
-@test "syntax is valid" {
-  run bash -n "$CLI"
-  [ "$status" -eq 0 ]
-}
-
 @test "fails without codebase-memory-mcp on PATH or in ~/.local/bin" {
   rm -f "$MOCK_BIN/codebase-memory-mcp"
   run bash "$CLI" all "$TEST_HOME/proj"

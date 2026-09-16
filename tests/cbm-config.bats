@@ -51,11 +51,6 @@ EOF
   chmod +x "$MOCK_BIN/codebase-memory-mcp"
 }
 
-@test "syntax is valid" {
-  run bash -n "$CLI"
-  [ "$status" -eq 0 ]
-}
-
 @test "fails without codebase-memory-mcp on PATH or in ~/.local/bin" {
   run bash "$CLI" install
   [ "$status" -ne 0 ]

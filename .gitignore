@@ -4,3 +4,5 @@
 .env
 **.omc
 **.radin
+tests/helpers/pty-run
+lib/radin-tui

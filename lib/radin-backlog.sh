@@ -78,7 +78,10 @@ usage_die() {
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
 . "$LIB_DIR/radin-json.sh"
-eval "$(bash "$LIB_DIR/radin-namespace.sh")"
+# Sourced, not `eval "$(bash ...)"`: the fork was ~12ms of every CLI call, and
+# the skills make hundreds of them.
+# shellcheck disable=SC1091
+. "$LIB_DIR/radin-namespace.sh"
 
 require_index() {
 	[ -s "$BACKLOG_INDEX" ] || die "no backlog at $BACKLOG_INDEX"

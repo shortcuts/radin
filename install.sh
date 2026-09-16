@@ -151,7 +151,7 @@ mkdir -p "$HOME/.claude/skills" "$HOME/.claude/.radin/lib"
 # Explicit name lists, not lib/* or skills/* globs: install.sh may only copy
 # files radin itself named (AGENTS.md Constraints), and a stray file in a dev
 # clone must not ship.
-for f in radin-namespace.sh radin-json.sh radin-backlog.sh radin-tui.sh radin-state.sh \
+for f in radin-namespace.sh radin-json.sh radin-backlog.sh radin-tui.c radin-state.sh \
 	radin-scope.sh radin-prioritization.md radin-execute-prompts.md \
 	radin-execute-recovery.md radin-execute-reporting.md radin-cbm-hooks.sh \
 	radin-cbm-config.sh radin-update.sh \
@@ -165,6 +165,24 @@ done
 mkdir -p "$HOME/.claude/.radin/bin"
 cp "$RADIN_ROOT/bin/radin" "$HOME/.claude/.radin/bin/"
 chmod +x "$HOME/.claude/.radin/bin/radin"
+
+# The TUI is C, so it is the one file that gets built here rather than copied.
+# Advisory like a companion tool: a box with no compiler keeps every other
+# subcommand, and `radin backlog show` covers the reading the TUI does.
+TUI_CC="$(command -v cc || command -v gcc || command -v clang || true)"
+if [ -n "$TUI_CC" ]; then
+	CC_LOG="$(mktemp)"
+	if "$TUI_CC" -O2 -o "$HOME/.claude/.radin/bin/radin-tui" \
+		"$HOME/.claude/.radin/lib/radin-tui.c" >"$CC_LOG" 2>&1; then
+		ok "radin tui built."
+	else
+		tail -n 20 "$CC_LOG" >&2
+		warn "radin tui failed to build -- every other subcommand still works."
+	fi
+	rm -f "$CC_LOG"
+else
+	warn "no C compiler found -- skipping radin tui. Use \`radin backlog show\`."
+fi
 # thermo-nuclear is vendored via the vercel-labs/skills CLI (agentskills.io
 # spec), not a Claude Code plugin -- cursor/plugins isn't a plugin marketplace
 # repo, just a SKILL.md at this subpath. Falls back to a raw curl of the file
@@ -791,6 +809,7 @@ cat >"$MANIFEST_FILE" <<EOF
     "radin-namespace.sh",
     "radin-json.sh",
     "radin-backlog.sh",
+    "radin-tui.c",
     "radin-state.sh",
     "radin-scope.sh",
     "radin-prioritization.md",

@@ -204,7 +204,7 @@ radin/
     radin
   lib/
     radin-backlog.sh
-    radin-tui.sh
+    radin-tui.c
     radin-cbm-hooks.sh
     radin-doctor.sh
     radin-update.sh
@@ -221,24 +221,28 @@ radin/
 
 ## The human TUI
 
-`radin tui` (`lib/radin-tui.sh`) is the human's way into the same backlog the
+`radin tui` (`lib/radin-tui.c`) is the human's way into the same backlog the
 skills drive: a full-screen list of every task, a preview of the selected
 task's body, and one key per operation (`e` edit in `$EDITOR`, `v` view in
 `$PAGER`, `n` new, `d` delete, `c` next category, `r` retitle, `/` filter).
 A `P` in the first column marks a task `radin-plan` already planned.
 
-Two rules keep it from becoming a second backlog implementation:
+Three rules keep it from becoming a second backlog implementation:
 
 - **It draws and dispatches keys, nothing else.** Every mutation shells out to
-  `radin-backlog.sh` (`add`, `remove`, `set-category`, `retitle`, `path`), so
-  the index/task-file contract has exactly one owner. A key that needs an
-  operation the CLI lacks means adding a CLI subcommand, not writing to
-  `index.jsonl` from the TUI.
-- **Raw ANSI only — no `tput`, `dialog`, `gum` or `fzf`.** Zero dependencies is
-  the same promise as the rest of radin: `stty` for raw mode and terminal size,
-  `\033[` escapes to draw, `read -rsn1` for keys. `bash-tui-toolkit` solves the
-  same problem the same way; radin borrows the technique rather than vendoring
-  600 lines of someone else's bash for one list widget.
+  `radin-backlog.sh` (`add`, `remove`, `set-category`, `retitle`, `set-deps`,
+  `epic-move`), so the index/task-file contract has exactly one owner. A key
+  that needs an operation the CLI lacks means adding a CLI subcommand, not
+  writing to `index.jsonl` from the TUI.
+- **Raw ANSI only — no ncurses, `tput`, `dialog`, `gum` or `fzf`.** Zero
+  dependencies is the same promise as the rest of radin: `termios` for raw mode,
+  `TIOCGWINSZ` for the terminal size, `\033[` escapes to draw.
+- **C, not bash — the only compiled file radin ships.** A bash frame cost a fork
+  per row and ~150ms per keypress-to-frame, and the TUI's 43 pty tests were a
+  third of the suite's runtime. `install.sh` builds it with `cc` (Command Line
+  Tools on macOS, gcc on Linux) into `~/.claude/.radin/bin/radin-tui`; the build
+  is advisory like a companion tool, so a box with no compiler keeps every other
+  subcommand and `radin backlog show`.
 
 It is deliberately not a skill and no agent invokes it: a TUI needs a terminal
 and a human at it, and every agent-facing path already exists as a CLI

@@ -32,7 +32,9 @@ gives you:
 curl -fsSL https://raw.githubusercontent.com/shortcuts/radin/main/install.sh | bash
 ```
 
-Needs `curl`, `tar`, `bash`, and the `claude` CLI. Companion tools pull their
+Needs `curl`, `tar`, `bash`, and the `claude` CLI. `radin tui` is C: install
+builds it with `cc` (Xcode Command Line Tools on macOS, gcc on Linux) and
+skips it with a warning when no compiler is there. Companion tools pull their
 own stacks; one that fails is reported and skipped, and radin still installs.
 Homebrew (`rtk`), `python3` (headroom, codebase-memory-mcp config) are
 optional but recommended.

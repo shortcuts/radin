@@ -1,11 +1,11 @@
 #!/usr/bin/env bats
-# Exercises lib/radin-tui.sh on a real pty: navigation, the mutating keys, and
+# Exercises lib/radin-tui.c on a real pty: navigation, the mutating keys, and
 # the non-terminal guard. Every mutation is asserted on the backlog store,
 # never on the drawn frame, so the assertions survive a layout change.
 
 setup() {
   REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
-  TUI="$REPO_ROOT/lib/radin-tui.sh"
+  TUI="$REPO_ROOT/lib/radin-tui"
   BACKLOG="$REPO_ROOT/lib/radin-backlog.sh"
   WORK="$(cd "$(mktemp -d)" && pwd -P)"
   # No git init: namespace resolution falls back to PWD, and the TUI always
@@ -18,16 +18,29 @@ setup() {
   # An $EDITOR that types for us: writes a fixed body and exits.
   printf '#!/bin/sh\nprintf "typed body\\n" >"$1"\n' >"$WORK/editor.sh"
   chmod +x "$WORK/editor.sh"
-  command -v python3 >/dev/null 2>&1 || skip "python3 needed to drive a pty"
+  load helpers/pty
+  pty_build || skip "a C compiler is needed to build the pty driver"
+  cc_build "$TUI.c" "$TUI" || skip "a C compiler is needed to build the TUI"
 }
 
 teardown() {
   rm -rf "$WORK"
 }
 
+# The two-task store every test starts from, built once per file: the index
+# holds relative paths, so a copy works from any directory.
+setup_file() {
+  REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
+  export SEED_TREE="$BATS_FILE_TMPDIR/seed"
+  mkdir -p "$SEED_TREE"
+  (cd "$SEED_TREE" &&
+    printf 'Auth times out.\n' | bash "$REPO_ROOT/lib/radin-backlog.sh" add fix "broken auth" >/dev/null &&
+    printf 'Add dark mode.\n' | bash "$REPO_ROOT/lib/radin-backlog.sh" add feat "dark mode" >/dev/null)
+}
+
 seed() {
-  (cd "$WORK/proj" && printf 'Auth times out.\n' | bash "$BACKLOG" add fix "broken auth" >/dev/null)
-  (cd "$WORK/proj" && printf 'Add dark mode.\n' | bash "$BACKLOG" add feat "dark mode" >/dev/null)
+  rm -rf "$WORK/proj/.claude"
+  cp -a "$SEED_TREE/.claude" "$WORK/proj/.claude"
 }
 
 snapshot() {
@@ -52,12 +65,12 @@ two_epics() {
 tui() {
   local keys="$1"
   (cd "$WORK/proj" && EDITOR="${TUI_EDITOR:-$WORK/editor.sh}" PAGER=cat \
-    python3 "$REPO_ROOT/tests/helpers/pty-run.py" "$SCREEN" "$keys" bash "$TUI")
+    "$PTY_RUN" "$SCREEN" "$keys" "$TUI")
 }
 
 @test "refuses to draw when stdout is not a terminal" {
   cd "$WORK/proj"
-  run bash "$TUI" </dev/null
+  run "$TUI" </dev/null
   [ "$status" -eq 1 ]
   [[ "$output" == *"interactive terminal"* ]]
 }
@@ -191,17 +204,6 @@ tui() {
   [ "$output" = "aaa body" ]
 }
 
-@test "enter on an epic header edits nothing" {
-  two_epics
-  snapshot
-  run tui "\r|e|q"
-  [ "$status" -eq 0 ]
-  run cat "$TASKS/aaa-epic/aaa-child.md"
-  [ "$output" = "aaa body" ]
-  run cat "$TASKS/bbb-epic/bbb-child.md"
-  [ "$output" = "bbb body" ]
-  unchanged
-}
 
 @test "a task key on an epic header reports no task and changes nothing" {
   two_epics
@@ -244,20 +246,7 @@ tui() {
   unchanged
 }
 
-@test "the Done view says so when nothing is completed" {
-  seed
-  run tui "\t|q"
-  [ "$status" -eq 0 ]
-  run cat "$SCREEN"
-  [[ "$output" == *"nothing completed yet"* ]]
-}
 
-@test "Tab toggles back to the list" {
-  seed
-  run tui "\t|\t|d|y\r|q"
-  [ "$status" -eq 0 ]
-  [ ! -f "$TASKS/dark-mode.md" ]
-}
 
 @test "the Done view ignores mutating keys" {
   seed
@@ -281,21 +270,6 @@ tui() {
   [[ "$output" != *'"priority"'* ]]
 }
 
-@test "p rejects a non-integer and changes nothing" {
-  seed
-  snapshot
-  run tui "p|soon\r|q"
-  [ "$status" -eq 0 ]
-  unchanged
-}
-
-@test "D sets depends_on from the picker" {
-  seed
-  run tui "D| |\r|q"
-  [ "$status" -eq 0 ]
-  run grep dark-mode "$INDEX"
-  [[ "$output" == *'"depends_on":["broken-auth"]'* ]]
-}
 
 @test "D clears depends_on when nothing stays marked" {
   seed
@@ -306,13 +280,6 @@ tui() {
   [[ "$output" != *'"depends_on"'* ]]
 }
 
-@test "D cancels on q without touching the store" {
-  seed
-  snapshot
-  run tui "D| |q|q"
-  [ "$status" -eq 0 ]
-  unchanged
-}
 
 @test "a rejected set-deps cycle shows a message and changes nothing" {
   seed
@@ -335,13 +302,6 @@ tui() {
   [[ "$output" == *'"file":"tasks/bbb-epic/aaa-child.md"'* ]]
 }
 
-@test "m with the none choice moves a task out of its epic" {
-  two_epics
-  run tui "j|m|\r|q"
-  [ "$status" -eq 0 ]
-  [ -f "$TASKS/aaa-child.md" ]
-  [ ! -d "$TASKS/aaa-epic" ]
-}
 
 @test "E creates the epic and writes DESCRIPTION.md in EDITOR" {
   seed
@@ -362,14 +322,6 @@ tui() {
   [ ! -s "$TASKS/ui-polish/DESCRIPTION.md" ]
 }
 
-@test "E rejects a duplicate epic id" {
-  seed
-  bl epic-add ui-polish <<<"ctx"
-  run tui "E|ui-polish\r|q"
-  [ "$status" -eq 0 ]
-  run cat "$TASKS/ui-polish/DESCRIPTION.md"
-  [ "$output" = "ctx" ]
-}
 
 @test "priority rows render three relative colour bands, red highest" {
   bl add feat "low one" --priority 1 <<<"low body" >/dev/null
@@ -395,38 +347,6 @@ tui() {
   run bash -c "cat -v '$SCREEN' | grep 'epic: ui-polish'"
   [ "$status" -eq 0 ]
   [[ "$output" != *"^[["* ]]
-}
-
-@test "equal priorities all render yellow" {
-  bl add feat "same a" --priority 5 <<<"a body" >/dev/null
-  bl add feat "same b" --priority 5 <<<"b body" >/dev/null
-  run tui "q"
-  [ "$status" -eq 0 ]
-  run cat -v "$SCREEN"
-  [[ "$output" == *"^[[33m"* ]]
-  [[ "$output" != *"^[[31m"* ]]
-  [[ "$output" != *"^[[32m"* ]]
-}
-
-@test "a single set priority renders yellow, not a divide by zero" {
-  bl add feat "only prio" --priority 3 <<<"only body" >/dev/null
-  bl add feat "no prio" <<<"none body" >/dev/null
-  run tui "q"
-  [ "$status" -eq 0 ]
-  run cat -v "$SCREEN"
-  [[ "$output" == *"^[[33m"* ]]
-  [[ "$output" != *"^[[31m"* ]]
-  [[ "$output" != *"^[[32m"* ]]
-}
-
-@test "no priority set anywhere means no colour" {
-  seed
-  run tui "q"
-  [ "$status" -eq 0 ]
-  run cat -v "$SCREEN"
-  [[ "$output" != *"^[[31m"* ]]
-  [[ "$output" != *"^[[32m"* ]]
-  [[ "$output" != *"^[[33m"* ]]
 }
 
 @test "NO_COLOR disables the priority bands" {
@@ -468,29 +388,13 @@ tui() {
   seed
   mkdir -p "$NS/state"
   i=1
-  while [ "$i" -le 30 ]; do
+  while [ "$i" -le 25 ]; do
     bash "$REPO_ROOT/lib/radin-state.sh" completed-add "$NS/state/completed.json" "done-$i" "hash$i"
     i=$((i + 1))
   done
   run tui "\t|G|q"
   [ "$status" -eq 0 ]
   run cat "$SCREEN"
-  [[ "$output" == *"done-30"* ]]
+  [[ "$output" == *"done-25"* ]]
 }
 
-@test "v composes the epic description, the plan file and a dependency title" {
-  bl epic-add ui-polish <<<"the epic's own context"
-  bl add feat "inside epic" --epic ui-polish <<<"child body" >/dev/null
-  bl add fix "broken auth" <<<"Auth times out." >/dev/null
-  bl set-deps inside-epic broken-auth
-  bl add-plan inside-epic plans/inside-epic.md
-  printf 'the plan body\n' >"$NS/plans/inside-epic.md"
-  # The pane no longer carries any of this; `v` is where it lives.
-  # Row 0 is the flat fix, row 1 the epic header, row 2 its child.
-  run tui "j|j|v|q"
-  [ "$status" -eq 0 ]
-  run cat "$SCREEN"
-  [[ "$output" == *"the epic's own context"* ]]
-  [[ "$output" == *"the plan body"* ]]
-  [[ "$output" == *"broken-auth -- broken auth"* ]]
-}

@@ -45,11 +45,6 @@ make_clone() {
   printf '%s' "$clone"
 }
 
-@test "syntax is valid" {
-  run bash -n "$CLI"
-  [ "$status" -eq 0 ]
-}
-
 @test "pulls a dev clone, then re-runs its install.sh in update mode" {
   clone="$(make_clone)"
   run env HOME="$TEST_HOME" bash "$CLI"
