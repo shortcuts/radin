@@ -9,10 +9,14 @@ install-force:
 update:
 	./install.sh --update
 
-# The TUI is the only compiled file radin ships; the two mocks are test-only.
-build: lib/radin-tui tests/helpers/pty-run tests/helpers/mock
+# The TUI and the cbm-config JSON helper are the two compiled files radin
+# ships; the two mocks are test-only.
+build: lib/radin-tui lib/radin-cbm-json tests/helpers/pty-run tests/helpers/mock
 
 lib/radin-tui: lib/radin-tui.c
+	cc -O2 -o $@ $<
+
+lib/radin-cbm-json: lib/radin-cbm-json.c
 	cc -O2 -o $@ $<
 
 tests/helpers/pty-run: tests/helpers/pty-run.c
@@ -38,7 +42,7 @@ test: build
 SH_FILES = install.sh bin/radin lib/radin-namespace.sh lib/radin-json.sh lib/radin-backlog.sh lib/radin-state.sh lib/radin-scope.sh lib/radin-cbm-hooks.sh lib/radin-cbm-config.sh lib/radin-update.sh lib/radin-doctor.sh lib/radin-uninstall.sh
 
 clean:
-	rm -f lib/radin-tui tests/helpers/pty-run tests/helpers/mock
+	rm -f lib/radin-tui lib/radin-cbm-json tests/helpers/pty-run tests/helpers/mock
 
 lint:
 	bash -n $(SH_FILES)

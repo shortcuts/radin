@@ -45,10 +45,19 @@ fi
 # ~/.claude.json -- adopted below, since Claude Code reads the latter.
 STAGED_CLAUDE_JSON="$CLAUDE_REAL_DIR/.claude.json"
 
+# Every JSON read and write here is C (lib/radin-cbm-json.c) -- radin ships
+# bash and C only, and this script holds no JSON knowledge of its own. Next to
+# this script in a dev checkout, in ~/.claude/.radin/bin once install.sh has
+# built it.
+CBM_JSON="$(cd "$(dirname "$0")" && pwd)/radin-cbm-json"
+[ -x "$CBM_JSON" ] || CBM_JSON="$HOME/.claude/.radin/bin/radin-cbm-json"
+
 die() {
 	printf 'radin-cbm-config: %s\n' "$*" >&2
 	exit 1
 }
+
+[ -x "$CBM_JSON" ] || die "radin-cbm-json not built (no C compiler at install time) -- it is what puts your own hooks back after upstream's write, so this command refuses to run without it. Use 'radin cbm-hooks all' for the merge-only wiring instead."
 
 cbm_bin() {
 	local bin
@@ -57,8 +66,6 @@ cbm_bin() {
 	[ -x "$bin" ] || return 1
 	printf '%s' "$bin"
 }
-
-command -v python3 >/dev/null 2>&1 || die "python3 not found -- it is what puts your own hooks back after upstream's write, so this command refuses to run without it. Use 'radin cbm-hooks all' for the merge-only wiring instead."
 
 # One timestamped pair per run: settings.json is the file at risk, .claude.json
 # carries the MCP entries. Copies only -- radin never deletes a snapshot.
@@ -99,220 +106,7 @@ newest_snapshot() {
 }
 
 restore() {
-	local snap_settings="$1" snap_claude_json="$2"
-	python3 - "$SETTINGS" "$snap_settings" "$CLAUDE_JSON" "$snap_claude_json" "$CBM_NAME" <<'PY'
-import json, os, shlex, sys
-
-settings_path, snap_settings, claude_json_path, snap_claude_json, cbm = sys.argv[1:6]
-HOME = os.path.expanduser("~")
-
-
-def load(path, label):
-    if not path:
-        return None
-    try:
-        with open(path) as f:
-            return json.load(f)
-    except FileNotFoundError:
-        return None
-    except json.JSONDecodeError:
-        sys.exit(f"radin-cbm-config: {label} is not valid JSON -- nothing restored, "
-                 f"your snapshot is still on disk")
-
-
-def save(path, data):
-    with open(path, "w") as f:
-        json.dump(data, f, indent=2)
-        f.write("\n")
-
-
-def entry_key(entry):
-    return json.dumps(entry, sort_keys=True)
-
-
-# An upstream hook entry whose command spelling changed between versions looks
-# dropped rather than replaced, so restoring it resurrects a dead path forever.
-# Upstream owns its own entries; radin only puts back another tool's.
-def is_cbm_entry(entry):
-    blob = json.dumps(entry)
-    return cbm in blob or "cbm-" in blob
-
-
-def command_exists(command):
-    if not isinstance(command, str) or not command.strip():
-        return True
-    # Judge a path only. A bare shim name resolves against Claude Code's PATH,
-    # not this script's, so calling it missing here would prune a live hook.
-    target = shlex.split(command)[0]
-    return "/" not in target or os.path.exists(os.path.expanduser(target))
-
-
-# A hook command naming a path that does not exist can only fail. Upstream
-# merges PreToolUse instead of replacing it, and a ~/.claude shared between
-# machines carries the other machine's $HOME, so such an entry survives every
-# rerun and prints `no such file or directory` on each session start. Dropped
-# whoever wrote it: radin cannot re-point another tool's hook, and leaving it
-# in place is the error the user sees.
-def prune_dead(new_hooks, settings_path):
-    changed = False
-    for event, entries in list(new_hooks.items()):
-        if not isinstance(entries, list):
-            continue
-        kept = []
-        for entry in entries:
-            hooks = entry.get("hooks") if isinstance(entry, dict) else None
-            if not isinstance(hooks, list):
-                kept.append(entry)
-                continue
-            live = [h for h in hooks
-                    if not isinstance(h, dict) or command_exists(h.get("command"))]
-            if len(live) == len(hooks):
-                kept.append(entry)
-                continue
-            changed = True
-            for h in hooks:
-                if h not in live:
-                    print(f"PRUNED   {settings_path} (hooks.{event}: "
-                          f"{h.get('command')!r} does not exist)")
-            if live:
-                entry["hooks"] = live
-                kept.append(entry)
-        new_hooks[event] = kept
-    return changed
-
-
-# Upstream writes its hook commands as a quoted absolute path, so a ~/.claude
-# shared between machines carries the other machine's $HOME. The fix is the
-# prune above, not a ~/ rewrite: Claude Code posix_spawns a single-word hook
-# command directly, and a lone `~/.local/bin/codebase-memory-mcp` then dies with
-# `ENOENT ... posix_spawn`. Only a command with further words reaches a shell
-# that would expand the tilde (docs/technical-constraints.md), so every hook
-# command gets an absolute path here, unquoted -- including the ~/ form radin
-# itself wrote before this was understood. Only cbm entries: radin does not
-# rewrite another tool's hook.
-def absolute(command):
-    if not isinstance(command, str) or not command.strip():
-        return command
-    try:
-        words = shlex.split(command)
-    except ValueError:
-        return command
-    rewritten = []
-    for word in words:
-        if word == "~" or word.startswith("~/"):
-            word = HOME + word[1:]
-        rewritten.append(shlex.quote(word))
-    # Re-quoting also drops upstream's quotes around a lone absolute path: a
-    # single-word command is posix_spawned verbatim, so "'/abs/path'" is a file
-    # name with quotes in it and dies the same way a bare ~ does.
-    out = " ".join(rewritten)
-    return out if out != command else command
-
-
-def normalize_cbm(new_hooks, settings_path):
-    changed = False
-    for event, entries in new_hooks.items():
-        if not isinstance(entries, list):
-            continue
-        for entry in entries:
-            hooks = entry.get("hooks") if isinstance(entry, dict) else None
-            if not isinstance(hooks, list) or not is_cbm_entry(entry):
-                continue
-            for h in hooks:
-                if not isinstance(h, dict):
-                    continue
-                command = absolute(h.get("command"))
-                if command != h.get("command"):
-                    h["command"] = command
-                    changed = True
-                    print(f"ABSOLUTE {settings_path} (hooks.{event}: {command!r})")
-    return changed
-
-
-def restore_settings():
-    old = load(snap_settings, snap_settings)
-    new = load(settings_path, settings_path)
-    if new is None:
-        if old is not None:
-            save(settings_path, old)
-            print(f"RESTORED {settings_path} (whole file -- upstream's write removed it)")
-        return
-    changed = False
-
-    for key, value in (old or {}).items():
-        if key == "hooks":
-            continue
-        if key not in new:
-            new[key] = value
-            changed = True
-            print(f"RESTORED {settings_path} ({key})")
-
-    old_hooks = (old or {}).get("hooks") or {}
-    if old_hooks and not isinstance(new.get("hooks"), dict):
-        new["hooks"] = {}
-    new_hooks = new.get("hooks") if isinstance(new.get("hooks"), dict) else {}
-
-    for event, old_entries in old_hooks.items():
-        if not isinstance(old_entries, list):
-            continue
-        old_entries = [e for e in old_entries if not is_cbm_entry(e)]
-        current = new_hooks.get(event)
-        if not isinstance(current, list):
-            if not old_entries:
-                continue
-            new_hooks[event] = old_entries
-            changed = True
-            print(f"RESTORED {settings_path} (hooks.{event}: {len(old_entries)} "
-                  f"entr{'y' if len(old_entries) == 1 else 'ies'}, array was gone)")
-            continue
-        present = {entry_key(e) for e in current}
-        missing = [e for e in old_entries if entry_key(e) not in present]
-        if missing:
-            # Pre-existing entries first, upstream's after: their order inside
-            # the event is what the owning tool expects.
-            new_hooks[event] = missing + current
-            changed = True
-            print(f"RESTORED {settings_path} (hooks.{event}: {len(missing)} "
-                  f"entr{'y' if len(missing) == 1 else 'ies'})")
-        else:
-            print(f"INTACT   {settings_path} (hooks.{event})")
-
-    if prune_dead(new_hooks, settings_path):
-        changed = True
-    if normalize_cbm(new_hooks, settings_path):
-        changed = True
-    if changed:
-        save(settings_path, new)
-
-
-def restore_mcp_servers():
-    old = load(snap_claude_json, snap_claude_json)
-    if old is None:
-        return
-    new = load(claude_json_path, claude_json_path)
-    if new is None:
-        save(claude_json_path, old)
-        print(f"RESTORED {claude_json_path} (whole file -- upstream's write removed it)")
-        return
-    old_servers = old.get("mcpServers")
-    if not isinstance(old_servers, dict) or not old_servers:
-        return
-    if not isinstance(new.get("mcpServers"), dict):
-        new["mcpServers"] = {}
-    servers = new["mcpServers"]
-    restored = [name for name in old_servers if name not in servers]
-    for name in restored:
-        servers[name] = old_servers[name]
-        print(f"RESTORED {claude_json_path} (mcpServers.{name})")
-    if restored:
-        save(claude_json_path, new)
-    else:
-        print(f"INTACT   {claude_json_path} (mcpServers)")
-
-
-restore_settings()
-restore_mcp_servers()
-PY
+	"$CBM_JSON" restore "$SETTINGS" "$1" "$CLAUDE_JSON" "$2" "$CBM_NAME"
 }
 
 # Upstream bakes an absolute $HOME path into each hook script it writes
@@ -341,83 +135,14 @@ stash_hook_scripts() {
 adopt_staged_mcp() {
 	[ -n "$CONFIG_DIR_OVERRIDE" ] || return 0
 	[ -f "$STAGED_CLAUDE_JSON" ] || return 0
-	python3 - "$STAGED_CLAUDE_JSON" "$CLAUDE_JSON" <<'PY'
-import json, os, sys
-
-staged_path, claude_json_path = sys.argv[1:3]
-
-
-def load(path):
-    try:
-        with open(path) as f:
-            return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        return None
-
-
-staged = load(staged_path) or {}
-staged_servers = staged.get("mcpServers")
-if not isinstance(staged_servers, dict) or not staged_servers:
-    sys.exit(0)
-target = load(claude_json_path)
-if target is None:
-    target = {}
-if not isinstance(target.get("mcpServers"), dict):
-    target["mcpServers"] = {}
-servers = target["mcpServers"]
-
-
-# A ~/.claude.json shared between machines names the other machine's binary,
-# which is no entry at all here, so replace it rather than keep it. The
-# absolute path stays: Claude Code posix_spawns an mcpServers command instead
-# of running it through a shell, so a leading ~ is a literal directory name
-# and the server fails with ENOENT (verified -- see
-# docs/technical-constraints.md). Detecting a stale path is the only fix
-# available here; don't retry the ~/ rewrite the hook commands get.
-def stale(name):
-    command = (servers.get(name) or {}).get("command")
-    return isinstance(command, str) and "/" in command \
-        and not os.path.exists(os.path.expanduser(command))
-
-
-adopted = [name for name in staged_servers if name not in servers or stale(name)]
-for name in adopted:
-    servers[name] = staged_servers[name]
-    print(f"ADOPTED  {claude_json_path} (mcpServers.{name} from {staged_path})")
-if adopted:
-    with open(claude_json_path, "w") as f:
-        json.dump(target, f, indent=2)
-        f.write("\n")
-PY
+	"$CBM_JSON" adopt-mcp "$STAGED_CLAUDE_JSON" "$CLAUDE_JSON"
 }
 
 # Did upstream's configuration actually land? It exits 0 on the symlink
 # refusal above, so the caller needs this as a status and not just a printed
 # line -- a silent no-op is the other way to end up with half a stack.
 cbm_wired() {
-	python3 - "$SETTINGS" "$CLAUDE_JSON" "$CBM_NAME" <<'PY'
-import json, sys
-
-settings_path, claude_json_path, cbm = sys.argv[1:4]
-
-
-def load(path):
-    try:
-        with open(path) as f:
-            return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        return {}
-
-
-# Its hook entries run shims named cbm-* rather than the full binary name, so
-# match either spelling.
-hooks_blob = json.dumps(load(settings_path).get("hooks") or {})
-in_hooks = cbm in hooks_blob or "cbm-" in hooks_blob
-in_mcp = cbm in json.dumps(load(claude_json_path).get("mcpServers") or {})
-print(f"CBM      hooks: {'present' if in_hooks else 'absent'}, "
-      f"user-scope MCP entry: {'present' if in_mcp else 'absent'}")
-sys.exit(0 if in_hooks and in_mcp else 4)
-PY
+	"$CBM_JSON" wired "$SETTINGS" "$CLAUDE_JSON" "$CBM_NAME"
 }
 
 # Upstream reads CLAUDE_CONFIG_DIR as set even when it is empty, so pass it

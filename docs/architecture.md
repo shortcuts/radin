@@ -146,9 +146,9 @@ Non-destructive by construction: the installer only `cp`s radin's own files, plu
 3. restores, per hook event, every snapshot entry that is now missing — pre-existing entries first, upstream's after — plus any dropped top-level `settings.json` key and any dropped `mcpServers` entry,
 4. prints one `RESTORED`/`INTACT` line per item and a final line saying whether upstream's hooks and MCP entry actually landed.
 
-Entries are compared deep-equal, so re-running restores nothing and reports `INTACT`. A failed upstream install still gets step 3, because its configuration pass is transactional per client, not per file. `radin cbm-config repair` runs steps 3-4 alone against the newest snapshot, which is what to use after `codebase-memory-mcp update` reruns the same write. `python3` is required for this path; without it `install.sh` skips upstream's configuration and falls back to the merge-only wiring, on the grounds that running a destructive write with no restore is worse than a smaller install.
+Entries are compared deep-equal, so re-running restores nothing and reports `INTACT`. A failed upstream install still gets step 3, because its configuration pass is transactional per client, not per file. `radin cbm-config repair` runs steps 3-4 alone against the newest snapshot, which is what to use after `codebase-memory-mcp update` reruns the same write. Every JSON read and write on this path is the compiled helper `lib/radin-cbm-json.c` (built into `~/.claude/.radin/bin/radin-cbm-json`), so `radin-cbm-config.sh` holds no JSON knowledge of its own: it snapshots with `cp`, stashes with `mv`, runs upstream, and calls the helper three times. A C compiler is therefore required for this path; without one `install.sh` skips upstream's configuration and falls back to the merge-only wiring, on the grounds that running a destructive write with no restore is worse than a smaller install.
 
-`lib/radin-cbm-hooks.sh` (dispatched as `radin cbm-hooks <claude-md|mcp|all>`, driven by the `radin-setup-hooks` skill) is the fallback for the no-`python3` path, and for anyone who ran `codebase-memory-mcp uninstall` but kept radin. Two writes, merge-only, skipping anything already defined:
+`lib/radin-cbm-hooks.sh` (dispatched as `radin cbm-hooks <claude-md|mcp|all>`, driven by the `radin-setup-hooks` skill) is the fallback for the no-compiler path, and for anyone who ran `codebase-memory-mcp uninstall` but kept radin. Two writes, merge-only, skipping anything already defined:
 
 - the `codebase-memory-mcp` MCP-tools section in `~/.claude/CLAUDE.md`
 - `mcpServers.codebase-memory-mcp` in `<repo-root>/.mcp.json`, pointing at the resolved binary path
@@ -205,6 +205,7 @@ radin/
   lib/
     radin-backlog.sh
     radin-tui.c
+    radin-cbm-json.c
     radin-cbm-hooks.sh
     radin-doctor.sh
     radin-update.sh
@@ -237,7 +238,7 @@ Three rules keep it from becoming a second backlog implementation:
 - **Raw ANSI only — no ncurses, `tput`, `dialog`, `gum` or `fzf`.** Zero
   dependencies is the same promise as the rest of radin: `termios` for raw mode,
   `TIOCGWINSZ` for the terminal size, `\033[` escapes to draw.
-- **C, not bash — the only compiled file radin ships.** A bash frame cost a fork
+- **C, not bash — one of the two compiled files radin ships** (`lib/radin-cbm-json.c`, the JSON surgery behind `radin cbm-config`, is the other). A bash frame cost a fork
   per row and ~150ms per keypress-to-frame, and the TUI's 43 pty tests were a
   third of the suite's runtime. `install.sh` builds it with `cc` (Command Line
   Tools on macOS, gcc on Linux) into `~/.claude/.radin/bin/radin-tui`; the build

@@ -77,6 +77,7 @@ check_lib_script "radin-namespace.sh" "$CLAUDE_DIR/.radin/lib/radin-namespace.sh
 check_lib_script "radin-json.sh" "$CLAUDE_DIR/.radin/lib/radin-json.sh"
 check_lib_script "radin-backlog.sh" "$CLAUDE_DIR/.radin/lib/radin-backlog.sh"
 check_file "radin-tui.c" "$CLAUDE_DIR/.radin/lib/radin-tui.c"
+check_file "radin-cbm-json.c" "$CLAUDE_DIR/.radin/lib/radin-cbm-json.c"
 check_lib_script "radin-state.sh" "$CLAUDE_DIR/.radin/lib/radin-state.sh"
 check_lib_script "radin-scope.sh" "$CLAUDE_DIR/.radin/lib/radin-scope.sh"
 check_lib_script "radin-cbm-hooks.sh" "$CLAUDE_DIR/.radin/lib/radin-cbm-hooks.sh"

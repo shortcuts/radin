@@ -7,3 +7,4 @@
 tests/helpers/pty-run
 lib/radin-tui
 tests/helpers/mock
+lib/radin-cbm-json

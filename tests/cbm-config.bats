@@ -1,8 +1,11 @@
 #!/usr/bin/env bats
 # Exercises lib/radin-cbm-config.sh: run codebase-memory-mcp's own Claude Code
 # configuration, then put back every hook and MCP entry its write dropped
-# (upstream #1200). A stub binary stands in for the real installer and is what
-# simulates the destructive SessionStart rewrite.
+# (upstream #1200). A /bin/sh stub binary stands in for the real installer; it
+# states upstream's post-write state as a literal and copies it over both
+# files wholesale, which is what #1200 does. stub_cbm writes ~/.claude.json
+# directly, the no-override case; stub_cbm_symlink_averse below is the one
+# that honours CLAUDE_CONFIG_DIR, because that is what its test is about.
 
 setup() {
   REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
@@ -11,42 +14,51 @@ setup() {
   MOCK_BIN="$(mktemp -d)"
   export HOME="$TEST_HOME"
   export PATH="$MOCK_BIN:/usr/bin:/bin:/usr/sbin:/sbin"
-  command -v python3 >/dev/null 2>&1 || skip "python3 required"
+  # $HOME moved, so the stub cannot find its own literals by ~; tell it where.
+  export MOCK_AFTER="$MOCK_BIN"
+  load helpers/pty
+  cc_build "$REPO_ROOT/lib/radin-cbm-json.c" "$REPO_ROOT/lib/radin-cbm-json" ||
+    skip "a C compiler is needed to build the JSON helper"
   mkdir -p "$TEST_HOME/.claude"
+  # What #1200 leaves behind when nothing else is asked for: its own
+  # SessionStart entry, and no trace of anyone else's.
+  AFTER_SETTINGS='{"hooks": {"SessionStart": [{"matcher": "", "hooks": [{"type": "command", "command": "cbm-session-reminder"}]}]}}'
+  AFTER_CLAUDE='{"mcpServers": {"codebase-memory-mcp": {"command": "codebase-memory-mcp"}}}'
 }
 
 teardown() {
   rm -rf "$TEST_HOME" "$MOCK_BIN"
 }
 
-# Reproduces upstream's behaviour: PreToolUse merges, SessionStart is replaced
-# wholesale, and the user-scope MCP entry is added.
+# Every hook command in the file, in file order -- which is the order the
+# writer preserves, so this asserts placement as well as presence.
+hook_commands() {
+  grep -o '"command": "[^"]*"' "$1" | sed 's/.*": "//; s/"$//'
+}
+
+# The two literals upstream's write leaves behind: $1 the settings.json, $2
+# the ~/.claude.json. Either empty or absent takes the default above.
+stub_after() {
+  if [ $# -gt 0 ] && [ -n "$1" ]; then
+    printf '%s\n' "$1" > "$MOCK_BIN/after-settings.json"
+  else
+    printf '%s\n' "$AFTER_SETTINGS" > "$MOCK_BIN/after-settings.json"
+  fi
+  if [ $# -gt 1 ] && [ -n "$2" ]; then
+    printf '%s\n' "$2" > "$MOCK_BIN/after-claude.json"
+  else
+    printf '%s\n' "$AFTER_CLAUDE" > "$MOCK_BIN/after-claude.json"
+  fi
+}
+
 stub_cbm() {
-  cat > "$MOCK_BIN/codebase-memory-mcp" <<EOF
-#!/usr/bin/env python3
-import json, os, sys
-if sys.argv[1:2] != ["install"]:
-    sys.exit(0)
-home = os.environ["HOME"]
-p = os.path.join(home, ".claude", "settings.json")
-try:
-    s = json.load(open(p))
-except FileNotFoundError:
-    s = {}
-hooks = s.setdefault("hooks", {})
-hooks["SessionStart"] = [{"matcher": "", "hooks": [{"type": "command", "command": "cbm-session-reminder"}]}]
-pre = hooks.setdefault("PreToolUse", [])
-mine = {"matcher": "Grep|Glob", "hooks": [{"type": "command", "command": "cbm-hook-augment"}]}
-if mine not in pre:
-    pre.append(mine)
-json.dump(s, open(p, "w"), indent=2)
-cj = os.path.join(home, ".claude.json")
-try:
-    c = json.load(open(cj))
-except FileNotFoundError:
-    c = {}
-c.setdefault("mcpServers", {})["codebase-memory-mcp"] = {"command": "codebase-memory-mcp"}
-json.dump(c, open(cj, "w"), indent=2)
+  stub_after "$@"
+  cat > "$MOCK_BIN/codebase-memory-mcp" <<'EOF'
+#!/bin/sh
+[ "$1" = "install" ] || exit 0
+cfg="$HOME/.claude"
+cp "$MOCK_AFTER/after-settings.json" "$cfg/settings.json"
+cp "$MOCK_AFTER/after-claude.json" "$HOME/.claude.json"
 EOF
   chmod +x "$MOCK_BIN/codebase-memory-mcp"
 }
@@ -64,7 +76,8 @@ EOF
 }
 
 @test "install restores the SessionStart hooks upstream replaced, keeping theirs" {
-  stub_cbm
+  # Upstream merges PreToolUse and replaces SessionStart wholesale.
+  stub_cbm '{"hooks": {"SessionStart": [{"matcher": "", "hooks": [{"type": "command", "command": "cbm-session-reminder"}]}], "PreToolUse": [{"matcher": "Bash", "hooks": [{"type": "command", "command": "mine"}]}, {"matcher": "Grep|Glob", "hooks": [{"type": "command", "command": "cbm-hook-augment"}]}]}}'
   cat > "$TEST_HOME/.claude/settings.json" <<'EOF'
 {"model": "opus",
  "hooks": {"SessionStart": [{"matcher": "", "hooks": [{"type": "command", "command": "caveman-session"}]},
@@ -74,15 +87,7 @@ EOF
   run bash "$CLI" install
   [ "$status" -eq 0 ]
   [[ "$output" == *RESTORED*SessionStart* ]]
-  run python3 -c "
-import json
-h = json.load(open('$TEST_HOME/.claude/settings.json'))['hooks']
-cmds = [k['command'] for e in h['SessionStart'] for k in e['hooks']]
-assert cmds == ['caveman-session', 'ponytail-session', 'cbm-session-reminder'], cmds
-pre = [k['command'] for e in h['PreToolUse'] for k in e['hooks']]
-assert 'mine' in pre and 'cbm-hook-augment' in pre, pre
-"
-  [ "$status" -eq 0 ]
+  [ "$(hook_commands "$TEST_HOME/.claude/settings.json")" = "$(printf '%s\n' caveman-session ponytail-session cbm-session-reminder mine cbm-hook-augment)" ]
 }
 
 @test "install does not resurrect upstream's own stale hook entries" {
@@ -94,18 +99,20 @@ assert 'mine' in pre and 'cbm-hook-augment' in pre, pre
 EOF
   run bash "$CLI" install
   [ "$status" -eq 0 ]
-  run python3 -c "
-import json
-h = json.load(open('$TEST_HOME/.claude/settings.json'))['hooks']
-cmds = [k['command'] for e in h['SessionStart'] for k in e['hooks']]
-assert cmds == ['caveman-session', 'cbm-session-reminder'], cmds
-"
-  [ "$status" -eq 0 ]
+  [ "$(hook_commands "$TEST_HOME/.claude/settings.json")" = "$(printf '%s\n' caveman-session cbm-session-reminder)" ]
 }
 
 @test "install prunes hook entries whose command path does not exist" {
-  stub_cbm
   touch "$TEST_HOME/live-hook" && chmod +x "$TEST_HOME/live-hook"
+  stub_cbm "$(cat <<EOF
+{"hooks": {"PreToolUse": [{"matcher": "Grep|Glob", "hooks": [{"type": "command", "command": "'/gone/.config/.claude/hooks/cbm-code-discovery-gate'"}]},
+                          {"matcher": "Bash", "hooks": [{"type": "command", "command": "/gone/other-tool-hook"}]},
+                          {"matcher": "Bash", "hooks": [{"type": "command", "command": "$TEST_HOME/live-hook"}]},
+                          {"matcher": "Write", "hooks": [{"type": "command", "command": "bare-shim-not-on-path"}]},
+                          {"matcher": "Grep|Glob", "hooks": [{"type": "command", "command": "cbm-hook-augment"}]}],
+           "SessionStart": [{"matcher": "", "hooks": [{"type": "command", "command": "cbm-session-reminder"}]}]}}
+EOF
+  )"
   cat > "$TEST_HOME/.claude/settings.json" <<EOF
 {"hooks": {"PreToolUse": [{"matcher": "Grep|Glob", "hooks": [{"type": "command", "command": "'/gone/.config/.claude/hooks/cbm-code-discovery-gate'"}]},
                           {"matcher": "Bash", "hooks": [{"type": "command", "command": "/gone/other-tool-hook"}]},
@@ -116,13 +123,7 @@ EOF
   [ "$status" -eq 0 ]
   [[ "$output" == *PRUNED*cbm-code-discovery-gate* ]]
   [[ "$output" == *PRUNED*other-tool-hook* ]]
-  run python3 -c "
-import json
-h = json.load(open('$TEST_HOME/.claude/settings.json'))['hooks']
-cmds = [k['command'] for e in h['PreToolUse'] for k in e['hooks']]
-assert cmds == ['$TEST_HOME/live-hook', 'bare-shim-not-on-path', 'cbm-hook-augment'], cmds
-"
-  [ "$status" -eq 0 ]
+  [ "$(hook_commands "$TEST_HOME/.claude/settings.json")" = "$(printf '%s\n' "$TEST_HOME/live-hook" bare-shim-not-on-path cbm-hook-augment cbm-session-reminder)" ]
 }
 
 @test "install stashes upstream's hook scripts so it rewrites them for this machine" {
@@ -152,17 +153,10 @@ assert cmds == ['$TEST_HOME/live-hook', 'bare-shim-not-on-path', 'cbm-hook-augme
 }
 
 @test "install restores an mcpServers entry upstream's write dropped" {
+  # The stub replaces ~/.claude.json wholesale the way #1200 does, so "other"
+  # is gone by the time radin looks.
   stub_cbm
   echo '{"mcpServers": {"other": {"command": "x"}}}' > "$TEST_HOME/.claude.json"
-  # Upstream's stub rewrites the file from its own parse, which keeps "other";
-  # simulate the destructive case by removing it mid-run instead.
-  cat > "$MOCK_BIN/codebase-memory-mcp" <<EOF
-#!/bin/sh
-[ "\$1" = "install" ] || exit 0
-printf '%s\n' '{"mcpServers": {"codebase-memory-mcp": {"command": "codebase-memory-mcp"}}}' > "\$HOME/.claude.json"
-printf '%s\n' '{"hooks": {"SessionStart": [{"matcher": "", "hooks": [{"type": "command", "command": "cbm-session-reminder"}]}]}}' > "\$HOME/.claude/settings.json"
-EOF
-  chmod +x "$MOCK_BIN/codebase-memory-mcp"
   run bash "$CLI" install
   [ "$status" -eq 0 ]
   [[ "$output" == *RESTORED*mcpServers.other* ]]
@@ -218,7 +212,7 @@ EOF
   run bash "$CLI" install
   [ "$status" -eq 0 ]
   # An upstream `update` reruns the same destructive write.
-  printf '%s\n' '{"hooks": {"SessionStart": [{"matcher": "", "hooks": [{"type": "command", "command": "cbm-session-reminder"}]}]}}' > "$TEST_HOME/.claude/settings.json"
+  printf '%s\n' "$AFTER_SETTINGS" > "$TEST_HOME/.claude/settings.json"
   run bash "$CLI" repair
   [ "$status" -eq 0 ]
   [[ "$output" == *RESTORED* ]]
@@ -247,40 +241,28 @@ EOF
 # CLAUDE_CONFIG_DIR the way the real binary does, including writing the MCP
 # entry beside that directory instead of at ~/.claude.json.
 stub_cbm_symlink_averse() {
+  stub_after "$@"
   cat > "$MOCK_BIN/codebase-memory-mcp" <<'EOF'
-#!/usr/bin/env python3
-import json, os, sys
-if sys.argv[1:2] != ["install"]:
-    sys.exit(0)
-home = os.environ["HOME"]
-cfg = os.environ.get("CLAUDE_CONFIG_DIR") or os.path.join(home, ".claude")
-if os.path.islink(cfg.rstrip("/")):
-    # "(target: does not exist or cannot be inspected)" -- and exit 0 anyway.
-    print("Detected agents: Shell")
-    sys.exit(0)
-p = os.path.join(cfg, "settings.json")
-try:
-    s = json.load(open(p))
-except FileNotFoundError:
-    s = {}
-hooks = s.setdefault("hooks", {})
-hooks.setdefault("PreToolUse", []).append(
-    {"matcher": "Grep|Glob", "hooks": [{"type": "command", "command": "cbm-hook-augment"}]})
-json.dump(s, open(p, "w"), indent=2)
-cj = os.path.join(cfg, ".claude.json") if os.environ.get("CLAUDE_CONFIG_DIR") \
-    else os.path.join(home, ".claude.json")
-try:
-    c = json.load(open(cj))
-except FileNotFoundError:
-    c = {}
-c.setdefault("mcpServers", {})["codebase-memory-mcp"] = {"command": "codebase-memory-mcp"}
-json.dump(c, open(cj, "w"), indent=2)
+#!/bin/sh
+[ "$1" = "install" ] || exit 0
+cfg="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+if [ -L "$cfg" ]; then
+	# "(target: does not exist or cannot be inspected)" -- and exit 0 anyway.
+	printf 'Detected agents: Shell\n'
+	exit 0
+fi
+cp "$MOCK_AFTER/after-settings.json" "$cfg/settings.json"
+if [ -n "${CLAUDE_CONFIG_DIR:-}" ]; then
+	cp "$MOCK_AFTER/after-claude.json" "$cfg/.claude.json"
+else
+	cp "$MOCK_AFTER/after-claude.json" "$HOME/.claude.json"
+fi
 EOF
   chmod +x "$MOCK_BIN/codebase-memory-mcp"
 }
 
 @test "install passes the resolved path when ~/.claude is a symlink, and adopts the staged MCP entry" {
-  stub_cbm_symlink_averse
+  stub_cbm_symlink_averse '{"hooks": {"SessionStart": [{"matcher": "", "hooks": [{"type": "command", "command": "caveman-session"}]}], "PreToolUse": [{"matcher": "Grep|Glob", "hooks": [{"type": "command", "command": "cbm-hook-augment"}]}]}}'
   rm -rf "$TEST_HOME/.claude"
   mkdir -p "$TEST_HOME/.config/.claude"
   ln -s "$TEST_HOME/.config/.claude" "$TEST_HOME/.claude"
@@ -295,38 +277,18 @@ EOF
   [[ "$output" == *"MCP entry: present"* ]]
   # Claude Code reads ~/.claude.json, so the entry has to end up there next to
   # the one that was already present.
-  run python3 -c "
-import json
-c = json.load(open('$TEST_HOME/.claude.json'))
-assert sorted(c['mcpServers']) == ['codebase-memory-mcp', 'fff'], c
-s = json.load(open('$TEST_HOME/.config/.claude/settings.json'))
-assert 'cbm-hook-augment' in json.dumps(s['hooks']['PreToolUse']), s
-assert 'caveman-session' in json.dumps(s['hooks']['SessionStart']), s
-"
-  [ "$status" -eq 0 ]
+  grep -q '"fff"' "$TEST_HOME/.claude.json"
+  grep -q '"codebase-memory-mcp"' "$TEST_HOME/.claude.json"
+  [ "$(hook_commands "$TEST_HOME/.config/.claude/settings.json")" = "$(printf '%s\n' caveman-session cbm-hook-augment)" ]
 }
 
 @test "install succeeds when upstream fails after configuring Claude Code" {
-  cat > "$MOCK_BIN/codebase-memory-mcp" <<'EOF'
-#!/usr/bin/env python3
-import json, os, sys
-if sys.argv[1:2] != ["install"]:
-    sys.exit(0)
-home = os.environ["HOME"]
-p = os.path.join(home, ".claude", "settings.json")
-s = json.load(open(p))
-s.setdefault("hooks", {}).setdefault("SessionStart", []).append(
-    {"matcher": "", "hooks": [{"type": "command", "command": "cbm-session-reminder"}]})
-json.dump(s, open(p, "w"), indent=2)
-cj = os.path.join(home, ".claude.json")
-c = json.load(open(cj))
-c.setdefault("mcpServers", {})["codebase-memory-mcp"] = {"command": "codebase-memory-mcp"}
-json.dump(c, open(cj, "w"), indent=2)
-# The real binary's version-activation step fails here, after the config pass.
-print("error: activation could not reserve exclusive access", file=sys.stderr)
-sys.exit(1)
+  stub_cbm '{"hooks": {"SessionStart": [{"matcher": "", "hooks": [{"type": "command", "command": "caveman-session"}]}, {"matcher": "", "hooks": [{"type": "command", "command": "cbm-session-reminder"}]}]}}'
+  # The real binary's version-activation step fails here, after the config pass.
+  cat >> "$MOCK_BIN/codebase-memory-mcp" <<'EOF'
+printf 'error: activation could not reserve exclusive access\n' >&2
+exit 1
 EOF
-  chmod +x "$MOCK_BIN/codebase-memory-mcp"
   printf '%s\n' '{"hooks": {"SessionStart": [{"matcher": "", "hooks": [{"type": "command", "command": "caveman-session"}]}]}}' > "$TEST_HOME/.claude/settings.json"
   printf '%s\n' '{"mcpServers": {}}' > "$TEST_HOME/.claude.json"
 
@@ -339,7 +301,7 @@ EOF
 
 @test "install fails when upstream exits 0 having configured nothing" {
   cat > "$MOCK_BIN/codebase-memory-mcp" <<'EOF'
-#!/usr/bin/env bash
+#!/bin/sh
 exit 0
 EOF
   chmod +x "$MOCK_BIN/codebase-memory-mcp"
@@ -352,46 +314,30 @@ EOF
 }
 
 @test "install rewrites ~/ hook paths to absolute, leaving another tool's alone" {
-  mkdir -p "$TEST_HOME/.claude/hooks"
+  mkdir -p "$TEST_HOME/.claude/hooks" "$TEST_HOME/.local/bin"
   touch "$TEST_HOME/.claude/hooks/cbm-session-reminder" "$TEST_HOME/other-tool-hook"
+  touch "$TEST_HOME/.local/bin/codebase-memory-mcp"
   # Upstream writes its hook command as a quoted absolute path; another tool's
   # absolute hook is left alone.
-  cat > "$MOCK_BIN/codebase-memory-mcp" <<'EOF'
-#!/usr/bin/env python3
-import json, os, sys
-if sys.argv[1:2] != ["install"]:
-    sys.exit(0)
-home = os.environ["HOME"]
-# upstream rewrites the hook script radin stashed
-os.makedirs(os.path.join(home, ".claude", "hooks"), exist_ok=True)
-open(os.path.join(home, ".claude", "hooks", "cbm-session-reminder"), "w").close()
-json.dump({"hooks": {"SessionStart": [
-    {"matcher": "startup", "hooks": [{"type": "command",
-     "command": "'%s/.claude/hooks/cbm-session-reminder'" % home}]},
-    {"matcher": "", "hooks": [{"type": "command",
-     "command": "%s/other-tool-hook" % home}]},
-    {"matcher": "startup", "hooks": [{"type": "command",
-     "command": "~/.local/bin/codebase-memory-mcp"}]}]}},
-    open(os.path.join(home, ".claude", "settings.json"), "w"), indent=2)
-json.dump({"mcpServers": {"codebase-memory-mcp": {
-    "command": "%s/.local/bin/codebase-memory-mcp" % home}}},
-    open(os.path.join(home, ".claude.json"), "w"), indent=2)
+  stub_cbm "$(cat <<EOF
+{"hooks": {"SessionStart": [{"matcher": "startup", "hooks": [{"type": "command", "command": "'$TEST_HOME/.claude/hooks/cbm-session-reminder'"}]},
+                            {"matcher": "", "hooks": [{"type": "command", "command": "$TEST_HOME/other-tool-hook"}]},
+                            {"matcher": "startup", "hooks": [{"type": "command", "command": "~/.local/bin/codebase-memory-mcp"}]}]}}
 EOF
-  chmod +x "$MOCK_BIN/codebase-memory-mcp"
-  mkdir -p "$TEST_HOME/.local/bin"
-  touch "$TEST_HOME/.local/bin/codebase-memory-mcp"
+  )" "$(cat <<EOF
+{"mcpServers": {"codebase-memory-mcp": {"command": "$TEST_HOME/.local/bin/codebase-memory-mcp"}}}
+EOF
+  )"
+  # Upstream rewrites the hook script radin stashed.
+  cat >> "$MOCK_BIN/codebase-memory-mcp" <<'EOF'
+mkdir -p "$cfg/hooks"
+: > "$cfg/hooks/cbm-session-reminder"
+EOF
   run bash "$CLI" install
   [ "$status" -eq 0 ]
   [[ "$output" == *ABSOLUTE*"$TEST_HOME/.claude/hooks/cbm-session-reminder"* ]]
-  run python3 -c "
-import json
-h = json.load(open('$TEST_HOME/.claude/settings.json'))['hooks']
-cmds = [k['command'] for e in h['SessionStart'] for k in e['hooks']]
-assert cmds == ['$TEST_HOME/.claude/hooks/cbm-session-reminder', '$TEST_HOME/other-tool-hook', '$TEST_HOME/.local/bin/codebase-memory-mcp'], cmds
-# posix_spawn does not expand ~ in a hook command either, which is why the
-# rewrite goes this way; the MCP command was always absolute.
-c = json.load(open('$TEST_HOME/.claude.json'))['mcpServers']['codebase-memory-mcp']['command']
-assert c == '$TEST_HOME/.local/bin/codebase-memory-mcp', c
-"
-  [ "$status" -eq 0 ]
+  # posix_spawn does not expand ~ in a hook command either, which is why the
+  # rewrite goes this way; the MCP command was always absolute.
+  [ "$(hook_commands "$TEST_HOME/.claude/settings.json")" = "$(printf '%s\n' "$TEST_HOME/.claude/hooks/cbm-session-reminder" "$TEST_HOME/other-tool-hook" "$TEST_HOME/.local/bin/codebase-memory-mcp")" ]
+  grep -q "\"command\": \"$TEST_HOME/.local/bin/codebase-memory-mcp\"" "$TEST_HOME/.claude.json"
 }

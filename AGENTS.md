@@ -85,9 +85,12 @@ wrong one cost failed call in every sub-agent
 - **`lib/radin-cbm-config.sh` snapshot before upstream write**, because that
   installer replace whole hook array instead of merge; drop it and
   machine lose hooks silent ([limits](docs/technical-constraints.md)).
-- **TUI be C (`lib/radin-tui.c`), and draw and dispatch keys only** — raw ANSI,
-  `termios`, every mutation shell out to `radin-backlog.sh`. `install.sh` build
-  it with `cc`, advisory: no compiler mean no `radin tui`, rest still install
+- **Two C file only: TUI (`lib/radin-tui.c`) and JSON helper
+  (`lib/radin-cbm-json.c`).** TUI draw and dispatch keys only — raw ANSI,
+  `termios`, every mutation shell out to `radin-backlog.sh`. Helper hold every
+  JSON rule `radin cbm-config` need; that script keep none. `install.sh` build
+  both with `cc`, advisory: no compiler mean no `radin tui` and no
+  `radin cbm-config`, rest still install
   ([rules](docs/architecture.md#the-human-tui)).
 
 ## Before committing

@@ -40,12 +40,14 @@ if [ "$(readlink "$HOME/.local/bin/radin" 2>/dev/null)" = "$CLAUDE_DIR/.radin/bi
 fi
 remove_path "radin (dispatcher)" "$CLAUDE_DIR/.radin/bin/radin"
 remove_path "radin-tui" "$CLAUDE_DIR/.radin/bin/radin-tui"
+remove_path "radin-cbm-json" "$CLAUDE_DIR/.radin/bin/radin-cbm-json"
 
 printf '\nLib (%s/.radin/lib):\n' "$CLAUDE_DIR"
 remove_path "radin-namespace.sh" "$CLAUDE_DIR/.radin/lib/radin-namespace.sh"
 remove_path "radin-json.sh" "$CLAUDE_DIR/.radin/lib/radin-json.sh"
 remove_path "radin-backlog.sh" "$CLAUDE_DIR/.radin/lib/radin-backlog.sh"
 remove_path "radin-tui.c" "$CLAUDE_DIR/.radin/lib/radin-tui.c"
+remove_path "radin-cbm-json.c" "$CLAUDE_DIR/.radin/lib/radin-cbm-json.c"
 # Shipped while the TUI was bash: install.sh only adds, so only this clears it.
 remove_path "radin-tui.sh" "$CLAUDE_DIR/.radin/lib/radin-tui.sh"
 remove_path "radin-state.sh" "$CLAUDE_DIR/.radin/lib/radin-state.sh"

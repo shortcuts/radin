@@ -97,6 +97,7 @@ run_install_defaults() {
   [ -f "$TEMPLATE/home/.claude/.radin/lib/radin-backlog.sh" ]
   [ -f "$TEMPLATE/home/.claude/.radin/manifest.json" ]
   [ -x "$TEMPLATE/home/.claude/.radin/bin/radin-tui" ]
+  [ -x "$TEMPLATE/home/.claude/.radin/bin/radin-cbm-json" ]
 }
 
 @test "a companion install that reads stdin can't eat the piped answers, and parallel execution is recorded" {

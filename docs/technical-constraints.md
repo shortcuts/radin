@@ -127,9 +127,10 @@ covered.
   after one successful install already contains upstream's entries. It is the
   right input after an upstream `update`, and the wrong input for
   reconstructing a much older config.
-- **`python3` gates the whole path.** No `python3` means binary-only install
-  plus `radin cbm-hooks claude-md`. Never run upstream's configuration without
-  a working restore.
+- **The compiled JSON helper gates the whole path.** Every JSON read and write
+  here is `lib/radin-cbm-json.c`, built by `install.sh` with `cc`. No compiler
+  at install time means binary-only install plus `radin cbm-hooks claude-md`.
+  Never run upstream's configuration without a working restore.
 - **Snapshots are the user's data.** Plain copies under
   `~/.claude/.radin/backups/`, possibly containing `env` values and hook
   commands. radin never deletes one, and `radin-uninstall.sh` names the

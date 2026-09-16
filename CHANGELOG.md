@@ -6,6 +6,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- The `settings.json`/`.claude.json` surgery behind `radin cbm-config` is now C
+  (`lib/radin-cbm-json.c`), built by `install.sh` with `cc`. When there is no
+  compiler `install.sh` falls back to `radin cbm-hooks`, where it used to fall
+  back when there was no `python3`. `radin cbm-hooks mcp` still shells out to
+  python3 for a repo's `.mcp.json`, so this is "no python for the
+  snapshot/restore bracket", not "no python anywhere".
 - `radin tui` is now C (`lib/radin-tui.c`), built by `install.sh` with `cc` into
   `~/.claude/.radin/bin/radin-tui`. The build is advisory: with no compiler the
   rest of radin installs and `radin backlog show` covers the reading. Keys,
@@ -16,9 +22,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
-- `make bench` and its python driver are gone with the bash TUI they measured;
-  radin is C and bash only now, except the JSON surgery in
-  `lib/radin-cbm-config.sh`, which still needs python3.
+- `make bench` and its python driver are gone with the bash TUI they measured.
 - The test suite runs in ~20s instead of ~6min: redundant tests removed, one
   compiled mock instead of a shell stub per command, recorded installs replayed,
   and `git`'s fsync off for the throwaway repos the tests build.

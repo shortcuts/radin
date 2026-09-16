@@ -151,7 +151,8 @@ mkdir -p "$HOME/.claude/skills" "$HOME/.claude/.radin/lib"
 # Explicit name lists, not lib/* or skills/* globs: install.sh may only copy
 # files radin itself named (AGENTS.md Constraints), and a stray file in a dev
 # clone must not ship.
-for f in radin-namespace.sh radin-json.sh radin-backlog.sh radin-tui.c radin-state.sh \
+for f in radin-namespace.sh radin-json.sh radin-backlog.sh radin-tui.c \
+	radin-cbm-json.c radin-state.sh \
 	radin-scope.sh radin-prioritization.md radin-execute-prompts.md \
 	radin-execute-recovery.md radin-execute-reporting.md radin-cbm-hooks.sh \
 	radin-cbm-config.sh radin-update.sh \
@@ -166,9 +167,11 @@ mkdir -p "$HOME/.claude/.radin/bin"
 cp "$RADIN_ROOT/bin/radin" "$HOME/.claude/.radin/bin/"
 chmod +x "$HOME/.claude/.radin/bin/radin"
 
-# The TUI is C, so it is the one file that gets built here rather than copied.
-# Advisory like a companion tool: a box with no compiler keeps every other
-# subcommand, and `radin backlog show` covers the reading the TUI does.
+# The TUI and the cbm-config JSON helper are C, so they are the two files
+# built here rather than copied. Advisory like a companion tool: a box with no
+# compiler keeps every other subcommand -- `radin backlog show` covers the
+# reading the TUI does, and `radin cbm-hooks all` covers the merge-only wiring
+# `radin cbm-config` would have done.
 TUI_CC="$(command -v cc || command -v gcc || command -v clang || true)"
 if [ -n "$TUI_CC" ]; then
 	CC_LOG="$(mktemp)"
@@ -178,6 +181,14 @@ if [ -n "$TUI_CC" ]; then
 	else
 		tail -n 20 "$CC_LOG" >&2
 		warn "radin tui failed to build -- every other subcommand still works."
+	fi
+	if "$TUI_CC" -O2 -o "$HOME/.claude/.radin/bin/radin-cbm-json" \
+		"$HOME/.claude/.radin/lib/radin-cbm-json.c" >"$CC_LOG" 2>&1; then
+		ok "radin-cbm-json built."
+	else
+		tail -n 20 "$CC_LOG" >&2
+		warn "radin-cbm-json failed to build -- radin cbm-config is unavailable;"
+		warn "the merge-only wiring is used instead."
 	fi
 	rm -f "$CC_LOG"
 else
@@ -647,7 +658,7 @@ if CBM_BIN="$(cbm_bin)"; then
 	# back every pre-existing hook and MCP entry the write dropped. Their
 	# entries stay, yours come back, and `codebase-memory-mcp update` can be
 	# followed by `radin cbm-config repair` for the same reason.
-	if python3 -c "" >/dev/null 2>&1; then
+	if [ -x "$HOME/.claude/.radin/bin/radin-cbm-json" ]; then
 		# Its per-step trace (SNAPSHOT paths, the #1722 SYMLINK note) is what a
 		# failure needs and noise on success, so keep it in a log and print only
 		# the RESTORED/INTACT/CBM result lines when it worked.
@@ -671,11 +682,13 @@ if CBM_BIN="$(cbm_bin)"; then
 			info "Then run /radin-setup-hooks in each repo for its .mcp.json entry."
 		fi
 	else
-		# The restore step is python3-only, and running upstream's write without
-		# it is how a machine loses caveman's and ponytail's SessionStart hooks.
-		warn "python3 not found -- skipping upstream's own Claude Code configuration:"
+		# The restore step is the compiled JSON helper, and running upstream's
+		# write without it is how a machine loses caveman's and ponytail's
+		# SessionStart hooks. A smaller install beats a destructive write with
+		# no restore behind it.
+		warn "no C compiler -- skipping upstream's own Claude Code configuration:"
 		warn "its write drops other tools' SessionStart hooks (#1200) and radin"
-		warn "needs python3 to put them back. Using the merge-only wiring instead."
+		warn "needs radin-cbm-json to put them back. Using the merge-only wiring."
 		bash "$HOME/.claude/.radin/lib/radin-cbm-hooks.sh" claude-md || true
 		info "Then run /radin-setup-hooks in each repo for its .mcp.json entry."
 	fi
@@ -810,6 +823,7 @@ cat >"$MANIFEST_FILE" <<EOF
     "radin-json.sh",
     "radin-backlog.sh",
     "radin-tui.c",
+    "radin-cbm-json.c",
     "radin-state.sh",
     "radin-scope.sh",
     "radin-prioritization.md",
