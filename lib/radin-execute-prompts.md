@@ -213,10 +213,8 @@ ACCEPTANCE
    API/library behavior local code and repo exploration can't settle>`
    `STATUS: BLOCKED (DECISION) — <the decision question, the candidate options, and your
    recommendation>`
-   Use BLOCKED (DECISION) when the task needs a judgment call the entry text and plan(s)
-   don't settle (keep vs delete, approach A vs B). Do NOT pick a default and implement a
-   guess. Revert anything you touched, leave the tree clean, and report BLOCKED (DECISION).
-   Use BLOCKED (FACT) only for something you tried and failed to verify yourself.
+   Tag the judgment call BLOCKED (DECISION) — revert anything you touched and leave the
+   tree clean — and the unverifiable fact BLOCKED (FACT).
    This line is mandatory whether the task was implemented, found already done, or
    blocked. The router acts only on this explicit line, never on intent inferred
    from prose.
