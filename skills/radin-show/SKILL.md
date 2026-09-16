@@ -7,10 +7,7 @@ description: |
 ---
 # Show Backlog
 
-Print the current project's backlog as markdown. This skill is read-only, and
-it is the only radin skill that prints the backlog. `radin-record` and
-`radin-review` write to the backlog; `radin-plan` and `radin-execute` consume
-it.
+Print the current project's backlog as markdown. This skill is read-only.
 
 ## Step 1: Print it
 
@@ -18,13 +15,12 @@ it.
 RADIN_CLI backlog show
 ```
 
-If the user narrows the scope to one category ("show me fix items"), pass that
-category: `show fix`. It rejects a category it does not know. With no category,
-the CLI prints the whole backlog.
+Pass a category when the user narrows the scope ("show me fix items"):
+`backlog show fix`. Otherwise pass none.
 
-The CLI resolves the per-project backlog path itself. If it errors with "no
-backlog", tell the user the project has no backlog yet and point them at
-`radin-record` or `radin-review` to start one. Do not create an empty file.
+It exits 1 with "no backlog" when the project has none. Tell the user that,
+point them at `radin-record` or `radin-review` to start one, and create no
+file.
 
 Print the output as-is. Do not summarize, reorder, or filter it beyond the
 category scoping above.

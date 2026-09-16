@@ -8,13 +8,8 @@ description: |
 ---
 # Doctor
 
-A read-only health check for radin's own install under `~/.claude`. It
-confirms that every skill and lib file `install.sh` copies is present,
-checks that radin's own lib shell scripts have valid syntax, and reports
-which companion tools (rtk, codebase-memory-mcp, headroom, caveman,
-ponytail, mattpocock-skills) are currently reachable. It never mutates
-anything: a companion install is advisory, so an unreachable one is a report,
-not a failure.
+A read-only health check for radin's own install under `~/.claude`. It mutates
+nothing.
 
 ## Step 1: Run it
 
@@ -28,6 +23,4 @@ Print the full output to the user as-is. It already lists every checked item
 with its status.
 
 A non-zero exit means one or more expected files are missing or have invalid
-syntax. Tell the user to re-run `install.sh` (or `radin-update`) to fix it. A
-missing companion tool is advisory only, never a failure, so it does not need
-that remediation.
+syntax. Tell the user to re-run `install.sh` (or `radin update`) to fix it.

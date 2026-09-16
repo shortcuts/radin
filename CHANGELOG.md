@@ -78,9 +78,24 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   execution order including the dependency overrides the `Shift-P` priority
   sort hides. The other verbs `order`/`field`/`duplicates` added stay
   LLM-facing and get no key.
+- The five near-pure wrapper skills (`radin-show`, `radin-doctor`,
+  `radin-uninstall`, `radin-stats`, `radin-setup-hooks`) are now the command,
+  its exit-code route, and nothing else. What each script checks, removes or
+  prints is stated once, in the script. `radin-stats` stops probing for its
+  five sources — an uninstalled one fails visibly, which is the skip — and
+  carries the measured-vs-benchmark label on each source instead of a second
+  table. `radin-setup-hooks` reads `radin doctor`'s wiring section instead of
+  `manifest.json`, and its three-cause failure table is gone: the script prints
+  its own cause.
 
 ### Fixed
 
+- `radin-setup-hooks` no longer blames `python3` for the fallback path. The gate
+  is the compiled `radin-cbm-json` helper, i.e. a C compiler at install time;
+  `python3` was never involved. `radin-doctor` also dropped the claim that a
+  missing companion tool needs suppressing from the "re-run `install.sh`"
+  message — companion reachability never affects the exit code — and now names
+  `radin update`, not a `radin-update` skill that does not exist.
 - `/radin-record` now writes a dependency to the backlog's `depends_on` field
   instead of only to the entry body. It logged dependencies as prose on the
   grounds that `radin-execute`'s prioritization read entry bodies for that

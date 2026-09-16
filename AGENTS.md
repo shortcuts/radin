@@ -30,6 +30,9 @@ Read before touch any file here. radin be Claude Code plugin: skills, CLI, insta
 `cp -r` line there, `lib/radin-doctor.sh` entry, README row and
 `docs/architecture.md` mention, or it ship nowhere.
 
+New companion that ship own stats or gain command need bullet in
+`skills/radin-stats/SKILL.md`, or roundup never see it.
+
 ## Storage
 
 `<repo-root>/.claude/.radin/` (outside repo, `$PWD`): `backlog/`

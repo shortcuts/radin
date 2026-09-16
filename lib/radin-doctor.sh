@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Read-only post-install health check for radin. Confirms the files
 # install.sh should have copied are present, and reports which advisory
-# companion tools (rtk, codebase-memory-mcp, caveman, ponytail,
+# companion tools (rtk, codebase-memory-mcp, headroom, caveman, ponytail,
 # mattpocock-skills) are reachable. Never mutates anything -- mirrors install.sh's own
 # "advisory only" stance on companion tools.
 # Installed to ~/.claude/.radin/lib/radin-doctor.sh by install.sh.
