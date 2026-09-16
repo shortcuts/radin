@@ -16,6 +16,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- `make bench` and its python driver are gone with the bash TUI they measured;
+  radin is C and bash only now, except the JSON surgery in
+  `lib/radin-cbm-config.sh`, which still needs python3.
 - The test suite runs in ~20s instead of ~6min: redundant tests removed, one
   compiled mock instead of a shell stub per command, recorded installs replayed,
   and `git`'s fsync off for the throwaway repos the tests build.

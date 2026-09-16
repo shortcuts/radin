@@ -6,3 +6,4 @@
 **.radin
 tests/helpers/pty-run
 lib/radin-tui
+tests/helpers/mock
