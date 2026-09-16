@@ -348,7 +348,9 @@ Exit 0 prints `attempts<TAB><n>`. Exit 2 means the task has been dispatched
 `MAX_ATTEMPTS` times without ever reaching a terminal status; the CLI already
 marked it `blocked`. Report it and continue to the next task. Do not retry.
 
-Re-run `radin-backlog.sh meta "<task id>"` (Step 4a may have added a plan).
+Only if Step 4a dispatched the planning sub-agent, re-run
+`radin-backlog.sh meta "<task id>"` to pick up the plan it wrote. Otherwise
+reuse Step 4a's output: nothing since then can have changed it.
 Dispatch under the concurrency rule in Core Constraints. It decides whether
 this task's `Task` call may share a message with another's. Send the
 **Execution prompt** from `radin-execute-prompts.md`, substituting:
