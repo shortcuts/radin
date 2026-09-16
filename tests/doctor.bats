@@ -37,7 +37,9 @@ printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-cbm-
   : > "$TEST_HOME/.claude/.radin/lib/radin-execute-session.md"
   : > "$TEST_HOME/.claude/.radin/lib/radin-execute-resume.md"
   printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-update.sh"
-  printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-doctor.sh"
+  # The real script, not a stub: it carries the RADIN_ token names as its own
+  # search pattern, so a stub hides whether the token scan matches itself.
+  cp "$CLI" "$TEST_HOME/.claude/.radin/lib/radin-doctor.sh"
   printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-uninstall.sh"
 }
 
@@ -47,6 +49,7 @@ printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-cbm-
   [ "$status" -eq 0 ]
   [[ "$output" != *"MISSING"* ]]
   [[ "$output" == *"All expected files present."* ]]
+  [[ "$output" == *"no unsubstituted token or marker left"* ]]
 }
 
 @test "exits 1 and reports MISSING for an absent on-demand lib file" {

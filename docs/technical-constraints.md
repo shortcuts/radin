@@ -154,6 +154,12 @@ covered.
   `$CLAUDE_CONFIG_DIR/.claude.json` into `~/.claude.json`. The staged file
   stays on disk — radin never deletes a file it did not ship. A user who
   exports their own `CLAUDE_CONFIG_DIR` is left alone entirely.
+- **Upstream's PATH step only tolerates zsh.** Its last install step appends
+  its PATH line to the rc file of `$SHELL`, and on 0.11.0 that step exits 1
+  with no message under fish or bash, after Claude Code is already configured
+  — which is what turns a working run into `PARTIAL`. `run_upstream` passes
+  `SHELL=/bin/sh`, so the line lands in `~/.profile` and the run finishes.
+  radin's own `radin` symlink does not depend on it.
 - **An upstream exit 0 is not proof of configuration.** `cbm_wired` checks
   `settings.json` for a `cbm-*` hook and `~/.claude.json` for the MCP entry,
   and `install` fails when both are absent. It matches on names, so an

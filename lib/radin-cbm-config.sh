@@ -147,14 +147,21 @@ cbm_wired() {
 
 # Upstream reads CLAUDE_CONFIG_DIR as set even when it is empty, so pass it
 # only when the symlink check produced a path.
+#
+# SHELL=/bin/sh for the same reason: upstream's last step appends its PATH line
+# to the rc file of $SHELL, and on 0.11.0 that step exits 1 with no message for
+# any shell but zsh -- fish and bash both -- which loses its PATH line and its
+# completion notice after Claude Code is already configured. /bin/sh sends the
+# line to ~/.profile and the run finishes. radin's own `radin` symlink is
+# unaffected either way.
 run_upstream() {
 	local bin="$1" log="$2"
 	if [ -n "$CONFIG_DIR_OVERRIDE" ]; then
 		printf 'SYMLINK  %s resolves to %s -- passing it as CLAUDE_CONFIG_DIR (#1722)\n' \
 			"$CLAUDE_DIR" "$CLAUDE_REAL_DIR"
-		CLAUDE_CONFIG_DIR="$CONFIG_DIR_OVERRIDE" "$bin" install -y >"$log" 2>&1
+		SHELL=/bin/sh CLAUDE_CONFIG_DIR="$CONFIG_DIR_OVERRIDE" "$bin" install -y >"$log" 2>&1
 	else
-		"$bin" install -y >"$log" 2>&1
+		SHELL=/bin/sh "$bin" install -y >"$log" 2>&1
 	fi
 }
 

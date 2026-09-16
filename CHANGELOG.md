@@ -22,6 +22,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `path:line` citations on stdin as `in`/`out` against the resolved scope and
   ends with a `dropped` count.
 
+### Fixed
+
+- `radin cbm-config install` passes `SHELL=/bin/sh` to
+  `codebase-memory-mcp install`. Upstream 0.11.0's last step writes its PATH
+  line to the rc file of `$SHELL` and exits 1 with no message under fish or
+  bash, so every install on those shells reported the companion as `PARTIAL`.
+- `radin doctor`'s install-time-substitution check no longer flags itself.
+  `radin-doctor.sh` ships into the lib directory it scans, so its own search
+  pattern matched and every real install reported one invalid file.
+
 ### Changed
 
 - `radin-execute` names its on-demand `lib/*.md` docs through a `RADIN_LIB`

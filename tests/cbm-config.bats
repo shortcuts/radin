@@ -63,6 +63,31 @@ EOF
   chmod +x "$MOCK_BIN/codebase-memory-mcp"
 }
 
+# Upstream 0.11.0's PATH step exits 1 with no message under any $SHELL but
+# zsh, after Claude Code is already configured. This stub reproduces that: it
+# writes both files, then fails unless the run passed SHELL=/bin/sh.
+stub_cbm_shell_picky() {
+  stub_after "$@"
+  cat > "$MOCK_BIN/codebase-memory-mcp" <<'EOF'
+#!/bin/sh
+[ "$1" = "install" ] || exit 0
+cp "$MOCK_AFTER/after-settings.json" "$HOME/.claude/settings.json"
+cp "$MOCK_AFTER/after-claude.json" "$HOME/.claude.json"
+[ "$SHELL" = "/bin/sh" ] || exit 1
+EOF
+  chmod +x "$MOCK_BIN/codebase-memory-mcp"
+}
+
+@test "install passes SHELL=/bin/sh so upstream's PATH step does not fail" {
+  stub_cbm_shell_picky
+  printf '%s\n' '{"hooks": {"SessionStart": [{"matcher": "", "hooks": [{"type": "command", "command": "caveman-session"}]}]}}' \
+    > "$TEST_HOME/.claude/settings.json"
+  run env SHELL=/opt/homebrew/bin/fish bash "$CLI" install
+  [ "$status" -eq 0 ]
+  [[ "$output" != *PARTIAL* ]]
+  [[ "$output" == *CONFIGURED* ]]
+}
+
 @test "fails without codebase-memory-mcp on PATH or in ~/.local/bin" {
   run bash "$CLI" install
   [ "$status" -ne 0 ]
