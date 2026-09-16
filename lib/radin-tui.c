@@ -61,7 +61,7 @@ static int MODE_DONE;
 static char COLLAPSED[BIG];
 static int COLOR = 1;
 
-/* The detail view's own state: DETAIL_FILE below is the `v`/$PAGER temp file
+/* The detail view's own state: DETAIL_FILE below is the `v`/`o` $PAGER temp file
  * and unrelated. DET_ROW is the row DET was built for, so a move resets the
  * scroll from the render path rather than from every key handler. */
 static char DET[MAXDET][SLOT];
@@ -1384,6 +1384,31 @@ static void view_task(void) {
 	run_external(pager && *pager ? pager : "less", DETAIL_FILE);
 }
 
+/* `o` pages `order --report` verbatim: Shift-P sorts by priority, which is not
+ * the order radin-execute runs -- `order` lays the topological dependency fix
+ * over it, and nothing else in the TUI shows that override. No parsing here;
+ * the format stays the CLI's business. */
+static void view_order(void) {
+	int ok = 0;
+	char *out = cli(BACKLOG, &ok, 1, NULL, "order", "--report", NULL);
+	if (!ok) {
+		chomp(out);
+		setmsg("order failed: %s", out);
+		free(out);
+		return;
+	}
+	FILE *f = fopen(DETAIL_FILE, "w");
+	if (!f) {
+		free(out);
+		return;
+	}
+	fputs(out, f);
+	fclose(f);
+	free(out);
+	const char *pager = getenv("PAGER");
+	run_external(pager && *pager ? pager : "less", DETAIL_FILE);
+}
+
 /* The full-screen detail a narrow terminal gets instead of a right pane: the
  * same DET buffer and the same renderer, scrolled by ^d/^u. Modal -- a resize
  * past SPLIT_MIN while it is open does not dismiss it. */
@@ -1423,6 +1448,8 @@ static void help_screen(void) {
 		"  v             view the composed detail in $PAGER: the body, the epic's\n"
 		"                own description, every plan file and the dependency titles --\n"
 		"                everything the pane leaves out\n"
+		"  o             view the execution order in $PAGER: the priority order\n"
+		"                with the dependency fix radin-execute will actually use\n"
 		"  Tab           the Done view: completed tasks and their commits (read-only)\n"
 		"  a             new task (category, title, then body in $EDITOR)\n"
 		"  d             delete the selected task (asks first)\n"
@@ -1594,6 +1621,7 @@ int main(int argc, char **argv) {
 			else if (!split_on()) detail_overlay();
 			break;
 		case 'v': view_task(); break;
+		case 'o': view_order(); break;
 		case '\t':
 			MODE_DONE = 1;
 			load_done();

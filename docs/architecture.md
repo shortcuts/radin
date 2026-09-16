@@ -248,8 +248,19 @@ radin/
 `radin tui` — or bare `radin` on a terminal — (`lib/radin-tui.c`) is the human's way into the same backlog the
 skills drive: a two-pane split — the task tree on the left 40% of the width,
 the selected row's detail on the right 60% — and one key per operation (`e`
-edit in `$EDITOR`, `v` view in `$PAGER`, `a` new, `d` delete, `c` next
-category, `r` retitle, `/` search).
+edit in `$EDITOR`, `v` view in `$PAGER`, `o` execution order in `$PAGER`, `a`
+new, `d` delete, `c` next category, `r` retitle, `/` search).
+
+`o` is the only key any of `order`/`field`/`duplicates` earned. It pages
+`backlog order --report` verbatim, because `Shift-P` sorts by priority and that
+is *not* the order `radin-execute` runs: `order` lays the topological
+dependency fix over it, and a human who sets a priority with `p` and a
+dependency with `D` can create that conflict with nothing on screen to show it.
+The rest stay LLM-facing and unbound: `--rank-needed` names the unset
+priorities the blank priority column already shows, `--steps` is `state
+steps-init`'s stdin format, `field` renders one Execution-prompt placeholder
+from values the row and the detail pane already carry, and `duplicates`
+diagnoses a hand edit to `index.jsonl` the TUI cannot make.
 
 The detail pane renders the task body through a hand-rolled markdown subset:
 an ATX heading goes bold with its `#` gone, a `>` quote goes dim and indented,

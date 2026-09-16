@@ -37,6 +37,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   which contradicted Core Constraints' "fork mode removes the parameter
   outright, so don't set it". **Re-run `install.sh` (or `radin update`)** to
   pick up that change and the new `~/.claude/CLAUDE.md` bullet.
+- `radin tui` gains `o`, which pages `backlog order --report` in `$PAGER`: the
+  execution order including the dependency overrides the `Shift-P` priority
+  sort hides. The other verbs `order`/`field`/`duplicates` added stay
+  LLM-facing and get no key.
 
 ### Fixed
 

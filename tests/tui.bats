@@ -329,6 +329,25 @@ tui() {
   unchanged
 }
 
+@test "o pages the execution order with its dependency overrides" {
+  bl add feat "first dep" --priority 1 <<<"a body" >/dev/null
+  bl add feat "later blocked" --priority 8 --depends-on first-dep <<<"b body" >/dev/null
+  snapshot
+  run tui "o|q"
+  [ "$status" -eq 0 ]
+  run cat "$SCREEN"
+  [[ "$output" == *"1. first dep (id: first-dep)"* ]]
+  [[ "$output" == *"dependency override: first-dep moved above later-blocked (priority 8)"* ]]
+  unchanged
+}
+
+@test "o on an empty backlog reports the failure and does not page" {
+  run tui "o|q"
+  [ "$status" -eq 0 ]
+  run cat "$SCREEN"
+  [[ "$output" == *"order failed"* ]]
+}
+
 @test "Tab shows the Done view from completed.json" {
   seed
   mkdir -p "$NS/state"
