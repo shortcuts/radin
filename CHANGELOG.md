@@ -90,6 +90,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- The TUI pads and truncates every row by display column instead of by byte, so
+  a task body holding a wide CJK or emoji glyph, a multi-byte character past the
+  cut, or a tab no longer spills the right detail pane over the task list on the
+  left. The header and footer bars count the same way.
 - `radin-setup-hooks` no longer blames `python3` for the fallback path. The gate
   is the compiled `radin-cbm-json` helper, i.e. a C compiler at install time;
   `python3` was never involved. `radin-doctor` also dropped the claim that a

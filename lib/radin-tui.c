@@ -38,6 +38,7 @@
 #define SPLIT_MIN 100 /* below this many columns, no right pane */
 #define MAXDET 1024   /* detail lines kept; the rest is not scrollable */
 #define RULE '\001'   /* a detail line drawn as a full-width horizontal rule */
+#define LINEBUF 4096  /* one row's bytes: multi-byte content plus its padding */
 
 static const char *CATEGORIES[] = {"feat", "fix", "chore", "refactor"};
 #define NCAT 4
@@ -232,23 +233,86 @@ static void on_signal(int s) {
 	_exit(130);
 }
 
-/* Every row is padded to its pane's width so the selected row's reverse-video
- * block spans it, and truncated so a long title can never wrap and desync the
- * frame's line count. Colour is applied to one byte span of the already-padded
+/* Display width of one codepoint, for fit() below. Not wcwidth(): that
+ * returns -1 for every non-ASCII codepoint in a C/POSIX locale -- which is
+ * what a pty test and a CI shell get -- so a row's width would depend on the
+ * ambient locale and no test could pin it.
+ * ponytail: the wide set is the East Asian Wide/Fullwidth blocks plus emoji.
+ * No grapheme clustering and no combining-mark table, so a ZWJ emoji sequence
+ * and an accent written as a combining mark each cost a column per codepoint
+ * -- both under-fill a row, which is invisible, where over-counting is the bug
+ * this fixes. Upgrade path: a generated table, only if a real title needs one.
+ */
+static int cp_width(unsigned long cp) {
+	if (cp < 0x20 || (cp >= 0x7f && cp < 0xa0)) return 0; /* control, C1 form */
+	if ((cp >= 0x1100 && cp <= 0x115f) || (cp >= 0x2e80 && cp <= 0xa4cf) ||
+		(cp >= 0xac00 && cp <= 0xd7a3) || (cp >= 0xf900 && cp <= 0xfaff) ||
+		(cp >= 0xfe30 && cp <= 0xfe6f) || (cp >= 0xff00 && cp <= 0xff60) ||
+		(cp >= 0xffe0 && cp <= 0xffe6) || (cp >= 0x1f300 && cp <= 0x1faff) ||
+		(cp >= 0x20000 && cp <= 0x3fffd))
+		return 2;
+	return 1;
+}
+
+/* Copies at most `width` display columns of text into buf and pads the rest
+ * with spaces, so a caller gets a buffer exactly `width` columns wide whatever
+ * bytes went in -- which is what keeps an absolutely-positioned pane row from
+ * wrapping onto the next line's column 1. A control byte (a tab in a task
+ * body, most often) becomes one space, and a UTF-8 sequence is copied whole or
+ * not at all: half a sequence prints as garbage or eats the byte after it.
+ * Byte offsets inside the copied prefix are unchanged, so a caller's colour
+ * span still points where it did. */
+static void fit(const char *text, int width, char *buf, size_t cap) {
+	size_t o = 0;
+	int col = 0;
+	const unsigned char *p = (const unsigned char *)text;
+	while (*p && col < width) {
+		int nb = 1, k = 1;
+		unsigned long cp = *p;
+		if (*p >= 0xf0) nb = 4;
+		else if (*p >= 0xe0) nb = 3;
+		else if (*p >= 0xc0) nb = 2;
+		if (nb > 1) {
+			cp = *p & (0xffu >> (nb + 1));
+			for (k = 1; k < nb; k++) {
+				if ((p[k] & 0xc0) != 0x80) break;
+				cp = (cp << 6) | (p[k] & 0x3f);
+			}
+			if (k < nb) { /* truncated or invalid sequence */
+				nb = 1;
+				cp = ' ';
+			}
+		} else if (cp < 0x20 || cp >= 0x7f) {
+			cp = ' '; /* tab, stray control, or a lone continuation byte */
+		}
+		int cw = cp_width(cp);
+		if (col + cw > width) break;
+		if (o + (size_t)nb + 1 > cap) break;
+		if (nb == 1)
+			buf[o++] = (char)cp;
+		else
+			for (k = 0; k < nb; k++) buf[o++] = (char)p[k];
+		col += cw;
+		p += nb;
+	}
+	while (col < width && o + 1 < cap) {
+		buf[o++] = ' ';
+		col++;
+	}
+	buf[o] = 0;
+}
+
+/* Every row is padded to its pane's width in display columns so the selected
+ * row's reverse-video block spans it, and truncated there so a long title can
+ * never wrap and desync the frame's line count. Colour is applied to one byte span of the already-padded
  * line, so the escape bytes never count against the width -- and the reset it
  * ends with also clears reverse video, which is why that gets re-armed. The
  * width is explicit because a split pane pads and truncates per column; nl is 0
  * for an absolutely-positioned pane, which must print no newline of its own. */
 static void span_at(const char *text, int selected, const char *colour, int at, int len,
 	int width, int nl) {
-	char buf[1200];
-	/* Pad and truncate by bytes, but against a width grown by the UTF-8
-	 * continuation bytes in the text, so a box-drawing connector costs one
-	 * column rather than the three bytes it occupies. */
-	int w = width;
-	for (const unsigned char *p = (const unsigned char *)text; *p; p++)
-		if ((*p & 0xC0) == 0x80) w++;
-	snprintf(buf, sizeof buf, "%-*.*s", w, w, text);
+	char buf[LINEBUF];
+	fit(text, width, buf, sizeof buf);
 	if (selected) printf("\033[7m");
 	if (colour && *colour && at + len <= (int)strlen(buf)) {
 		printf("%.*s%s%.*s\033[0m", at, buf, colour, len, buf + at);
@@ -268,13 +332,13 @@ static void row_span(const char *text, int selected, const char *colour, int at,
 static void row(const char *text, int selected) { row_span(text, selected, "", 0, 0); }
 
 static void bar(const char *text, int at_row) {
-	char buf[1200];
+	char buf[LINEBUF];
 	if (at_row) printf("\033[%d;1H", at_row);
-	snprintf(buf, sizeof buf, "%.*s", COLS, text);
+	fit(text, COLS, buf, sizeof buf);
 	/* Reverse video, not bold: a bar has to read as chrome against the rows,
 	 * and reverse is the same structural (never colour) cue the selected row
 	 * uses, so NO_COLOR keeps it. */
-	printf("\033[7m%-*s\033[0m", COLS, buf);
+	printf("\033[7m%s\033[0m", buf);
 	if (!at_row) printf("\n");
 }
 

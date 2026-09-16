@@ -662,6 +662,52 @@ long_body() {
   [ "$(last_pos)" = "[1/2]" ]
 }
 
+@test "a detail line wider than the pane is truncated at the pane's right edge" {
+  seed
+  # 200 'A' then five two-byte 'é': the é's sit past the cut, so a width
+  # counted in bytes lets the surviving ASCII run five columns past the pane.
+  printf '%s%s\n' "$(printf 'A%.0s' $(seq 200))" \
+    "$(printf '\303\251%.0s' $(seq 5))" >"$TASKS/dark-mode.md"
+  run wide "q"
+  [ "$status" -eq 0 ]
+  run last_frame
+  # 120 columns: the list takes 48, the gutter 1, so the pane is 71 wide.
+  [[ "$output" == *"$(printf 'A%.0s' $(seq 71))"* ]]
+  [[ "$output" != *"$(printf 'A%.0s' $(seq 72))"* ]]
+}
+
+@test "a wide glyph in the detail costs two columns, not one" {
+  seed
+  printf '%s\n' "$(printf '\343\201\202%.0s' $(seq 80))" >"$TASKS/dark-mode.md"
+  run wide "q"
+  [ "$status" -eq 0 ]
+  run last_frame
+  # 71 columns hold 35 two-column glyphs and one pad space.
+  [[ "$output" == *"$(printf '\343\201\202%.0s' $(seq 35))"* ]]
+  [[ "$output" != *"$(printf '\343\201\202%.0s' $(seq 36))"* ]]
+}
+
+@test "a tab in the detail does not widen the row" {
+  seed
+  printf 'X\tY\n' >"$TASKS/dark-mode.md"
+  run wide "q"
+  [ "$status" -eq 0 ]
+  run last_frame
+  [[ "$output" == *"X Y"* ]]
+  [[ "$output" != *"$(printf 'X\tY')"* ]]
+}
+
+@test "a wide glyph in a title does not overflow the list row" {
+  seed
+  bl add fix "cjk $(printf '\343\201\202%.0s' $(seq 60))" <<<"body" >/dev/null
+  # 80 columns: no right pane, so every glyph in the frame is the list row's.
+  run tui "q"
+  [ "$status" -eq 0 ]
+  run last_frame
+  # 80 columns cannot hold 41 two-column glyphs, whatever the row's margin is.
+  [[ "$output" != *"$(printf '\343\201\202%.0s' $(seq 41))"* ]]
+}
+
 @test "j moves the tree selection and does not scroll the detail" {
   long_body
   run wide "j|q"

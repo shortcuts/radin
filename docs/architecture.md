@@ -273,6 +273,9 @@ tree selection, exactly as `j`/`k` move the selection and never scroll the
 pane — there is no focus concept and no `Tab`-to-switch. Its limits are
 deliberate: no fenced-code state, so a `#` inside a fence still renders bold,
 and no line wrapping — a long rendered line truncates like every other row.
+That truncation is by display column, not by byte: a wide CJK or emoji glyph
+counts as two and a tab flattens to one space, so a pane row cannot grow past
+its pane and wrap into its neighbour's columns.
 Under 100 columns the right pane is not drawn at all and the tree takes the
 full width; `enter` on a task row then opens the same renderer full-screen,
 scrolled by the same two keys and dismissed with `q`/ESC. At 100 columns or
