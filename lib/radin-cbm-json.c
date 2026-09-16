@@ -1,14 +1,16 @@
-/* The JSON surgery behind `radin cbm-config`, so radin-cbm-config.sh can
- * rewrite ~/.claude/settings.json and ~/.claude.json without python3 --
- * radin ships bash and C only. Not a general-purpose JSON tool: only
- * lib/radin-cbm-config.sh calls it, and every rule it encodes is about
- * upstream codebase-memory-mcp's destructive write (#1200).
+/* Every JSON read and write radin does for itself: ~/.claude/settings.json and
+ * ~/.claude.json for `radin cbm-config`, a repo's .mcp.json for
+ * `radin cbm-hooks mcp`. radin ships bash and C only, with no interpreter of
+ * its own. Not a general-purpose JSON tool: only
+ * lib/radin-cbm-config.sh and lib/radin-cbm-hooks.sh call it, and every rule
+ * it encodes is about upstream codebase-memory-mcp's writes (#1200).
  *
- *   radin-cbm-json restore   <settings> <snap_settings> <claude_json> <snap_claude_json> <cbm>
- *   radin-cbm-json adopt-mcp <staged_claude_json> <claude_json>
- *   radin-cbm-json wired     <settings> <claude_json> <cbm>
+ *   radin-cbm-json restore    <settings> <snap_settings> <claude_json> <snap_claude_json> <cbm>
+ *   radin-cbm-json adopt-mcp  <staged_claude_json> <claude_json>
+ *   radin-cbm-json wired      <settings> <claude_json> <cbm>
+ *   radin-cbm-json ensure-mcp <mcp_json> <name> <command>
  *
- * An empty path argument means "absent" (what python passed as None).
+ * An empty path argument means "absent".
  *
  * Design: a parsed string, number or literal keeps its *source text*, and
  * writing it back emits those bytes unchanged. There is therefore no
@@ -1035,13 +1037,54 @@ static int wired(void)
 	return (in_hooks && in_mcp) ? 0 : 4;
 }
 
+/* `radin cbm-hooks mcp`: merge one mcpServers entry into a repo's .mcp.json.
+ * A missing file is {}; anything unreadable as a JSON object is refused
+ * without a write, because the file is the user's, not radin's. An entry
+ * already under that name is never redefined, whatever shape it has. */
+static int ensure_mcp_entry(const char *path, const char *name, const char *command)
+{
+	int err;
+	JVal *root = parse_file(path, &err), *servers, *entry;
+
+	if (err == 2 || (root && root->kind != J_OBJ))
+		goto bad;
+	if (!root)
+		root = jnew(J_OBJ);
+	servers = obj_get(root, "mcpServers");
+	if (servers && servers->kind != J_OBJ)
+		goto bad;
+	if (!servers) {
+		servers = jnew(J_OBJ);
+		obj_set(root, "mcpServers", servers);
+	}
+	if (obj_get(servers, name)) {
+		printf("PRESENT  %s (mcpServers.%s)\n", path, name);
+		return 0;
+	}
+	entry = jnew(J_OBJ);
+	obj_set(entry, "type", jstr(xstrdup("stdio")));
+	obj_set(entry, "command", jstr(str_encode(command)));
+	obj_set(entry, "args", jnew(J_ARR));
+	obj_set(servers, name, entry);
+	write_file(path, root);
+	printf("ADDED    %s (mcpServers.%s)\n", path, name);
+	return 0;
+bad:
+	fprintf(stderr,
+	        "radin-cbm-hooks: %s is not valid JSON -- fix it first, "
+	        "nothing written\n",
+	        path);
+	return 1;
+}
+
 static int usage(void)
 {
 	fprintf(stderr,
 	        "usage: radin-cbm-json restore <settings> <snap_settings> "
 	        "<claude_json> <snap_claude_json> <cbm>\n"
 	        "       radin-cbm-json adopt-mcp <staged_claude_json> <claude_json>\n"
-	        "       radin-cbm-json wired <settings> <claude_json> <cbm>\n");
+	        "       radin-cbm-json wired <settings> <claude_json> <cbm>\n"
+	        "       radin-cbm-json ensure-mcp <mcp_json> <name> <command>\n");
 	return 1;
 }
 
@@ -1062,6 +1105,8 @@ int main(int argc, char **argv)
 		adopt_mcp(argv[2]);
 		return 0;
 	}
+	if (!strcmp(argv[1], "ensure-mcp") && argc == 5)
+		return ensure_mcp_entry(argv[2], argv[3], argv[4]);
 	if (!strcmp(argv[1], "wired") && argc == 5) {
 		settings_path = argv[2];
 		claude_json_path = argv[3];

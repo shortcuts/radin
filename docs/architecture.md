@@ -153,7 +153,7 @@ Entries are compared deep-equal, so re-running restores nothing and reports `INT
 `lib/radin-cbm-hooks.sh` (dispatched as `radin cbm-hooks <claude-md|mcp|all>`, driven by the `radin-setup-hooks` skill) is the fallback for the no-compiler path, and for anyone who ran `codebase-memory-mcp uninstall` but kept radin. Two writes, merge-only, skipping anything already defined:
 
 - the `codebase-memory-mcp` MCP-tools section in `~/.claude/CLAUDE.md`
-- `mcpServers.codebase-memory-mcp` in `<repo-root>/.mcp.json`, pointing at the resolved binary path
+- `mcpServers.codebase-memory-mcp` in `<repo-root>/.mcp.json`, pointing at the resolved binary path — written by the same `radin-cbm-json` helper (`ensure-mcp`), so with no compiler only `claude-md` runs and `mcp` prints the entry to paste by hand
 
 It writes no `settings.json` hook of radin's own: `auto_index` indexes a project on first connection and the background watcher keeps it current, so a `PostToolUse` reindex would pay for nothing. The graph itself lives in `~/.cache/codebase-memory-mcp/`, outside both `~/.claude` and the consumer's repo.
 
@@ -241,7 +241,7 @@ Three rules keep it from becoming a second backlog implementation:
 - **Raw ANSI only — no ncurses, `tput`, `dialog`, `gum` or `fzf`.** Zero
   dependencies is the same promise as the rest of radin: `termios` for raw mode,
   `TIOCGWINSZ` for the terminal size, `\033[` escapes to draw.
-- **C, not bash — one of the two compiled files radin ships** (`lib/radin-cbm-json.c`, the JSON surgery behind `radin cbm-config`, is the other). A bash frame cost a fork
+- **C, not bash — one of the two compiled files radin ships** (`lib/radin-cbm-json.c`, the JSON surgery behind `radin cbm-config` and `radin cbm-hooks mcp`, is the other). A bash frame cost a fork
   per row and ~150ms per keypress-to-frame, and the TUI's 43 pty tests were a
   third of the suite's runtime. `install.sh` builds it with `cc` (Command Line
   Tools on macOS, gcc on Linux) into `~/.claude/.radin/bin/radin-tui`; the build

@@ -18,6 +18,11 @@ set -euo pipefail
 CLAUDE_DIR="$HOME/.claude"
 CBM_NAME="codebase-memory-mcp"
 CBM_BIN="$CBM_NAME"
+# The .mcp.json read and write is C (lib/radin-cbm-json.c) -- radin ships bash
+# and C only, and this script holds no JSON knowledge of its own. Next to this
+# script in a dev checkout, in ~/.claude/.radin/bin once install.sh built it.
+CBM_JSON="$(cd "$(dirname "$0")" && pwd)/radin-cbm-json"
+[ -x "$CBM_JSON" ] || CBM_JSON="$HOME/.claude/.radin/bin/radin-cbm-json"
 
 die() {
 	printf 'radin-cbm-hooks: %s\n' "$*" >&2
@@ -77,31 +82,9 @@ ensure_mcp() {
 	[ -n "$repo" ] || die "mcp: not inside a git repo and no repo-root given"
 	local bin_path
 	bin_path="$(command -v "$CBM_BIN")"
-	# codebase-memory-mcp is a static binary, so python3 is no longer implied by
-	# having installed it -- name the entry to paste when it is missing.
-	command -v python3 >/dev/null 2>&1 || die "python3 not found -- add this to $repo/.mcp.json by hand:
+	[ -x "$CBM_JSON" ] || die "radin-cbm-json not built (no C compiler at install time) -- add this to $repo/.mcp.json by hand:
   \"mcpServers\": { \"$CBM_NAME\": { \"type\": \"stdio\", \"command\": \"$bin_path\", \"args\": [] } }"
-	python3 - "$repo/.mcp.json" "$CBM_NAME" "$bin_path" <<'PY'
-import json, sys
-path, name, command = sys.argv[1], sys.argv[2], sys.argv[3]
-try:
-    with open(path) as f:
-        config = json.load(f)
-except FileNotFoundError:
-    config = {}
-except json.JSONDecodeError:
-    sys.exit(f"radin-cbm-hooks: {path} is not valid JSON -- fix it first, nothing written")
-
-servers = config.setdefault("mcpServers", {})
-if name in servers:
-    print(f"PRESENT  {path} (mcpServers.{name})")
-else:
-    servers[name] = {"type": "stdio", "command": command, "args": []}
-    with open(path, "w") as f:
-        json.dump(config, f, indent=2)
-        f.write("\n")
-    print(f"ADDED    {path} (mcpServers.{name})")
-PY
+	"$CBM_JSON" ensure-mcp "$repo/.mcp.json" "$CBM_NAME" "$bin_path"
 }
 
 cmd="${1:-}"

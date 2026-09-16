@@ -1,6 +1,6 @@
 # radin — Agent Reference
 
-Read before touch any file here. radin be Claude Code plugin: skills, CLI, install glue. Bash, plus one C file (the TUI). macOS and Linux.
+Read before touch any file here. radin be Claude Code plugin: skills, CLI, install glue. Bash, plus two C file (TUI and JSON helper). macOS and Linux.
 
 ## Hard rules
 
@@ -88,9 +88,11 @@ wrong one cost failed call in every sub-agent
 - **Two C file only: TUI (`lib/radin-tui.c`) and JSON helper
   (`lib/radin-cbm-json.c`).** TUI draw and dispatch keys only — raw ANSI,
   `termios`, every mutation shell out to `radin-backlog.sh`. Helper hold every
-  JSON rule `radin cbm-config` need; that script keep none. `install.sh` build
-  both with `cc`, advisory: no compiler mean no `radin tui` and no
-  `radin cbm-config`, rest still install
+  JSON rule `radin cbm-config` and `radin cbm-hooks mcp` need; those script
+  keep none, and radin need no python of own. `install.sh` build
+  both with `cc`, advisory: no compiler mean no `radin tui`, no
+  `radin cbm-config`, and `radin cbm-hooks mcp` print entry to paste by hand,
+  rest still install
   ([rules](docs/architecture.md#the-human-tui)).
 
 ## Before committing

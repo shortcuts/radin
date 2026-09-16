@@ -12,12 +12,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `radin tui`: `/` is now a search, not a filter -- every row stays visible and
   matching rows are marked with a `*`. `n`/`N` jump to the next/previous match
   and wrap. Creating a task moved from `n` to `a`.
-- The `settings.json`/`.claude.json` surgery behind `radin cbm-config` is now C
-  (`lib/radin-cbm-json.c`), built by `install.sh` with `cc`. When there is no
-  compiler `install.sh` falls back to `radin cbm-hooks`, where it used to fall
-  back when there was no `python3`. `radin cbm-hooks mcp` still shells out to
-  python3 for a repo's `.mcp.json`, so this is "no python for the
-  snapshot/restore bracket", not "no python anywhere".
+- Every JSON read and write radin does for itself is now C
+  (`lib/radin-cbm-json.c`), built by `install.sh` with `cc`: the
+  `settings.json`/`.claude.json` surgery behind `radin cbm-config`, and the
+  `.mcp.json` merge behind `radin cbm-hooks mcp`. radin needs no `python3` of
+  its own any more -- the remaining `python3` check in `install.sh` is for
+  headroom-ai, a third-party pipx package. With no compiler `install.sh` falls
+  back to `radin cbm-hooks claude-md`, and `radin cbm-hooks mcp` prints the
+  `.mcp.json` entry to paste by hand instead of writing it.
 - `radin tui` is now C (`lib/radin-tui.c`), built by `install.sh` with `cc` into
   `~/.claude/.radin/bin/radin-tui`. The build is advisory: with no compiler the
   rest of radin installs and `radin backlog show` covers the reading. Keys,

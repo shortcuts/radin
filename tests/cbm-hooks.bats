@@ -12,7 +12,9 @@ setup() {
   printf '#!/bin/sh\n' > "$MOCK_BIN/codebase-memory-mcp"
   chmod +x "$MOCK_BIN/codebase-memory-mcp"
   export PATH="$MOCK_BIN:/usr/bin:/bin:/usr/sbin:/sbin"
-  command -v python3 >/dev/null 2>&1 || skip "python3 required"
+  load helpers/pty
+  cc_build "$REPO_ROOT/lib/radin-cbm-json.c" "$REPO_ROOT/lib/radin-cbm-json" ||
+    skip "a C compiler is needed to build the JSON helper"
   git init -q "$TEST_HOME/proj"
 }
 
@@ -88,7 +90,29 @@ teardown() {
   echo 'not json' > "$TEST_HOME/proj/.mcp.json"
   run bash "$CLI" mcp "$TEST_HOME/proj"
   [ "$status" -ne 0 ]
+  [[ "$output" == *"$TEST_HOME/proj/.mcp.json"* ]]
   [ "$(cat "$TEST_HOME/proj/.mcp.json")" = "not json" ]
+}
+
+@test "mcp creates .mcp.json when the repo has none, and rerunning is a no-op" {
+  run bash "$CLI" mcp "$TEST_HOME/proj"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *ADDED* ]]
+  cp "$TEST_HOME/proj/.mcp.json" "$TEST_HOME/first"
+  run bash "$CLI" mcp "$TEST_HOME/proj"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *PRESENT* ]]
+  cmp "$TEST_HOME/first" "$TEST_HOME/proj/.mcp.json"
+}
+
+@test "mcp keeps an existing file's other keys and their order" {
+  printf '{\n  "zebra": 1,\n  "alpha": {"deep": [1, 2]}\n}\n' > "$TEST_HOME/proj/.mcp.json"
+  run bash "$CLI" mcp "$TEST_HOME/proj"
+  [ "$status" -eq 0 ]
+  run grep -n '"zebra"\|"alpha"\|"mcpServers"' "$TEST_HOME/proj/.mcp.json"
+  [[ "${lines[0]}" == *zebra* ]]
+  [[ "${lines[1]}" == *alpha* ]]
+  [[ "${lines[2]}" == *mcpServers* ]]
 }
 
 @test "all runs both writes against a fresh home and repo" {
