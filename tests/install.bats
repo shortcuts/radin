@@ -246,6 +246,33 @@ run_install_defaults() {
   [ "$status" -ne 0 ]
 }
 
+@test "radin help prints the usage text, bare radin off a tty fails with it" {
+  run_install_defaults
+  run env HOME="$TEST_HOME" bash "$TEST_HOME/.claude/.radin/bin/radin" help
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"usage: radin"* ]]
+  # `run` captures stdout through a pipe, so this is the non-tty path.
+  run env HOME="$TEST_HOME" bash "$TEST_HOME/.claude/.radin/bin/radin"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"usage: radin"* ]]
+}
+
+@test "bare radin on a tty opens the TUI" {
+  run_install_defaults
+  pty_build || skip "a C compiler is needed to build the pty driver"
+  cd "$TEST_HOME"
+  run env HOME="$TEST_HOME" "$PTY_RUN" "$TEST_HOME/screen" "q" \
+    bash "$TEST_HOME/.claude/.radin/bin/radin"
+  [ "$status" -eq 0 ]
+  run cat "$TEST_HOME/screen"
+  [[ "$output" == *"no tasks"* ]]
+  run env HOME="$TEST_HOME" "$PTY_RUN" "$TEST_HOME/screen" "q" \
+    bash "$TEST_HOME/.claude/.radin/bin/radin" tui
+  [ "$status" -eq 0 ]
+  run cat "$TEST_HOME/screen"
+  [[ "$output" == *"no tasks"* ]]
+}
+
 @test "an existing non-radin ~/.local/bin/radin is named, never replaced" {
   mkdir -p "$TEST_HOME/.local/bin"
   echo "someone else's" > "$TEST_HOME/.local/bin/radin"

@@ -6,6 +6,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Bare `radin` on a terminal now opens the TUI instead of printing usage; off a
+  terminal it still prints the usage text and exits non-zero. `radin help`
+  prints it anywhere.
 - `radin tui`: `/` is now a search, not a filter -- every row stays visible and
   matching rows are marked with a `*`. `n`/`N` jump to the next/previous match
   and wrap. Creating a task moved from `n` to `a`.

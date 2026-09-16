@@ -59,6 +59,7 @@ answers come from `~/.claude/.radin/manifest.json`, so nothing is re-asked.
 | `/radin-doctor` | Verify the install, report unreachable companions |
 | `/radin-uninstall` | Remove what `install.sh` put in `~/.claude` |
 | `radin tui` | Full-screen backlog browser for humans. No agent involved; `?` lists keys |
+| `radin` | Same TUI: bare `radin` on a terminal is the human entry point. Off a terminal it prints the usage text and exits non-zero, so a skill or pipe never hangs in a full-screen app. `radin help` prints that text on purpose |
 
 Typical loop: record → (plan) → execute → review, whose findings feed the next
 execute. Each skill runs in your own conversation, so it can ask you

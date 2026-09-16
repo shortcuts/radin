@@ -46,6 +46,8 @@ Every one of `skills/radin-execute/SKILL.md`, `skills/radin-plan/SKILL.md`, `ski
 radin backlog <env|show|list|count|find|add|add-plan|append|meta|planned|path|set-category|retitle|set-priority|set-deps|remove|reconcile|epics|epic-add|epic-show|epic-move|epic-remove>   # dispatcher at ~/.claude/.radin/bin/radin, symlinked into ~/.local/bin
 ```
 
+The subcommand is what switches the two modes apart, so no flag does. `radin <verb> ...` is the agent and power-user entry point. Bare `radin` is the human one: on a terminal it is exactly `radin tui` (missing-binary message included), and off one it prints the usage text and exits non-zero, because a skill or pipe trapped in a full-screen app would hang the agentic loop until a timeout. `radin help` is the documented way to get that text.
+
 - `env` — namespace resolution (delegates to `lib/radin-namespace.sh`, single source of truth for path logic; prints `REPO_ROOT`, `NAMESPACE_DIR`, `BACKLOG_INDEX`, `BACKLOG_TASKS_DIR`)
 - `show [category]` — render backlog as markdown (all tasks, or one category), reconstructed from `index.jsonl` + each task's file
 - `list` — print `id<US>category<US>title<US>file<US>priority<US>depends-on-csv` per task, ordered by priority descending with unset priorities last
@@ -222,7 +224,7 @@ radin/
 
 ## The human TUI
 
-`radin tui` (`lib/radin-tui.c`) is the human's way into the same backlog the
+`radin tui` — or bare `radin` on a terminal — (`lib/radin-tui.c`) is the human's way into the same backlog the
 skills drive: a full-screen list of every task, a preview of the selected
 task's body, and one key per operation (`e` edit in `$EDITOR`, `v` view in
 `$PAGER`, `a` new, `d` delete, `c` next category, `r` retitle, `/` search).
