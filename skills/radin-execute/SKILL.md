@@ -65,49 +65,14 @@ or needs refinement, invoke `/mattpocock-skills:grilling` before dispatching it,
 so the sub-agent gets the user's answer instead of your guess at what the entry
 meant.
 
-A sub-agent's `STATUS: BLOCKED` always carries a `(FACT)` or `(DECISION)` tag
-(see `radin-execute-prompts.md`). Route on it:
+A sub-agent's `STATUS: BLOCKED` always carries a `(FACT)` or `(DECISION)` tag.
+Read `$HOME/.claude/.radin/lib/radin-execute-clarify.md` and follow it: it holds
+the routing for both tags, the fact-finder handoff, and the `backlog append`
+labels that put a settled answer where planning and execution sub-agents read
+it.
 
-- **`BLOCKED (FACT)`**: checkable, and the sub-agent already failed to verify
-  it from the repo. Facts are never the user's job to hand over. Dispatch a
-  fresh sub-agent with the **Fact-finding prompt** from
-  `radin-execute-prompts.md`. It investigates read-only and reports in one
-  turn.
-  - `STATUS: FOUND`: append the finding to that task's file as a `**Fact:**`
-    line (see below), treat the entry as `pending`, retry from Step 4a. If it
-    reports a `state/facts/<id>.md` path, append `**Facts:** <path>` instead.
-    Either way it stays scoped to the one task that needed it: never copy a
-    finding onto another entry, and never build a shared notes file. A
-    sub-agent's context is small on purpose.
-  - `STATUS: NOT FOUND`: it has escalated into a decision. Fall through to
-    `(DECISION)`, with its report as context.
-- **`BLOCKED (DECISION)`**: a judgment call the entry or plan doesn't settle.
-  Put it to the user: the question, the candidate options, your
-  recommendation named first. `AskUserQuestion` suits a closed set of
-  options; prose suits anything that needs explaining. Getting the decision
-  right matters more than finishing quickly.
-
-Once settled, append the resolution to the task's file. Planning and
-execution sub-agents read that file, so the answer must live there:
-
-```bash
-RADIN_CLI backlog append "<task id>" <<'EOF'
-**Decision:** <the settled answer>
-EOF
-```
-
-Same command, one label per kind of appended material: `**Decision:**` for a
-settled judgment call, `**Fact:**` for a fact-finder's answer, `**Root
-cause:**` for a diagnosis, `**Facts:** <path>` for the long form of any of
-them. Every one of them is
-task-scoped.
-
-Then treat the entry as `pending` and continue the loop.
-
-If the user defers the decision, it cannot be had this session. Do not guess.
-Mark the entry `blocked`, with the question, options, and recommendation as
-its `note`. Every status change this skill makes goes through one command,
-and this is its only signature:
+Every status change this skill makes goes through one command, and this is its
+only signature:
 
 ```bash
 RADIN_CLI state set-status \
@@ -116,14 +81,7 @@ RADIN_CLI state set-status \
 ```
 
 The `note` is a single shell argument, so quote it whole however many
-sentences it holds. Then report `⏸️ Task <order> '<title>' deferred:
-<question>. Continuing to next task.` and continue. Blocked entries surface
-in the Phase 5 summary, and re-invoking this skill resumes them: append the
-decision first, then treat the entry as `pending`.
-
-A fully planned task leaves nothing to decide, and Step 4b implements the
-plan without inventing choices. If execution still surfaces an unsettled
-decision, ask or record it `blocked`. Never leave it hanging.
+sentences it holds.
 
 ---
 
@@ -153,12 +111,8 @@ and own branch per task. They are recorded once per repo in
 `state/session.json`. Each execution sub-agent runs `radin-state.sh prepare`
 in Step 4b, and that command is the only thing that acts on them. Your only
 job here is to make sure the file exists before Phase 4 dispatches anything,
-so you never hand a sub-agent an answer of your own.
-
-The two answers are not independent. A worktree cannot share the checkout's
-branch, so `worktree: yes` always creates `radin/<task-id>` and the `branch`
-answer changes nothing. `branch` decides only what happens under
-`worktree: no`. Say so when you ask. Read the recorded answers first:
+so you never hand a sub-agent an answer of your own. Read the recorded answers
+first:
 
 ```bash
 RADIN_CLI state session-get "$NAMESPACE_DIR"
@@ -168,13 +122,9 @@ Exit 0 prints `worktree<TAB><yes|no>` and `branch<TAB><yes|no>`: the repo has
 already answered, so ask nothing and change nothing. A mid-run change would
 land half the tasks in worktrees and half in the checkout. Keep the two
 values for Phase 5's summary; nothing else needs them. Exit 1 means no answer
-is recorded yet: take the invoking prompt's preference if it states one,
-otherwise ask both in the same `AskUserQuestion` call as Phase 2's order
-confirmation, so one call covers all three questions. Then persist them:
-
-```bash
-RADIN_CLI state session-set "$NAMESPACE_DIR" "<worktree yes|no>" "<branch yes|no>"
-```
+is recorded yet — only the first run in a repo — so read
+`$HOME/.claude/.radin/lib/radin-execute-session.md` and follow it to ask and
+persist them.
 
 ## Phase 1: Read and Prioritize
 
@@ -396,20 +346,9 @@ RADIN_CLI state dirty-check "$TASK_DIR"
 
 `dirty-check`'s built-in exclusion of `.claude/.radin/` matters: your own
 state writes must never count as dirty. Non-empty output means the sub-agent
-violated the no-dirty-tree contract regardless of its `STATUS:`:
-
-- Park the work (same exclusion applied; prints the stash ref):
-
-  ```bash
-  RADIN_CLI state stash "$TASK_DIR" "radin-execute: task <order> '<title>' left uncommitted (sub-agent reported <STATUS value>)"
-  ```
-
-- Mark the task `failed`, `note`: `"sub-agent left uncommitted changes in
-  <TASK_DIR>, stashed as <ref>. Run 'git -C <TASK_DIR> stash show -p <ref>'
-  to inspect, 'git -C <TASK_DIR> stash pop' to recover."`
-- Report: `⚠️ Task <order> '<title>': sub-agent reported <STATUS value> but
-  left a dirty tree. Stashed as <ref>, treated as failed.`
-- Continue to the next task on a clean tree.
+violated the no-dirty-tree contract regardless of its `STATUS:`: read
+`$HOME/.claude/.radin/lib/radin-execute-dirty.md` and follow it, then continue
+to the next task.
 
 On a clean tree, route on `STATUS:`:
 
@@ -436,7 +375,8 @@ On a clean tree, route on `STATUS:`:
   with the reason from the `STATUS:` line) — once per task per session, never
   twice.
   - `STATUS: DIAGNOSED`: append it to the task's file as a `**Root cause:**`
-    line (`radin-backlog.sh append`, per Clarifying Ambiguity), then re-run
+    line (`radin-backlog.sh append`, signature in
+    `radin-execute-clarify.md`), then re-run
     this task from Step 4b. `start` bumps `attempts` again, so the cap still
     ends it.
   - `STATUS: NOT DIAGNOSED`, or the task fails again after a diagnosis: mark
@@ -497,30 +437,13 @@ from the invoking prompt: <instructions, or "none">.
 
 ## Additional Guardrails
 
-- **Resume**: if `BACKLOG_STEPS.json` already exists at startup, read it,
-  skip completed tasks (already removed), triage `in_progress` entries per
-  Phase 1 step 3, treat `failed` and `blocked` entries as `pending` for
-  retry, and continue. Phase 2's gate still applies in full: a resumed run
-  reprints the list and re-asks both order and task selection. One exception:
-  a `blocked` entry whose `note` says it hit `MAX_ATTEMPTS` stays blocked.
-  Its `attempts` count persists, so re-dispatching it only trips the cap
-  again. It needs the user to look, not another retry.
+- **Resume, and recovery after a compaction**: `BACKLOG_STEPS.json` already
+  exists at startup, or earlier turns got summarized away. Either way, read
+  `$HOME/.claude/.radin/lib/radin-execute-resume.md` and follow it: it holds
+  the resume triage, the `MAX_ATTEMPTS` exception, and the state-persistence
+  contract that lets you continue from disk rather than memory. A run that
+  starts clean and stays in context never loads it.
 - **Never commit anything under `.claude/.radin/`.** Committing or ignoring
   radin's namespace is the repo owner's call.
 - **Every commit traces to a backlog entry or Phase 5 step 1.** No fabricated
   work.
-
-## State Persistence Contract
-
-`$NAMESPACE_DIR/state/BACKLOG_STEPS.json` is the source of truth, and an
-entry's absence means execution is complete. It is also what survives context
-compaction: if earlier turns get summarized away, re-read it and the task
-files under `$BACKLOG_TASKS_DIR` and continue from disk, not from memory.
-
-Every status transition also lands in `state/journal.jsonl` (append-only, one
-timestamped event per line). Read it with `radin-state.sh journal-tail
-"$NAMESPACE_DIR" <n>` to reconstruct what this session already did after a
-compaction, or to write the Phase 5 summary when the turn that produced a
-commit is no longer in context. `BACKLOG_STEPS.json` and `completed.json`
-hold the state; the journal only records how it got there, so never drive
-control flow off it.

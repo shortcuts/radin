@@ -1,0 +1,23 @@
+# Shared: radin-execute Worktree/Branch Answers
+
+`radin-execute` reads this file only when `radin-state.sh session-get` exits 1
+at Phase 0.5 — no worktree/branch answer is recorded for this repo yet. That
+is the first run in a repo and nothing after it: every later run reads the
+answers back and asks nothing.
+
+The two answers are not independent. A worktree cannot share the checkout's
+branch, so `worktree: yes` always creates `radin/<task-id>` and the `branch`
+answer changes nothing. `branch` decides only what happens under
+`worktree: no`. Say so when you ask.
+
+Take the invoking prompt's preference if it states one, otherwise ask both in
+the same `AskUserQuestion` call as Phase 2's order confirmation, so one call
+covers all three questions. Then persist them:
+
+```bash
+RADIN_CLI state session-set "$NAMESPACE_DIR" "<worktree yes|no>" "<branch yes|no>"
+```
+
+Keep the two values for Phase 5's summary; nothing else needs them. Never act
+on them yourself — `radin-state.sh prepare`, which each execution sub-agent
+runs in Step 4b, is the only thing that turns them into git commands.

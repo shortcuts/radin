@@ -27,6 +27,11 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `radin backlog` sources `radin-namespace.sh` instead of forking it, and the
   namespace `mkdir -p` only runs when a directory is missing: ~13ms off every
   CLI call the skills make.
+- `radin-execute`'s four cold paths -- blocked-task routing, the first-run
+  worktree/branch questions, the dirty-tree recovery, and resume plus the state
+  persistence contract -- moved out of the skill body into `lib/` files read
+  only when their trigger fires. The skill sits in the user's own context for
+  the whole session and is ~80 lines shorter; behaviour is unchanged.
 
 ### Fixed
 

@@ -154,7 +154,9 @@ mkdir -p "$HOME/.claude/skills" "$HOME/.claude/.radin/lib"
 for f in radin-namespace.sh radin-json.sh radin-backlog.sh radin-tui.c \
 	radin-cbm-json.c radin-state.sh \
 	radin-scope.sh radin-prioritization.md radin-execute-prompts.md \
-	radin-execute-recovery.md radin-execute-reporting.md radin-cbm-hooks.sh \
+	radin-execute-recovery.md radin-execute-reporting.md \
+	radin-execute-clarify.md radin-execute-session.md \
+	radin-execute-dirty.md radin-execute-resume.md radin-cbm-hooks.sh \
 	radin-cbm-config.sh radin-update.sh \
 	radin-doctor.sh radin-uninstall.sh; do
 	cp "$RADIN_ROOT/lib/$f" "$HOME/.claude/.radin/lib/"
@@ -731,6 +733,9 @@ done
 set_cli "$HOME/.claude/.radin/lib/radin-execute-prompts.md" "$RADIN_CLI_VALUE"
 set_cli "$HOME/.claude/.radin/lib/radin-execute-recovery.md" "$RADIN_CLI_VALUE"
 set_cli "$HOME/.claude/.radin/lib/radin-prioritization.md" "$RADIN_CLI_VALUE"
+set_cli "$HOME/.claude/.radin/lib/radin-execute-clarify.md" "$RADIN_CLI_VALUE"
+set_cli "$HOME/.claude/.radin/lib/radin-execute-session.md" "$RADIN_CLI_VALUE"
+set_cli "$HOME/.claude/.radin/lib/radin-execute-dirty.md" "$RADIN_CLI_VALUE"
 
 step "Agent guidance"
 # A short section in ~/.claude/CLAUDE.md telling Claude when to reach for
@@ -830,6 +835,10 @@ cat >"$MANIFEST_FILE" <<EOF
     "radin-execute-prompts.md",
     "radin-execute-recovery.md",
     "radin-execute-reporting.md",
+    "radin-execute-clarify.md",
+    "radin-execute-session.md",
+    "radin-execute-dirty.md",
+    "radin-execute-resume.md",
     "radin-cbm-hooks.sh",
     "radin-cbm-config.sh",
     "radin-update.sh",

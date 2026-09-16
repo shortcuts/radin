@@ -103,11 +103,15 @@ Both `BACKLOG_STEPS.json` and `completed.json` JSONL (one compact object per lin
 
 `radin-execute` and `radin-plan` skill also share `lib/radin-prioritization.md`, single source of truth for backlog parsing rules, task priority criteria, state-file JSON schema. Both read via `$HOME/.claude/.radin/lib/radin-prioritization.md` — `radin-execute` at start of Phase 1, `radin-plan` at start of its Step 2 — instead of embedding own copy. `radin-execute` uses all of it, prioritize/order whole backlog. `radin-plan` uses only parsing section: scoped to single entry caller points at, not whole backlog, so nothing to prioritize, no state file of own.
 
-`radin-execute` alone reads three on-demand files, none of them inline in `SKILL.md`, because the skill body sits in the user's own context for the rest of the session:
+`radin-execute` alone reads seven on-demand files, none of them inline in `SKILL.md`, because the skill body sits in the user's own context for the rest of the session. Each one be cold path — trigger fire, file get read, otherwise never:
 
 - `lib/radin-execute-prompts.md` — the four verbatim sub-agent prompts (planning, execution, debug, fact-finding), read at start of Phase 4. A session that stops at Phase 2 (common first turn) never reaches Phase 4, so never loads them.
 - `lib/radin-execute-recovery.md` — `triage` routing for tasks a dead session left `in_progress`, read only when `radin-state.sh stuck` exits 0. Most runs never load it.
 - `lib/radin-execute-reporting.md` — residual-changes check, commit-location rules, final report template, read at Phase 5.
+- `lib/radin-execute-clarify.md` — `BLOCKED (FACT)`/`(DECISION)` routing, fact-finder handoff, `backlog append` labels, read when a sub-agent block. Run where nothing block never load it.
+- `lib/radin-execute-session.md` — how to ask and persist Phase 0.5's worktree/branch answers, read only when `session-get` exit 1. First run in repo, nothing after.
+- `lib/radin-execute-dirty.md` — stash-and-fail steps when Step 4b's `dirty-check` print something. Sub-agent that commit its work never trigger it.
+- `lib/radin-execute-resume.md` — resume triage, `MAX_ATTEMPTS` exception, state-persistence contract, read only when `BACKLOG_STEPS.json` already exist at startup or compaction ate earlier turns.
 
 ## Why every entry point is a skill
 
@@ -214,6 +218,10 @@ radin/
     radin-execute-prompts.md
     radin-execute-recovery.md
     radin-execute-reporting.md
+    radin-execute-clarify.md
+    radin-execute-session.md
+    radin-execute-dirty.md
+    radin-execute-resume.md
     radin-namespace.sh
     radin-prioritization.md
     radin-state.sh
