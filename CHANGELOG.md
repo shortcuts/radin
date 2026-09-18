@@ -259,6 +259,69 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   compiled mock instead of a shell stub per command, recorded installs replayed,
   and `git`'s fsync off for the throwaway repos the tests build.
 
+## [2.0.0](https://github.com/shortcuts/radin/compare/v1.0.1...v2.0.0) (2026-09-18)
+
+
+### ⚠ BREAKING CHANGES
+
+* **backlog:** own the execution order in the CLI
+* **state:** steps entries carry a debugged flag and a fifth `deferred` status, steps-init takes a fourth stdin field, completed.json carries a title, task-done exits 3 on a hash that is not reachable from the task's branch, and lib/radin-execute-dirty.md is deleted -- it was one CLI call.
+* **tui:** enter no longer opens $EDITOR on a task row -- e does, and always did.
+* **tui:** the row is no longer coloured; the priority cell is.
+* **tui:** `n` no longer creates a task; `a` does. `/` no longer hides non-matching rows -- every row stays visible and a `*` in the left margin marks a match.
+
+### Features
+
+* **backlog:** group tasks under epic directories ([6daf023](https://github.com/shortcuts/radin/commit/6daf0238a0885125f3f2c396670db70b5bfa8c96))
+* **backlog:** own the execution order in the CLI ([8e78461](https://github.com/shortcuts/radin/commit/8e78461338d06597061d74b704aceaa71c132141))
+* **backlog:** parse an **Acceptance:** checklist out of a task body ([26c66a8](https://github.com/shortcuts/radin/commit/26c66a8e84b9ea0ffb18c3fc7abeb9e3034a4534))
+* **backlog:** restrict priority to a Fibonacci scale ([f99168b](https://github.com/shortcuts/radin/commit/f99168b09c4b20d238336400ae51d2085c740712))
+* **backlog:** store priority and depends_on on the index line ([0615572](https://github.com/shortcuts/radin/commit/0615572350bd557e0ad39f23f12df6f645ec50e9))
+* **cli:** open the TUI on bare radin, add radin help ([a6036ca](https://github.com/shortcuts/radin/commit/a6036cabbaed79a9a852f5c835956866c968aec9))
+* make record read from atlassian ([b89d8c2](https://github.com/shortcuts/radin/commit/b89d8c2a4d448dc7bb938e1579f32f02f8909fa3))
+* **prioritization:** obey human-set priority and depends_on ([bb20265](https://github.com/shortcuts/radin/commit/bb202652e1959946bb4f47324126ee195bb9b8ca))
+* **radin-execute:** plan every confirmed task in one wave ([67880fc](https://github.com/shortcuts/radin/commit/67880fcfe888ffc85f299204d57f36de3f44ae97))
+* **skills:** grill the user instead of assuming on a broad task ([76c8f5b](https://github.com/shortcuts/radin/commit/76c8f5b65461de640c8f6b401f330ed28d118066))
+* **state:** own radin-execute's loop in the CLI ([e8b65fa](https://github.com/shortcuts/radin/commit/e8b65fa9f7207dc334eb0f2798ecae6d3ce26e86))
+* **tui:** / is a search, n/N walk matches, a creates ([0bcb617](https://github.com/shortcuts/radin/commit/0bcb617f94fae38e9cf6c912f3634ccaf3b79d40))
+* **tui:** add `radin tui`, a human backlog browser ([2f8b51a](https://github.com/shortcuts/radin/commit/2f8b51a95f855b8a710e4c639e2da2a872bbe5c9))
+* **tui:** add epic tree, detail pane and Done view ([bfe772d](https://github.com/shortcuts/radin/commit/bfe772dc48a0489cad88302ec1b92c0d49f8a72a))
+* **tui:** add keys to set priority, deps and epic ([4960ab0](https://github.com/shortcuts/radin/commit/4960ab08855a94ee535f72892270c90628720d48))
+* **tui:** colour rows by relative priority band ([41a51c7](https://github.com/shortcuts/radin/commit/41a51c7e1e54b4412384ad1a4a499b790a520386))
+* **tui:** draw epic children as a tree with box-drawing connectors ([8ad0579](https://github.com/shortcuts/radin/commit/8ad057920ef392cad9af01463fccdd70c6920629))
+* **tui:** e edit epic DESCRIPTION.md on epic row ([1193e20](https://github.com/shortcuts/radin/commit/1193e201eeb16b84a348fc4586d4806e7e904f61))
+* **tui:** fence the panes, section the detail, widen colour ([c2db12c](https://github.com/shortcuts/radin/commit/c2db12c6f62128470a62ebb39df4a70013840a8b))
+* **tui:** list in creation order, Shift keys to sort ([7668e1e](https://github.com/shortcuts/radin/commit/7668e1e2fb5396d231f4d32d6cab6f1e6d50468f))
+* **tui:** o pages the execution order ([8a1f14d](https://github.com/shortcuts/radin/commit/8a1f14d8d4605225ea9199b2bc2ffe1ef3875342))
+* **tui:** poll index.jsonl every 5s ([c6a07f7](https://github.com/shortcuts/radin/commit/c6a07f793508ca8fe022776c4cc4933aefdedb76))
+* **tui:** priority is its own column, coloured absolutely ([9bd5304](https://github.com/shortcuts/radin/commit/9bd5304e6fb4d503d1f4ca9bde5d3db8911a2508))
+* **tui:** split the detail into a markdown right pane ([2c927ec](https://github.com/shortcuts/radin/commit/2c927ecbd69225a7e98ed124b23a29ebff6f6d88))
+
+
+### Bug Fixes
+
+* **backlog:** reject tab and newline in titles ([d11a7bc](https://github.com/shortcuts/radin/commit/d11a7bc25f98381cf9b4f5da28a6274c79b0f5f6))
+* **cbm-config:** rewrite cbm hook commands to the ~/ form ([f2a6b73](https://github.com/shortcuts/radin/commit/f2a6b73fbd9a3d951a075e96069c0798da978ec9))
+* drop intermediate reviews ([a057a68](https://github.com/shortcuts/radin/commit/a057a68c8dcf7849c9fda93cfab7c7920912592e))
+* install ([09ce73b](https://github.com/shortcuts/radin/commit/09ce73b0569e7ce747183464020c24535caba2d6))
+* install ([019e95f](https://github.com/shortcuts/radin/commit/019e95ff038ce7f6436aad0711169881b9bf2fea))
+* **install:** log the cbm-config trace instead of relaying it ([b4f7b44](https://github.com/shortcuts/radin/commit/b4f7b44362526e473cbf4376388467cff11db94b))
+* radin lib path ([17d51f8](https://github.com/shortcuts/radin/commit/17d51f823a272258f88d7584552624933ba7eb8a))
+* **radin-plan:** print the six fields find now returns ([980f57b](https://github.com/shortcuts/radin/commit/980f57bdf2a7b573206d45899b089500fdb4315d))
+* **radin-record:** set depends_on via set-deps ([e1407d5](https://github.com/shortcuts/radin/commit/e1407d50722bd94168dddeae1e334560eca05ba7))
+* tests slow ([7fbed1b](https://github.com/shortcuts/radin/commit/7fbed1bf4ccdb71b3d0ec52eaaf71a697210f798))
+* **tests:** run the dispatcher test outside the repo ([e9a3c6b](https://github.com/shortcuts/radin/commit/e9a3c6b1e5469424f81976f7d35467057b24c118))
+* tui in c ([de15702](https://github.com/shortcuts/radin/commit/de157020ad5090c38338ec930e4a9b96359750f0))
+* **tui:** pad and truncate rows by display column ([490e03a](https://github.com/shortcuts/radin/commit/490e03ad558eeec29717344fb761bf310c2a906d))
+
+
+### Performance Improvements
+
+* **backlog:** one awk pass per read verb instead of a fork per JSON field ([01c6758](https://github.com/shortcuts/radin/commit/01c67584a815087367a308af39918352606ebb8a))
+* **radin-execute:** drop ponytail ladder from Step 4a triage ([6a8939c](https://github.com/shortcuts/radin/commit/6a8939c43d4ee2d884aff0013336ea5bb6c0768a))
+* **radin-execute:** re-run backlog meta only after planner ran ([9f74c6d](https://github.com/shortcuts/radin/commit/9f74c6d6ed305b1aebc6d8b418c0024bec48023b))
+* **tui:** one frame per held-key burst instead of one per keypress ([f942acc](https://github.com/shortcuts/radin/commit/f942accbd13efa9f08cfc3fe8ddd04b58215e9d5))
+
 ## [1.0.1](https://github.com/shortcuts/radin/compare/v1.0.0...v1.0.1) (2026-09-14)
 
 ### Bug Fixes
