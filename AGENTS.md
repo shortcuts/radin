@@ -1,6 +1,6 @@
 # radin — Agent Reference
 
-Read before touch any file here. radin be Claude Code plugin: skills, CLI, install glue. Bash, plus two C file (TUI and JSON helper). macOS and Linux.
+radin be Claude Code plugin: skills, CLI, install glue. Bash, plus two C file (TUI and JSON helper). macOS and Linux.
 
 ## Hard rules
 
@@ -63,12 +63,9 @@ never wait on it.
 - **Positive over prohibition.** Ban drag banned behaviour into context and
   half-read as instruction to do it. State target behaviour. Keep prohibition
   only as hard guardrail with no positive phrasing, then pair it with target.
-- **Leading word.** One word model already hold, repeated as token, replace
-  restated triad or sentence that gesture at one idea.
-- **Completion criterion.** Step end on bound model can check and that demand
-  whole job ("every listed task", not "a report").
 
-Rest live elsewhere: `/mattpocock-skills:writing-for-agents` full rule set,
+Rest live elsewhere: `/mattpocock-skills:writing-for-agents` full rule set
+(leading word, completion criterion, progressive disclosure),
 `STE` output style sentence craft, `no-ai-slop` human-facing prose,
 [one rule, one file](docs/architecture.md#one-rule-one-file) where rule live.
 

@@ -173,6 +173,8 @@ Entries are compared deep-equal, so re-running restores nothing and reports `INT
 - the `codebase-memory-mcp` MCP-tools section in `~/.claude/CLAUDE.md`
 - `mcpServers.codebase-memory-mcp` in `<repo-root>/.mcp.json`, pointing at the resolved binary path — written by the same `radin-cbm-json` helper (`ensure-mcp`), so with no compiler only `claude-md` runs and `mcp` prints the entry to paste by hand
 
+A later companion tool that needs wiring extends this script and the `radin-setup-hooks` skill, rather than getting a script of its own.
+
 It writes no `settings.json` hook of radin's own: `auto_index` indexes a project on first connection and the background watcher keeps it current, so a `PostToolUse` reindex would pay for nothing. The graph itself lives in `~/.cache/codebase-memory-mcp/`, outside both `~/.claude` and the consumer's repo.
 
 An MCP tool name must exist in upstream's [MCP
