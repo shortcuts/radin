@@ -37,6 +37,11 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- What radin writes to disk is shorter. `radin-record`, `radin-review` and
+  `radin-plan` each state one rule above their template — write a section only
+  when it carries content a downstream agent acts on — so a label with nothing
+  under it is no longer written, and the prose that asked for length rather
+  than sufficiency is gone.
 - `radin-plan` and `radin-execute` now route a fact that lives outside the repo
   to `/mattpocock-skills:research` instead of stopping on it: the findings land
   in `state/facts/<task-id>.md` with a `**Facts:**` pointer on the task, so a

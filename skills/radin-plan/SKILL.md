@@ -155,6 +155,9 @@ line is the `**Fact:**`/`**Facts:**` pointer, when research ran.
 
 ### The plan template
 
+Write a section only when it carries content a downstream agent acts on; a
+label with nothing under it goes nowhere.
+
 <plan-template>
 
 ```markdown
@@ -170,8 +173,8 @@ every `**Decision:**` line; this plan holds the how and restates none of it.
 
 ## Decisions
 
-<A LONG, numbered list: every choice the executor would otherwise have to make,
-each one settled here. Each entry in the format:>
+<A numbered list: every choice the executor would otherwise have to make, each
+one settled here. Each entry in the format:>
 
 1. <The question> → <the settled answer>. Why: <one line>.
 
@@ -181,8 +184,7 @@ names the source that owns it — official docs, source code, a spec, or a
 first-party API. A claim with no such source is an open question, so it ends
 the run per Step 3's step 4 rather than entering a plan step.>
 
-<This list is exhaustive: a decision the executor has to invent is a defect in
-this plan, so keep going until nothing about the how is open.>
+<A decision the executor has to invent is a defect in this plan.>
 
 ## Changes
 

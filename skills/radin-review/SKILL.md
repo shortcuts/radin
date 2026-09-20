@@ -275,9 +275,13 @@ say so.
 
 ## Step 8: Log the agreed findings to backlog
 
-Four labels carry the body, and `**Acceptance:**` is an optional fifth. Make the
-body as exhaustive as the finding warrants, and carry Step 7's refinements into
-it. Append each via the CLI:
+The body carries what a sub-agent with no review context needs to act on the
+finding. Carry Step 7's refinements into it.
+
+Write a section only when it carries content a downstream agent acts on; a
+label with nothing under it goes nowhere.
+
+Append each via the CLI:
 
 ```bash
 RADIN_CLI backlog add <fix|refactor> "<short title>" <<'EOF'
@@ -289,9 +293,8 @@ opens with the spec line the brief quoted.>
 **Preferred remedy:**
 <the concrete restructuring suggested>
 **Acceptance:** <one flat `- ` bullet per criterion below this line, only when
-Step 7's refinement settled a checkable outcome. Omit the label otherwise, and
-always on the non-interactive path where Step 7 does not run — never synthesise
-one (`radin-record`'s Step 5 owns that rule).>
+Step 7's refinement settled a checkable outcome — never synthesise one
+(`radin-record`'s Step 5 owns that rule).>
 EOF
 ```
 

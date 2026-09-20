@@ -151,14 +151,18 @@ dependencies, where all three questions have no content: log it directly. A
 generic ask always quizzes, single entry included, because a session scan is a
 guess about what the user wants captured.
 
-A cold start reads the body, so don't compress the description to one line, and
-quote rather than paraphrase -- your paraphrase is the only version that survives.
+A cold start reads the body, so the description carries every fact a downstream
+agent needs to act and stops there. Quote rather than paraphrase -- your
+paraphrase is the only version that survives.
 Name the behavior, and each file by its role, rather than the paths and snippets
 you would write yourself, which go stale within a commit or two. One exception: a
 snippet that encodes a decision more precisely than prose can (state machine,
 reducer, schema, type shape), trimmed to the decision-rich part. The
 `**Raised as:**` quote is provenance and stays verbatim, paths and snippets the
 user pasted included.
+
+Write a section only when it carries content a downstream agent acts on; a
+label with nothing under it goes nowhere.
 
 For each approved item:
 
@@ -168,15 +172,14 @@ RADIN_CLI backlog add <category> "<short title>" [--skill <skill-name>] <<'EOF'
 stated it, why it matters>
 
 <**Raised as:** and the triggering text verbatim, the user's words plus any
-error string, path or snippet they pasted. Omit when the ask quoted nothing.>
+error string, path or snippet they pasted.>
 
 <one **Decision:** <question -- settled answer> line per Step 2 answer, then any
-open facts or deferred decisions in plain prose. Omit when Step 2 settled and
-deferred nothing.>
+open facts or deferred decisions in plain prose.>
 
 <**Acceptance:** and one `- [ ] <criterion>` bullet per criterion, each on a
 single unindented line, only when the session already stated a checkable
-outcome. Omit otherwise: never ask for criteria, never synthesise one.>
+outcome: never ask for criteria, never synthesise one.>
 EOF
 ```
 
