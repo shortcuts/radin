@@ -75,7 +75,7 @@ Earlier revisions described single monolithic `<repo-root>/.claude/.radin/BACKLO
 
 ## Plan-file format (`radin-plan` output)
 
-Free-form markdown at `<NAMESPACE_DIR>/plans/<task-id>.md`, or `<NAMESPACE_DIR>/plans/<task-id>-<sub-slug>.md` for one sub-task of a split, where `<sub-slug>` is the sub-task's short title in lowercase-hyphen form. `backlog plan-target` prints that path as its `plan_file` line and is the only place the convention lives; nothing composes it by hand. Contents: files to touch, change in each, order of operations, how to verify it. No fixed schema — sub-agents write it, `radin-execute` (or human) reads it.
+Free-form markdown at `<NAMESPACE_DIR>/plans/<task-id>.md`, or `<NAMESPACE_DIR>/plans/<task-id>-<sub-slug>.md` for one sub-task of a split, where `<sub-slug>` is the sub-task's short title in lowercase-hyphen form. `backlog plan-target` prints that path as its `plan_file` line and is the only place the convention lives; nothing composes it by hand. Fixed six-section shape: Outcome, Decisions, Changes, Order, Testing, Out of scope. Template with each section's authoring rule lives in `skills/radin-plan/SKILL.md`, only place shape defined; sub-agents write it, `radin-execute` (or human) reads it.
 
 ## Review-scope output (`radin scope`)
 

@@ -37,6 +37,13 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- `radin-plan` writes every plan to one fixed six-section shape — Outcome,
+  Decisions, Changes, Order, Testing, Out of scope — from a template in the
+  skill itself, so two runs no longer hand `radin-execute` plan files of
+  different shapes. It also sketches the testing seams before it writes (fewest
+  seams, highest seam, existing over new) and confirms them with the user first
+  where it can reach them.
+
 - `radin tui` wraps a task title that is too long for the left pane onto up to
   three indented lines instead of truncating it. Priority and category now lead
   the row so their columns line up under an epic too, an epic header shows its
