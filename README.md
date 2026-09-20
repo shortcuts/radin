@@ -54,7 +54,7 @@ answers come from `~/.claude/.radin/manifest.json`, so nothing is re-asked.
 | `/radin-record` | Turn a bug, idea, or aside raised mid-session into a backlog task |
 | `/radin-plan` | Write a step-by-step plan for one task, touching no code |
 | `/radin-execute` | Work the backlog: prioritize, implement, commit, one task per commit |
-| `/radin-review` | Strict quality pass over a scope; kept findings become tasks |
+| `/radin-review` | Two-axis pass over a scope — repo rubrics, plus the originating entry's spec; kept findings become tasks |
 | `/radin-show` | Print the backlog |
 | `/radin-stats` | Every companion tool's own savings report, side by side |
 | `/radin-doctor` | Verify the install, report unreachable companions |

@@ -37,6 +37,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- `radin-review` reviews on two axes that are never merged: Standards (the
+  rubrics this repo documents) and Spec (what the originating backlog entry or
+  its plan asked for, resolved through `radin backlog field` and
+  `completed.json`). It relays both reports verbatim under their own headings,
+  tags every triage line with its axis, and closes on per-axis totals. It also
+  fails fast on an empty scope before any fan-out, passes Step 1's diff command
+  and commit list down verbatim, and caps each axis brief at 400 words.
+
 - `radin-execute`'s router prose: names the claim, the frontier and the
   terminal status as vocabulary, states the router's context budget once as its
   own rule, gives Step 4b a recorded completion criterion, and states the
