@@ -7,12 +7,45 @@ A sub-agent's `STATUS: BLOCKED` always carries a `(FACT)` or `(DECISION)` tag
 (see `radin-execute-prompts.md`). Route on it:
 
 - **`BLOCKED (FACT)`**: checkable, and the sub-agent already failed to verify
-  it from the repo. Facts are never the user's job to hand over. Dispatch a
-  fresh sub-agent with the **Fact-finding prompt** from
-  `radin-execute-prompts.md`. It investigates read-only and reports in one
-  turn. Holding more than one at once — Phase 3.5's wave is where that
-  happens — every one of their Fact-finding prompts goes in the same message,
-  and each `STATUS: FOUND` is appended to its own task's file.
+  it from the repo. Facts are never the user's job to hand over. Where the
+  answer lives decides who goes after it.
+
+  **Inside the working directory** — the repo, its lockfiles, its vendored
+  dependencies, its config: dispatch a fresh sub-agent with the
+  **Fact-finding prompt** from `radin-execute-prompts.md`. It investigates
+  read-only and reports in one turn. Holding more than one at once — Phase
+  3.5's wave is where that happens — every one of their Fact-finding prompts
+  goes in the same message, and each `STATUS: FOUND` is appended to its own
+  task's file.
+
+  **Outside the working directory** — third-party API or library behavior, a
+  spec, a service's own reference: you invoke `/mattpocock-skills:research`
+  yourself, once per question, all the invocations in the same message. This
+  dispatch is yours rather than a sub-agent's: it needs no human and no
+  working tree, a sub-agent cannot rely on a spawned agent's result, and you
+  can — a backgrounded agent's result reaches you as a completion notification
+  (Core Constraints). Gate it first:
+
+  ```bash
+  command -v claude >/dev/null 2>&1 &&
+    claude plugin list 2>/dev/null |
+    grep -q mattpocock-skills@claude-plugins-official
+  ```
+
+  Non-zero exit, or the skill asks you anything: drop it, never wait on it,
+  and treat the question as `STATUS: NOT FOUND` below. Exit 0: give it the
+  question plus these two demands.
+
+  - Investigate the question against **primary sources** — official docs,
+    source code, specs, first-party APIs — not a secondary write-up of them.
+    Follow every claim back to the source that owns it.
+  - Write the findings to `$NAMESPACE_DIR/state/facts/<task id>.md`, citing
+    each claim's source.
+
+  Then route its report exactly like a fact-finder's: an answer whose claims
+  each name the source that owns them is `STATUS: FOUND`; one citing a
+  secondary write-up, or nothing, is `STATUS: NOT FOUND`.
+
   - `STATUS: FOUND`: append the finding to that task's file with
     `backlog append` (labels below; a reported `state/facts/<id>.md` path is
     the `**Facts:**` case), treat the entry as `pending`, retry from Step 4a.

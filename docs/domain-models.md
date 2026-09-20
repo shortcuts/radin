@@ -55,7 +55,7 @@ These labels are the shared vocabulary of a task file's annotations, and the tab
 | `**Decision:** <answer>` | user settled a `BLOCKED (DECISION)` | `radin-execute` |
 | `**Fact:** <answer>` | fact-finder returned `STATUS: FOUND` | `radin-execute` |
 | `**Root cause:** <cause + fix direction>` | debug sub-agent returned `STATUS: DIAGNOSED` | `radin state task-diagnosis` |
-| `**Facts:** <path>` | the long form went to `state/facts/<task-id>.md` | `radin-execute` |
+| `**Facts:** <path>` | the long form went to `state/facts/<task-id>.md` | `radin-execute`, `radin-plan` |
 | `**Acceptance:** <checklist>` | the session surfaced checkable criteria | radin-record, radin-review, or a human |
 | `**Raised as:** <verbatim ask>` | the triggering text, quoted | `radin-record` |
 | `**Scope:** <what was reviewed>` | the review surface | `radin-review` |
@@ -67,7 +67,7 @@ Every one of them is binding on the next sub-agent that reads the file, not comm
 
 ## Per-task facts file (`state/facts/<task-id>.md`)
 
-Free-form markdown, one file per task, written only when a fact-finding or debug sub-agent's evidence runs past ~15 lines. Holds command output, file excerpts, and the reasoning that establishes one `**Fact:**` or `**Root cause:**` line. The task file keeps the summary and a `**Facts:**` pointer. There is deliberately no shared, cross-task notes file: a sub-agent gets its own task's material and nothing more.
+Free-form markdown, one file per task, written when a fact-finding or debug sub-agent's evidence runs past ~15 lines, and by a `/mattpocock-skills:research` invocation, which always writes its findings there. Holds command output, file excerpts, and the reasoning that establishes one `**Fact:**` or `**Root cause:**` line. The task file keeps the summary and a `**Facts:**` pointer. There is deliberately no shared, cross-task notes file: a sub-agent gets its own task's material and nothing more.
 
 ## Migration note
 

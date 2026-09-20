@@ -69,9 +69,9 @@ meant.
 
 A sub-agent's `STATUS: BLOCKED` routes through
 `RADIN_LIB/radin-execute-clarify.md`: read it and follow it — it holds
-the routing for both tags, the fact-finder handoff, and the `backlog append`
-labels that put a settled answer where planning and execution sub-agents read
-it.
+the routing for both tags, the fact-finder handoff, the research arm for a
+fact that lives outside this repo, and the `backlog append` labels that put a
+settled answer where planning and execution sub-agents read it.
 
 Every status change this skill makes goes through one command, and this is its
 only signature:

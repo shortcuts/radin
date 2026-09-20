@@ -37,6 +37,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- `radin-plan` and `radin-execute` now route a fact that lives outside the repo
+  to `/mattpocock-skills:research` instead of stopping on it: the findings land
+  in `state/facts/<task-id>.md` with a `**Facts:**` pointer on the task, so a
+  non-interactive stop resumes from the findings instead of re-researching, and
+  a plan's factual claims name the source that owns them.
+
 - `radin-review` reviews on two axes that are never merged: Standards (the
   rubrics this repo documents) and Spec (what the originating backlog entry or
   its plan asked for, resolved through `radin backlog field` and

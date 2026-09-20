@@ -81,9 +81,38 @@ neither is re-resolved between sub-tasks. For each sub-task, in order:
      `headroom loc` for the shape of a repo you have not seen before, when
      `command -v headroom` succeeds.
    - A plan hinging on third-party API or library behavior that local code
-     cannot confirm goes to `/mattpocock-skills:research` against primary
-     sources first. Non-interactive: that skill spawns its own agent whose
-     result may not come back, so report the unconfirmed behavior and stop.
+     cannot confirm: read the entry's `**Fact:**` lines and its `**Facts:**`
+     file first, because an earlier invocation may already have answered it.
+     - **Running in the user's own thread**: hand the question to the research
+       companion, so its reading happens in the background while you plan the
+       parts that do not hinge on the answer. Gate it:
+
+       ```bash
+       source <(RADIN_CLI backlog env --export)
+       command -v claude >/dev/null 2>&1 &&
+         claude plugin list 2>/dev/null |
+         grep -q mattpocock-skills@claude-plugins-official
+       ```
+
+       Exit 0: invoke `/mattpocock-skills:research` with the question, naming
+       `$NAMESPACE_DIR/state/facts/<task-id>.md` as the file to write its
+       findings to. When it reports, record the answer so the next invocation
+       reads it instead of re-researching:
+
+       ```bash
+       RADIN_CLI backlog append "<id>" <<'EOF'
+       **Fact:** <the answer in one sentence, naming the source that owns it>
+       **Facts:** <the state/facts path above>
+       EOF
+       ```
+
+       Non-zero exit, or the skill asks you anything: drop it, never wait on
+       it, and treat the question as unsettled from here — name it in the
+       report and stop.
+     - **Non-interactive**: the answer lies outside this repo, so report the
+       question and stop. `radin-execute`'s router owns the research arm for it
+       (`radin-execute-clarify.md`) and appends the answer to this task's file,
+       so the next planning wave reads it and this stop is a pause, not a loss.
 3. Sketch the seams at which the change will be tested. Prefer an existing seam
    to a new one, and use the highest seam available. If new seams are needed,
    propose them at the highest point you can. The fewer seams across the
@@ -120,8 +149,9 @@ neither is re-resolved between sub-tasks. For each sub-task, in order:
 Planning and executing are separate tools, so this skill's whole output is the
 plan file(s) it writes plus the one `**Plan:**` line the CLI appends to the
 scoped task's file. Everything else in the tree stays exactly as you found it:
-no source file edited, no build or test run, no commit, nothing else in the
-scoped task's file, and no other task's file touched.
+no source file edited, no build or test run, no commit, and no other task's
+file touched. The one addition to the scoped task's file beyond that `**Plan:**`
+line is the `**Fact:**`/`**Facts:**` pointer, when research ran.
 
 ### The plan template
 
@@ -146,7 +176,10 @@ each one settled here. Each entry in the format:>
 1. <The question> → <the settled answer>. Why: <one line>.
 
 <Every claim about the current code carries its source inline — `path:line`, or
-the read-only command that produced it.>
+the read-only command that produced it. Every claim about third-party behavior
+names the source that owns it — official docs, source code, a spec, or a
+first-party API. A claim with no such source is an open question, so it ends
+the run per Step 3's step 4 rather than entering a plan step.>
 
 <This list is exhaustive: a decision the executor has to invent is a defect in
 this plan, so keep going until nothing about the how is open.>

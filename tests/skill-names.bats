@@ -68,7 +68,8 @@ skill_tokens() {
   [ "$status" -eq 0 ]
   for expected in radin-plan thermo-nuclear ponytail:ponytail \
     caveman:caveman-commit mattpocock-skills:grilling \
-    ponytail:ponytail-review ponytail:ponytail-audit ponytail:ponytail-debt; do
+    ponytail:ponytail-review ponytail:ponytail-audit ponytail:ponytail-debt \
+    mattpocock-skills:research; do
     [[ "$output" == *"$expected"* ]] || {
       echo "extractor missed $expected"
       false
