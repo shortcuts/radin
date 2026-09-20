@@ -136,7 +136,7 @@ Ground rules, applying to every step below:
   BLOCKED (FACT).
 - Never commit, revert, or otherwise touch anything under `.claude/.radin/` —
   it is the router's state, not task work.
-- When exploring the codebase: use `codebase-memory-mcp`'s MCP tools before Grep/Glob/Read — `search_graph` to find a symbol, `trace_path` for its callers and callees before you change it, `get_code_snippet` to read one function, `query_graph` for anything Cypher-shaped after `get_graph_schema`; a graph hit is a pointer: read the file before you cite or edit it, and never conclude something is absent from an empty result. When running commands: prefer `rtk`-wrapped commands if `command -v rtk` succeeds for token savings.
+- When exploring the codebase: use `codebase-memory-mcp`'s MCP tools before Grep/Glob/Read — `search_graph` to find a symbol, `trace_path` for its callers and callees before you change it, `get_code_snippet` to read one function, `query_graph` for anything Cypher-shaped after `get_graph_schema`; a graph hit is a pointer: read the file before you cite or edit it, and never conclude something is absent from an empty result. When running commands: use `rtk`-wrapped commands where installed (`command -v rtk`), for the token savings.
 
 1. Read TASK_FILE to understand the task. Anything the router appended to it
    is part of the task, not commentary: `**Decision:**`, `**Fact:**`,
@@ -147,14 +147,13 @@ Ground rules, applying to every step below:
 1a. Set up the tree you will work in. One command decides it, from the
    worktree/branch preference the user already recorded for this repo:
    `RADIN_CLI state prepare "NAMESPACE_DIR" "TASK_ID"`.
-   It prints one absolute path on stdout. `cd` there and do every step below
-   in it. Whatever it prints is right, whether that is the repo root or a
-   worktree, on a task branch or on the branch the user already had checked
-   out. You never decide
-   this: no `git worktree add`, no `git checkout -b`, no `git switch -c`, and
-   no switching onto a `radin/<task-id>` branch you happen to notice. The
-   user's answer may be "no" to either, and this command has already applied
-   it. Non-zero exit: stop and report `STATUS: FAILED` with its message.
+   It prints one absolute path on stdout, and that path is the tree — repo root
+   or worktree, task branch or the branch the user already had checked out:
+   `cd` there and do every step below in it. It has already
+   applied the user's recorded answer, so the tree is never yours to choose: no
+   `git worktree add`, no `git checkout -b`, no `git switch -c`, and no
+   switching onto a `radin/<task-id>` branch you happen to notice. Non-zero
+   exit: stop and report `STATUS: FAILED` with its message.
    Anything uncommitted in the tree it hands you is a dead attempt's
    leftovers. Commit it as part of this task if it belongs there, otherwise
    revert it before you start.
@@ -190,15 +189,16 @@ ACCEPTANCE
    `feat` -> `/caveman:lean-build` (reuse first, explicit stop condition),
    `chore` -> `/ponytail:ponytail` alone. Invoke `/ponytail:ponytail` in every
    case and apply its ladder: the minimum code that satisfies the task, reusing
-   what the repo already has. For a mechanical multi-file rename or signature
-   change, `headroom sg` (ast-grep) beats hand-editing each site when
-   `command -v headroom` succeeds.
+   what the repo already has. Use `headroom sg` (ast-grep) where installed
+   (`command -v headroom`), for mechanical multi-site renames and signature
+   changes; hand-edit each site otherwise.
 4. Where the task changes behavior (not a pure deletion/rename), add or update a unit
    test that pins the expected behavior, following existing test conventions in the repo
-5. Run any required checks (lint, tests, format) per project conventions
-6. Fix any issues before committing
-7. Invoke the `/caveman:caveman-commit` skill to draft the commit message, then commit. If `/caveman:caveman-commit` is unavailable, write a conventional-commit message yourself.
-8. Run `RADIN_CLI state dirty-check "$(pwd)"` from the tree
+5. Run the project's typecheck and the test file you touched as you go, and its
+   full check suite (lint, tests, format) once before committing; fix what they
+   surface before step 6.
+6. Invoke the `/caveman:caveman-commit` skill to draft the commit message, then commit. If `/caveman:caveman-commit` is unavailable, write a conventional-commit message yourself.
+7. Run `RADIN_CLI state dirty-check "$(pwd)"` from the tree
    step 1a handed you, so the check covers the files you actually touched.
    If anything is still uncommitted (including changes made incidentally while
    investigating, e.g. formatter/linter auto-fixes), either commit it as part of this

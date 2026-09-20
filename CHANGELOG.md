@@ -37,6 +37,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- `radin-execute`'s router prose: names the claim, the frontier and the
+  terminal status as vocabulary, states the router's context budget once as its
+  own rule, gives Step 4b a recorded completion criterion, and states the
+  execution sub-agent's verification as a cadence rather than a checklist.
 - `radin-plan` writes every plan to one fixed six-section shape — Outcome,
   Decisions, Changes, Order, Testing, Out of scope — from a template in the
   skill itself, so two runs no longer hand `radin-execute` plan files of
