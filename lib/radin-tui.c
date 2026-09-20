@@ -38,6 +38,7 @@
 #define SPLIT_MIN 100 /* below this many columns, no right pane */
 #define MAXDET 1024   /* detail lines kept; the rest is not scrollable */
 #define RULE '\001'   /* a detail line drawn as a full-width horizontal rule */
+#define ROW_MAX_LINES 3 /* wrapped lines one task row may take */
 #define LINEBUF 4096  /* one row's bytes: multi-byte content plus its padding */
 
 static const char *CATEGORIES[] = {"feat", "fix", "chore", "refactor"};
@@ -254,37 +255,81 @@ static int cp_width(unsigned long cp) {
 	return 1;
 }
 
-/* Copies at most `width` display columns of text into buf and pads the rest
- * with spaces, so a caller gets a buffer exactly `width` columns wide whatever
- * bytes went in -- which is what keeps an absolutely-positioned pane row from
- * wrapping onto the next line's column 1. A control byte (a tab in a task
- * body, most often) becomes one space, and a UTF-8 sequence is copied whole or
- * not at all: half a sequence prints as garbage or eats the byte after it.
- * Byte offsets inside the copied prefix are unchanged, so a caller's colour
+/* One codepoint off `p`: returns its byte length and writes the value a row is
+ * allowed to print. A truncated or invalid sequence, a tab, or a stray control
+ * byte all become one space -- half a sequence prints as garbage or eats the
+ * byte after it. Shared so the width count, the wrap point and the padding can
+ * never disagree about how many columns a byte run costs. */
+static int decode(const unsigned char *p, unsigned long *out) {
+	int nb = 1, k;
+	unsigned long cp = *p;
+	if (*p >= 0xf0) nb = 4;
+	else if (*p >= 0xe0) nb = 3;
+	else if (*p >= 0xc0) nb = 2;
+	if (nb > 1) {
+		cp = *p & (0xffu >> (nb + 1));
+		for (k = 1; k < nb; k++) {
+			if ((p[k] & 0xc0) != 0x80) break;
+			cp = (cp << 6) | (p[k] & 0x3f);
+		}
+		if (k < nb) {
+			nb = 1;
+			cp = ' ';
+		}
+	} else if (cp < 0x20 || cp >= 0x7f) {
+		cp = ' ';
+	}
+	*out = cp;
+	return nb;
+}
+
+/* Display columns a whole string costs, so a caller can size the column a
+ * wrapped continuation line indents to. */
+static int dwidth(const char *text) {
+	int col = 0;
+	const unsigned char *p = (const unsigned char *)text;
+	while (*p) {
+		unsigned long cp;
+		int nb = decode(p, &cp);
+		col += cp_width(cp);
+		p += nb;
+	}
+	return col;
+}
+
+/* Byte offset where a line of at most `width` columns ends. The break is the
+ * last space before the cut, so a word survives whole; a single word longer
+ * than the pane is cut mid-word instead, because the alternative is a blank
+ * line and the word never fitting. */
+static int wrap_at(const char *text, int width) {
+	int col = 0, off = 0, last_sp = -1;
+	const unsigned char *p = (const unsigned char *)text;
+	while (p[off]) {
+		unsigned long cp;
+		int nb = decode(p + off, &cp);
+		int cw = cp_width(cp);
+		if (col + cw > width) {
+			if (last_sp > 0) return last_sp;
+			return off ? off : nb;
+		}
+		if (p[off] == ' ') last_sp = off;
+		col += cw;
+		off += nb;
+	}
+	return off;
+}
+
+/* Pads and truncates to exactly `width` display columns, which is what keeps
+ * an absolutely-positioned pane row from wrapping onto the next line's column
+ * 1. Byte offsets inside the copied prefix are unchanged, so a caller's colour
  * span still points where it did. */
 static void fit(const char *text, int width, char *buf, size_t cap) {
 	size_t o = 0;
 	int col = 0;
 	const unsigned char *p = (const unsigned char *)text;
 	while (*p && col < width) {
-		int nb = 1, k = 1;
-		unsigned long cp = *p;
-		if (*p >= 0xf0) nb = 4;
-		else if (*p >= 0xe0) nb = 3;
-		else if (*p >= 0xc0) nb = 2;
-		if (nb > 1) {
-			cp = *p & (0xffu >> (nb + 1));
-			for (k = 1; k < nb; k++) {
-				if ((p[k] & 0xc0) != 0x80) break;
-				cp = (cp << 6) | (p[k] & 0x3f);
-			}
-			if (k < nb) { /* truncated or invalid sequence */
-				nb = 1;
-				cp = ' ';
-			}
-		} else if (cp < 0x20 || cp >= 0x7f) {
-			cp = ' '; /* tab, stray control, or a lone continuation byte */
-		}
+		unsigned long cp;
+		int k, nb = decode(p, &cp);
 		int cw = cp_width(cp);
 		if (col + cw > width) break;
 		if (o + (size_t)nb + 1 > cap) break;
@@ -588,6 +633,62 @@ static int clamp_top(int sel, int top, int h) {
 	return top < 0 ? 0 : top;
 }
 
+/* The task row's fixed-width left part: tree connector, search mark, priority
+ * and category cells. Written in one place because the height count, the wrap
+ * indent and the colour span all have to agree on where the title starts.
+ * Returns the byte offset of the priority cell, which is always two bytes
+ * wide, so the colour span never has to measure it. */
+static int row_prefix(int i, char *buf, size_t cap) {
+	int ti = row_task[i];
+	/* Children of one epic are contiguous and ungrouped tasks all precede
+	 * them, so the next row being an epic header (or none) is what makes this
+	 * the last child -- the shape is read off the rows here, never from the
+	 * collapse set in a key handler. */
+	const char *conn = "";
+	if (*T[ti].epic)
+		conn = (i + 1 >= N || row_task[i + 1] < 0) ? "└── " : "├── ";
+	/* The cells lead and the tree connector follows them, so the priority and
+	 * category columns line up whether or not the task sits under an epic --
+	 * the connector then only indents the title, which is what it marks. */
+	int at = snprintf(buf, cap, " %s", search_hit(ti) ? "* " : "  ");
+	snprintf(buf + at, cap - at, "%-2.2s %-9.9s %s", T[ti].prio, T[ti].cat, conn);
+	return at;
+}
+
+/* Screen lines the row needs: an epic header never wraps, and a task title
+ * wraps into the columns left of the prefix. Capped, because a pathological
+ * title must not push every other task off the pane. */
+static int row_lines(int i, int lw) {
+	if (row_task[i] < 0) return 1;
+	char prefix[128];
+	row_prefix(i, prefix, sizeof prefix);
+	int avail = lw - dwidth(prefix);
+	if (avail < 8) avail = 8;
+	const char *t = T[row_task[i]].title;
+	int n = 0;
+	while (*t && n < ROW_MAX_LINES) {
+		t += wrap_at(t, avail);
+		while (*t == ' ') t++;
+		n++;
+	}
+	return n ? n : 1;
+}
+
+/* Scrolls the pane so the selected row's every wrapped line is on screen.
+ * ponytail: re-sums the heights each step. N is a human-sized backlog and this
+ * runs once a frame; a running total is the upgrade if a frame ever drags. */
+static int clamp_top_wrapped(int sel, int top, int h, int lw) {
+	if (sel < top) top = sel;
+	if (top < 0) top = 0;
+	while (top < sel) {
+		int used = 0;
+		for (int i = top; i <= sel; i++) used += row_lines(i, lw);
+		if (used <= h) break;
+		top++;
+	}
+	return top;
+}
+
 /* Renders one markdown source line for a pane: strips the markers into `out`
  * and returns the ANSI prefix the whole line is painted with ("" for none).
  * A hand-rolled subset, and deliberately stateless: no fenced-code tracking, so
@@ -659,9 +760,16 @@ static void build_detail(void) {
 	int ti = cur_task();
 	if (ti >= 0) {
 		det_push("# %s", T[ti].title);
-		det_push("");
-		det_push("%s \302\267 %s \302\267 priority %s", T[ti].cat, T[ti].id,
-			*T[ti].prio ? T[ti].prio : "unset");
+		det_push("%c", RULE);
+		/* The per-task facts a list row has no column for: the row carries
+		 * priority and category because they sort it, everything else reads
+		 * here instead of shrinking the title. */
+		det_push("%-10s %s", "category", T[ti].cat);
+		det_push("%-10s %s", "id", T[ti].id);
+		det_push("%-10s %s", "priority", *T[ti].prio ? T[ti].prio : "unset");
+		det_push("%-10s %s", "planned", T[ti].flag[0] == 'P' ? "yes" : "no");
+		if (*T[ti].epic) det_push("%-10s %s", "epic", T[ti].epic);
+		if (*T[ti].deps) det_push("%-10s %s", "depends", T[ti].deps);
 		det_push("%c", RULE);
 		det_push("");
 		char path[PATH_MAX];
@@ -716,7 +824,7 @@ static void draw(void) {
 	if (list_h < 1) list_h = 1;
 	int lw = split_on() ? COLS * 2 / 5 : COLS; /* 40% */
 	int rw = split_on() ? COLS - lw - 1 : 0;   /* one blank gutter column */
-	TOP = clamp_top(SEL, TOP, list_h);
+	TOP = clamp_top_wrapped(SEL, TOP, list_h, lw);
 
 	char header[1200], text[1200];
 	snprintf(header, sizeof header, "radin backlog  %d task(s)  sort:%s", TASK_N,
@@ -730,51 +838,52 @@ static void draw(void) {
 
 	printf("\033[H\033[2J");
 	bar(header, 0);
-	int end = TOP + list_h;
-	if (end > N) end = N;
-	int i;
+	int used = 0;
 	if (N == 0) {
 		span_at("  (no tasks) press a to create one", 0, "", 0, 0, lw, 1);
-		i = 1;
-	} else {
-		for (i = TOP; i < end; i++) {
-			const char *colour = "";
-			int at = 0, len = 0;
-			int ti = row_task[i];
-			if (ti < 0) {
-				snprintf(text, sizeof text, " %s epic: %s",
-					in_set(COLLAPSED, row_epic[i]) ? "+" : "-", row_epic[i]);
-				/* Cyan for structure, never for a value: the priority map owns
-				 * red/yellow/green, so an epic header cannot be misread as one. */
-				colour = COLOR ? "\033[36m" : "";
-				len = (int)strlen(text);
-			} else {
-				/* The margin is the tree connector, then the search mark, then
-				 * the flag, so a marked row never shifts the ones around it.
-				 * Children of one epic are contiguous and ungrouped tasks all
-				 * precede them, so the next row being an epic header (or none)
-				 * is what makes this the last child -- the shape is read off
-				 * the rows here, never from the collapse set in a key handler. */
-				const char *conn = "";
-				if (*T[ti].epic)
-					conn = (i + 1 >= N || row_task[i + 1] < 0) ? "└── " : "├── ";
-				char margin[64];
-				snprintf(margin, sizeof margin, "%s%s%s ", conn,
-					search_hit(ti) ? "*" : " ", T[ti].flag);
-				snprintf(text, sizeof text, "%s%-2s %-9s %s", margin, T[ti].prio,
-					T[ti].cat, T[ti].title);
-				/* Only the priority cell is coloured, so the span starts where
-				 * the margin ends and is as wide as the cell actually printed. */
-				colour = prio_colour(T[ti].prio);
-				at = (int)strlen(margin);
-				len = (int)strlen(T[ti].prio);
-				if (len < 2) len = 2;
-			}
-			span_at(text, i == SEL, colour, at, len, lw, 1);
-		}
-		i = end - TOP;
+		used = 1;
 	}
-	for (; i < list_h; i++) span_at("", 0, "", 0, 0, lw, 1);
+	for (int i = TOP; i < N && used < list_h; i++) {
+		int ti = row_task[i];
+		if (ti < 0) {
+			int kids = 0;
+			for (int k = 0; k < TASK_N; k++)
+				if (!strcmp(T[k].epic, row_epic[i])) kids++;
+			snprintf(text, sizeof text, " %s epic: %s  (%d)",
+				in_set(COLLAPSED, row_epic[i]) ? "+" : "-", row_epic[i], kids);
+			/* Cyan for structure, never for a value: the priority map owns
+			 * red/yellow/green, so an epic header cannot be misread as one. */
+			span_at(text, i == SEL, COLOR ? "\033[36m" : "", 0, (int)strlen(text), lw,
+				1);
+			used++;
+			continue;
+		}
+		/* A title too long for the pane wraps instead of truncating, and every
+		 * continuation line indents to the title column, so the priority and
+		 * category cells stay readable columns down the pane. */
+		char prefix[128];
+		int at = row_prefix(i, prefix, sizeof prefix);
+		int ind = dwidth(prefix);
+		int avail = lw - ind;
+		if (avail < 8) avail = 8;
+		const char *t = T[ti].title;
+		int lines = row_lines(i, lw);
+		for (int ln = 0; ln < lines && used < list_h; ln++) {
+			int cut = wrap_at(t, avail);
+			if (ln == 0)
+				snprintf(text, sizeof text, "%s%.*s", prefix, cut, t);
+			else
+				snprintf(text, sizeof text, "%*s%.*s", ind, "", cut, t);
+			/* Only the priority cell is coloured, and only on the first line:
+			 * a continuation line carries no cell to colour. */
+			span_at(text, i == SEL, ln == 0 ? prio_colour(T[ti].prio) : "", at, 2, lw,
+				1);
+			t += cut;
+			while (*t == ' ') t++;
+			used++;
+		}
+	}
+	for (; used < list_h; used++) span_at("", 0, "", 0, 0, lw, 1);
 
 	if (N > 0 && split_on()) {
 		/* Scroll bookkeeping lives here and in the overlay loop, nowhere else,
@@ -787,7 +896,9 @@ static void draw(void) {
 		DET_H = list_h;
 		if (DET_TOP > DET_N - list_h) DET_TOP = DET_N - list_h;
 		if (DET_TOP < 0) DET_TOP = 0;
-		draw_detail(2, lw + 2, rw, list_h);
+		/* One blank column past the divider before the text: a pane whose
+		 * content touches the border reads as one column of the tree. */
+		draw_detail(2, lw + 3, rw - 1, list_h);
 		/* The gutter column, drawn last so neither pane's padding overwrites
 		 * it: the panes need a border, not just whitespace, to read as two. */
 		for (int r = 2; r < ROWS; r++) {
@@ -1535,7 +1646,9 @@ static void help_screen(void) {
 		"structural, never a value: an epic header row is cyan, the pane divider\n"
 		"and the detail's rule are dim.\n"
 		"Set NO_COLOR to a non-empty value to turn it off.\n"
-		"A P in the first column marks a task radin-plan has already planned.\n"
+		"A title too long for the pane wraps onto up to three lines; whether\n"
+		"radin-plan has planned the task, its dependencies and its epic read in\n"
+		"the detail pane.\n"
 		"A * in the left margin marks a row matching the active / search.\n"
 		"Epic rows are headers; collapse is per-session.\n"
 		"At 100 columns or more the detail is the right-hand 60%% of the screen;\n"

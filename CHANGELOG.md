@@ -37,6 +37,13 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- `radin tui` wraps a task title that is too long for the left pane onto up to
+  three indented lines instead of truncating it. Priority and category now lead
+  the row so their columns line up under an epic too, an epic header shows its
+  child count, and the detail pane gained a `category` / `id` / `priority` /
+  `planned` / `epic` / `depends` block — which is where the `P` planned flag
+  moved from the row.
+
 - `radin-record` reads an Atlassian ticket named in the ask, when an Atlassian
   MCP is configured, and enriches the prompt with it. The ticket is
   informative only: it settles no decision and skips no step.

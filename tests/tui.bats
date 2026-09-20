@@ -229,13 +229,27 @@ tui() {
   [ -f "$TASKS/broken-auth.md" ]
 }
 
-@test "marks a planned task with P" {
+@test "the detail pane reports whether radin-plan has planned the task" {
   seed
   (cd "$WORK/proj" && bash "$BACKLOG" add-plan dark-mode "plans/dark-mode.md" >/dev/null)
-  run tui "q"
+  run wide "q"
   [ "$status" -eq 0 ]
-  run cat "$SCREEN"
-  [[ "$output" =~ P[[:space:]]+feat ]]
+  run last_frame
+  [[ "$output" =~ planned[[:space:]]+yes ]]
+  # And the list row carries no planned marker of its own.
+  run bash -c "grep 'dark mode' '$SCREEN' | head -1"
+  [[ "$output" != *"P"* ]]
+}
+
+@test "a title too long for the list pane wraps instead of truncating" {
+  seed
+  bl retitle dark-mode "wrapping proves the list pane keeps every word of a very long title"
+  run wide "q"
+  [ "$status" -eq 0 ]
+  run last_frame
+  # 120 columns: the list pane is 48 wide, so this title cannot fit one line.
+  [[ "$output" == *"wrapping proves"* ]]
+  [[ "$output" == *"title"* ]]
 }
 
 @test "epic children render under their epic header" {
@@ -639,7 +653,9 @@ long_body() {
   run wide "q"
   [ "$status" -eq 0 ]
   run last_frame
-  [[ "$output" == *"feat · dark-mode · priority unset"* ]]
+  [[ "$output" =~ category[[:space:]]+feat ]]
+  [[ "$output" =~ id[[:space:]]+dark-mode ]]
+  [[ "$output" =~ priority[[:space:]]+unset ]]
   [[ "$output" == *"│"* ]]
   [[ "$output" == *"───"* ]]
 }
@@ -671,9 +687,10 @@ long_body() {
   run wide "q"
   [ "$status" -eq 0 ]
   run last_frame
-  # 120 columns: the list takes 48, the gutter 1, so the pane is 71 wide.
-  [[ "$output" == *"$(printf 'A%.0s' $(seq 71))"* ]]
-  [[ "$output" != *"$(printf 'A%.0s' $(seq 72))"* ]]
+  # 120 columns: the list takes 48, the divider and its padding 2, so the
+  # pane is 70 wide.
+  [[ "$output" == *"$(printf 'A%.0s' $(seq 70))"* ]]
+  [[ "$output" != *"$(printf 'A%.0s' $(seq 71))"* ]]
 }
 
 @test "a wide glyph in the detail costs two columns, not one" {
@@ -682,7 +699,7 @@ long_body() {
   run wide "q"
   [ "$status" -eq 0 ]
   run last_frame
-  # 71 columns hold 35 two-column glyphs and one pad space.
+  # 70 columns hold 35 two-column glyphs exactly.
   [[ "$output" == *"$(printf '\343\201\202%.0s' $(seq 35))"* ]]
   [[ "$output" != *"$(printf '\343\201\202%.0s' $(seq 36))"* ]]
 }

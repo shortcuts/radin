@@ -268,14 +268,19 @@ steps-init`'s stdin format, `field` renders one Execution-prompt placeholder
 from values the row and the detail pane already carry, and `duplicates`
 diagnoses a hand edit to `index.jsonl` the TUI cannot make.
 
-The detail pane renders the task body through a hand-rolled markdown subset:
+The detail pane is where every per-task fact that is not a sort key lives: a
+`category` / `id` / `priority` / `planned` block, plus `epic` and `depends`
+when the task has them. The list row carries only priority and category,
+because those two order it — a `P` flag column spent a whole column of a 40%
+pane on a fact nobody sorts by. The pane renders the task body through a
+hand-rolled markdown subset:
 an ATX heading goes bold with its `#` gone, a `>` quote goes dim and indented,
 a bullet is re-marked `•`, and `**` is stripped rather than rendered.
 `ctrl-d`/`ctrl-u` scroll that pane half a pane at a time and never move the
 tree selection, exactly as `j`/`k` move the selection and never scroll the
 pane — there is no focus concept and no `Tab`-to-switch. Its limits are
 deliberate: no fenced-code state, so a `#` inside a fence still renders bold,
-and no line wrapping — a long rendered line truncates like every other row.
+and no line wrapping — a long rendered line truncates, unlike a tree row.
 That truncation is by display column, not by byte: a wide CJK or emoji glyph
 counts as two and a tab flattens to one space, so a pane row cannot grow past
 its pane and wrap into its neighbour's columns.
@@ -297,10 +302,17 @@ creation order, priority, category or title (k9s's `Shift-<column initial>`
 convention, since k9s is the reference for any later keybinding question), the
 active one shows in the header as `sort:created`, and it is session-only -- a
 restart is back to `sort:created`, with no state file to hold otherwise.
-A `P` in the first column marks a task `radin-plan` already planned. A `*`
+A `*` in the left margin
 marks a row matching the active `/` search, and `n`/`N` walk those matches.
-Priority is its own column left of the category, and the only coloured cell of
-a task row: `21`/`13` red, `8`/`5` yellow, `3`/`2`/`1` green. The map is absolute
+Priority is the leftmost column, then the category, then the tree connector and
+the title: the cells lead so their columns line up whether or not the task sits
+under an epic, and the connector then indents only the title it marks. A title
+too long for the pane wraps onto up to `ROW_MAX_LINES` lines, each indented to
+the title column, rather than truncating. Wrapping is a drawing concern only:
+`SEL` and `TOP` still index rows, and `row_lines()` plus `clamp_top_wrapped()`
+are the only two functions that turn a row count into a screen-line count, so
+no key handler learns that a row can be taller than one line. Priority is the
+only coloured cell of a task row: `21`/`13` red, `8`/`5` yellow, `3`/`2`/`1` green. The map is absolute
 because the scale is bounded, so no unrelated task's number can move this row's
 colour; anything off the scale -- unset, or a legacy value stored before the
 scale was bounded -- renders plain, and `NO_COLOR` drops the escapes entirely.
@@ -336,7 +348,8 @@ Epic children are drawn as a `tree`-style one-level hierarchy: `├──` on ev
 child but the last, `└──` on the last, and no connector on an ungrouped task.
 The shape is read off the row arrays at draw time -- the row after the last
 child is always an epic header or nothing -- so it stays a drawing concern and
-no key handler learns about tree shape or the collapse set. `span_at()` pads
+no key handler learns about tree shape or the collapse set. An epic header also carries its child count, read
+off the task array at draw time like the connectors. `span_at()` pads
 and truncates by bytes against an explicit width — explicit because a split
 pane works per column rather than against `COLS` — and grows that width by the
 text's UTF-8 continuation bytes; a three-byte connector character otherwise
