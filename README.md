@@ -41,7 +41,8 @@ Homebrew (`rtk`), `python3` (headroom) are
 optional but recommended.
 
 Install asks two questions, both about `radin-execute`: concurrency and
-sub-agent models. Add `-s -- --yes` to take the defaults.
+sub-agent models. Add `-s -- --yes` to take the defaults. Add `-s -- --verbose` to
+trace every command, for an install that hangs or fails.
 
 Update the whole stack — radin plus every companion — with `radin update`. The
 answers come from `~/.claude/.radin/manifest.json`, so nothing is re-asked.

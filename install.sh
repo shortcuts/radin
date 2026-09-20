@@ -25,9 +25,11 @@ fi
 FORCE=""
 YES=""
 UPDATE=""
+VERBOSE=""
 for arg in "$@"; do
 	[ "$arg" = "--force" ] && FORCE="1"
 	[ "$arg" = "--yes" ] && YES="1"
+	[ "$arg" = "--verbose" ] && VERBOSE="1"
 	# --update is what `radin update` runs: every companion tool updates, and
 	# no behaviour question is asked again -- the answers come from the
 	# manifest the last install wrote.
@@ -45,6 +47,14 @@ manifest_value() {
 	[ -f "$MANIFEST_FILE" ] || return 0
 	sed -n 's/.*"'"$1"'": *"\{0,1\}\([^",]*\)"\{0,1\}.*/\1/p' "$MANIFEST_FILE" | head -1
 }
+
+# --verbose traces every command and lets companion installs write straight to
+# the terminal. A hang shows the command it is stuck in, which a captured log
+# cannot: the log is only read after the command returns.
+if [ -n "$VERBOSE" ]; then
+	PS4='+ install.sh:${LINENO}: '
+	set -x
+fi
 
 RAT='🐀'
 info() { printf "%b\n" "${CYAN}${RAT}${RESET} $*"; }
@@ -376,6 +386,14 @@ install_tool() {
 	# own install (set -e would otherwise kill the script here). Their output
 	# is noise on success (pip dependency walls, brew hints) -- log it, show
 	# the tail only when the install fails.
+	if [ -n "$VERBOSE" ]; then
+		if eval "$install_cmd" </dev/null; then
+			ok "$name installed."
+		else
+			warn "$name install failed -- radin itself is unaffected."
+		fi
+		return
+	fi
 	local log
 	log="$(mktemp)"
 	if eval "$install_cmd" >"$log" 2>&1 </dev/null; then
@@ -400,6 +418,17 @@ install_plugin() {
 			ok "$name already installed, skipping (--force to update)."
 			return
 		fi
+		if [ -n "$VERBOSE" ]; then
+			if {
+				claude plugin marketplace update
+				claude plugin update "$plugin_id"
+			} </dev/null; then
+				ok "$name updated."
+			else
+				warn "$name update failed -- radin itself is unaffected."
+			fi
+			return
+		fi
 		local log
 		log="$(mktemp)"
 		if {
@@ -412,6 +441,17 @@ install_plugin() {
 			warn "$name update failed -- radin itself is unaffected."
 		fi
 		rm -f "$log"
+		return
+	fi
+	if [ -n "$VERBOSE" ]; then
+		if {
+			claude plugin marketplace add "$marketplace_source"
+			claude plugin install "$plugin_id"
+		} </dev/null; then
+			ok "$name installed."
+		else
+			warn "$name install failed -- radin itself is unaffected."
+		fi
 		return
 	fi
 	local log
@@ -682,7 +722,14 @@ if CBM_BIN="$(cbm_bin)"; then
 		# only says whether the graph came out wired: a PARTIAL run exits 0,
 		# so read that back out of the log rather than claiming success.
 		CBM_LOG="$HOME/.claude/.radin/cbm-config.log"
-		if bash "$HOME/.claude/.radin/lib/radin-cbm-config.sh" install >"$CBM_LOG" 2>&1 </dev/null; then
+		if [ -n "$VERBOSE" ]; then
+			bash "$HOME/.claude/.radin/lib/radin-cbm-config.sh" install </dev/null 2>&1 | tee "$CBM_LOG"
+			CBM_STATUS="${PIPESTATUS[0]}"
+		else
+			bash "$HOME/.claude/.radin/lib/radin-cbm-config.sh" install >"$CBM_LOG" 2>&1 </dev/null
+			CBM_STATUS="$?"
+		fi
+		if [ "$CBM_STATUS" = 0 ]; then
 			CBM_AGENT_CONFIG="true"
 			if grep -q '^PARTIAL ' "$CBM_LOG"; then
 				warn "codebase-memory-mcp reported a failure while configuring Claude Code,"

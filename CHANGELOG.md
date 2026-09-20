@@ -6,6 +6,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- `install.sh --verbose` — traces every command it runs (`+ install.sh:<line>:`)
+  and lets companion installs write straight to the terminal instead of a
+  captured log, so an install that hangs names the command it hangs in.
 - `radin state plan-wave <namespace-dir>` — every `pending` task that still
   needs a `**Plan:**` pointer, lowest order first, as `plan<TAB><id>`, so the
   router dispatches the whole planning wave from one call and joins nothing
