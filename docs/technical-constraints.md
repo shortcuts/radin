@@ -31,18 +31,24 @@ constructs before committing script change.
 
 Installing radin installs every companion tool. There is no per-tool
 question: a half-installed stack is the case radin's skills cannot rely on,
-and every skill below delegates to tools it assumes are there. Only
-execution behaviour is asked about (concurrency, sub-agent
-models), because those change what a run does rather than what exists.
+and every skill below delegates to tools it assumes are there. Three
+questions are asked: execution behaviour (concurrency, sub-agent models),
+because it changes what a run does rather than what exists, and which
+package manager installs `rtk` and `headroom` (`brew`, `mise`, or each
+tool's own `curl`/`pipx` installer), because installing through a manager
+the user does not run adds one they never chose. `radin update` reuses the
+recorded answer.
 
-`install.sh` reaches each tool through its own existing install path
-(brew/npm/pipx, a plugin marketplace, or the tool's own `curl` installer).
+`install.sh` reaches each tool through an existing install path
+(brew/mise/npm/pipx, a plugin marketplace, or the tool's own `curl`
+installer). `codebase-memory-mcp` always uses its own installer: it resolves
+OS/arch and verifies checksums.
 It:
 
 - Never vendors or forks their source.
 - Never guarantees a companion tool's own install command succeeds. A failure
   warns and the install continues; radin itself is unaffected.
-- Asks the three behaviour questions with an arrow-key picker on an
+- Asks those questions with an arrow-key picker on an
   interactive terminal, a numbered prompt otherwise. An unreadable answer
   takes the documented default. `--yes` skips them entirely, for a
   non-interactive machine.

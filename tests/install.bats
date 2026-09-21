@@ -81,11 +81,12 @@ real_install() {
   cd "$REPO_ROOT" && printf '2\n2\n' | bash ./install.sh
 }
 
-# Only execution behaviour is asked about, in this order: 1 concurrency,
-# 2 sub-agent models. Each is a numbered picker where 1 is the first option
-# (parallel / yes) and 2 the second (sequential / no), so two 2s takes every
-# documented default. Every companion tool installs with no prompt at all --
-# the stubs on MOCK_BIN absorb those calls.
+# Three questions, in this order: 1 concurrency, 2 sub-agent models,
+# 3 package manager. Each is a numbered picker where 1 is the first option
+# (parallel / yes / first detected manager) and 2 the second, so two 2s takes
+# every documented execution default and leaves the manager pick at its own.
+# No companion tool is asked about beyond that one manager -- the stubs on
+# MOCK_BIN absorb those calls.
 run_install_defaults() {
   replay_install
 }
@@ -385,6 +386,19 @@ pick_with_keys() {
   grep -q '<!-- radin:begin -->' "$TEST_HOME/.claude/CLAUDE.md"
 }
 
+
+# The package-manager pick is what keeps radin off a manager the user doesn't
+# use: picking mise must install rtk and headroom through mise, never brew, and
+# the answer must survive into the manifest so `radin update` reuses it.
+@test "picking mise installs rtk and headroom through mise, not brew" {
+  ln "$MOCK_BIN/mock" "$MOCK_BIN/mise" 2>/dev/null || ln -s "$MOCK_BIN/mock" "$MOCK_BIN/mise"
+  cd "$REPO_ROOT" && run bash -c "printf '2\n2\n2\n' | bash ./install.sh"
+  [ "$status" -eq 0 ]
+  [[ "$(cat "$TEST_HOME/mise.log")" == *"aqua:rtk-ai/rtk"* ]]
+  [[ "$(cat "$TEST_HOME/mise.log")" == *"pipx:headroom-ai"* ]]
+  [ ! -s "$TEST_HOME/brew.log" ] || [[ "$(cat "$TEST_HOME/brew.log")" != *"install rtk"* ]]
+  grep -q '"package_manager": "mise"' "$TEST_HOME/.claude/.radin/manifest.json"
+}
 
 # A companion tool that fails must not abort radin's own install -- set -e used
 # to kill the script the moment a pip/pipx preflight failed. Plugins install

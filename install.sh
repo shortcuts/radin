@@ -71,12 +71,13 @@ trap 'st=$?; [ -n "$INSTALL_DONE" ] || [ "$st" = 130 ] || printf "%b\n" "${RED}$
 printf "%b\n" "${BOLD}${MAGENTA}"
 printf "%s\n" "  🐀 radin — stingy on tokens, generous on backlog throughput"
 printf "%b\n" "${RESET}${DIM}  Installs backlog-workflow skills into ~/.claude, plus the whole curated"
-printf "%b\n\n" "  token-saving stack. Only execution behaviour is asked about.${RESET}"
+printf "%b\n\n" "  token-saving stack. Only execution behaviour and your package manager are asked about.${RESET}"
 
 # No `brew shellenv` eval: it prepends brew's bin to PATH and would shadow a
 # version-manager python3 (mise/pyenv) with brew's -- probing the wrong
 # interpreter in the pyexpat preflight below. brew itself is called via $BREW.
 BREW="$(command -v brew || true)"
+MISE="$(command -v mise || true)"
 
 GITHUB_REPO="shortcuts/radin"
 API_LATEST_RELEASE="https://api.github.com/repos/$GITHUB_REPO/releases/latest"
@@ -647,14 +648,32 @@ python_ok() {
 }
 
 step "Companion tools"
-# Prefer brew when present (macOS, Linuxbrew). Otherwise delegate to rtk's own
-# installer -- it handles Linux OS/arch detection and checksum verification
-# itself, so radin doesn't reimplement that here.
-if [ -n "$BREW" ]; then
-	RTK_INSTALL_CMD="HOMEBREW_NO_AUTO_UPDATE=1 $BREW install rtk || HOMEBREW_NO_AUTO_UPDATE=1 $BREW upgrade rtk"
+# rtk and headroom ship in more than one package manager. Installing them with
+# brew on a mise-managed machine leaves behind a manager the user never chose,
+# so the one question here is which manager to install through. `curl` keeps
+# each tool's own installer (upstream script for rtk, pipx for headroom).
+PKG_CHOICES=""
+[ -n "$BREW" ] && PKG_CHOICES="$PKG_CHOICES brew"
+[ -n "$MISE" ] && PKG_CHOICES="$PKG_CHOICES mise"
+PKG_MGR=""
+[ -n "$UPDATE" ] && PKG_MGR="$(manifest_value package_manager)"
+if [ -n "$PKG_MGR" ]; then
+	ok "keeping recorded package manager: $PKG_MGR"
+elif [ -n "$PKG_CHOICES" ]; then
+	# shellcheck disable=SC2086  # word splitting is the point -- one arg per manager
+	PKG_MGR="$(prompt_pick "install rtk and headroom through" 1 $PKG_CHOICES "curl")"
 else
-	RTK_INSTALL_CMD="curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh | sh"
+	PKG_MGR="curl"
 fi
+# A manager that doesn't carry the tool falls through to `curl`'s command, so
+# every case below ends up installable: brew has no headroom-ai formula, and
+# neither manager is asked for codebase-memory-mcp -- its own installer
+# resolves OS/arch and verifies checksums, which radin doesn't reimplement.
+case "$PKG_MGR" in
+brew) RTK_INSTALL_CMD="HOMEBREW_NO_AUTO_UPDATE=1 $BREW install rtk || HOMEBREW_NO_AUTO_UPDATE=1 $BREW upgrade rtk" ;;
+mise) RTK_INSTALL_CMD="$MISE use -g aqua:rtk-ai/rtk@latest" ;;
+*) RTK_INSTALL_CMD="curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh | sh" ;;
+esac
 install_tool "rtk" "rtk" "$RTK_INSTALL_CMD"
 
 # codebase-memory-mcp ships one static binary and its own installer resolves
@@ -669,10 +688,14 @@ install_tool "codebase-memory-mcp" "codebase-memory-mcp" \
 
 # headroom complements rtk (whole-session wrap vs per-command output
 # compression), not a replacement -- never phrase this as preferred over rtk.
-# python_ok gates it: its stack is pip-based, and a broken brew python makes
-# the install die on an opaque traceback instead of a readable skip.
-install_tool "headroom" "headroom" \
-	"python_ok && { pipx --version >/dev/null 2>&1 && pipx install --force headroom-ai || pip3 install --user --upgrade headroom-ai; }"
+# python_ok gates the pip path only: mise's pipx backend brings its own
+# interpreter, so a broken system python3 doesn't apply there.
+if [ "$PKG_MGR" = mise ]; then
+	HEADROOM_INSTALL_CMD="$MISE use -g pipx:headroom-ai@latest"
+else
+	HEADROOM_INSTALL_CMD="python_ok && { pipx --version >/dev/null 2>&1 && pipx install --force headroom-ai || pip3 install --user --upgrade headroom-ai; }"
+fi
+install_tool "headroom" "headroom" "$HEADROOM_INSTALL_CMD"
 
 # caveman ships as a Claude Code plugin (not an npm package) -- installs via
 # the plugin marketplace flow, same as the interactive `/plugin` command.
@@ -865,6 +888,7 @@ cat >"$MANIFEST_FILE" <<EOF
   "version": "$MANIFEST_VERSION",
   "installed_at": "$INSTALLED_AT",
   "parallel_execution": $PARALLEL_MODE,
+  "package_manager": "$PKG_MGR",
   "install_root": "$RADIN_ROOT",
   "model_planning": "$MODEL_PLANNING",
   "model_execution": "$MODEL_EXECUTION",

@@ -75,9 +75,20 @@ printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-cbm-
   install_all_expected
   run env HOME="$TEST_HOME" bash "$TEST_HOME/.claude/.radin/lib/radin-uninstall.sh"
   [ "$status" -eq 0 ]
-  [[ "$output" == *"brew uninstall rtk"* ]]
   [[ "$output" == *"codebase-memory-mcp uninstall"* ]]
   [[ "$output" == *"claude plugin uninstall caveman@caveman"* ]]
+}
+
+# rtk and headroom come from whichever manager the install asked about, so a
+# brew command on a mise machine would name a tool the user never installed.
+@test "names the removal command of the recorded package manager" {
+  install_all_expected
+  printf '{\n  "package_manager": "mise"\n}\n' > "$TEST_HOME/.claude/.radin/manifest.json"
+  run env HOME="$TEST_HOME" bash "$TEST_HOME/.claude/.radin/lib/radin-uninstall.sh"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"mise rm -g aqua:rtk-ai/rtk"* ]]
+  [[ "$output" == *"mise rm -g pipx:headroom-ai"* ]]
+  [[ "$output" != *"brew uninstall rtk"* ]]
 }
 
 @test "is idempotent, reporting ABSENT on a second run" {

@@ -69,9 +69,24 @@ remove_path "radin-doctor.sh" "$CLAUDE_DIR/.radin/lib/radin-doctor.sh"
 
 printf '\nLeft untouched:\n'
 printf '  %-20s not vendored by radin, remove manually if wanted\n' "thermo-nuclear"
-printf '  %-20s advisory install, remove with: brew uninstall rtk\n' "rtk"
+# rtk and headroom come from whichever manager install.sh asked about, so name
+# the matching remover instead of assuming brew.
+PKG_MGR=""
+if [ -f "$CLAUDE_DIR/.radin/manifest.json" ]; then
+	PKG_MGR="$(sed -n 's/.*"package_manager": *"\([^"]*\)".*/\1/p' "$CLAUDE_DIR/.radin/manifest.json" | head -1)"
+fi
+case "$PKG_MGR" in
+brew) RTK_REMOVE="brew uninstall rtk" ;;
+mise) RTK_REMOVE="mise rm -g aqua:rtk-ai/rtk" ;;
+*) RTK_REMOVE="rm $(command -v rtk 2>/dev/null || printf '%s' "$HOME/.local/bin/rtk")" ;;
+esac
+printf '  %-20s advisory install, remove with: %s\n' "rtk" "$RTK_REMOVE"
 printf '  %-20s advisory install, remove with: codebase-memory-mcp uninstall\n' "codebase-memory-mcp"
-printf '  %-20s advisory install, remove with: pipx uninstall headroom-ai\n' "headroom"
+if [ "$PKG_MGR" = mise ]; then
+	printf '  %-20s advisory install, remove with: mise rm -g pipx:headroom-ai\n' "headroom"
+else
+	printf '  %-20s advisory install, remove with: pipx uninstall headroom-ai\n' "headroom"
+fi
 printf '  %-20s advisory install, remove with: claude plugin uninstall caveman@caveman\n' "caveman"
 printf '  %-20s advisory install, remove with: claude plugin uninstall ponytail@ponytail\n' "ponytail"
 printf '  %-20s advisory install, remove with: claude plugin uninstall mattpocock-skills@claude-plugins-official\n' "mattpocock-skills"

@@ -15,7 +15,8 @@ radin be Claude Code plugin: skills, CLI, install glue. Bash, plus two C file (T
   and `lib/radin-cbm-config.sh` snapshot/restore of `settings.json` +
   `~/.claude.json`. Call out every `install.sh` edit explicitly.
 - **Companion install be advisory.** Failure warn, run continue.
-  Not optional, and nothing asked about them.
+  Not optional. One question only: which package manager install them
+  (`brew`/`mise`/`curl`), so radin add no manager user not already run.
 
 ## Where to edit what
 

@@ -1,10 +1,10 @@
 .PHONY: install install-force update build run test lint clean
 
 install:
-	./install.sh --verbose
+	./install.sh
 
 install-force:
-	./install.sh --force --verbose
+	./install.sh --force
 
 update:
 	./install.sh --update

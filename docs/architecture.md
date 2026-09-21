@@ -2,7 +2,7 @@
 
 ## What radin is
 
-Claude Code plugin — agents, skills, install glue — dist as git repo, install via `install.sh`. No runtime language, bash only, macOS/Linux (via Homebrew/Linuxbrew — see `AGENTS.md` arch-neutrality rule).
+Claude Code plugin — agents, skills, install glue — dist as git repo, install via `install.sh`. No runtime language, bash only, macOS/Linux (companion tools via the package manager the install asks for — see `AGENTS.md` arch-neutrality rule).
 
 ## Storage model
 

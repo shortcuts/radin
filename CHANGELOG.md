@@ -6,6 +6,11 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- `install.sh` asks which package manager installs `rtk` and `headroom`:
+  `brew`, `mise`, or each tool's own installer. It offers only the managers
+  already on `PATH`, records the answer in `manifest.json`, and `radin update`
+  reuses it. `radin uninstall` names the matching removal command.
+
 - `install.sh --verbose` — traces every command it runs (`+ install.sh:<line>:`)
   and lets companion installs write straight to the terminal instead of a
   captured log, so an install that hangs names the command it hangs in.

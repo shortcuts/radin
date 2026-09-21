@@ -37,11 +37,11 @@ JSON surgery behind `radin cbm-config`: install builds both with `cc` (Xcode
 Command Line Tools on macOS, gcc on Linux) and skips each with a warning when
 no compiler is there. Companion tools pull their
 own stacks; one that fails is reported and skipped, and radin still installs.
-Homebrew (`rtk`), `python3` (headroom) are
-optional but recommended.
+`rtk` and `headroom` install through Homebrew, mise, or their own
+installers -- the install asks which.
 
-Install asks two questions, both about `radin-execute`: concurrency and
-sub-agent models. Add `-s -- --yes` to take the defaults. Add `-s -- --verbose` to
+Install asks three questions: two about `radin-execute` (concurrency and
+sub-agent models), one naming the package manager for companion tools. Add `-s -- --yes` to take the defaults. Add `-s -- --verbose` to
 trace every command, for an install that hangs or fails.
 
 Update the whole stack — radin plus every companion — with `radin update`. The
