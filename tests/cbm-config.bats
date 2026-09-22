@@ -348,7 +348,7 @@ EOF
   run bash "$CLI" install
   [ "$status" -ne 0 ]
   [[ "$output" == *"hooks: absent"* ]]
-  [[ "$output" == *"cbm-hooks all"* ]]
+  [[ "$output" == *"radin hooks all"* ]]
 }
 
 @test "install rewrites ~/ hook paths to absolute, leaving another tool's alone" {
