@@ -3,19 +3,20 @@
 `radin-execute` reads this file when a sub-agent reports `STATUS: BLOCKED`, at
 any of the phases that can produce one.
 
-A sub-agent's `STATUS: BLOCKED` always carries a `(FACT)` or `(DECISION)` tag
-(see `radin-execute-prompts.md`). Route on it:
+A sub-agent's `STATUS: BLOCKED` always carries a `(FACT)` or `(DECISION)` tag.
+Route on it:
 
 - **`BLOCKED (FACT)`**: checkable, and the sub-agent already failed to verify
   it from the repo. Facts are never the user's job to hand over. Where the
   answer lives decides who goes after it.
 
   **Inside the working directory** — the repo, its lockfiles, its vendored
-  dependencies, its config: dispatch a fresh sub-agent with the
-  **Fact-finding prompt** from `radin-execute-prompts.md`. It investigates
-  read-only and reports in one turn. Holding more than one at once, every one
-  of their Fact-finding prompts goes in the same message, and each
-  `STATUS: FOUND` is appended to its own task's file.
+  dependencies, its config: dispatch a fresh sub-agent with
+  `RADIN_CLI prompt factfind "<task id>" "<the question>"`, which prints the
+  model and the prompt to send. It investigates read-only and reports in one
+  turn. Holding more than one at once, every one of those dispatches goes in
+  the same message, and each `STATUS: FOUND` is appended to its own task's
+  file.
 
   **Outside the working directory** — third-party API or library behavior, a
   spec, a service's own reference: you invoke `/mattpocock-skills:research`
@@ -23,17 +24,9 @@ A sub-agent's `STATUS: BLOCKED` always carries a `(FACT)` or `(DECISION)` tag
   dispatch is yours rather than a sub-agent's: it needs no human and no
   working tree, a sub-agent cannot rely on a spawned agent's result, and you
   can — a backgrounded agent's result reaches you as a completion notification
-  (Core Constraints). Gate it first:
-
-  ```bash
-  command -v claude >/dev/null 2>&1 &&
-    claude plugin list 2>/dev/null |
-    grep -q mattpocock-skills@claude-plugins-official
-  ```
-
-  Non-zero exit, or the skill asks you anything: drop it, never wait on it,
-  and treat the question as `STATUS: NOT FOUND` below. Exit 0: give it the
-  question plus these two demands.
+  (Core Constraints). The skill missing, or asking you anything: drop it, never
+  wait on it, and treat the question as `STATUS: NOT FOUND` below. Otherwise
+  give it the question plus these two demands.
 
   - Investigate the question against **primary sources** — official docs,
     source code, specs, first-party APIs — not a secondary write-up of them.

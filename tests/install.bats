@@ -141,7 +141,7 @@ run_install_defaults() {
   run_install_defaults
   ! grep -rq 'RADIN_MODEL_' "$TEST_HOME/.claude/skills" "$TEST_HOME/.claude/.radin/lib"
   grep -q 'model: "sonnet"' "$TEST_HOME/.claude/skills/radin-execute/SKILL.md"
-  grep -q 'model: "haiku"' "$TEST_HOME/.claude/.radin/lib/radin-execute-prompts.md"
+  grep -q 'model: "haiku"' "$TEST_HOME/.claude/.radin/lib/radin-prompt-factfind.md"
 }
 
 
@@ -152,8 +152,8 @@ run_install_defaults() {
   [ "$status" -eq 0 ]
   ! grep -rq 'RADIN_MODEL_' "$TEST_HOME/.claude/skills" "$TEST_HOME/.claude/.radin/lib"
   grep -q 'model: "opus"' "$TEST_HOME/.claude/skills/radin-execute/SKILL.md"
-  grep -q 'model: "opus"' "$TEST_HOME/.claude/.radin/lib/radin-execute-prompts.md"
-  ! grep -q 'model: "haiku"' "$TEST_HOME/.claude/.radin/lib/radin-execute-prompts.md"
+  grep -q 'model: "opus"' "$TEST_HOME/.claude/.radin/lib/radin-prompt-factfind.md"
+  ! grep -q 'model: "haiku"' "$TEST_HOME/.claude/.radin/lib/radin-prompt-factfind.md"
 }
 
 @test "installs radin's own skills and shared lib, not unrelated skill dirs" {
@@ -247,7 +247,7 @@ run_install_defaults() {
   agent="$TEST_HOME/.claude/skills/radin-execute/SKILL.md"
   ! grep -rq 'RADIN_LIB' "$TEST_HOME/.claude/skills"
   ! grep -q '$HOME/.claude/.radin/lib' "$agent"
-  grep -q "$TEMPLATE/home/.claude/.radin/lib/radin-execute-prompts.md" "$agent"
+  grep -q "$TEMPLATE/home/.claude/.radin/lib/radin-execute-clarify.md" "$agent"
 }
 
 
@@ -447,7 +447,7 @@ pick_with_keys() {
   [[ "$output" == *"keeping recorded sub-agent models: plan fable"* ]]
   grep -q '"parallel_execution": true' "$manifest"
   grep -q '"model_planning": "fable"' "$manifest"
-  grep -q 'fable' "$TEST_HOME/.claude/.radin/lib/radin-execute-prompts.md"
+  grep -q 'fable' "$TEST_HOME/.claude/.radin/lib/radin-prompt-planning.md"
   [[ "$output" == *"radin updated"* ]]
 }
 

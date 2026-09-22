@@ -6,6 +6,28 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- `radin prompt <planning|execution|debug|factfind> <id>` assembles a
+  sub-agent prompt, so `/radin-execute` stops reading four prompt templates at
+  Phase 4 and stops substituting placeholders by hand. It reads only the
+  prompt it sends, already assembled, and each leaf now receives only the
+  steps its own task has input for: no plan block for an unplanned task, no
+  skills or dependency-commit block when it has neither, and one category row
+  instead of four. Prompt text moves to one `lib/radin-prompt-<kind>.md`
+  template per kind.
+
+- `radin state task-report <ns> <id> "<the STATUS line>"` replaces the router's
+  own ladder of `dirty-recover`, `task-done` and `task-fail` calls. It stashes
+  a dirty tree before believing any status, records the terminal state, prints
+  the report line, and ends with one `next<TAB>continue|debug|clarify FACT|
+  clarify DECISION` line the router routes on.
+
+- `/radin-execute`, `lib/radin-execute-clarify.md` and
+  `lib/radin-prioritization.md` drop what those two verbs now own, plus the
+  `claude plugin list` gate on `/mattpocock-skills:research` and the `order`
+  signatures the skill's own phases carry. Graph tool names now live in one
+  file, `lib/radin-cbm-hooks.sh`: every skill and prompt names the server, and
+  codebase-memory-mcp's own hooks route the search.
+
 - `/radin-record` and `/radin-plan` state each rule once too. `radin-record`
   drops the expand-contract sequencing recipe, the second pass over its own
   decision gate, and the quote-versus-paraphrase prose the entry template

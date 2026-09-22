@@ -8,7 +8,7 @@ set -euo pipefail
 LIB="$HOME/.claude/.radin/lib"
 
 usage() {
-	printf 'usage: radin <backlog|state|scope|hooks|repair|update|doctor|uninstall> [args]\n'
+	printf 'usage: radin <backlog|state|scope|prompt|hooks|repair|update|doctor|uninstall> [args]\n'
 	printf 'With no subcommand on a terminal, radin opens the TUI; "radin help" prints this text.\n'
 	printf 'Each subcommand prints its own usage when run with no arguments.\n'
 }
@@ -27,7 +27,7 @@ if [ -z "$cmd" ] && [ -t 1 ]; then
 fi
 
 case "$cmd" in
-backlog | state | scope | update | doctor | uninstall)
+backlog | state | scope | prompt | update | doctor | uninstall)
 	shift
 	exec bash "$LIB/radin-$cmd.sh" "$@"
 	;;

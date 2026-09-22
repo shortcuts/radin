@@ -164,7 +164,10 @@ mkdir -p "$HOME/.claude/skills" "$HOME/.claude/.radin/lib"
 # clone must not ship.
 for f in radin-namespace.sh radin-json.sh radin-backlog.sh radin-tui.c \
 	radin-cbm-json.c radin-state.sh \
-	radin-scope.sh radin-prioritization.md radin-execute-prompts.md \
+	radin-scope.sh radin-prompt.sh \
+	radin-prompt-planning.md radin-prompt-execution.md \
+	radin-prompt-debug.md radin-prompt-factfind.md \
+	radin-prioritization.md \
 	radin-execute-recovery.md radin-execute-reporting.md \
 	radin-execute-clarify.md radin-execute-session.md \
 	radin-execute-resume.md radin-cbm-hooks.sh \
@@ -629,7 +632,9 @@ else
 	ok "keeping default sub-agent models (sonnet; haiku for fact-finding)"
 fi
 set_role_models "$HOME/.claude/skills/radin-execute/SKILL.md"
-set_role_models "$HOME/.claude/.radin/lib/radin-execute-prompts.md"
+for k in planning execution debug factfind; do
+	set_role_models "$HOME/.claude/.radin/lib/radin-prompt-$k.md"
+done
 
 # Preflight for the pipx/pip-based tools below. A broken Homebrew python bottle
 # (pyexpat linked against Apple's system libexpat, which lacks the symbols brew's
@@ -814,7 +819,9 @@ for f in radin-execute radin-plan radin-record radin-review radin-show \
 	radin-doctor radin-uninstall radin-setup-hooks radin-stats; do
 	set_cli "$HOME/.claude/skills/$f/SKILL.md" "$RADIN_CLI_VALUE"
 done
-set_cli "$HOME/.claude/.radin/lib/radin-execute-prompts.md" "$RADIN_CLI_VALUE"
+for k in planning execution debug factfind; do
+	set_cli "$HOME/.claude/.radin/lib/radin-prompt-$k.md" "$RADIN_CLI_VALUE"
+done
 set_cli "$HOME/.claude/.radin/lib/radin-execute-recovery.md" "$RADIN_CLI_VALUE"
 set_cli "$HOME/.claude/.radin/lib/radin-prioritization.md" "$RADIN_CLI_VALUE"
 set_cli "$HOME/.claude/.radin/lib/radin-execute-clarify.md" "$RADIN_CLI_VALUE"
@@ -918,8 +925,12 @@ cat >"$MANIFEST_FILE" <<EOF
     "radin-cbm-json.c",
     "radin-state.sh",
     "radin-scope.sh",
+    "radin-prompt.sh",
+    "radin-prompt-planning.md",
+    "radin-prompt-execution.md",
+    "radin-prompt-debug.md",
+    "radin-prompt-factfind.md",
     "radin-prioritization.md",
-    "radin-execute-prompts.md",
     "radin-execute-recovery.md",
     "radin-execute-reporting.md",
     "radin-execute-clarify.md",

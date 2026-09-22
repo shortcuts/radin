@@ -554,6 +554,82 @@ EOF
   [[ "$(cat "$ST")" == *"last words: I have a question about"* ]]
 }
 
+@test "task-report routes a SUCCESS line to task-done and says continue" {
+  fixture_repo
+  printf 'aa-task\t1\t\n' | cli steps-init "$ST" > /dev/null
+  cli start "$ST" aa-task > /dev/null
+  hash="$(git -C "$REPO" rev-parse HEAD)"
+  run cli task-report "$NS" aa-task "STATUS: SUCCESS — $hash"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"recorded at $hash"* ]]
+  [ "${lines[${#lines[@]}-1]}" = "$(printf 'next\tcontinue')" ]
+  [[ "$(cat "$NS/state/completed.json")" == *'"id":"aa-task"'* ]]
+}
+
+@test "task-report fails an unsupported SUCCESS and a hashless one" {
+  fixture_repo
+  printf 'aa-task\t1\t\nbb-task\t2\t\n' | cli steps-init "$ST" > /dev/null
+  run cli task-report "$NS" aa-task "STATUS: SUCCESS — deadbeef"
+  [ "$status" -eq 0 ]
+  # The first failure of a task is its debug offer, whatever produced it.
+  [ "${lines[${#lines[@]}-1]}" = "$(printf 'next\tdebug')" ]
+  run cli task-report "$NS" bb-task "STATUS: SUCCESS — no new commit, nothing to do"
+  [ "$status" -eq 0 ]
+  [ "${lines[${#lines[@]}-1]}" = "$(printf 'next\tdebug')" ]
+  [ ! -s "$NS/state/completed.json" ]
+}
+
+@test "task-report offers one debug pass, then fails the task" {
+  fixture_repo
+  printf 'aa-task\t1\t\n' | cli steps-init "$ST" > /dev/null
+  cli start "$ST" aa-task > /dev/null
+  run cli task-report "$NS" aa-task "STATUS: FAILED — the suite broke"
+  [ "$status" -eq 0 ]
+  [ "${lines[${#lines[@]}-1]}" = "$(printf 'next\tdebug')" ]
+  run cli task-report "$NS" aa-task "STATUS: FAILED — the suite broke"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"failed: the suite broke."* ]]
+  [ "${lines[${#lines[@]}-1]}" = "$(printf 'next\tcontinue')" ]
+  [[ "$(cat "$ST")" == *'"status":"failed"'*'"note":"the suite broke"'* ]]
+}
+
+@test "task-report hands a BLOCKED line to the clarify route, touching no state" {
+  fixture_repo
+  printf 'aa-task\t1\t\nbb-task\t2\t\n' | cli steps-init "$ST" > /dev/null
+  run cli task-report "$NS" aa-task "STATUS: BLOCKED (FACT) — does the SDK retry"
+  [ "$status" -eq 0 ]
+  [ "$output" = "$(printf 'next\tclarify FACT')" ]
+  run cli task-report "$NS" bb-task "STATUS: BLOCKED (DECISION) — keep or drop the flag"
+  [ "$status" -eq 0 ]
+  [ "$output" = "$(printf 'next\tclarify DECISION')" ]
+  [[ "$(cat "$ST")" == *'"id":"aa-task"'*'"status":"pending"'* ]]
+}
+
+@test "task-report stashes a dirty tree before it believes any status" {
+  fixture_repo
+  printf 'aa-task\t1\t\n' | cli steps-init "$ST" > /dev/null
+  hash="$(git -C "$REPO" rev-parse HEAD)"
+  printf 'half done\n' > "$REPO/wip.txt"
+  run cli task-report "$NS" aa-task "STATUS: SUCCESS — $hash"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"left a dirty tree"* ]]
+  [ "${lines[${#lines[@]}-1]}" = "$(printf 'next\tcontinue')" ]
+  [ ! -s "$NS/state/completed.json" ]
+  [[ "$(cat "$ST")" == *'"status":"failed"'* ]]
+}
+
+@test "task-report takes --no-status, and refuses a line with no status word" {
+  fixture_repo
+  printf 'aa-task\t1\t\nbb-task\t2\t\n' | cli steps-init "$ST" > /dev/null
+  run cli task-report "$NS" aa-task --no-status "I have a question about"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Task 1 'aa task' failed"* ]]
+  [ "${lines[${#lines[@]}-1]}" = "$(printf 'next\tcontinue')" ]
+  run cli task-report "$NS" bb-task "all done, hope that helps"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"no SUCCESS/FAILED/BLOCKED"* ]]
+}
+
 @test "dirty-recover exits 1 on a clean tree and stashes a dirty one" {
   fixture_repo
   printf 'aa-task\t1\t\n' | cli steps-init "$ST" > /dev/null

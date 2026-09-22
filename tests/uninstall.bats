@@ -25,10 +25,13 @@ install_all_expected() {
   printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-backlog.sh"
   printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-state.sh"
   printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-scope.sh"
+  printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-prompt.sh"
 printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-cbm-hooks.sh"
   printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-cbm-config.sh"
   : > "$TEST_HOME/.claude/.radin/lib/radin-prioritization.md"
-  : > "$TEST_HOME/.claude/.radin/lib/radin-execute-prompts.md"
+  for k in planning execution debug factfind; do
+    : > "$TEST_HOME/.claude/.radin/lib/radin-prompt-$k.md"
+  done
   : > "$TEST_HOME/.claude/.radin/lib/radin-execute-recovery.md"
   : > "$TEST_HOME/.claude/.radin/lib/radin-execute-reporting.md"
   : > "$TEST_HOME/.claude/.radin/lib/radin-execute-clarify.md"
@@ -51,9 +54,10 @@ printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-cbm-
   [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-backlog.sh" ]
   [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-state.sh" ]
   [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-scope.sh" ]
+  [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-prompt.sh" ]
   [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-cbm-hooks.sh" ]
   [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-prioritization.md" ]
-  [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-execute-prompts.md" ]
+  [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-prompt-execution.md" ]
   [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-execute-recovery.md" ]
   [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-execute-reporting.md" ]
   [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-execute-clarify.md" ]

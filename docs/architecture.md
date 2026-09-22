@@ -71,6 +71,10 @@ The subcommand is what switches the two modes apart, so no flag does. `radin <ve
 
 `radin scope` (`lib/radin-scope.sh`) is the same offload for `radin-review`'s one input. It resolves a commit, a PR, a directory, the no-argument branch diff, or a range (`last commit`, `last <n> commits`, `<rev>..<rev>`) into `type`/`scope`/`command`/`passes` lines; `passes` names the ponytail skill(s) that scope type calls for, because mapping a type to a pass was the last thing the skill computed from this script's own output. `--in-scope` reads `path:line` citations on stdin and prints `in`/`out` per citation plus a final `dropped<TAB><n>`, which is the out-of-scope drop the skill used to do by eye against the diff. A `since <date>` argument resolves too: the phrase goes to git's approxidate, and the `since` prefix is what keeps a garbage argument — which approxidate also accepts — out of that branch. Format in [domain models](domain-models.md#review-scope-output-radin-scope).
 
+`radin prompt <planning|execution|debug|factfind> <id>` (`lib/radin-prompt.sh`) assembles one sub-agent prompt: it reads the template in `lib/radin-prompt-<kind>.md`, drops each `<!-- if:NAME -->` block the task has no input for (no plan, no skills, no dependency commits, no acceptance criteria, and every category row but the entry's own), substitutes every `UPPERCASE` placeholder from `backlog field` and `state deps-check`, and prints `model<TAB><name>`, a `--- prompt ---` line, then the prompt. The router used to read all four prompts at Phase 4 and substitute by hand; it now reads only the one it sends, already assembled, and the leaf gets no step its task cannot use. One template file per kind rather than one shared file, so a `---` line inside a prompt body cannot end the extraction.
+
+`radin state task-report <ns> <id> <the STATUS line>` is the same offload for everything that happens after a dispatch reports. It runs `dirty-recover` first (a dirty tree fails the task whatever the line claimed), then `task-done` for a `SUCCESS` whose hash validates, `task-fail` otherwise, and prints one final `next<TAB>continue|debug|clarify FACT|clarify DECISION` line. The router routes on that line alone, instead of picking between three state verbs across four exit codes.
+
 Point: offloading. Id assignment, task lookup, plan-pointer insertion, the execution order and its dependency fix, the ranking gate, prompt-field rendering, the duplicate scan — deterministic ops model used to re-derive from prose rules every run. `lib/radin-prioritization.md` is left with the two things that are not computations: how to rank the unset-priority group, and when one entry's body implies a dependency on another's. CLI does them exact; agents/skills supply only judgment (what to log, how to classify, what to plan). Task's file path always read back from its index line's `file` field, never composed by a caller and never computed from stored line number — nothing here goes stale as backlog shape changes.
 
 `install.sh` copies `lib/radin-namespace.sh`, `lib/radin-backlog.sh`, `lib/radin-state.sh` to `~/.claude/.radin/lib/`, and `bin/radin` — a dispatcher mapping `radin <backlog|tui|state|scope|hooks|repair|update|doctor|uninstall>` to those scripts — to `~/.claude/.radin/bin/`, plus a `~/.local/bin/radin` symlink (an existing non-radin file there is named and left alone, and skills then get the full dispatcher path). `hooks` and `repair` are umbrella verbs over `lib/radin-cbm-hooks.sh` and `lib/radin-cbm-config.sh repair` — the caller names no companion, even though codebase-memory-mcp is the only one either backs today. Consumer install never has this repo's `lib/` directly, so the scripts dist like any other radin file.
@@ -103,7 +107,7 @@ radin state <steps-init|next-pending|task-next|start|stuck|triage|recover|recove
 - `completed-get <completed-file> <id>` — print completed task's commit hash (exit 1 if not recorded), for later task's `depends_on` check
 - `completed-list <completed-file>` — print `id<TAB>commit` per completion in file order (exit 1 when nothing is recorded), for the TUI's Done view: completion deletes the backlog entry, so this file is the only record left
 - `task-done <namespace-dir> <id> <hash>` — record success, drop backlog and steps entries, crash-safe order. Validates hash first: must be commit reachable from `radin/<id>` (or `HEAD`) in the task's tree, else exit 3 and nothing written. Hash comes off a sub-agent's free-text `STATUS:` line, so nothing else checks it
-- `task-fail <namespace-dir> <id> <reason>` — the `FAILED` route. First call per task per session flips the entry's `debugged` flag and exits 3, the caller's signal to send the Debug prompt; second call marks entry `failed` with the composed note and prints the finished report line. `--no-status <last line>` never offers the debug pass
+- `task-fail <namespace-dir> <id> <reason>` — the `FAILED` route. First call per task per session flips the entry's `debugged` flag and exits 3, the caller's signal to send `radin prompt debug`; second call marks entry `failed` with the composed note and prints the finished report line. `--no-status <last line>` never offers the debug pass
 - `task-diagnosis <namespace-dir> <id>` — stdin becomes a `**Root cause:**` line on the task file (only place that label is written). Changes no status: the retry's `start` bumps `attempts`, so `MAX_ATTEMPTS` still ends the loop
 - `dirty-recover <namespace-dir> <id> <status-word>` — sub-agent left a dirty tree whatever its `STATUS:` said: resolve the tree with `task-dir`, `stash` it, mark the entry `failed` with the recovery commands in the note, print the report line. Exit 1 when the tree is clean, so the caller routes on `STATUS:` instead
 - `report <namespace-dir> [<dropped-skill line>...]` — the finished Phase 5 report text: residual-changes check (stash, never commit), this session's commits with their landing lines per `session.json`, every `failed`/`blocked`/`deferred` entry with its note, the session's stashes, one bullet per extra argument. Scoped to this session by `state/baseline.json`, written by `steps-init`
@@ -117,9 +121,8 @@ Both `BACKLOG_STEPS.json` and `completed.json` JSONL (one compact object per lin
 
 `radin-execute` alone reads `lib/radin-prioritization.md`, via the `RADIN_LIB` token ([resolved at install](#install-time-substitution)), at Phase 1 step 4 and only when `backlog order --rank-needed` exits 0. It holds two things and nothing else: how to rank the unset-priority group, and the bounded dependency inference. Backlog format is `docs/domain-models.md`'s, verb behaviour is the CLI usage comments', so neither is restated there. `radin-plan` reads it not at all — scoped to one entry, nothing to prioritize.
 
-`radin-execute` alone reads six on-demand files, none of them inline in `SKILL.md`, because the skill body sits in the user's own context for the rest of the session. Each one be cold path — trigger fire, file get read, otherwise never:
+`radin-execute` alone reads five on-demand files, none of them inline in `SKILL.md`, because the skill body sits in the user's own context for the rest of the session. Each one be cold path — trigger fire, file get read, otherwise never:
 
-- `lib/radin-execute-prompts.md` — the four verbatim sub-agent prompts (planning, execution, debug, fact-finding), read at the first Step 4a that dispatches one. A session that stops at Phase 2 (common first turn) never reaches Phase 4, so never loads them.
 - `lib/radin-execute-recovery.md` — `triage` routing for tasks a dead session left `in_progress`, read only when `radin-state.sh stuck` exits 0. Most runs never load it.
 - `lib/radin-execute-reporting.md` — the two things `state report` cannot do: dropped-skill bullets it must be handed, and the duplicate id/title scan. Read at Phase 5.
 - `lib/radin-execute-clarify.md` — `BLOCKED (FACT)`/`(DECISION)` routing, fact-finder handoff, `backlog append` labels, read when a sub-agent block. Run where nothing block never load it.
@@ -179,19 +182,15 @@ It writes no `settings.json` hook of radin's own: `auto_index` indexes a project
 An MCP tool name must exist in upstream's [MCP
 Tools](https://github.com/DeusData/codebase-memory-mcp#mcp-tools) table — a
 wrong one costs a failed call plus a fallback in every sub-agent that reads
-the prompt. Names appear in two files only:
-`lib/radin-execute-prompts.md` (execution, debug, fact-finding) and the
-CLAUDE.md section inside `lib/radin-cbm-hooks.sh`. The skills name none:
-`radin-plan` points at the companion's own skill for the verbs, and
-`radin-review`'s Standards axis invokes `/thermo-nuclear` and the `passes`
-skills, which choose their own reading.
-Between them they name `index_repository`, `list_projects`, `search_graph`,
-`search_code`, `trace_path`, `detect_changes`, `query_graph`,
-`get_graph_schema`, `get_code_snippet` and `get_architecture`. Each file names
-only the tools its own role uses — the subsets differ on purpose — and every
-mention carries the same pointer clause verbatim: a graph hit is a pointer,
-read the file before you cite or edit it, never conclude something is absent
-from an empty result.
+the prompt. Names appear in one file only: the CLAUDE.md section inside
+`lib/radin-cbm-hooks.sh`. Every skill and every sub-agent prompt names the
+server and not its verbs — the companion's own skill and its hooks route
+Grep/Glob toward the graph wherever it is installed — and each carries the same
+pointer clause: a graph hit is a pointer, read the file before you cite or edit
+it, never conclude something is absent from an empty result.
+`lib/radin-cbm-hooks.sh` names `index_repository`, `list_projects`,
+`search_graph`, `search_code`, `trace_path`, `detect_changes`, `query_graph`,
+`get_graph_schema`, `get_code_snippet` and `get_architecture`.
 
 ## Install manifest
 
@@ -234,7 +233,11 @@ radin/
     radin-cbm-hooks.sh
     radin-doctor.sh
     radin-update.sh
-    radin-execute-prompts.md
+    radin-prompt.sh
+    radin-prompt-planning.md
+    radin-prompt-execution.md
+    radin-prompt-debug.md
+    radin-prompt-factfind.md
     radin-execute-recovery.md
     radin-execute-reporting.md
     radin-execute-clarify.md
@@ -411,7 +414,7 @@ ships with the token intact invents its own answer.
 | Written as | Resolved to |
 | --- | --- |
 | `RADIN_CLI <subcommand>` in every `skills/*/SKILL.md` and shipped `lib/*.md` | bare `radin` when the `~/.local/bin` symlink is on PATH, else `"$HOME/.claude/.radin/bin/radin"` (`set_cli`) |
-| `RADIN_MODEL_<ROLE>` — `PLANNING`, `EXECUTION`, `DEBUG`, `FACTFIND` in `lib/radin-execute-prompts.md`, `REVIEW` in `skills/radin-execute/SKILL.md` | the install-time pick (`set_role_models`). Defaults sonnet, except fact-finding: haiku, since its prompt demands the evidence and the router can reject a wrong answer |
+| `RADIN_MODEL_<ROLE>` — `PLANNING`, `EXECUTION`, `DEBUG`, `FACTFIND` each in its own `lib/radin-prompt-<kind>.md`, `REVIEW` in `skills/radin-execute/SKILL.md` | the install-time pick (`set_role_models`). Defaults sonnet, except fact-finding: haiku, since its prompt demands the evidence and the router can reject a wrong answer |
 | `RADIN_LIB/<doc>.md` in `skills/radin-execute/SKILL.md` | `$HOME/.claude/.radin/lib` (`set_lib`). The Read tool takes no `$HOME`, so the literal would leave the model expanding it before every on-demand doc read |
 | one `<!-- radin:concurrency -->` line in `radin-execute`'s Core Constraints | `$SEQUENTIAL_RULE` or `$PARALLEL_RULE`, both defined only in `install.sh` (`set_concurrency`) |
 
@@ -419,7 +422,7 @@ Edit the concurrency wording in `install.sh`, never in the skill. A new
 sub-agent role needs a token, a `MODEL_<ROLE>` default, a picker, and a `-e`
 clause in `set_role_models`.
 
-Sub-agent prompts carry no concurrency variant: `lib/radin-execute-prompts.md`
+Sub-agent prompts carry no concurrency variant: each `lib/radin-prompt-<kind>.md`
 states the flat rule (a sub-agent never spawns a sub-agent) instead. The
 install-time answer covers execution sub-agents only — planning, debug and
 fact-finding dispatches write no repo code, so both rule texts allow them in
@@ -487,7 +490,7 @@ review, not by `tests/skill-names.bats`.
 
 What a future audit checks prose against, after the 2026-09 dedup pass:
 
-- **Two audiences, one statement each.** Skill/lib prose is read by the router or a human-thread skill; a verbatim fence in `lib/radin-execute-prompts.md` is read only by its sub-agent, which never sees the surrounding narration. A fence copy is a payload, not a duplicate; within one audience there is exactly one statement, and a pointer where a second place needs it.
+- **Two audiences, one statement each.** Skill/lib prose is read by the router or a human-thread skill; a verbatim fence in `lib/radin-prompt-<kind>.md` is read only by its sub-agent, which never sees the surrounding narration. A fence copy is a payload, not a duplicate; within one audience there is exactly one statement, and a pointer where a second place needs it.
 - **Deterministic behaviour is owned by the code that does it** — the usage comments in `lib/radin-backlog.sh` and `lib/radin-state.sh`. Prose names the verb and its exit codes, never what the verb computes.
 - **Formats and schemas are owned by `docs/domain-models.md`.** No installed prose file restates one.
 - **Cross-skill rules live in the `<!-- radin:begin -->` block `install.sh` writes into `~/.claude/CLAUDE.md`** (never hand-edit `.claude/.radin/`; never guess on a broad ask). It costs no file read and ships with the skills.

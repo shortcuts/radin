@@ -26,10 +26,12 @@
 #   radin-state.sh completed-get <completed-file> <id>   # prints commit hash, exit 1 if absent
 #   radin-state.sh completed-list <completed-file>       # print "id<TAB>commit" per completion, exit 1 if none
 #   radin-state.sh task-done <namespace-dir> <id> <commit-hash>  # completed-add + backlog remove + steps remove, in crash-safe order; exit 3 when the hash does not validate
-#   radin-state.sh task-fail <namespace-dir> <id> <reason>        # exit 3 the first time (send the Debug prompt), mark failed the second
+#   radin-state.sh task-fail <namespace-dir> <id> <reason>        # exit 3 the first time (send `radin prompt debug`), mark failed the second
 #   radin-state.sh task-fail <namespace-dir> <id> --no-status <last line>  # no debug pass, straight to failed
 #   radin-state.sh task-diagnosis <namespace-dir> <id>   # stdin becomes a **Root cause:** line on the task file, status untouched
 #   radin-state.sh dirty-recover <namespace-dir> <id> <status-word>  # stash + fail a sub-agent's dirty tree; exit 1 when it is clean
+#   radin-state.sh task-report <namespace-dir> <id> <the sub-agent's STATUS: line>  # dirty-recover + task-done/task-fail in one call, then a final "next<TAB>continue|debug|clarify FACT|clarify DECISION" line
+#   radin-state.sh task-report <namespace-dir> <id> --no-status <last line>        # the same, for a sub-agent that ended with no STATUS: line
 #   radin-state.sh report <namespace-dir> [<dropped-skill line>...]  # print the finished end-of-session report
 #   radin-state.sh task-dir <repo-root> <id>              # print the task's worktree if it exists, else <repo-root>
 #   radin-state.sh prepare <namespace-dir> <id>           # create/reuse the task's tree and branch per session.json, print the dir to work in
@@ -629,6 +631,82 @@ dirty-recover)
 		"$ref in $dir -- task $order '$title' left uncommitted. Recover: git -C $dir stash pop"
 	printf "⚠️ Task %s '%s': sub-agent reported %s but left a dirty tree. Stashed as %s, treated as failed.\n" \
 		"$order" "$title" "$status_word" "$ref"
+	;;
+
+task-report)
+	# One call for everything that happens after a dispatch reports, because
+	# the router picking between dirty-recover, task-done and task-fail by
+	# hand was four exit-code routes in its prose and one chance to write the
+	# wrong file. Every outcome ends in one `next` line.
+	ns="${2:-}"
+	id="${3:-}"
+	third="${4:-}"
+	[ -n "$ns" ] && [ -n "$id" ] && [ -n "$third" ] ||
+		die "usage: task-report <namespace-dir> <id> <STATUS line>  |  task-report <namespace-dir> <id> --no-status <last line>"
+	[ -d "$ns" ] || die "no namespace dir: $ns"
+	if [ "$third" = "--no-status" ]; then
+		bash "$LIB_DIR/radin-state.sh" task-fail "$ns" "$id" --no-status "${5:-}"
+		printf 'next\tcontinue\n'
+		exit 0
+	fi
+	line="$third"
+	tag=""
+	case "$line" in
+	*"BLOCKED (FACT)"*)
+		word="BLOCKED"
+		tag="FACT"
+		;;
+	*"BLOCKED (DECISION)"*)
+		word="BLOCKED"
+		tag="DECISION"
+		;;
+	*SUCCESS*) word="SUCCESS" ;;
+	*FAILED*) word="FAILED" ;;
+	*) die "no SUCCESS/FAILED/BLOCKED in that line: $line -- pass --no-status when the sub-agent produced none" ;;
+	esac
+	# The tree comes first whatever the line claimed: a dirty tree fails the
+	# task and nothing else runs.
+	if dirty="$(bash "$LIB_DIR/radin-state.sh" dirty-recover "$ns" "$id" "$word")"; then
+		printf '%s\n' "$dirty"
+		printf 'next\tcontinue\n'
+		exit 0
+	fi
+	# Everything after the em dash (or the ASCII fallback) is the detail the
+	# sub-agent wrote; the whole line stands in when it used neither.
+	detail="$line"
+	case "$line" in
+	*"—"*) detail="${line#*—}" ;;
+	*" -- "*) detail="${line#* -- }" ;;
+	esac
+	detail="${detail# }"
+	if [ "$word" = "BLOCKED" ]; then
+		printf 'next\tclarify %s\n' "$tag"
+		exit 0
+	fi
+	if [ "$word" = "SUCCESS" ]; then
+		hash="$(printf '%s\n' "$detail" | grep -oE '[0-9a-f]{7,40}' | head -1 || true)"
+		if [ -n "$hash" ]; then
+			if done_out="$(bash "$LIB_DIR/radin-state.sh" task-done "$ns" "$id" "$hash" 2>&1)"; then
+				printf '%s\n' "$done_out"
+				printf 'next\tcontinue\n'
+				exit 0
+			fi
+			# Exit 3: the hash does not validate, so the SUCCESS is
+			# unsupported and this is a failure with the CLI's own message.
+			word="FAILED"
+			detail="reported SUCCESS at $hash, which does not validate: $done_out"
+		else
+			word="FAILED"
+			detail="reported SUCCESS with no commit hash in the line"
+		fi
+	fi
+	if fail_out="$(bash "$LIB_DIR/radin-state.sh" task-fail "$ns" "$id" "$detail")"; then
+		printf '%s\n' "$fail_out"
+		printf 'next\tcontinue\n'
+		exit 0
+	fi
+	# Exit 3 from task-fail: this task still has its one debug pass.
+	printf 'next\tdebug\n'
 	;;
 
 recover)

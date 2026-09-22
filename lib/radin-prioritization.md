@@ -8,15 +8,9 @@ when one entry's body implies a dependency on another's.
 ## Priority criteria
 
 The order itself is not yours to compose: `RADIN_CLI backlog order` is the
-sort, the dependency fix and the report, and each of its modes is used as-is.
-
-```bash
-RADIN_CLI backlog order --rank-needed                      # the gate
-RADIN_CLI backlog order --report  [--rank <csv>] [--infer-deps <id>=<csv>]...
-RADIN_CLI backlog order --steps   [--rank <csv>] [--infer-deps <id>=<csv>]... [--defer <csv>]
-```
-
-One rule is left, and it is a rule rather than a computation:
+sort, the dependency fix and the report, and the skill's own phases carry its
+three signatures. One rule is left here, and it is a rule rather than a
+computation:
 
 1. **A prioritization pass writes nothing.** Read a task's body only for an id
    `--rank-needed` printed; the title alone is never the task. No

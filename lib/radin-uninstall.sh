@@ -52,13 +52,16 @@ remove_path "radin-cbm-json.c" "$CLAUDE_DIR/.radin/lib/radin-cbm-json.c"
 remove_path "radin-tui.sh" "$CLAUDE_DIR/.radin/lib/radin-tui.sh"
 remove_path "radin-state.sh" "$CLAUDE_DIR/.radin/lib/radin-state.sh"
 remove_path "radin-scope.sh" "$CLAUDE_DIR/.radin/lib/radin-scope.sh"
+remove_path "radin-prompt.sh" "$CLAUDE_DIR/.radin/lib/radin-prompt.sh"
 remove_path "radin-cbm-hooks.sh" "$CLAUDE_DIR/.radin/lib/radin-cbm-hooks.sh"
 remove_path "radin-cbm-config.sh" "$CLAUDE_DIR/.radin/lib/radin-cbm-config.sh"
 # Shipped by radin up to the codebase-memory-mcp switch: install.sh only adds,
 # so an update leaves it behind and only this script can clear it.
 remove_path "radin-crg-hooks.sh" "$CLAUDE_DIR/.radin/lib/radin-crg-hooks.sh"
 remove_path "radin-prioritization.md" "$CLAUDE_DIR/.radin/lib/radin-prioritization.md"
-remove_path "radin-execute-prompts.md" "$CLAUDE_DIR/.radin/lib/radin-execute-prompts.md"
+for k in planning execution debug factfind; do
+	remove_path "radin-prompt-$k.md" "$CLAUDE_DIR/.radin/lib/radin-prompt-$k.md"
+done
 remove_path "radin-execute-recovery.md" "$CLAUDE_DIR/.radin/lib/radin-execute-recovery.md"
 remove_path "radin-execute-reporting.md" "$CLAUDE_DIR/.radin/lib/radin-execute-reporting.md"
 remove_path "radin-execute-clarify.md" "$CLAUDE_DIR/.radin/lib/radin-execute-clarify.md"
