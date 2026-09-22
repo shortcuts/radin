@@ -38,9 +38,8 @@ New companion that ship own stats or gain command need bullet in
 
 `<repo-root>/.claude/.radin/` (outside repo, `$PWD`): `backlog/`
 (`index.jsonl` + `tasks/<id>.md`), `state/`, `plans/`, `reviews/`. Format in
-[docs/domain-models.md](docs/domain-models.md), schema in
-`docs/schemas/backlog-entry.schema.json`. Only thing radin write
-into consumer repo, and radin never touch their `.gitignore`.
+[docs/domain-models.md](docs/domain-models.md). Only thing radin write into
+consumer repo, and radin never touch their `.gitignore`.
 
 Read and write it only through CLI (`radin backlog …`, `radin state …`).
 Nothing parse `index.jsonl` or `completed.json`, or grab task by line

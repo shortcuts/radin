@@ -2,7 +2,7 @@
 
 ## Backlog entry format (`index.jsonl` + task files)
 
-`docs/schemas/backlog-entry.schema.json` formal contract (JSON Schema, draft-07). Documents shape every radin agent/skill must produce reading or appending backlog. Read before changing structure or adding new entry-producing skill. Repo-internal reference only — doesn't ship to consumers, so every agent/skill embeds concrete shape inline instead of reading schema file at runtime.
+This section documents shape every radin agent/skill must produce reading or appending backlog. Read before changing structure or adding new entry-producing skill. Repo-internal reference only — doesn't ship to consumers, so every agent/skill embeds concrete shape inline instead of reading any file at runtime.
 
 Backlog lives at `<repo-root>/.claude/.radin/backlog/`: `index.jsonl` file (one compact JSON object per line, one per task) plus `tasks/` directory holding one markdown file per task. Related tasks group under `tasks/<epic-id>/`, where `DESCRIPTION.md` holds the root context every child inherits — written once instead of repeated in each child's body. An epic has no index line and no category: `list` feeds `radin-execute`, and an epic row there would eventually be dispatched as a task. Membership is `dirname(file)`; one nesting level only. Task's category — `feat`, `fix`, `chore`, `refactor`, same vocabulary as conventional-commit type — field on index line, not section heading. No per-entry bracket tag. `radin-backlog.sh show` reconstructs old grouped-by-category markdown view for humans, canonical order (feat → fix → chore → refactor), but that's rendering, not storage.
 
@@ -87,7 +87,7 @@ TAB-separated key/value lines, one call per review:
 
 Exit 0 resolved, 1 unrecognized, 2 ambiguous (each candidate reading on stderr).
 
-`radin scope --in-scope [<arg>]` resolves the same scope, then reads `path:line` citations on stdin and prints, in input order, `in<TAB><citation>` when the scope introduced that line and `out<TAB><citation>` otherwise, then one `dropped<TAB><n>`. `in` means under the directory for a `dir` scope, and inside a diff hunk of that path for every other type; paths compare repo-relative exactly as the diff spells them, a leading `./` aside. Exit 0 once resolved, even when every citation is dropped; resolution failures keep exits 1 and 2.
+`radin scope --in-scope [<arg>]` resolves the same scope, then reads `path:line` citations on stdin and prints, in input order, `in<TAB><citation>` when the scope introduced that line and `out<TAB><citation>` otherwise, then one `dropped<TAB><n>`. `in` means under the directory for a `dir` scope, and inside a diff hunk of that path for every other type; paths compare repo-relative exactly as the diff spells them, a leading `./` aside. Exit 0 once resolved, even when every citation is dropped; resolution failures keep exits 1 and 2. The citation filter and the `location` index key are not two spellings of one thing: the filter screens fresh review citations that have no backlog entry yet, while `location` records where an existing entry's finding sits, for the trace lookup.
 
 ## Execution-order output (`backlog order`)
 
