@@ -14,10 +14,6 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `install.sh --verbose` — traces every command it runs (`+ install.sh:<line>:`)
   and lets companion installs write straight to the terminal instead of a
   captured log, so an install that hangs names the command it hangs in.
-- `radin state plan-wave <namespace-dir>` — every `pending` task that still
-  needs a `**Plan:**` pointer, lowest order first, as `plan<TAB><id>`, so the
-  router dispatches the whole planning wave from one call and joins nothing
-  itself. Exit 1 when every pending task is already planned.
 - `radin backlog plan-target <id-or-title> [<sub-slug>]` — one call resolving a
   task for planning: `id`/`title`/`task_file`/`plan_file` lines plus one `plan`
   line per existing pointer, with the four outcomes as exit codes (0 resolved,
@@ -41,6 +37,11 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   pattern matched and every real install reported one invalid file.
 
 ### Changed
+
+- `radin-execute` now writes each task's plan in the loop iteration that
+  executes it, instead of planning every confirmed task in one wave before the
+  first execution sub-agent runs. A plan written up front describes a tree the
+  earlier tasks' commits have since changed.
 
 - What radin writes to disk is shorter. `radin-record`, `radin-review` and
   `radin-plan` each state one rule above their template — write a section only

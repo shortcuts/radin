@@ -13,10 +13,9 @@ A sub-agent's `STATUS: BLOCKED` always carries a `(FACT)` or `(DECISION)` tag
   **Inside the working directory** — the repo, its lockfiles, its vendored
   dependencies, its config: dispatch a fresh sub-agent with the
   **Fact-finding prompt** from `radin-execute-prompts.md`. It investigates
-  read-only and reports in one turn. Holding more than one at once — Phase
-  3.5's wave is where that happens — every one of their Fact-finding prompts
-  goes in the same message, and each `STATUS: FOUND` is appended to its own
-  task's file.
+  read-only and reports in one turn. Holding more than one at once, every one
+  of their Fact-finding prompts goes in the same message, and each
+  `STATUS: FOUND` is appended to its own task's file.
 
   **Outside the working directory** — third-party API or library behavior, a
   spec, a service's own reference: you invoke `/mattpocock-skills:research`

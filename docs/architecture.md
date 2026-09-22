@@ -88,12 +88,11 @@ Creates `state/`, `plans/`, `reviews/`, `backlog/tasks/` under `$NAMESPACE_DIR`,
 `radin-execute`'s own state files (`BACKLOG_STEPS.json`, `completed.json`) get same treatment as backlog. Sibling CLI, `lib/radin-state.sh`, only way agent mutates either file — never hand-written JSON edit in agent's own prose.
 
 ```bash
-radin state <steps-init|next-pending|task-next|plan-wave|start|stuck|triage|recover|recover-reject|set-status|remove|deps-check|completed-add|completed-get|completed-list|task-done|task-fail|task-diagnosis|dirty-recover|report|task-dir|prepare|dirty-check|stash|session-set|session-get|journal-tail>
+radin state <steps-init|next-pending|task-next|start|stuck|triage|recover|recover-reject|set-status|remove|deps-check|completed-add|completed-get|completed-list|task-done|task-fail|task-diagnosis|dirty-recover|report|task-dir|prepare|dirty-check|stash|session-set|session-get|journal-tail>
 ```
 
 - `start <steps-file> <id>` — claim task before dispatch: `status` `in_progress`, `attempts` +1. Exits 2 having marked entry `blocked` once `attempts` passes `MAX_ATTEMPTS` (3), so crash loop can't burn tokens forever
 - `task-next <namespace-dir>` — the whole picker in one call: lowest-order `pending` entry, dependency gate, and the block-and-skip route for one whose dependency is unresolved. Prints the `blocked` lines it wrote, then `id`/`order`/`dep` for the task to run. Exit 1 when nothing is left, so orchestrator filters, sorts and joins nothing
-- `plan-wave <namespace-dir>` — every `pending` entry that still needs a `**Plan:**` pointer, lowest order first, as `plan<TAB><id>`. One `list --planned` call is both membership tests (a missing id has left the backlog), and there is deliberately no dependency gate: planning is read-only and nothing has committed yet at Phase 3.5. Exit 1 when every pending task is planned, which is also what makes a resume re-plan nothing
 - `stuck <steps-file>` — list `in_progress` entries: tasks dispatched by run that died before terminal status. Recovery entry point
 - `triage <namespace-dir> <id>` — facts about what dead sub-agent left: `attempts`, `completed` hash, `worktree`, `branch`, `branch_commit` lines, `dirty_files` count. Prints facts, decides nothing — agent routes on them (see `radin-execute` Phase 1 step 3). Worktree path and branch name derived from task id, never recorded: execution prompt pins them to `../<repo>-<id>` / `radin/<id>`
 - `recover <namespace-dir> <id>` — act on `triage`'s facts: finish the bookkeeping when a hash is already recorded, return a clean tree to `pending`, stash a dirty one first. Exit 3 prints the commits a dead sub-agent left on `radin/<id>` — the one branch no verb can settle, because only the model can say whether they satisfy the task. It answers with `task-done` or `recover-reject`
@@ -120,7 +119,7 @@ Both `BACKLOG_STEPS.json` and `completed.json` JSONL (one compact object per lin
 
 `radin-execute` alone reads six on-demand files, none of them inline in `SKILL.md`, because the skill body sits in the user's own context for the rest of the session. Each one be cold path — trigger fire, file get read, otherwise never:
 
-- `lib/radin-execute-prompts.md` — the four verbatim sub-agent prompts (planning, execution, debug, fact-finding), read at start of Phase 3.5. A session that stops at Phase 2 (common first turn) never reaches Phase 3.5, so never loads them.
+- `lib/radin-execute-prompts.md` — the four verbatim sub-agent prompts (planning, execution, debug, fact-finding), read at the first Step 4a that dispatches one. A session that stops at Phase 2 (common first turn) never reaches Phase 4, so never loads them.
 - `lib/radin-execute-recovery.md` — `triage` routing for tasks a dead session left `in_progress`, read only when `radin-state.sh stuck` exits 0. Most runs never load it.
 - `lib/radin-execute-reporting.md` — the two things `state report` cannot do: dropped-skill bullets it must be handed, and the duplicate id/title scan. Read at Phase 5.
 - `lib/radin-execute-clarify.md` — `BLOCKED (FACT)`/`(DECISION)` routing, fact-finder handoff, `backlog append` labels, read when a sub-agent block. Run where nothing block never load it.
@@ -140,7 +139,7 @@ As skill, radin-execute runs in user's own thread: asks directly, gets interrupt
 
 radin ships no agent for this. `claude agents` (agent view) dispatches full Claude Code background sessions — whole tool pool, working `AskUserQuestion`, peek/reply/attach — and `/radin-execute` runs unchanged in one. `/bg` sends the current conversation there. A second `claude` session in another terminal works too.
 
-`radin-plan` is skill, not agent: runs inline in whichever context invokes it. In user's own conversation, judges whether its one scoped entry should split into independent sub-plans, confirms with user directly before splitting, writes plan file + `**Plan:**` pointer per resulting sub-task. Phase 3.5 dispatches one planning sub-agent per confirmed task with no `**Plan:**` line yet, all in one message, each invoking `/radin-plan`; Step 4a's per-task dispatch is the residual path. Keeps planning's codebase exploration out of orchestrator's context — plan file on disk = handoff to execution sub-agent. That sub-agent runs non-interactively: where skill would ask confirmation, takes non-destructive path (no split, no overwrite, no seam confirmation), genuine ambiguity marks task `blocked` for user instead of guessing.
+`radin-plan` is skill, not agent: runs inline in whichever context invokes it. In user's own conversation, judges whether its one scoped entry should split into independent sub-plans, confirms with user directly before splitting, writes plan file + `**Plan:**` pointer per resulting sub-task. Step 4a dispatches one planning sub-agent per task with no `**Plan:**` line yet, invoking `/radin-plan`, in the iteration that then executes that task. Keeps planning's codebase exploration out of orchestrator's context — plan file on disk = handoff to execution sub-agent. That sub-agent runs non-interactively: where skill would ask confirmation, takes non-destructive path (no split, no overwrite, no seam confirmation), genuine ambiguity marks task `blocked` for user instead of guessing.
 
 ### Updating the stack
 
@@ -428,12 +427,11 @@ exists to avoid. A task with no `**Plan:**` pointer always gets a planning
 sub-agent, which sizes the task with the codebase in front of it and writes a
 three-line plan when three lines is what the task needs.
 
-Planning is also batched, in Phase 3.5, because the per-task loop was the only
-thing keeping the router from ever holding two read-only dispatches at once, so
-the parallelism it was already granted was unreachable in practice. The rule
-granting that fan-out is flat text in Core Constraints and needs no
-install-time token: it has no per-install variant, unlike the
-execution-concurrency rule.
+Planning is deliberately not batched ahead of the loop. A wave that plans
+every confirmed task up front writes each plan against a tree the earlier
+tasks' commits then change, so a later task executes a plan that no longer
+describes the code. Step 4a plans one task at a time, immediately before that
+task's execution dispatch, and pays a serial planning sub-agent for it.
 
 A task body may state its own `**Acceptance:**` criteria, which
 `radin backlog meta` reports and the execution prompt is handed. A task with

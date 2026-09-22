@@ -14,7 +14,6 @@
 #                                                         # the fourth field is optional and defaults to pending; also writes state/baseline.json
 #   radin-state.sh next-pending <steps-file>              # print lowest-order pending entry as "id<TAB>order<TAB>depends-on-csv", exit 1 if none
 #   radin-state.sh task-next <namespace-dir>              # next-pending + deps-check + block-and-skip, in one call; exit 1 when nothing is left
-#   radin-state.sh plan-wave <namespace-dir>              # print "plan<TAB><id>" per pending task that still needs a plan, lowest order first; exit 1 when none
 #   radin-state.sh start <steps-file> <id>                # mark in_progress, bump attempts; exit 2 (entry set blocked) past MAX_ATTEMPTS
 #   radin-state.sh stuck <steps-file>                     # print "id<TAB>attempts<TAB>note" per in_progress entry, exit 1 if none
 #   radin-state.sh triage <namespace-dir> <id>            # print recovery facts for a task a dead session left in_progress
@@ -547,36 +546,6 @@ task-next)
 	done
 	;;
 
-plan-wave)
-	# Every pending task that still needs a plan, in one call: the router
-	# dispatches one planning sub-agent per printed line, in one message, and
-	# joins nothing itself. No dependency gate on purpose -- planning is
-	# read-only, and at this point no dependency has committed yet, so gating
-	# would push every dependent task back into the per-task loop and defeat
-	# the wave.
-	ns="${2:-}"
-	[ -n "$ns" ] || die "usage: plan-wave <namespace-dir>"
-	[ -d "$ns" ] || die "no namespace dir: $ns"
-	steps="$ns/state/BACKLOG_STEPS.json"
-	[ -f "$steps" ] || exit 1
-	repo_root="${ns%/.claude/.radin}"
-	# One `list --planned` call is both membership tests at once: a 7th field
-	# of `P` means planned, and an id missing from the output has left the
-	# backlog (Step 4a's `field TASK_FILE` owns that drift case).
-	unplanned="$( (cd "$repo_root" 2>/dev/null &&
-		bash "$LIB_DIR/radin-backlog.sh" list --planned 2>/dev/null) |
-		awk -F'\037' 'NF > 1 && $7 == "" { print $1 }')"
-	out="$(while IFS= read -r line || [ -n "$line" ]; do
-		[ -n "$line" ] || continue
-		[ "$(json_get status "$line")" = "pending" ] || continue
-		id="$(json_get id "$line")"
-		printf '%s\n' "$unplanned" | grep -qxF "$id" || continue
-		printf '%s\t%s\n' "$(num_field "$line" order)" "$id"
-	done <"$steps" | sort -n | awk '{ print "plan\t" $2 }')"
-	[ -n "$out" ] || exit 1
-	printf '%s\n' "$out"
-	;;
-
 task-fail)
 	ns="${2:-}"
 	id="${3:-}"
@@ -827,6 +796,6 @@ report)
 	;;
 
 *)
-	die "unknown command: ${cmd:-<none>} (steps-init|next-pending|task-next|plan-wave|start|stuck|triage|recover|recover-reject|set-status|remove|deps-check|completed-add|completed-get|completed-list|task-done|task-fail|task-diagnosis|dirty-recover|report|task-dir|prepare|dirty-check|stash|session-set|session-get|journal-tail)"
+	die "unknown command: ${cmd:-<none>} (steps-init|next-pending|task-next|start|stuck|triage|recover|recover-reject|set-status|remove|deps-check|completed-add|completed-get|completed-list|task-done|task-fail|task-diagnosis|dirty-recover|report|task-dir|prepare|dirty-check|stash|session-set|session-get|journal-tail)"
 	;;
 esac

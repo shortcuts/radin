@@ -225,33 +225,6 @@ is deferred. Resolving that free text to ids is yours;
 filtering, renumbering and the `depends_on` precedence are not — every listed
 task keeps the `order` number the user just confirmed.
 
-## Phase 3.5: Plan Wave
-
-Every task the user just confirmed gets its plan written before the first
-execution sub-agent is dispatched, and they are all dispatched together. Read
-`RADIN_LIB/radin-execute-prompts.md` once now — it holds every
-verbatim sub-agent prompt this run sends, and this is the first phase that
-sends one.
-
-```bash
-RADIN_CLI state plan-wave "$NAMESPACE_DIR"
-```
-
-Exit 1: every pending task already carries a `**Plan:**` pointer, so go to
-Phase 4. Exit 0 prints one `plan<TAB><id>` line per task that needs one, lowest
-order first. Send the **Planning prompt** from `radin-execute-prompts.md` once
-per printed id, replacing `TASK_ID`, and put every one of those `Task` calls in
-one message, per Core Constraints. Substitute nothing else into them: a
-planning sub-agent gets no tree and no dependency list.
-
-Then route the whole wave, once all of its reports are in:
-
-- `STATUS: PLANNED`: nothing to record. Phase 4 reads the pointer off disk.
-- `STATUS: BLOCKED (FACT)` / `BLOCKED (DECISION)`: route every blocked task
-  through Clarifying Ambiguity, then re-run `plan-wave` and send the second
-  wave the same way. Run this phase at most twice per invocation: a task still
-  unplanned after the second wave belongs to Step 4a, not here.
-
 ## Phase 4: Task Execution Loop
 
 `RADIN_CLI state task-next` computes the **frontier** — the pending, unblocked
@@ -286,14 +259,17 @@ RADIN_CLI backlog field "<task id>" PLAN_PATHS
 backlog may have moved since Phase 3): mark the task `blocked` with that
 call's output as its `note` and continue to the next task.
 
-Phase 3.5's wave normally already satisfied this, so exit 1 here is the
-residual case: a task the wave could not plan, or one re-entering Step 4a
-after a settled block. `PLAN_PATHS` exit 0: a plan exists, skip to Step 4b.
-Exit 1: no plan, so delegate planning — unconditionally, with no judgment of
-the task's size or shape. The planning sub-agent owns `/radin-plan` (your
-context is the session's budget), and the plan file it leaves on disk is the
-whole handoff. Send the **Planning prompt** from
-`radin-execute-prompts.md`, replacing `TASK_ID`.
+`PLAN_PATHS` exit 0: a plan exists — `/radin-plan` wrote it, or an earlier
+Step 4a did — so skip to Step 4b. Exit 1: no plan, so delegate planning —
+unconditionally, with no judgment of the task's size or shape. Planning
+happens here, one task before its own execution dispatch, so the plan is
+written against the tree the previous tasks' commits already left behind.
+The planning sub-agent owns `/radin-plan` (your context is the session's
+budget), and the plan file it leaves on disk is the whole handoff. Read
+`RADIN_LIB/radin-execute-prompts.md` now if this run has not yet — it holds
+every verbatim sub-agent prompt — and send its **Planning prompt**, replacing
+`TASK_ID`. Substitute nothing else: a planning sub-agent gets no tree and no
+dependency list.
 
 - `STATUS: PLANNED`: proceed to Step 4b.
 - `STATUS: BLOCKED (FACT|DECISION)`: route per Clarifying Ambiguity, then

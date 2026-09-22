@@ -499,31 +499,6 @@ EOF
   [ "$status" -eq 1 ]
 }
 
-@test "plan-wave lists pending unplanned tasks in order and nothing else" {
-  fixture_repo
-  printf 'aa-task\t1\t\nbb-task\t2\t\ncc-task\t3\t\ndd-task\t4\t\tdeferred\n' | cli steps-init "$ST" > /dev/null
-  ( cd "$REPO" && bash "$REPO_ROOT/lib/radin-backlog.sh" add-plan bb-task /tmp/bb.md ) > /dev/null
-  cli set-status "$ST" cc-task failed boom
-  # an id the backlog no longer holds is never dispatched; Step 4a owns drift
-  printf '{"id":"zz","order":0,"status":"pending","depends_on":[],"attempts":0,"debugged":0,"note":""}\n' >> "$ST"
-  run cli plan-wave "$NS"
-  [ "$status" -eq 0 ]
-  # bb-task is planned, cc-task is not pending, dd-task is deferred, zz is gone
-  [ "$output" = "$(printf 'plan\taa-task')" ]
-
-  # two to send, lowest order first
-  cli set-status "$ST" cc-task pending ""
-  run cli plan-wave "$NS"
-  [ "$status" -eq 0 ]
-  [ "$output" = "$(printf 'plan\taa-task\nplan\tcc-task')" ]
-
-  # every pending task planned -> nothing to dispatch
-  ( cd "$REPO" && bash "$REPO_ROOT/lib/radin-backlog.sh" add-plan aa-task /tmp/aa.md ) > /dev/null
-  ( cd "$REPO" && bash "$REPO_ROOT/lib/radin-backlog.sh" add-plan cc-task /tmp/cc.md ) > /dev/null
-  run cli plan-wave "$NS"
-  [ "$status" -eq 1 ]
-}
-
 @test "task-done rejects a hash that is not a reachable commit" {
   fixture_repo
   printf 'aa-task\t1\t\n' | cli steps-init "$ST" > /dev/null
