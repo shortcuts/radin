@@ -278,9 +278,16 @@ a bullet is re-marked `•`, and `**` is stripped rather than rendered.
 `ctrl-d`/`ctrl-u` scroll that pane half a pane at a time and never move the
 tree selection, exactly as `j`/`k` move the selection and never scroll the
 pane — there is no focus concept and no `Tab`-to-switch. Its limits are
-deliberate: no fenced-code state, so a `#` inside a fence still renders bold,
-and no line wrapping — a long rendered line truncates, unlike a tree row.
-That truncation is by display column, not by byte: a wide CJK or emoji glyph
+deliberate: no fenced-code state, so a `#` inside a fence still renders bold.
+A rendered line wider than the pane wraps at the build step, not the renderer,
+so one buffer entry stays one screen line and the scroll offset needs no
+source-to-screen map: the break falls on the last space before the cut, each
+continuation indents to its line's content column (a bullet's text column, a
+quote's indent, a metadata row's value column) and a single token wider than
+the pane is hard-cut and continued. The buffer's 1024-line cap therefore bounds
+screen lines, so a very long body stops earlier than its last line — `v` opens
+the full composed document in `$PAGER`.
+The wrap and the pane's own truncation are by display column, not by byte: a wide CJK or emoji glyph
 counts as two and a tab flattens to one space, so a pane row cannot grow past
 its pane and wrap into its neighbour's columns.
 Under 100 columns the right pane is not drawn at all and the tree takes the

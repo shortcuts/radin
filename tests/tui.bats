@@ -678,9 +678,9 @@ long_body() {
   [ "$(last_pos)" = "[1/2]" ]
 }
 
-@test "a detail line wider than the pane is truncated at the pane's right edge" {
+@test "an over-wide token is cut at the pane's edge and continues on the next row" {
   seed
-  # 200 'A' then five two-byte 'é': the é's sit past the cut, so a width
+  # 200 'A' then five two-byte 'é': the é's sit past the first cut, so a width
   # counted in bytes lets the surviving ASCII run five columns past the pane.
   printf '%s%s\n' "$(printf 'A%.0s' $(seq 200))" \
     "$(printf '\303\251%.0s' $(seq 5))" >"$TASKS/dark-mode.md"
@@ -691,6 +691,35 @@ long_body() {
   # pane is 70 wide.
   [[ "$output" == *"$(printf 'A%.0s' $(seq 70))"* ]]
   [[ "$output" != *"$(printf 'A%.0s' $(seq 71))"* ]]
+  # The tail no longer falls past the cut: it wraps onto a following row.
+  [[ "$output" == *"$(printf '\303\251%.0s' $(seq 5))"* ]]
+}
+
+@test "a long detail line wraps on a word boundary" {
+  seed
+  # 30 five-column words: 150 columns of text in a 70-column pane.
+  printf '%s\n' "$(printf 'word%.0s ' $(seq 29))last" >"$TASKS/dark-mode.md"
+  run wide "q"
+  [ "$status" -eq 0 ]
+  run last_frame
+  # The last word survives whole, so nothing was truncated at the pane edge.
+  [[ "$output" == *"last"* ]]
+  # No word is split across the break.
+  [[ "$output" != *"wor "* ]]
+  [[ "$output" != *"las "* ]]
+}
+
+@test "a wrapped bullet's continuation indents past the bullet marker" {
+  seed
+  printf -- '- %s\n' "$(printf 'alpha%.0s ' $(seq 20))omega" >"$TASKS/dark-mode.md"
+  run wide "q"
+  [ "$status" -eq 0 ]
+  run last_frame
+  [[ "$output" == *"\342\200\242 alpha"* || "$output" == *"• alpha"* ]]
+  # The continuation starts four columns in, under the bullet's text, so it
+  # does not read as a new bullet.
+  [[ "$output" == *"    alpha"* ]]
+  [[ "$output" == *"omega"* ]]
 }
 
 @test "a wide glyph in the detail costs two columns, not one" {

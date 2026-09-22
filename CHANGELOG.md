@@ -4,6 +4,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Unreleased
 
+### Fixed
+
+- `radin tui`'s detail pane wraps a line too wide for the pane instead of
+  truncating it, so no part of a task body is invisible. The break falls on a
+  word boundary, a continuation indents to its line's content column, and an
+  over-wide token is cut and continued. Same in the narrow-terminal `enter`
+  overlay.
+
 ### Added
 
 - `install.sh` asks which package manager installs `rtk` and `headroom`:

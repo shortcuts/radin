@@ -36,7 +36,8 @@
 #define SLOT 512
 #define BIG 4096
 #define SPLIT_MIN 100 /* below this many columns, no right pane */
-#define MAXDET 1024   /* detail lines kept; the rest is not scrollable */
+#define MAXDET 1024   /* detail screen lines kept; the rest is not scrollable */
+#define DET_LABEL 10  /* detail field label width, and so its wrap indent */
 #define RULE '\001'   /* a detail line drawn as a full-width horizontal rule */
 #define ROW_MAX_LINES 3 /* wrapped lines one task row may take */
 #define LINEBUF 4096  /* one row's bytes: multi-byte content plus its padding */
@@ -65,9 +66,11 @@ static int COLOR = 1;
 
 /* The detail view's own state: DETAIL_FILE below is the `v`/`o` $PAGER temp file
  * and unrelated. DET_ROW is the row DET was built for, so a move resets the
- * scroll from the render path rather than from every key handler. */
+ * scroll from the render path rather than from every key handler. DET holds
+ * rendered text, one entry per screen line, and DET_S each entry's style. */
 static char DET[MAXDET][SLOT];
-static int DET_N, DET_TOP;
+static const char *DET_S[MAXDET];
+static int DET_N, DET_TOP, DET_W = 80;
 static int DET_H = 1;
 static int DET_ROW = -1;
 
@@ -692,9 +695,10 @@ static int clamp_top_wrapped(int sel, int top, int h, int lw) {
 /* Renders one markdown source line for a pane: strips the markers into `out`
  * and returns the ANSI prefix the whole line is painted with ("" for none).
  * A hand-rolled subset, and deliberately stateless: no fenced-code tracking, so
- * a `#` inside a fence does render bold, and no line wrapping -- span_at()
- * truncates a rendered line exactly as it truncates every other row. */
-static const char *md_line(const char *src, char *out, size_t cap) {
+ * a `#` inside a fence does render bold. Also reports through `indent` the
+ * display column its own prefix ends at, which is the column a wrapped
+ * continuation of this line indents to. */
+static const char *md_line(const char *src, char *out, size_t cap, int *indent) {
 	const char *style = "";
 	const char *p = src;
 	int lead = 0;
@@ -708,6 +712,7 @@ static const char *md_line(const char *src, char *out, size_t cap) {
 		q++;
 		hashes++;
 	}
+	*indent = 0;
 	if (!*p) {
 		out[0] = 0;
 	} else if (hashes && hashes <= 6 && (*q == ' ' || *q == 0)) {
@@ -723,8 +728,10 @@ static const char *md_line(const char *src, char *out, size_t cap) {
 		}
 		snprintf(out, cap, "%*s%s", lvl * 2, "", p);
 		style = "\033[2m";
+		*indent = lvl * 2;
 	} else if ((*p == '-' || *p == '*' || *p == '+') && p[1] == ' ') {
 		snprintf(out, cap, "%*s  \342\200\242 %s", lead, "", p + 2);
+		*indent = lead + 4;
 	} else {
 		snprintf(out, cap, "%s", src);
 	}
@@ -742,20 +749,63 @@ static const char *md_line(const char *src, char *out, size_t cap) {
 	return COLOR ? style : "";
 }
 
-static void det_push(const char *fmt, ...) {
+/* Renders one markdown source line and stores it as one DET entry per screen
+ * line, wrapped at the pane width so no text falls past the pane's right edge.
+ * Each continuation indents to the line's content column, so a wrapped bullet
+ * cannot read as a new bullet. `indent_override` >= 0 replaces md_line()'s own
+ * column, which is how a fixed-width field label reports its width. */
+static void det_line(const char *src, int indent_override) {
 	if (DET_N >= MAXDET) return;
+	/* RULE is the one line md_line cannot render: it needs the pane width,
+	 * which only draw_detail() knows. */
+	if (src[0] == RULE) {
+		DET_S[DET_N] = "";
+		snprintf(DET[DET_N++], SLOT, "%s", src);
+		return;
+	}
+	char text[1200];
+	int indent = 0;
+	const char *style = md_line(src, text, sizeof text, &indent);
+	if (indent_override >= 0) indent = indent_override;
+	int avail = DET_W - indent;
+	if (avail < 8) avail = 8;
+	const char *t = text;
+	for (int ln = 0; DET_N < MAXDET; ln++) {
+		int cut = wrap_at(t, ln == 0 ? DET_W : avail);
+		DET_S[DET_N] = style;
+		if (ln == 0) snprintf(DET[DET_N++], SLOT, "%.*s", cut, t);
+		else snprintf(DET[DET_N++], SLOT, "%*s%.*s", indent, "", cut, t);
+		t += cut;
+		while (*t == ' ') t++;
+		if (!*t) return;
+	}
+}
+
+static void det_push(const char *fmt, ...) {
+	char buf[1200];
 	va_list ap;
 	va_start(ap, fmt);
-	vsnprintf(DET[DET_N++], SLOT, fmt, ap);
+	vsnprintf(buf, sizeof buf, fmt, ap);
 	va_end(ap);
+	det_line(buf, -1);
+}
+
+/* One metadata row: a fixed-width label, then its value. The label width is
+ * also the value's wrap column, so a long `depends` list continues under the
+ * value rather than flush left. */
+static void det_field(const char *label, const char *val) {
+	char buf[1200];
+	snprintf(buf, sizeof buf, "%-*s %s", DET_LABEL, label, val);
+	det_line(buf, DET_LABEL + 1);
 }
 
 /* Fills DET with the selected row's detail document as markdown source. Reads
  * the task file directly -- no cli() call, so a frame still forks nothing. The
  * full composed document (epic description, every plan file, dependency
  * titles) lives behind `v`. */
-static void build_detail(void) {
+static void build_detail(int width) {
 	DET_N = 0;
+	DET_W = width > 0 ? width : 1;
 	if (N <= 0) return;
 	int ti = cur_task();
 	if (ti >= 0) {
@@ -764,12 +814,12 @@ static void build_detail(void) {
 		/* The per-task facts a list row has no column for: the row carries
 		 * priority and category because they sort it, everything else reads
 		 * here instead of shrinking the title. */
-		det_push("%-10s %s", "category", T[ti].cat);
-		det_push("%-10s %s", "id", T[ti].id);
-		det_push("%-10s %s", "priority", *T[ti].prio ? T[ti].prio : "unset");
-		det_push("%-10s %s", "planned", T[ti].flag[0] == 'P' ? "yes" : "no");
-		if (*T[ti].epic) det_push("%-10s %s", "epic", T[ti].epic);
-		if (*T[ti].deps) det_push("%-10s %s", "depends", T[ti].deps);
+		det_field("category", T[ti].cat);
+		det_field("id", T[ti].id);
+		det_field("priority", *T[ti].prio ? T[ti].prio : "unset");
+		det_field("planned", T[ti].flag[0] == 'P' ? "yes" : "no");
+		if (*T[ti].epic) det_field("epic", T[ti].epic);
+		if (*T[ti].deps) det_field("depends", T[ti].deps);
 		det_push("%c", RULE);
 		det_push("");
 		char path[PATH_MAX];
@@ -797,8 +847,8 @@ static void build_detail(void) {
  * then the pane prints no newline so it cannot scroll the frame. */
 static void draw_detail(int top_row, int at_col, int width, int h) {
 	for (int i = 0; i < h; i++) {
-		const char *src = DET_TOP + i < DET_N ? DET[DET_TOP + i] : "";
-		char text[SLOT * 2];
+		int in_buf = DET_TOP + i < DET_N;
+		const char *src = in_buf ? DET[DET_TOP + i] : "";
 		if (at_col) printf("\033[%d;%dH", top_row + i, at_col);
 		/* RULE is the one line md_line cannot render: it needs the pane width,
 		 * which only this function knows. */
@@ -809,8 +859,8 @@ static void draw_detail(int top_row, int at_col, int width, int h) {
 			if (!at_col) printf("\n");
 			continue;
 		}
-		const char *style = md_line(src, text, sizeof text);
-		span_at(text, 0, style, 0, (int)strlen(text), width, at_col ? 0 : 1);
+		const char *style = in_buf ? DET_S[DET_TOP + i] : "";
+		span_at(src, 0, style, 0, (int)strlen(src), width, at_col ? 0 : 1);
 	}
 }
 
@@ -892,7 +942,7 @@ static void draw(void) {
 			DET_ROW = SEL;
 			DET_TOP = 0;
 		}
-		build_detail();
+		build_detail(rw - 1);
 		DET_H = list_h;
 		if (DET_TOP > DET_N - list_h) DET_TOP = DET_N - list_h;
 		if (DET_TOP < 0) DET_TOP = 0;
@@ -1593,7 +1643,7 @@ static void detail_overlay(void) {
 		term_size();
 		int h = ROWS - 2;
 		if (h < 1) h = 1;
-		build_detail();
+		build_detail(COLS);
 		DET_H = h;
 		if (DET_TOP > DET_N - h) DET_TOP = DET_N - h;
 		if (DET_TOP < 0) DET_TOP = 0;
