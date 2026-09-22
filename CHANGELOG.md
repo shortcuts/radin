@@ -6,6 +6,21 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- `/radin-review` goes from 346 lines to 200. It states each rule once and
+  leaves the review method to the skills it already invokes: the two-axis
+  rationale now points at `/mattpocock-skills:code-review`, the graph and `rtk`
+  guidance goes with `/thermo-nuclear` and the `passes` skills that do the
+  reading, and the non-interactive arm is one paragraph at the top instead of a
+  branch inside seven steps. Two steps are gone: the post-triage
+  `/mattpocock-skills:grilling` refinement round, and the closing question
+  offering to run `/radin-execute`. Logged entries carry no `**Acceptance:**`
+  section, because nothing synthesises one any more.
+
+- `radin scope` resolves a `since <date>` argument itself, so `/radin-review`
+  no longer runs `git log --since` by hand. The phrase goes to git's
+  approxidate; the `since` prefix keeps a garbage argument out of that branch,
+  and an empty log still exits 1.
+
 - `/radin-plan`'s Step 4 reviews each plan it writes on two axes instead of one.
   Standards keeps the `/thermo-nuclear` and `/ponytail:ponytail-review` passes;
   the new Spec axis reads the plan against the backlog entry it came from and

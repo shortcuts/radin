@@ -225,8 +225,8 @@ above.">
 
 The plan is the cheapest place to correct the work. Two **axes** carry the
 review of it, separate for
-the same reason they stay separate over code (`skills/radin-review/SKILL.md`,
-"Why two axes"):
+the same reason they stay separate over code
+(`/mattpocock-skills:code-review`, "Why two axes"):
 
 - **Standards** — does the proposed approach hold up against this repo's
   rubrics?

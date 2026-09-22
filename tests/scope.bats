@@ -76,10 +76,23 @@ EOF
   [[ "$output" == *"gh pr diff 123 --repo algolia/foo"* ]]
 }
 
-@test "an unrecognized argument exits 1 (a date phrase stays the caller's job)" {
-  run cli "since yesterday"
+@test "an unrecognized argument exits 1" {
+  run cli "blorp zonk"
   [ "$status" -eq 1 ]
-  [[ "$output" == *"not a commit, PR, directory, or range"* ]]
+  [[ "$output" == *"not a commit, PR, directory, range, or since-date"* ]]
+}
+
+@test "a date phrase resolves to the range starting before its oldest commit" {
+  ( cd "$WORK/repo"
+    printf 'b\n' > f.txt && git commit -qam second )
+  oldest="$(cd "$WORK/repo" && git log --since=yesterday --format=%H | tail -1)"
+  run cli "since yesterday"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"type"$'\t'"range"* ]]
+  # The window reaches the root commit, so the left side is the empty tree.
+  empty="$(cd "$WORK/repo" && git hash-object -t tree /dev/null)"
+  [ "$oldest" = "$(cd "$WORK/repo" && git rev-list --max-parents=0 HEAD)" ]
+  [[ "$output" == *"git diff $empty..HEAD"* ]]
 }
 
 @test "an argument valid as several readings exits 2 listing candidates" {
@@ -170,6 +183,6 @@ EOF
 }
 
 @test "--in-scope forwards a resolution failure's exit code" {
-  run bash -c "printf 'a.c:1\n' | (cd '$WORK/repo' && bash '$CLI' --in-scope 'since yesterday')"
+  run bash -c "printf 'a.c:1\n' | (cd '$WORK/repo' && bash '$CLI' --in-scope 'blorp zonk')"
   [ "$status" -eq 1 ]
 }

@@ -69,7 +69,7 @@ The subcommand is what switches the two modes apart, so no flag does. `radin <ve
 - `epic-move <id-or-title> <epic-id|--none>` — move the task file and rewrite its `file` field; `--none` returns it to the flat `tasks/` level
 - `epic-remove <epic-id>` — refuse while child tasks remain (exit non-zero, delete nothing): the operator moves them out first
 
-`radin scope` (`lib/radin-scope.sh`) is the same offload for `radin-review`'s one input. It resolves a commit, a PR, a directory, the no-argument branch diff, or a range (`last commit`, `last <n> commits`, `<rev>..<rev>`) into `type`/`scope`/`command`/`passes` lines; `passes` names the ponytail skill(s) that scope type calls for, because mapping a type to a pass was the last thing the skill computed from this script's own output. `--in-scope` reads `path:line` citations on stdin and prints `in`/`out` per citation plus a final `dropped<TAB><n>`, which is the out-of-scope drop the skill used to do by eye against the diff. A date phrase stays out on purpose: git's approxidate accepts any garbage and reports an empty log either way, so there is no exit code to route on. Format in [domain models](domain-models.md#review-scope-output-radin-scope).
+`radin scope` (`lib/radin-scope.sh`) is the same offload for `radin-review`'s one input. It resolves a commit, a PR, a directory, the no-argument branch diff, or a range (`last commit`, `last <n> commits`, `<rev>..<rev>`) into `type`/`scope`/`command`/`passes` lines; `passes` names the ponytail skill(s) that scope type calls for, because mapping a type to a pass was the last thing the skill computed from this script's own output. `--in-scope` reads `path:line` citations on stdin and prints `in`/`out` per citation plus a final `dropped<TAB><n>`, which is the out-of-scope drop the skill used to do by eye against the diff. A `since <date>` argument resolves too: the phrase goes to git's approxidate, and the `since` prefix is what keeps a garbage argument — which approxidate also accepts — out of that branch. Format in [domain models](domain-models.md#review-scope-output-radin-scope).
 
 Point: offloading. Id assignment, task lookup, plan-pointer insertion, the execution order and its dependency fix, the ranking gate, prompt-field rendering, the duplicate scan — deterministic ops model used to re-derive from prose rules every run. `lib/radin-prioritization.md` is left with the two things that are not computations: how to rank the unset-priority group, and when one entry's body implies a dependency on another's. CLI does them exact; agents/skills supply only judgment (what to log, how to classify, what to plan). Task's file path always read back from its index line's `file` field, never composed by a caller and never computed from stored line number — nothing here goes stale as backlog shape changes.
 
@@ -154,7 +154,7 @@ Non-destructive by construction: the installer only `cp`s radin's own files, plu
 
 ## Code-graph wiring (codebase-memory-mcp)
 
-`codebase-memory-mcp` is radin's code-intelligence companion: an MCP server that indexes a repo into a persistent knowledge graph, so `radin-plan`, `radin-review` and execution sub-agents ask the graph (`search_graph`, `trace_path`, `get_code_snippet`, `query_graph`, `detect_changes`) instead of grepping files.
+`codebase-memory-mcp` is radin's code-intelligence companion: an MCP server that indexes a repo into a persistent knowledge graph, so `radin-plan` and execution sub-agents ask the graph (`search_graph`, `trace_path`, `get_code_snippet`, `query_graph`, `detect_changes`) instead of grepping files.
 
 `install.sh` installs the binary with **`--skip-config`**, sets `auto_index true`, then runs `radin-cbm-config.sh install`, which is upstream's own `codebase-memory-mcp install -y`: its skill, three tiered graph agents (Scout/Verify/Auditor), the user-scope MCP entry in `~/.claude.json`, and the `SessionStart`/`SubagentStart`/`PreToolUse` hooks that route Grep/Glob toward the graph. User-scope MCP is why no per-project step is needed afterwards, and `--skip-config` on the binary install only defers that write so radin can bracket it.
 
@@ -179,10 +179,12 @@ It writes no `settings.json` hook of radin's own: `auto_index` indexes a project
 An MCP tool name must exist in upstream's [MCP
 Tools](https://github.com/DeusData/codebase-memory-mcp#mcp-tools) table — a
 wrong one costs a failed call plus a fallback in every sub-agent that reads
-the prompt. Names appear in four files only:
-`skills/radin-plan/SKILL.md` (exploration), `skills/radin-review/SKILL.md`
-(`detect_changes` first), `lib/radin-execute-prompts.md` (execution, debug,
-fact-finding), and the CLAUDE.md section inside `lib/radin-cbm-hooks.sh`.
+the prompt. Names appear in three files only:
+`skills/radin-plan/SKILL.md` (exploration), `lib/radin-execute-prompts.md`
+(execution, debug, fact-finding), and the CLAUDE.md section inside
+`lib/radin-cbm-hooks.sh`. `radin-review` names none: its Standards axis
+invokes `/thermo-nuclear` and the `passes` skills, which choose their own
+reading.
 Between them they name `index_repository`, `list_projects`, `search_graph`,
 `search_code`, `trace_path`, `detect_changes`, `query_graph`,
 `get_graph_schema`, `get_code_snippet` and `get_architecture`. Each file names

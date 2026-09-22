@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 # Deterministic review-scope resolution for radin-review, so the skill
-# doesn't probe git/gh by hand. A date phrase ("since yesterday") stays the
-# caller's job: git's approxidate accepts any garbage and reports an empty log
-# either way, so there is no exit code to route on.
+# doesn't probe git/gh by hand.
 # Installed to ~/.claude/.radin/lib/radin-scope.sh by install.sh.
 #
 # Usage: radin-scope.sh [arg]
@@ -10,7 +8,8 @@
 #
 # No arg: the current branch's diff against its merge-base with main/master.
 # With arg: a commit-ish, a PR reference (#123, 123, GitHub PR URL), a
-# directory path, or a range (`last commit`, `last <n> commits`, `<rev>..<rev>`).
+# directory path, a range (`last commit`, `last <n> commits`, `<rev>..<rev>`),
+# or a date phrase (`since yesterday`, `since last week`).
 #
 # Output (TAB-separated key/value lines):
 #   type    commit|pr|dir|branch-diff|range
@@ -218,5 +217,24 @@ if [ "$candidates" -gt 1 ]; then
 	done
 	exit 2
 fi
-printf 'radin-scope: "%s" is not a commit, PR, directory, or range here\n' "$arg" >&2
+# `since <phrase>` hands the phrase to approxidate, which accepts any garbage:
+# the `since ` prefix is what keeps an unrecognized argument out of this branch.
+if [ "$candidates" -eq 0 ] && [ "$arg" != "${arg#since }" ] &&
+	git rev-parse --git-dir >/dev/null 2>&1; then
+	# `git log -1 --reverse` returns the newest commit in the window: `-1`
+	# applies before `--reverse`, so `tail -1` is what gets the oldest.
+	oldest="$(git log --since="${arg#since }" --format=%H 2>/dev/null | tail -1)"
+	if [ -n "$oldest" ]; then
+		if git rev-parse --verify -q "$oldest~1" >/dev/null 2>&1; then
+			left="$oldest~1"
+		else
+			# The window reaches the root commit, which has no parent.
+			left="$(git hash-object -t tree /dev/null)"
+		fi
+		emit range "$left..HEAD" "git diff $left..HEAD"
+		exit 0
+	fi
+fi
+
+printf 'radin-scope: "%s" is not a commit, PR, directory, range, or since-date here\n' "$arg" >&2
 exit 1
