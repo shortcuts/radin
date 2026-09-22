@@ -277,7 +277,19 @@ an ATX heading goes bold with its `#` gone, a `>` quote goes dim and indented,
 a bullet is re-marked `•`, and `**` is stripped rather than rendered.
 `ctrl-d`/`ctrl-u` scroll that pane half a pane at a time and never move the
 tree selection, exactly as `j`/`k` move the selection and never scroll the
-pane — there is no focus concept and no `Tab`-to-switch. Its limits are
+pane — there is no focus concept and no `Tab`-to-switch.
+Below the metadata block the pane has two views of the selected task, named on
+a marker line above the content rule with the active one bright: the task body,
+and that task's plan files concatenated under the same `### <path>` heading the
+composed document uses. `l` (arrow right) switches to the plan, `h` (arrow
+left) back to the body — the key decoder already folds those arrows onto the
+two letters. The active view sticks across `j`/`k` so the list can be walked
+comparing plans, while the scroll offset restarts at the top on every switch
+and every move. A task with no plan reads `(no plan yet -- run /radin-plan)`,
+and a pointer whose file will not open `(plan file missing)`. An epic header
+row has no plan, so the two keys do nothing there, and the Done view ignores
+them. `v` stays the one complete document; the pane is a preview of one part of
+it. Its limits are
 deliberate: no fenced-code state, so a `#` inside a fence still renders bold.
 A rendered line wider than the pane wraps at the build step, not the renderer,
 so one buffer entry stays one screen line and the scroll offset needs no

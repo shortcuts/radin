@@ -14,6 +14,11 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- `radin tui`'s detail pane switches between the task body and the task's plan
+  files with `h`/`l` (or arrow left/right), so reading a plan costs no `$PAGER`
+  round trip. A marker line above the content rule names the active view, which
+  sticks as `j`/`k` walk the list. Same keys in the narrow-terminal overlay.
+
 - `install.sh` asks which package manager installs `rtk` and `headroom`:
   `brew`, `mise`, or each tool's own installer. It offers only the managers
   already on `PATH`, records the answer in `manifest.json`, and `radin update`

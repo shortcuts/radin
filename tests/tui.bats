@@ -634,6 +634,125 @@ long_body() {
   awk 'BEGIN{for(i=1;i<=60;i++)printf "line %02d\n", i}' >"$TASKS/dark-mode.md"
 }
 
+# A plan file plus the pointer that makes `backlog meta` report it. $1 is the
+# task id, $2 the plan slug, $3 the line the plan body carries.
+planned_body() {
+  mkdir -p "$NS/plans"
+  printf '%s\n' "$3" >"$NS/plans/$2.md"
+  bl add-plan "$1" "plans/$2.md" >/dev/null
+}
+
+@test "l shows the task's plan and h returns to the body" {
+  seed
+  planned_body dark-mode dark-mode "plan step one"
+  run wide "l|q"
+  [ "$status" -eq 0 ]
+  run last_frame
+  [[ "$output" == *"plan step one"* ]]
+  [[ "$output" == *"plans/dark-mode.md"* ]]
+  [[ "$output" != *"Add dark mode."* ]]
+  run wide "l|h|q"
+  run last_frame
+  [[ "$output" == *"Add dark mode."* ]]
+  [[ "$output" != *"plan step one"* ]]
+}
+
+@test "arrow right and arrow left switch the detail view too" {
+  seed
+  planned_body dark-mode dark-mode "plan step one"
+  run wide "\x1b[C|q"
+  run last_frame
+  [[ "$output" == *"plan step one"* ]]
+  run wide "\x1b[C|\x1b[D|q"
+  run last_frame
+  [[ "$output" == *"Add dark mode."* ]]
+  [[ "$output" != *"plan step one"* ]]
+}
+
+@test "the marker line names both detail views" {
+  seed
+  run wide "q"
+  [ "$status" -eq 0 ]
+  # The active name carries a bold span, so the two sit on one line with
+  # escape bytes between them rather than as one literal.
+  run last_frame
+  [[ "$output" =~ body.*plan ]]
+}
+
+@test "the detail view sticks as the selection moves" {
+  seed
+  planned_body dark-mode dark-mode "first plan text"
+  planned_body broken-auth broken-auth "second plan text"
+  run wide "l|j|q"
+  [ "$status" -eq 0 ]
+  run last_frame
+  [[ "$output" == *"second plan text"* ]]
+  [ "$(last_pos)" = "[2/2]" ]
+}
+
+@test "the plan view of an unplanned task says so" {
+  seed
+  run wide "l|q"
+  [ "$status" -eq 0 ]
+  run last_frame
+  [[ "$output" == *"no plan yet"* ]]
+}
+
+@test "the plan view concatenates every plan file" {
+  seed
+  planned_body dark-mode dark-mode "plan one text"
+  planned_body dark-mode dark-mode-extra "plan two text"
+  run wide "l|q"
+  [ "$status" -eq 0 ]
+  run last_frame
+  [[ "$output" == *"plan one text"* ]]
+  [[ "$output" == *"plan two text"* ]]
+  [[ "$output" == *"plans/dark-mode-extra.md"* ]]
+}
+
+@test "a plan pointer whose file is gone reads as missing" {
+  seed
+  planned_body dark-mode dark-mode "plan step one"
+  rm "$NS/plans/dark-mode.md"
+  run wide "l|q"
+  [ "$status" -eq 0 ]
+  run last_frame
+  [[ "$output" == *"plan file missing"* ]]
+}
+
+@test "the narrow-terminal overlay switches views with the same keys" {
+  seed
+  planned_body dark-mode dark-mode "plan step one"
+  run tui "\r|l|q|q"
+  [ "$status" -eq 0 ]
+  run cat "$SCREEN"
+  [[ "$output" == *"plan step one"* ]]
+  [[ "$output" == *"q/esc close"* ]]
+}
+
+@test "h and l on an epic header row change nothing" {
+  seed
+  two_epics
+  snapshot
+  run wide "l|q"
+  [ "$status" -eq 0 ]
+  run last_frame
+  # Row 1 is the aaa-epic header, and an epic has no plan, so the pane keeps
+  # its epic document and draws no marker line.
+  [[ "$output" == *"epic: aaa-epic"* ]]
+  ! grep -q 'body.*plan' <<<"$output"
+  [ "$(last_pos)" = "[1/6]" ]
+  unchanged
+}
+
+@test "l is inert in the Done view" {
+  seed
+  run tui "\t|l|q"
+  [ "$status" -eq 0 ]
+  run last_frame
+  [[ "$output" == *"done"* ]]
+}
+
 @test "the detail pane renders markdown beside the tree at 120 columns" {
   md_body
   run wide "q"

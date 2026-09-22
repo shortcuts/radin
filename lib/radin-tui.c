@@ -67,12 +67,19 @@ static int COLOR = 1;
 /* The detail view's own state: DETAIL_FILE below is the `v`/`o` $PAGER temp file
  * and unrelated. DET_ROW is the row DET was built for, so a move resets the
  * scroll from the render path rather than from every key handler. DET holds
- * rendered text, one entry per screen line, and DET_S each entry's style. */
+ * rendered text, one entry per screen line, and DET_S each entry's style.
+ * DET_VIEW is which half the marker line names -- 0 the task body, 1 its plan
+ * files -- and it survives selection motion on purpose, so walking the list
+ * compares the same part of every task. DET_MARK is that marker's DET index
+ * (-1 when the build drew none) and DET_MARK_AT the active name's column in
+ * it, which is how one line gets a style the per-entry DET_S cannot give. */
 static char DET[MAXDET][SLOT];
 static const char *DET_S[MAXDET];
 static int DET_N, DET_TOP, DET_W = 80;
 static int DET_H = 1;
 static int DET_ROW = -1;
+static int DET_VIEW;
+static int DET_MARK = -1, DET_MARK_AT;
 
 static char *done_rows[MAXT];
 static int DONE_N, DONE_SEL, DONE_TOP;
@@ -799,12 +806,23 @@ static void det_field(const char *label, const char *val) {
 	det_line(buf, DET_LABEL + 1);
 }
 
-/* Fills DET with the selected row's detail document as markdown source. Reads
- * the task file directly -- no cli() call, so a frame still forks nothing. The
- * full composed document (epic description, every plan file, dependency
- * titles) lives behind `v`. */
+/* A `meta` plan path is absolute or relative to NAMESPACE_DIR. One owner,
+ * because the pane and the composed document must open the same file. */
+static void plan_abs(const char *p, char *dst, size_t cap) {
+	if (*p == '/') snprintf(dst, cap, "%s", p);
+	else snprintf(dst, cap, "%s/%s", NAMESPACE_DIR, p);
+}
+
+/* Fills DET with the selected row's detail document as markdown source. The
+ * body view reads the task file directly, so a frame forks nothing; the plan
+ * view forks one `backlog meta` per repaint, the same cost class as `c` or `p`
+ * -- draw() only runs on a keypress or an index change.
+ * ponytail: one meta fork per plan-view repaint, cache it keyed by task id if
+ * a repaint ever measures slow. The full composed document (epic description,
+ * every plan file, dependency titles) lives behind `v`. */
 static void build_detail(int width) {
 	DET_N = 0;
+	DET_MARK = -1;
 	DET_W = width > 0 ? width : 1;
 	if (N <= 0) return;
 	int ti = cur_task();
@@ -820,18 +838,62 @@ static void build_detail(int width) {
 		det_field("planned", T[ti].flag[0] == 'P' ? "yes" : "no");
 		if (*T[ti].epic) det_field("epic", T[ti].epic);
 		if (*T[ti].deps) det_field("depends", T[ti].deps);
+		/* Which half of the task the content below the rule is, and the only
+		 * affordance for h/l -- the footer is full at 80 columns, so `?` and
+		 * this line carry the key. Both names are four columns wide, which is
+		 * why draw_detail() can paint one with a constant length. */
+		DET_MARK = DET_N;
+		DET_MARK_AT = DET_VIEW ? 6 : 0;
+		det_line("body  plan", 0);
 		det_push("%c", RULE);
 		det_push("");
-		char path[PATH_MAX];
-		task_path(ti, path, sizeof path);
-		FILE *f = fopen(path, "r");
-		if (f) {
-			char buf[1200];
-			while (DET_N < MAXDET && fgets(buf, sizeof buf, f)) {
-				chomp(buf);
-				det_push("%s", buf);
+		if (!DET_VIEW) {
+			char path[PATH_MAX];
+			task_path(ti, path, sizeof path);
+			FILE *f = fopen(path, "r");
+			if (f) {
+				char buf[1200];
+				while (DET_N < MAXDET && fgets(buf, sizeof buf, f)) {
+					chomp(buf);
+					det_push("%s", buf);
+				}
+				fclose(f);
 			}
-			fclose(f);
+		} else {
+			/* `backlog meta` owns **Plan:** parsing, and `### <path>` is the
+			 * heading the composed document uses, so pane and pager agree. */
+			int ok;
+			char *meta = cli(BACKLOG, &ok, 0, NULL, "meta", T[ti].id, NULL);
+			char *line = meta;
+			int any = 0;
+			while (*line && DET_N < MAXDET) {
+				char *nl = strchr(line, '\n');
+				if (nl) *nl = 0;
+				if (!strncmp(line, "plan\t", 5)) {
+					const char *rel = line + 5;
+					char abs[PATH_MAX];
+					plan_abs(rel, abs, sizeof abs);
+					det_push("### %s", rel);
+					det_push("");
+					FILE *pf = fopen(abs, "r");
+					if (pf) {
+						char buf[1200];
+						while (DET_N < MAXDET && fgets(buf, sizeof buf, pf)) {
+							chomp(buf);
+							det_push("%s", buf);
+						}
+						fclose(pf);
+					} else {
+						det_push("(plan file missing)");
+					}
+					det_push("");
+					any = 1;
+				}
+				if (!nl) break;
+				line = nl + 1;
+			}
+			free(meta);
+			if (!any) det_push("(no plan yet -- run /radin-plan)");
 		}
 	} else {
 		det_push("# epic: %s", row_epic[SEL]);
@@ -857,6 +919,11 @@ static void draw_detail(int top_row, int at_col, int width, int h) {
 			for (int c = 0; c < width; c++) printf("\342\224\200");
 			if (COLOR) printf("\033[0m");
 			if (!at_col) printf("\n");
+			continue;
+		}
+		if (in_buf && DET_TOP + i == DET_MARK) {
+			span_at(src, 0, COLOR ? "\033[1m" : "", DET_MARK_AT, 4, width,
+				at_col ? 0 : 1);
 			continue;
 		}
 		const char *style = in_buf ? DET_S[DET_TOP + i] : "";
@@ -1106,6 +1173,17 @@ static int move_key(int k) {
 	case 21:
 		if (MODE_DONE || !split_on()) return 0;
 		DET_TOP += (k == 4 ? 1 : -1) * (DET_H / 2 > 0 ? DET_H / 2 : 1);
+		return 1;
+	/* h / l (the decoder folds arrow left/right onto them): which half of the
+	 * task the pane shows. Same shape as ^d/^u -- pane state, not selection,
+	 * so a held burst coalesces into one frame. The two views are documents of
+	 * different lengths, so the scroll offset restarts at the top. An epic row
+	 * has no plan, hence the cur_task() guard. */
+	case 'h':
+	case 'l':
+		if (MODE_DONE || !split_on() || cur_task() < 0) return 0;
+		DET_VIEW = k == 'l';
+		DET_TOP = 0;
 		return 1;
 	}
 	return 0;
@@ -1544,8 +1622,7 @@ static void compose_detail(FILE *f) {
 		if (!strncmp(line, "plan\t", 5)) {
 			const char *p = line + 5;
 			char abs[PATH_MAX];
-			if (*p == '/') snprintf(abs, sizeof abs, "%s", p);
-			else snprintf(abs, sizeof abs, "%s/%s", NAMESPACE_DIR, p);
+			plan_abs(p, abs, sizeof abs);
 			fprintf(f, "### %s\n\n", p);
 			FILE *pf = fopen(abs, "r");
 			if (pf) {
@@ -1655,6 +1732,10 @@ static void detail_overlay(void) {
 		int k = readkey();
 		if (k < 0 || k == 'q' || k > 1000) return; /* EOF, q, bare ESC */
 		if (k == 4 || k == 21) DET_TOP += (k == 4 ? 1 : -1) * (h / 2 > 0 ? h / 2 : 1);
+		else if ((k == 'h' || k == 'l') && cur_task() >= 0) {
+			DET_VIEW = k == 'l';
+			DET_TOP = 0;
+		}
 	}
 }
 
@@ -1670,6 +1751,10 @@ static void help_screen(void) {
 		"  enter         an epic row: collapse/expand. A task row: nothing, unless\n"
 		"                the terminal is under 100 columns -- then the detail overlay\n"
 		"  ^d / ^u       scroll the detail half a pane\n"
+		"  h / l         arrow left / right: on a task row, switch the detail\n"
+		"                between the task body and the task's plan files. The\n"
+		"                marker line above the rule names the active one, and it\n"
+		"                stays put as j/k walk the list\n"
 		"  v             view the composed detail in $PAGER: the body, the epic's\n"
 		"                own description, every plan file and the dependency titles --\n"
 		"                everything the pane leaves out\n"
