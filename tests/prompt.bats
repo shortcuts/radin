@@ -67,12 +67,8 @@ backlog() {
 }
 
 @test "a planned task with skills and acceptance keeps those blocks" {
-  backlog add feat "big thing" --skill frontend-design <<'EOF'
-Build the thing.
-
-**Acceptance:**
-- [ ] the button renders
-EOF
+  backlog add feat "big thing" --skill frontend-design <<<"Build the thing."
+  backlog set-meta big-thing acceptance "the button renders"
   printf '# Plan\n' > "$WORK/proj/plan.md"
   backlog add-plan big-thing "$WORK/proj/plan.md"
   run cli execution big-thing
@@ -84,6 +80,22 @@ EOF
   [[ "$output" == *"acceptance criteria"* ]]
   [[ "$output" == *"the button renders"* ]]
   [[ "$output" != *"ACCEPTANCE"* ]]
+}
+
+@test "the entry's facts and location reach the execution prompt" {
+  backlog add fix "a bug" <<<"It breaks."
+  run cli execution a-bug
+  [[ "$output" != *"FACTS"* ]]
+  [[ "$output" != *"LOCATION"* ]]
+  [[ "$output" != *"long form of the evidence"* ]]
+  backlog set-meta a-bug facts "$NS/state/facts/a-bug.md"
+  backlog set-meta a-bug location "lib/x.sh:12"
+  run cli execution a-bug
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Read $NS/state/facts/a-bug.md as well"* ]]
+  [[ "$output" == *"lib/x.sh:12 is the"* ]]
+  [[ "$output" != *"FACTS"* ]]
+  [[ "$output" != *"LOCATION"* ]]
 }
 
 @test "a dependency's commit reaches the prompt without the router carrying it" {

@@ -203,8 +203,8 @@ sub-agent (Fact-finding prompt in `lib/radin-execute-prompts.md`) -- never
 third-party research skill. When radin needs decision, router asks user
 directly, or records entry `blocked` and moves on.
 
-`**Skill:**` pointers user recorded pass through to execution sub-agent
-unfiltered except for this one class. Filtering happens at forward point in
+Skill instructions user recorded on entry's `skills` key pass through to
+execution sub-agent unfiltered except for this one class. Filtering happens at forward point in
 `skills/radin-execute/SKILL.md` Step 4b, and dropped skill named in Phase 5
 summary so user can run it themselves.
 

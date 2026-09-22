@@ -53,10 +53,16 @@ Ground rules, applying to every step below:
 
 1. Read TASK_FILE to understand the task. Anything the router appended to it
    is part of the task, not commentary: `**Decision:**`, `**Fact:**`,
-   and `**Root cause:**` lines are settled and binding. A
-   `**Facts:**` line points at a file with the long form of one of them; read
-   it. That file and this task file are the only cross-agent context you get,
-   and that is deliberate: no other task's material reaches you.
+   and `**Root cause:**` lines are settled and binding. That file, plus
+   whatever it names, is the only cross-agent context you get, and that is
+   deliberate: no other task's material reaches you.
+<!-- if:FACTS -->
+   Read FACTS as well: it holds the long form of the evidence behind one of
+   those lines.
+<!-- end -->
+<!-- if:LOCATION -->
+   LOCATION is the `path:line` this task's finding was cited at; start there.
+<!-- end -->
 1a. Set up the tree you will work in:
    `RADIN_CLI state prepare "NAMESPACE_DIR" "TASK_ID"`.
    It prints one absolute path on stdout, and that path is the tree — repo root

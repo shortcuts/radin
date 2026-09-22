@@ -13,7 +13,7 @@ All radin state — backlog content, execution state — lives inside target rep
   backlog/
     index.jsonl                  # backlog index, source of truth: one JSON object per task
     tasks/
-      <task-id>.md                # one file per task: description + any **Plan:** lines
+      <task-id>.md                # one file per task: the description prose and its labeled prose material
       <epic-id>/
         DESCRIPTION.md            # the epic's root context, inherited by every child task
         <task-id>.md              # a child task of that epic
@@ -32,7 +32,7 @@ All radin state — backlog content, execution state — lives inside target rep
 
 An epic is that one directory level and nothing else: membership is carried by the index line's `file` field (`tasks/<epic-id>/<task-id>.md`), so an epic gets no index line and no category. A line would have to be filtered out of `list` by every consumer, and the first one that forgot would dispatch an epic as a task. One nesting level: no epics inside epics. Task ids stay globally unique across every epic — `depends_on`, `radin state prepare`, `task-dir`, `triage` and the `radin/<task-id>` branch all key off the bare id.
 
-Split each task into own file, not one monolithic doc: no radin agent/skill addresses backlog content by line number — `**Plan:**` insert into one task's file can't touch any other task's file. `index.jsonl` = JSON Lines — one compact object per line, `{"id":...,"category":...,"title":...,"file":...}` — not single JSON array. Bash 3.2 got no JSON parser, project got no `jq` dep, so one-object-per-line keeps every CLI op a grep/sed one-liner.
+Split each task into own file, not one monolithic doc: no radin agent/skill addresses backlog content by line number — an append to one task's file can't touch any other task's file. `index.jsonl` = JSON Lines — one compact object per line, `{"id":...,"category":...,"title":...,"file":...}` — not single JSON array. Bash 3.2 got no JSON parser, project got no `jq` dep, so one-object-per-line keeps every CLI op a grep/sed one-liner.
 
 Outside any git repo, current directory takes repo root's place.
 
@@ -43,23 +43,25 @@ Replaced earlier `~/.claude/.radin/projects/<repo-slug>/` scheme. That scheme ke
 Every one of `skills/radin-execute/SKILL.md`, `skills/radin-plan/SKILL.md`, `skills/radin-review/SKILL.md`, `skills/radin-record/SKILL.md`, `skills/radin-show/SKILL.md` goes through same shared CLI, `lib/radin-backlog.sh`, for every deterministic backlog op:
 
 ```bash
-radin backlog <env|show|list|count|find|add|add-plan|append|meta|planned|order|field|duplicates|path|plan-target|set-category|retitle|set-priority|set-deps|remove|reconcile|epics|epic-add|epic-show|epic-move|epic-remove>   # dispatcher at ~/.claude/.radin/bin/radin, symlinked into ~/.local/bin
+radin backlog <env|show|list|count|find|add|add-plan|append|meta|planned|order|field|duplicates|path|plan-target|set-category|retitle|set-priority|set-deps|set-meta|remove|reconcile|epics|epic-add|epic-show|epic-move|epic-remove>   # dispatcher at ~/.claude/.radin/bin/radin, symlinked into ~/.local/bin
 ```
 
 The subcommand is what switches the two modes apart, so no flag does. `radin <verb> ...` is the agent and power-user entry point. Bare `radin` is the human one: on a terminal it execs the TUI (missing-binary message included), and off one it prints the usage text and exits non-zero, because a skill or pipe trapped in a full-screen app would hang the agentic loop until a timeout. `radin help` is the documented way to get that text.
 
 - `env` — namespace resolution (delegates to `lib/radin-namespace.sh`, single source of truth for path logic; prints `REPO_ROOT`, `NAMESPACE_DIR`, `BACKLOG_INDEX`, `BACKLOG_TASKS_DIR`)
-- `show [category]` — render backlog as markdown (all tasks, or one category), reconstructed from `index.jsonl` + each task's file
+- `show [category]` — render backlog as markdown (all tasks, or one category), reconstructed from `index.jsonl` + each task's file, with each entry's own `meta` fields above its body so a criterion a human wrote is never missing from the human view
 - `list` — print `id<US>category<US>title<US>file<US>priority<US>depends-on-csv` per task, ordered by priority descending with unset priorities last. That order is the human's ranking, not a display choice, and it is what `order` consumes as its baseline; `--order created` gives `index.jsonl` line order instead, and the default stays `priority` so no agent pays a flag for it
 - `order <--rank-needed|--report|--steps> [--rank <csv>] [--infer-deps <id>=<csv>]... [--defer <csv>]` — the execution order, whole. The priority order `list` defaults to is what it consumes, plus the topological dependency fix; `--rank-needed` is the "does the ranking pass run at all" gate (exit 1 = every priority set), `--report` is Phase 2's display block plus one `dependency override:` line per moved dependency, and `--steps` is `radin state steps-init`'s stdin format verbatim, so Phase 3 is a pipe. Writes nothing: an inferred rank or dependency arrives as a flag it validates (unknown id, duplicate, partial rank, self-reference, cycle), never as a `set-priority`/`set-deps` call, so the index stays the human's
-- `field <id-or-title> <TASK_FILE|TASK_ID|CATEGORY|PLAN_PATHS|SKILLS|SKILLS_DROPPED|ACCEPTANCE>` — one Execution-prompt placeholder per call, rendered ready to substitute. One value per call rather than a `NAME<TAB>value` listing, because reading one value out of a listing is the model picking from output again. The resolve dies on zero or several matches, so the call's own exit code is the entry-still-exists check; `PLAN_PATHS` and `ACCEPTANCE` exit 1 to say "no plan" / "no criteria", and `SKILLS` is pre-filtered against the four classes a leaf sub-agent cannot run (asks the user, spawns its own agent, launches a workflow, recurses into radin), matched on the leading `/<name>` token only — `SKILLS_DROPPED` names what it removed
+- `field <id-or-title> <TASK_FILE|TASK_ID|CATEGORY|PLAN_PATHS|SKILLS|SKILLS_DROPPED|ACCEPTANCE|FACTS|LOCATION>` — one Execution-prompt placeholder per call, rendered ready to substitute. One value per call rather than a `NAME<TAB>value` listing, because reading one value out of a listing is the model picking from output again. The resolve dies on zero or several matches, so the call's own exit code is the entry-still-exists check; `PLAN_PATHS`, `ACCEPTANCE`, `FACTS` and `LOCATION` exit 1 to say "no plan" / "no criteria", and `SKILLS` is pre-filtered against the four classes a leaf sub-agent cannot run (asks the user, spawns its own agent, launches a workflow, recurses into radin), matched on the leading `/<name>` token only — `SKILLS_DROPPED` names what it removed
 - `duplicates` — print `id<TAB><value><TAB><ids>` / `title<TAB><value><TAB><ids>` per duplicated value, exit 1 when there are none. Flags what a hand-edited index left behind; never guesses which copy to drop
 - `find <id-or-title>` — locate task, print the same six fields per match (exact id first, then exact title, else case-insensitive substring on title)
-- `add <category> <title> [--epic <epic-id>] [--priority <1|2|3|5|8|13|21>] [--depends-on <csv>]` — create task (body on stdin): slugifies title into id (dedupe on collision against the index's `id` fields), writes file, appends one line to index
-- `add-plan <id-or-title> <path>` — append `**Plan:**` pointer to task's own file
-- `planned` — print the id of every task whose file already carries a `**Plan:**` line; one call answers "which tasks are planned?" for a whole listing, where `meta` per task costs one file read each
+- `add <category> <title> [--epic <epic-id>] [--skill <name>]... [--priority <1|2|3|5|8|13|21>] [--depends-on <csv>]` — create task (body on stdin): slugifies title into id (dedupe on collision against the index's `id` fields), writes file, appends one line to index. It rejects a body line carrying one of the five index-line labels, naming the CLI call to use instead
+- `add-plan <id-or-title> <path>` — append one plan path to the entry's `plan` array
+- `planned` — print the id of every task whose entry carries a `plan` key; one pass over the index answers "which tasks are planned?" for a whole listing, with no task-file read at all
+- `meta <id-or-title>` — the entry's five parser-read fields as `plan<TAB>`/`skill<TAB>`/`acceptance<TAB>`/`facts<TAB>`/`location<TAB>` lines, in that fixed key order. The one reader of those keys: `field`, `plan-target`, `show` and the TUI all render this output rather than parsing JSON themselves
+- `set-meta <id-or-title> <plan|skills|acceptance|facts|location> <value>...|--none` — write or clear one of those five keys, validated on write (non-empty, no tab/CR/LF; an `acceptance` value written as a `-` bullet or a `[ ]` checkbox is rejected by name; `facts` and `location` take exactly one value). One verb keyed on the field name rather than four `set-*` verbs that would each repeat resolve + validate + write, and `skills` takes bare skill names so the instruction sentence stays composed in one place
 - `path <id-or-title>` — print task file's absolute path, resolved by reading matched index line's `file` field and joining it to `backlog/` (what the TUI reads and hands to `$EDITOR`)
-- `plan-target <id-or-title> [<sub-slug>]` — the one call `radin-plan` opens on: `id`/`title`/`task_file`/`plan_file` lines, plus one `plan<TAB><path>` line per pointer the entry already carries. It exists because `find`'s four outcomes (one match, several, none, already planned) were a route the skill computed by counting lines and then calling `meta`; they are exit codes 0/2/1/3 here, and exit 2's candidates go to stderr so a resolved record is never confused with a candidate list. `plan_file` is also the one place the `plans/<id>.md` convention lives in code — `add-plan` keeps its required path argument, because the skill has to write the file before it can point at it
+- `plan-target <id-or-title> [<sub-slug>]` — the one call `radin-plan` opens on: `id`/`title`/`task_file`/`plan_file` lines, plus the entry's `facts<TAB><path>` line when it has one, plus one `plan<TAB><path>` line per pointer it already carries. It exists because `find`'s four outcomes (one match, several, none, already planned) were a route the skill computed by counting lines and then calling `meta`; they are exit codes 0/2/1/3 here, and exit 2's candidates go to stderr so a resolved record is never confused with a candidate list. `plan_file` is also the one place the `plans/<id>.md` convention lives in code — `add-plan` keeps its required path argument, because the skill has to write the file before it can point at it
 - `set-category <id-or-title> <category>` / `retitle <id-or-title> <title>` — rewrite that one index line, id and task file untouched (id stays stable for the task's lifetime, so a retitle can't orphan a `depends_on` or a plan pointer)
 - `set-priority <id-or-title> <1|2|3|5|8|13|21|--none>` / `set-deps <id-or-title> <csv-of-ids|--none>` — store the human's ranking and ordering on the index line; `set-deps` refuses an unknown id, a self-reference and a cycle, because an unresolvable dependency stalls `radin state deps-check` instead of failing it
 - `remove <id-or-title>` — delete task's file + index line (exact single match required); drops the epic directory too when that was its last child, so `epics` never reports a husk, and prunes the removed id from every other entry's `depends_on`
@@ -142,7 +144,7 @@ As skill, radin-execute runs in user's own thread: asks directly, gets interrupt
 
 radin ships no agent for this. `claude agents` (agent view) dispatches full Claude Code background sessions — whole tool pool, working `AskUserQuestion`, peek/reply/attach — and `/radin-execute` runs unchanged in one. `/bg` sends the current conversation there. A second `claude` session in another terminal works too.
 
-`radin-plan` is skill, not agent: runs inline in whichever context invokes it. In user's own conversation, judges whether its one scoped entry should split into independent sub-plans, confirms with user directly before splitting, writes plan file + `**Plan:**` pointer per resulting sub-task. Step 4a dispatches one planning sub-agent per task with no `**Plan:**` line yet, invoking `/radin-plan`, in the iteration that then executes that task. Keeps planning's codebase exploration out of orchestrator's context — plan file on disk = handoff to execution sub-agent. That sub-agent runs non-interactively: where skill would ask confirmation, takes non-destructive path (no split, no overwrite, no seam confirmation), genuine ambiguity marks task `blocked` for user instead of guessing.
+`radin-plan` is skill, not agent: runs inline in whichever context invokes it. In user's own conversation, judges whether its one scoped entry should split into independent sub-plans, confirms with user directly before splitting, writes plan file + plan pointer per resulting sub-task. Step 4a dispatches one planning sub-agent per task with no plan pointer yet, invoking `/radin-plan`, in the iteration that then executes that task. Keeps planning's codebase exploration out of orchestrator's context — plan file on disk = handoff to execution sub-agent. That sub-agent runs non-interactively: where skill would ask confirmation, takes non-destructive path (no split, no overwrite, no seam confirmation), genuine ambiguity marks task `blocked` for user instead of guessing.
 
 ### Updating the stack
 
@@ -455,7 +457,7 @@ yet would come back to `radin-execute` as work.
 Planning is unconditional for the same reason. Step 4a used to skip the
 planning sub-agent for a "single obvious change"; the router cannot size a
 task without reading the code, and that read is the cost the leaf-worker split
-exists to avoid. A task with no `**Plan:**` pointer always gets a planning
+exists to avoid. A task with no plan pointer always gets a planning
 sub-agent, which sizes the task with the codebase in front of it and writes a
 three-line plan when three lines is what the task needs.
 
@@ -465,10 +467,14 @@ tasks' commits then change, so a later task executes a plan that no longer
 describes the code. Step 4a plans one task at a time, immediately before that
 task's execution dispatch, and pays a serial planning sub-agent for it.
 
-A task body may state its own `**Acceptance:**` criteria, which
-`radin backlog meta` reports and the execution prompt is handed. A task with
-no criteria adds no prompt content: a synthesised criterion would measure the
-work against radin's own guess.
+An entry may state its own acceptance criteria, which `radin backlog meta`
+reports and the execution prompt is handed. They sit on the index line rather
+than in the task body because they have a parser, and a markdown parser fails
+silently: a label written with the colon outside the bold markers used to
+yield nothing and tell no caller, so a sub-agent was dispatched with no
+criteria and reported success. `set-meta` rejects a malformed criterion on
+write instead. A task with no criteria adds no prompt content: a synthesised
+criterion would measure the work against radin's own guess.
 
 Those criteria are also the bar for the one recovery branch no command can
 settle: `radin state recover` exiting 3 hands the router commits a dead

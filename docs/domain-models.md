@@ -22,7 +22,9 @@ Two optional keys carry human judgment that must survive a run. They are also `r
 
 `priority` one of the Fibonacci value `1 2 3 5 8 13 21`, higher more important — scale ascend with "higher wins", so `21` be most important, not biggest estimate. Seven candidate be smaller decision for agent than unbounded integer. `add --priority` and `set-priority` enforce it, so every caller inherit check; validation run on write only, so index line written before scale (`"priority":70`) still load, list and render, and no verb rewrite it. Duplicates allowed, so inserting task never forces renumber. Key absent means unset, and absent stays distinguishable from any number — "did a human decide this?" question prioritization has to answer, so no verb ever defaults it. `depends_on` array of task ids, human-authored ordering. Absent or empty means unset, and `set-deps --none` clears by dropping key. Both on index line, not `**Priority:**`/`**Depends:**` lines in task body, because sorting backlog must not cost one file read per task. `radin backlog list` orders set priorities descending, unset entries after every set one — ordering contract, not display choice. `--order created` opt out into `index.jsonl` line order, which be creation order because index append-only; default stay `priority`, so every agent caller keep contract without pass flag. TUI use `--order created`, so no mutation move row under cursor. It separates its six fields with the unit separator `\037`, not a tab: tab is IFS whitespace, so an unset `priority` collapses under `IFS=$TAB read` and shifts `depends_on` into it. Every other TAB-separated CLI output has no trailing optional field, so only `list` needs this. `set-deps` rejects unknown id, self-reference and cycle (validation in CLI, so every caller inherits it: unresolvable dependency stalls `radin state deps-check` instead of failing it), and `remove` prunes removed id from every other entry's `depends_on`.
 
-Task's file (path `radin backlog path <id>` prints) holds everything used to live under `### title` heading's span: description prose, lists, code blocks, any `**Plan:**` pointer lines — what `radin-execute`/`radin-plan` read as task's scope.
+Five more optional keys carry the per-task fields a parser reads: `plan`, `skills` and `acceptance` (arrays of strings), `facts` and `location` (strings). They live on the index line, not as `**Label:**` lines in the task body, because each one has a parser and a parser reading markdown fails silently — a label written with the colon outside the bold markers yields nothing and tells no caller. `add --skill` writes `skills`, `add-plan` appends to `plan`, `set-meta <id> <key> <value>… | --none` writes or clears any of the five, and every one of them is validated on write: a value must be non-empty and carry no tab, CR or LF, an `acceptance` value written as a `-` bullet or a `[ ]` checkbox is rejected by name, and `facts`/`location` take exactly one value. `add` and `append` refuse a body line that repeats one of the five labels, so no field is ever carried in two places. `radin backlog meta <id>` is the only reader: it prints `plan<TAB>`, `skill<TAB>`, `acceptance<TAB>`, `facts<TAB>` and `location<TAB>` lines in that fixed key order, and `backlog show`, `backlog field`, `plan-target` and the TUI all render it rather than parsing anything themselves. `planned` and `list --planned` answer "is this planned?" from the `plan` key alone, with no task-file read.
+
+Task's file (path `radin backlog path <id>` prints) holds the task's prose: description, lists, code blocks, and the labeled prose material below — what `radin-execute`/`radin-plan` read as task's scope.
 
 ```
 <as exhaustive a description as the situation warrants — what the change is,
@@ -32,42 +34,37 @@ this text, so write enough that a sub-agent given only this entry, with no
 other session context, could act on it correctly.>
 ```
 
-A body may also state its own acceptance criteria: an `**Acceptance:**` label alone on its line, followed by flat hyphen bullets. `radin backlog meta` prints one `acceptance<TAB><criterion>` line per bullet, stripping the bullet marker and any `[ ]`/`[x]`/`[X]` checkbox prefix. The first line that is not a hyphen bullet at column 0 ends the list, so a blank line, the next `**Label:**` line, prose, or EOF all terminate it. An indented or wrapped criterion is not supported — each criterion is one unindented line.
-
 Every radin agent/skill appending entry classifies into one of four categories, writes same title + description shape via `radin-backlog.sh add`: `radin-review` (code-review findings, usually `fix` for actual bug or `refactor` for structural finding), `radin-record` (feedback/bugs/follow-ups/ideas surfaced in conversation), `radin-execute`/`radin-plan` (own backlog grooming). None invent fifth category or per-entry tag on top.
 
-Once `radin-plan` processes task, appends one more line to that task's own file:
+`radin-plan` skill, not agent — runs inline in whichever context invokes it. Scoped to single task, not whole backlog; caller points it at one task by id or title. If scope broad enough to split into independent sub-tasks, and user confirms split, it calls `add-plan` once per plan, in order, so the entry's `plan` array carries them all.
 
-```
-**Plan:** <path to plan file>
-```
+## Per-task fields
 
-`radin-plan` skill, not agent — runs inline in whichever context invokes it. Scoped to single task, not whole backlog; caller points it at one task by id or title. If scope broad enough to split into independent sub-tasks, and user confirms split, appends one `**Plan:**` line per plan, in order, to same file instead of just one.
+Two stores, split by whether a parser reads the value. A path, id, hash or enum — plus the skill instruction and the acceptance criteria, which read as prose but have parsers — is a key on the index line. A sentence written for a model to read is a `**Label:**` line in the task body. Every one of them is task-scoped by design: an execution sub-agent reads its own task's material and nothing else.
 
-## Task-file annotations
-
-These labels are the shared vocabulary of a task file's annotations, and the table names who writes each. Most are appended by `radin-execute` through `radin-backlog.sh append`, one labeled line per piece of settled material. Every label is task-scoped by design: an execution sub-agent reads its task file and nothing else, so no other task's context reaches it.
-
-| Label | Written when | Written by |
+| Index-line key | Written when | Written by |
 | --- | --- | --- |
-| `**Plan:** <path>` | `radin-plan` produced a plan | `radin-plan` (`add-plan`) |
-| `**Skill:** <instruction>` | user named a skill for this task | `radin-record` |
+| `plan` | `radin-plan` produced a plan | `radin-plan` (`add-plan`) |
+| `skills` | user named a skill for this task | `radin-record` (`add --skill`) |
+| `acceptance` | the session surfaced checkable criteria | radin-record, radin-review, or a human (`set-meta`) |
+| `facts` | the long form went to `state/facts/<task-id>.md` | `radin-execute`, `radin-plan` (`set-meta`) |
+| `location` | where the finding is | `radin-review` (`set-meta`) |
+
+| Body label | Written when | Written by |
+| --- | --- | --- |
 | `**Decision:** <answer>` | user settled a `BLOCKED (DECISION)` | `radin-execute` |
 | `**Fact:** <answer>` | fact-finder returned `STATUS: FOUND` | `radin-execute` |
 | `**Root cause:** <cause + fix direction>` | debug sub-agent returned `STATUS: DIAGNOSED` | `radin state task-diagnosis` |
-| `**Facts:** <path>` | the long form went to `state/facts/<task-id>.md` | `radin-execute`, `radin-plan` |
-| `**Acceptance:** <checklist>` | the session surfaced checkable criteria | radin-record, radin-review, or a human |
 | `**Raised as:** <verbatim ask>` | the triggering text, quoted | `radin-record` |
 | `**Scope:** <what was reviewed>` | the review surface | `radin-review` |
-| `**Location:** <path:line>` | where the finding is | `radin-review` |
 | `**Finding:**` | the problem, as the review stated it | `radin-review` |
 | `**Preferred remedy:**` | the restructuring suggested | `radin-review` |
 
-Every one of them is binding on the next sub-agent that reads the file, not commentary on it.
+Every one of them is binding on the next sub-agent that reads the task, not commentary on it.
 
 ## Per-task facts file (`state/facts/<task-id>.md`)
 
-Free-form markdown, one file per task, written when a fact-finding or debug sub-agent's evidence runs past ~15 lines, and by a `/mattpocock-skills:research` invocation, which always writes its findings there. Holds command output, file excerpts, and the reasoning that establishes one `**Fact:**` or `**Root cause:**` line. The task file keeps the summary and a `**Facts:**` pointer. There is deliberately no shared, cross-task notes file: a sub-agent gets its own task's material and nothing more.
+Free-form markdown, one file per task, written when a fact-finding or debug sub-agent's evidence runs past ~15 lines, and by a `/mattpocock-skills:research` invocation, which always writes its findings there. Holds command output, file excerpts, and the reasoning that establishes one `**Fact:**` or `**Root cause:**` line. The task body keeps the summary, and the entry's `facts` key points here. There is deliberately no shared, cross-task notes file: a sub-agent gets its own task's material and nothing more.
 
 ## Migration note
 

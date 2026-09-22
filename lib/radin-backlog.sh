@@ -7,12 +7,17 @@
 # optional "priority":<1|2|3|5|8|13|21> and "depends_on":[<id>,...] keys a human
 # sets.
 # Each line's `file` field, relative to the backlog directory, is the
-# authoritative location of that task's body (description prose, and any
-# **Plan:** pointer lines radin-plan appends): `add` decides it, every other
-# verb reads it back. Splitting each task into its own file means inserting a
-# **Plan:** line into one task can never shift another task's content — unlike
-# the old single-file BACKLOG.md, nothing here is ever addressed by line
-# number.
+# authoritative location of that task's prose body: `add` decides it, every
+# other verb reads it back. Splitting each task into its own file means
+# appending to one task can never shift another task's content — unlike the
+# old single-file BACKLOG.md, nothing here is ever addressed by line number.
+#
+# Five per-task fields a parser reads are JSON keys on the index line rather
+# than markdown labels in the body: "plan", "skills" and "acceptance" (arrays
+# of strings), "facts" and "location" (strings). `add --skill`, `add-plan` and
+# `set-meta` write them, `meta` reads them, and `add`/`append` reject a body
+# line that repeats one, so a malformed value fails loudly on write instead of
+# silently yielding nothing on read.
 #
 # Usage:
 #   radin-backlog.sh help [command]              # print every command's usage, or one command's
@@ -22,18 +27,19 @@
 #   radin-backlog.sh find <id-or-title>          # print matching "id<TAB>category<TAB>title<TAB>file<TAB>priority<TAB>depends-on-csv" line(s)
 #   radin-backlog.sh count                       # print the number of entries (0 without an index)
 #   radin-backlog.sh add <category> <title> [--epic <epic-id>] [--skill <name>]... [--priority <1|2|3|5|8|13|21>] [--depends-on <csv>]  # create task, body read from stdin, prints its id
-#   radin-backlog.sh add-plan <id-or-title> <path>  # append "**Plan:** <path>" to the task's file
+#   radin-backlog.sh add-plan <id-or-title> <path>  # add one plan pointer to the task's entry
 #   radin-backlog.sh append <id-or-title>        # append text from stdin to the task's file
 #   radin-backlog.sh path <id-or-title>          # print the task file's absolute path
-#   radin-backlog.sh plan-target <id-or-title> [<sub-slug>]  # resolve one task for planning: "id"/"title"/"task_file"/"plan_file" TAB lines plus one "plan<TAB><path>" per existing pointer; exit 1 no match, 2 several (candidates on stderr), 3 already planned
+#   radin-backlog.sh plan-target <id-or-title> [<sub-slug>]  # resolve one task for planning: "id"/"title"/"task_file"/"plan_file" TAB lines plus a "facts<TAB><path>" line when set and one "plan<TAB><path>" per existing pointer; exit 1 no match, 2 several (candidates on stderr), 3 already planned
 #   radin-backlog.sh set-category <id-or-title> <category>  # move a task to another category
 #   radin-backlog.sh retitle <id-or-title> <title>  # change a task's title (its id never changes)
 #   radin-backlog.sh set-priority <id-or-title> <1|2|3|5|8|13|21|--none>  # set/clear the priority (higher wins)
 #   radin-backlog.sh set-deps <id-or-title> <csv-of-ids|--none>   # set/clear depends_on (rejects an unknown id and any cycle)
-#   radin-backlog.sh meta <id-or-title>          # print "plan<TAB><path>" / "skill<TAB><instruction>" / "acceptance<TAB><criterion>" lines from the task's file
-#   radin-backlog.sh planned                     # print the id of every task that already has a **Plan:** line
+#   radin-backlog.sh set-meta <id-or-title> <plan|skills|acceptance|facts|location> <value>...|--none  # set/clear one index-line field (skills takes skill names; facts and location take exactly one value)
+#   radin-backlog.sh meta <id-or-title>          # print "plan<TAB><path>" / "skill<TAB><instruction>" / "acceptance<TAB><criterion>" / "facts<TAB><path>" / "location<TAB><path:line>" lines from the task's entry
+#   radin-backlog.sh planned                     # print the id of every task whose entry already carries a plan pointer
 #   radin-backlog.sh order <--rank-needed|--report|--steps> [--rank <csv-of-ids>] [--infer-deps <id>=<csv>]... [--defer <csv-of-ids>]  # the execution order: the priority order with the topological dependency fix applied (--rank-needed: print every unset-priority id, exit 1 when there are none; --report: "<order>. <title> (id: <id>)" plus one "dependency override:" line per violated edge; --steps: "id<TAB>order<TAB>depends-on-csv<TAB>pending|deferred", which is `radin state steps-init`'s stdin format)
-#   radin-backlog.sh field <id-or-title> <TASK_FILE|TASK_ID|CATEGORY|PLAN_PATHS|SKILLS|SKILLS_DROPPED|ACCEPTANCE>  # one Execution-prompt placeholder, rendered ready to substitute
+#   radin-backlog.sh field <id-or-title> <TASK_FILE|TASK_ID|CATEGORY|PLAN_PATHS|SKILLS|SKILLS_DROPPED|ACCEPTANCE|FACTS|LOCATION>  # one Execution-prompt placeholder, rendered ready to substitute
 #   radin-backlog.sh duplicates                  # print "id<TAB><value><TAB><ids>" / "title<TAB><value><TAB><ids>" per duplicated value, exit 1 when there are none
 #   radin-backlog.sh remove <id-or-title>        # delete task file + index entry (exact single match required)
 #   radin-backlog.sh reconcile <completed-file>  # drop backlog entries whose id is already in completed.json
@@ -111,6 +117,7 @@ US="$(printf '\037')"
 # is absent, because unset must stay distinguishable from any value. A title
 # containing a literal `"file":"` is stored escaped (`\"file\":\"`), so the
 # needle cannot match inside it -- do not add a JSON tokenizer for that.
+# shellcheck disable=SC2016  # the $ are awk regex anchors, not shell expansions
 AWK_JSON='
 BEGIN { US = sprintf("%c", 31); TAB = sprintf("%c", 9) }
 function jstr(line, key,   s, out, c, i, n) {
@@ -129,6 +136,55 @@ function jraw(line, key,   s) {
     return substr(s, RSTART, RLENGTH) }
   if (match(s, /^-?[0-9]+/) == 0) return ""
   return substr(s, RSTART, RLENGTH) }
+# jarr/jhas/jspan/jsplice are awk-only and have no radin-json.sh twin on
+# purpose: shell composes a JSON array (json_array) and awk parses one, because
+# an element of prose can hold a space, a comma, a `]` and a quote -- which the
+# `[^]]*` regex in json_get_raw and the gsub in depscsv both corrupt. jarr
+# fills out[1..n] with the array at key, by the same character walk jstr uses.
+function jarr(line, key, out,   s, n, i, c, cnt, cur, inq) {
+  cnt = 0
+  if (match(line, "\"" key "\":\\[") == 0) return 0
+  s = substr(line, RSTART + RLENGTH); n = length(s); cur = ""; inq = 0
+  for (i = 1; i <= n; i++) { c = substr(s, i, 1)
+    if (inq) {
+      if (c == "\\") { i++; cur = cur substr(s, i, 1); continue }
+      if (c == "\"") { out[++cnt] = cur; cur = ""; inq = 0; continue }
+      cur = cur c; continue }
+    if (c == "\"") { inq = 1; continue }
+    if (c == "]") break }
+  return cnt }
+function jhas(line, key) { return match(line, "\"" key "\":") > 0 }
+# The span of `"key":<value>` in line, as JSP_AT/JSP_LEN; 0 when key is absent.
+function jspan(line, key,   s, n, i, c, inq) {
+  if (match(line, "\"" key "\":") == 0) return 0
+  JSP_AT = RSTART; JSP_LEN = RLENGTH
+  s = substr(line, RSTART + RLENGTH); n = length(s); c = substr(s, 1, 1)
+  if (c == "\"") {
+    for (i = 2; i <= n; i++) { c = substr(s, i, 1)
+      if (c == "\\") { i++; continue }
+      if (c == "\"") { JSP_LEN += i; return 1 } }
+    return 0 }
+  if (c == "[") {
+    for (i = 2; i <= n; i++) { c = substr(s, i, 1)
+      if (inq) { if (c == "\\") i++; else if (c == "\"") inq = 0; continue }
+      if (c == "\"") { inq = 1; continue }
+      if (c == "]") { JSP_LEN += i; return 1 } }
+    return 0 }
+  if (match(s, /^-?[0-9]+/) == 0) return 0
+  JSP_LEN += RLENGTH
+  return 1 }
+# line with key set to the pre-escaped raw JSON value, or with key dropped when
+# raw is empty. It splices over the existing value instead of rebuilding the
+# line from parsed pieces, so an already-escaped title is never escaped twice;
+# a key the line does not carry yet lands before the closing brace.
+function jsplice(line, key, raw,   pre, post) {
+  if (jspan(line, key)) {
+    pre = substr(line, 1, JSP_AT - 1); post = substr(line, JSP_AT + JSP_LEN)
+    if (raw == "") { sub(/,$/, "", pre); return pre post }
+    return pre "\"" key "\":" raw post }
+  if (raw == "") return line
+  sub(/}[ \t]*$/, "", line)
+  return line ",\"" key "\":" raw "}" }
 function depscsv(raw,   t) { t = raw; gsub(/[][" ]/, "", t); return t }
 function fepic(f,   r) { if (f !~ /^tasks\/[^\/]+\//) return ""
                          r = substr(f, 7); sub(/\/.*$/, "", r); return r }
@@ -146,8 +202,7 @@ function row(line, sep) {
 AWK_LIST='
 BEGIN { cat = ENVIRON["RADIN_CAT"]; epic = ENVIRON["RADIN_EPIC"]
         pmin = ENVIRON["RADIN_PMIN"]; pmax = ENVIRON["RADIN_PMAX"]
-        json = ENVIRON["RADIN_JSON"]; plan = ENVIRON["RADIN_PLANNED"]
-        dir = ENVIRON["RADIN_DIR"] }
+        json = ENVIRON["RADIN_JSON"]; plan = ENVIRON["RADIN_PLANNED"] }
 $0 == "" { next }
 { if (cat != "" && jstr($0, "category") != cat) next
   if (epic != "" && fepic(jstr($0, "file")) != epic) next
@@ -157,12 +212,7 @@ $0 == "" { next }
   if (json != "") out = $0
   else {
     out = row($0, US)
-    if (plan != "") {
-      pf = dir "/" jstr($0, "file"); flag = ""
-      while ((getline pl < pf) > 0)
-        if (pl ~ /^\*\*Plan:\*\* /) { flag = "P"; break }
-      close(pf)
-      out = out US flag } }
+    if (plan != "") out = out US (jhas($0, "plan") ? "P" : "") }
   if (p == "") print "1" TAB "0" TAB out
   else print "0" TAB p TAB out }
 '
@@ -182,16 +232,34 @@ END { hit = 0
   for (i = 1; i <= n; i++) if (index(tolower(titles[i]), lq) > 0) print lines[i] }
 '
 
-# `planned`: the index decides which file to read, never a glob over tasks/ --
-# a filename-derived id would also match DESCRIPTION.md.
+# `planned`: one pass over the index, no task-file read at all -- the plan
+# pointer lives on the index line, so "is this planned?" is a key test.
 # shellcheck disable=SC2016  # $0 is awk's record, not a shell expansion
 AWK_PLANNED='
-BEGIN { dir = ENVIRON["RADIN_DIR"] }
+$0 != "" && jhas($0, "plan") { print jstr($0, "id") }
+'
+
+# `meta`: the five parser-read fields of one index line on stdin, in a fixed
+# key order. One parser, shared by `meta`, `field`, `plan-target` and `show`:
+# a second copy would drift the next time a field is added.
+# shellcheck disable=SC2016  # $0 is awk's record, not a shell expansion
+AWK_META='
 $0 == "" { next }
-{ f = dir "/" jstr($0, "file"); id = jstr($0, "id")
-  while ((getline line < f) > 0)
-    if (line ~ /^\*\*Plan:\*\* /) { print id; break }
-  close(f) }
+{ n = jarr($0, "plan", a); for (i = 1; i <= n; i++) print "plan" TAB a[i]
+  n = jarr($0, "skills", a); for (i = 1; i <= n; i++) print "skill" TAB a[i]
+  n = jarr($0, "acceptance", a); for (i = 1; i <= n; i++) print "acceptance" TAB a[i]
+  if (jhas($0, "facts")) print "facts" TAB jstr($0, "facts")
+  if (jhas($0, "location")) print "location" TAB jstr($0, "location") }
+'
+
+# `set_index_field`: one key of one entry rewritten, every other line passed
+# through byte-identical.
+# shellcheck disable=SC2016  # $0 is awk's record, not a shell expansion
+AWK_SET='
+$0 == "" { next }
+{ if (jstr($0, "id") == ENVIRON["RADIN_ID"])
+    print jsplice($0, ENVIRON["RADIN_KEY"], ENVIRON["RADIN_RAW"])
+  else print }
 '
 
 # `order`: the whole execution order in one pass -- the priority order `list`
@@ -366,6 +434,39 @@ require_plain_title() {
 		die "title must not contain a tab, carriage return or newline: $1"
 }
 
+# Write-time validation for one index-line field value. `meta` emits
+# TAB-separated lines, so a TAB, CR or LF is what actually corrupts a reader;
+# an acceptance criterion written as a markdown bullet is rejected by name
+# instead of being silently stripped.
+require_meta_value() {
+	local key="$1" value="$2"
+	[ -n "$value" ] || die "$key value must not be empty"
+	[ "$(printf '%s' "$value" | tr -d '\t\r\n')" = "$value" ] ||
+		die "$key value must not contain a tab, carriage return or newline: $value"
+	[ "$key" = acceptance ] || return 0
+	case "$value" in
+	'- '* | '[ ]'* | '[x]'* | '[X]'*)
+		die "acceptance takes one criterion as bare text, with no \"- \" bullet and no \"[ ]\" checkbox: $value"
+		;;
+	esac
+}
+
+# The five fields that live on the index line must not also be written into a
+# task body: one copy, one parser, one place to fix a malformed value. Matched
+# on the exact label prefix, so the prose `**Fact:**` label is not caught by
+# the `**Facts:**` rule.
+require_no_moved_label() {
+	local line
+	while IFS= read -r line || [ -n "$line" ]; do
+		case "$line" in
+		'**Plan:**'* | '**Skill:**'* | '**Acceptance:**'* | '**Facts:**'* | '**Location:**'*)
+			die "that label lives on the index line now, not in the body: ${line}
+write it with \`add --skill\`, \`add-plan\` or \`backlog set-meta\` instead"
+			;;
+		esac
+	done <<<"$1"
+}
+
 slugify() {
 	printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//'
 }
@@ -375,13 +476,21 @@ deps_ids() {
 	printf '%s' "$1" | tr -d '[]" ' | tr ',' ' '
 }
 
-# JSON array literal for the ids in "$@", or nothing when there are none: an
-# empty depends_on and an absent one mean the same thing on the index line.
-deps_array() {
-	local out="" d
-	for d in "$@"; do
+# JSON array literal for the values in "$@", each escaped, or nothing when
+# there are none: an empty array and an absent key mean the same thing on the
+# index line. awk parses these back (jarr), so an element may hold a space, a
+# comma, a `]` or a quote.
+# JSON string literal for $1, escaped: what set_index_field wants for a
+# string-valued key, where an integer or array key takes its raw text.
+json_string() {
+	printf '"%s"\n' "$(json_escape "$1")"
+}
+
+json_array() {
+	local out="" a
+	for a in "$@"; do
 		[ -z "$out" ] || out="$out,"
-		out="$out\"$d\""
+		out="$out\"$(json_escape "$a")\""
 	done
 	[ -z "$out" ] || printf '[%s]\n' "$out"
 }
@@ -452,35 +561,18 @@ prune_empty_epic() {
 	rmdir "$BACKLOG_TASKS_DIR/$epic" 2>/dev/null || true
 }
 
-# One index line. An empty $5/$6 omits the key entirely, so every verb that
+# One index line. An empty $5/$6/$7 omits the key entirely, so every verb that
 # rewrites a line keeps "unset" unset instead of defaulting it to a value.
+# Only `add` calls it: every other key reaches a line through jsplice, which
+# needs no positional shape and cannot re-escape what is already escaped.
 compose_line() {
 	local out
 	out="$(printf '{"id":"%s","category":"%s","title":"%s","file":"%s"' \
 		"$1" "$2" "$(json_escape "$3")" "$4")"
 	[ -z "$5" ] || out="$out,\"priority\":$5"
 	[ -z "$6" ] || out="$out,\"depends_on\":$6"
+	[ -z "$7" ] || out="$out,\"skills\":$7"
 	printf '%s}\n' "$out"
-}
-
-# Index line $1 with key $2 set to $3 (empty $3 drops the key), printed back.
-# Only place that unpacks a line into compose_line's six arguments.
-line_set_field() {
-	local line="$1" key="$2" value="$3" category title file prio deps
-	category="$(json_get category "$line")"
-	title="$(json_get title "$line")"
-	file="$(json_get file "$line")"
-	prio="$(json_get_raw priority "$line")"
-	deps="$(json_get_raw depends_on "$line")"
-	case "$key" in
-	category) category="$value" ;;
-	title) title="$value" ;;
-	file) file="$value" ;;
-	priority) prio="$value" ;;
-	depends_on) deps="$value" ;;
-	*) die "line_set_field: unknown key: $key" ;;
-	esac
-	compose_line "$(json_get id "$line")" "$category" "$title" "$file" "$prio" "$deps"
 }
 
 # Replace the index with $1 in one rename, so a caller that dies while it
@@ -494,41 +586,36 @@ write_index() {
 }
 
 # Rewrite one key of the index line for id $1: $2 names the key, $3 is its
-# new value, and an empty $3 drops the key. A key the caller does not name is
-# always kept, so no argument ever has to mean "leave this alone".
+# new pre-escaped raw JSON value, and an empty $3 drops the key. A key the
+# caller does not name is always kept, so no argument ever has to mean "leave
+# this alone".
 set_index_field() {
-	local id="$1" key="$2" value="$3" line out=""
-	while IFS= read -r line || [ -n "$line" ]; do
-		[ -n "$line" ] || continue
-		if [ "$(json_get id "$line")" = "$id" ]; then
-			line="$(line_set_field "$line" "$key" "$value")"
-		fi
-		out="$out$line
+	local out
+	export RADIN_ID="$1" RADIN_KEY="$2" RADIN_RAW="$3"
+	out="$(awk "$AWK_JSON$AWK_SET" "$BACKLOG_INDEX")"
+	[ -z "$out" ] || out="$out
 "
-	done <"$BACKLOG_INDEX"
 	write_index "$out"
 }
 
 # Drop id $1 from every other entry's depends_on: a dangling reference stalls
 # `radin state deps-check` exactly like a cycle does.
 prune_dep() {
-	local gone="$1" line raw dep kept out=""
+	local gone="$1" line raw dep kept affected=""
 	while IFS= read -r line || [ -n "$line" ]; do
 		[ -n "$line" ] || continue
 		raw="$(json_get_raw depends_on "$line")"
-		case "$raw" in *"\"$gone\""*)
-			kept=""
-			for dep in $(deps_ids "$raw"); do
-				[ "$dep" = "$gone" ] || kept="$kept $dep"
-			done
-			# shellcheck disable=SC2086
-			line="$(line_set_field "$line" depends_on "$(deps_array $kept)")"
-			;;
-		esac
-		out="$out$line
-"
+		case "$raw" in *"\"$gone\""*) affected="$affected $(json_get id "$line")" ;; esac
 	done <"$BACKLOG_INDEX"
-	write_index "$out"
+	for dep in $affected; do
+		line="$(grep -F "\"id\":\"$dep\"" "$BACKLOG_INDEX" || true)"
+		kept=""
+		for raw in $(deps_ids "$(json_get_raw depends_on "$line")"); do
+			[ "$raw" = "$gone" ] || kept="$kept $raw"
+		done
+		# shellcheck disable=SC2086
+		set_index_field "$dep" depends_on "$(json_array $kept)"
+	done
 }
 
 remove_by_id() {
@@ -563,33 +650,10 @@ $(printf '%s\n' "$found" | fmt_lines)"
 	printf '%s\n' "$found"
 }
 
-# `plan<TAB><path>` / `skill<TAB><instruction>` / `acceptance<TAB><criterion>`
-# lines from the task file $1. One parser, shared by `meta` and `field`: a
-# second copy would drift the next time a label changes.
-meta_lines() {
-	local line in_acceptance="" crit
-	while IFS= read -r line || [ -n "$line" ]; do
-		if [ -n "$in_acceptance" ]; then
-			case "$line" in
-			'- '*)
-				crit="${line#- }"
-				case "$crit" in
-				'[ ] '* | '[x] '* | '[X] '*)
-					crit="${crit#????}"
-					;;
-				esac
-				printf 'acceptance\t%s\n' "$crit"
-				continue
-				;;
-			*) in_acceptance="" ;;
-			esac
-		fi
-		case "$line" in
-		'**Plan:** '*) printf 'plan\t%s\n' "${line#"**Plan:** "}" ;;
-		'**Skill:** '*) printf 'skill\t%s\n' "${line#"**Skill:** "}" ;;
-		'**Acceptance:**') in_acceptance=1 ;;
-		esac
-	done <"$1"
+# The `meta` lines of one raw index line: the one reader of the five
+# index-line fields, shared by `meta`, `field`, `plan-target` and `show`.
+meta_of_line() {
+	printf '%s\n' "$1" | awk "$AWK_JSON$AWK_META"
 }
 
 # Skills an execution sub-agent cannot run: it has no user to ask, no
@@ -599,8 +663,13 @@ meta_lines() {
 # pins each one to a skill radin or a companion actually ships.
 SKILL_DENY="/mattpocock-skills:grilling /mattpocock-skills:research /deep-research /radin-execute /radin-plan /radin-review"
 
-# The leading `/<name>` token of a `**Skill:**` instruction, empty when it has
-# none.
+# The canonical skill instruction sentence, in one place: `add --skill` and
+# `set-meta skills` both compose it here, so no skill writes it by hand.
+skill_instruction() {
+	printf 'Invoke %s to tackle this task.\n' "$1"
+}
+
+# The leading `/<name>` token of a skill instruction, empty when it has none.
 skill_token() {
 	case "$1" in
 	*/*) ;;
@@ -711,7 +780,7 @@ show)
 	[ -z "${2:-}" ] || cats="$2"
 	# One awk pass for every field `show` needs, so the markdown below costs
 	# one `cat` per task body and no fork per field.
-	rows="$(awk "$AWK_JSON"'$0 != "" { print jstr($0, "category") US fepic(jstr($0, "file")) US jstr($0, "title") US jstr($0, "file") }' "$BACKLOG_INDEX")"
+	rows="$(awk "$AWK_JSON"'$0 != "" { print jstr($0, "category") US fepic(jstr($0, "file")) US jstr($0, "title") US jstr($0, "file") US $0 }' "$BACKLOG_INDEX")"
 	for cat in $cats; do
 		# One pass in `file` order: flat tasks first, then each epic's
 		# children below its shared context, so a human reading `show`
@@ -720,7 +789,7 @@ show)
 		[ -n "$section" ] || continue
 		printf '\n## %s\n' "$cat"
 		cur=""
-		while IFS="$US" read -r rcat epic title file; do
+		while IFS="$US" read -r rcat epic title file jline; do
 			[ -n "$rcat" ] || continue
 			if [ "$epic" != "$cur" ]; then
 				cur="$epic"
@@ -730,6 +799,10 @@ show)
 			fi
 			if [ -z "$epic" ]; then level='###'; else level='####'; fi
 			printf '\n%s %s\n' "$level" "$title"
+			# The index-line fields through the same parser `meta` uses, so the
+			# human view can never drift from the verb -- and a criterion a
+			# human wrote is never silently missing from `show`.
+			meta_of_line "$jline"
 			cat "$(task_path "$file")"
 		done <<-SECTION
 			$section
@@ -746,7 +819,6 @@ list)
 	RADIN_PMAX=""
 	RADIN_JSON=""
 	RADIN_PLANNED=""
-	RADIN_DIR="${BACKLOG_INDEX%/*}"
 	order=priority
 	while [ $# -gt 0 ]; do
 		case "$1" in
@@ -799,7 +871,7 @@ list)
 	# is what puts every unset priority after every set one.
 	# --order created is index order, which is creation order because
 	# index.jsonl is append-only: the TUI wants a list no mutation reorders.
-	export RADIN_CAT RADIN_EPIC RADIN_PMIN RADIN_PMAX RADIN_JSON RADIN_PLANNED RADIN_DIR
+	export RADIN_CAT RADIN_EPIC RADIN_PMIN RADIN_PMAX RADIN_JSON RADIN_PLANNED
 	if [ "$order" = created ]; then
 		awk "$AWK_JSON$AWK_LIST" "$BACKLOG_INDEX" | cut -f3-
 	else
@@ -825,7 +897,7 @@ add)
 	*) usage_die add "category must be feat|fix|chore|refactor, got: $category" ;;
 	esac
 	shift 3
-	skills=""
+	skill_list=()
 	epic=""
 	priority=""
 	deps=""
@@ -848,8 +920,7 @@ add)
 			;;
 		--skill)
 			[ -n "${2:-}" ] || usage_die add "--skill needs a name"
-			skills="$skills$2
-"
+			skill_list[${#skill_list[@]}]="$(skill_instruction "$2")"
 			shift 2
 			;;
 		--epic)
@@ -864,6 +935,7 @@ add)
 	require_plain_title "$title"
 	BODY="$(cat)"
 	[ -n "$BODY" ] || die "entry body is empty (pass it on stdin)"
+	require_no_moved_label "$BODY"
 	id="$(slugify "$title")"
 	[ -n "$id" ] || die "title produced an empty id: $title"
 	base="$id"
@@ -881,13 +953,11 @@ add)
 	fi
 	task_file="$(task_path "$rel")"
 	printf '%s\n' "$BODY" >"$task_file"
-	printf '%s' "$skills" | while IFS= read -r s; do
-		[ -n "$s" ] || continue
-		printf '**Skill:** Invoke %s to tackle this task.\n' "$s" >>"$task_file"
-	done
+	skills_array=""
+	[ "${#skill_list[@]}" -eq 0 ] || skills_array="$(json_array "${skill_list[@]}")"
 	# shellcheck disable=SC2086
-	dep_array="$(deps_array $deps)"
-	compose_line "$id" "$category" "$title" "$rel" "$priority" "$dep_array" >>"$BACKLOG_INDEX"
+	dep_array="$(json_array $deps)"
+	compose_line "$id" "$category" "$title" "$rel" "$priority" "$dep_array" "$skills_array" >>"$BACKLOG_INDEX"
 	printf 'added "%s" (id: %s) under %s in %s\n' "$title" "$id" "$category" "$BACKLOG_INDEX"
 	;;
 
@@ -903,8 +973,7 @@ count)
 meta)
 	[ -n "${2:-}" ] || usage_die meta "meta needs an id or title"
 	require_index
-	entry="$(single_match "$2")"
-	meta_lines "$(entry_path "$entry")"
+	meta_of_line "$(single_match "$2")"
 	;;
 
 order)
@@ -962,8 +1031,17 @@ field)
 	TASK_ID) printf '%s\n' "$(json_get id "$entry")" ;;
 	CATEGORY) printf '%s\n' "$(json_get category "$entry")" ;;
 	TASK_FILE) entry_path "$entry" ;;
+	FACTS | LOCATION)
+		key=facts
+		[ "$fname" = FACTS ] || key=location
+		# Exit 1 with no output is the caller's "delete the whole line" signal,
+		# the same contract PLAN_PATHS and ACCEPTANCE already use.
+		value="$(meta_of_line "$entry" | sed -n "s/^$key$TAB//p")"
+		[ -n "$value" ] || exit 1
+		printf '%s\n' "$value"
+		;;
 	PLAN_PATHS | SKILLS | SKILLS_DROPPED | ACCEPTANCE)
-		meta="$(meta_lines "$(entry_path "$entry")")"
+		meta="$(meta_of_line "$entry")"
 		plans=""
 		kept=""
 		dropped=""
@@ -1030,7 +1108,7 @@ duplicates)
 planned)
 	require_index
 	[ $# -le 1 ] || usage_die planned "planned takes no argument, got: $2"
-	RADIN_DIR="${BACKLOG_INDEX%/*}" awk "$AWK_JSON$AWK_PLANNED" "$BACKLOG_INDEX"
+	awk "$AWK_JSON$AWK_PLANNED" "$BACKLOG_INDEX"
 	;;
 
 append)
@@ -1039,6 +1117,7 @@ append)
 	entry="$(single_match "$2")"
 	BODY="$(cat)"
 	[ -n "$BODY" ] || die "append text is empty (pass it on stdin)"
+	require_no_moved_label "$BODY"
 	printf '\n%s\n' "$BODY" >>"$(entry_path "$entry")"
 	printf 'appended to "%s"\n' "$(json_get title "$entry")"
 	;;
@@ -1049,7 +1128,17 @@ add-plan)
 	[ -n "$plan_path" ] || usage_die add-plan "add-plan needs an id or title and a plan path"
 	require_index
 	entry="$(single_match "$query")"
-	printf '**Plan:** %s\n' "$plan_path" >>"$(entry_path "$entry")"
+	require_meta_value plan "$plan_path"
+	# Append semantics: a split plan points at several files, in order.
+	plan_list=()
+	while IFS= read -r pline || [ -n "$pline" ]; do
+		[ -n "$pline" ] || continue
+		plan_list[${#plan_list[@]}]="${pline#plan"$TAB"}"
+	done <<-PLANS
+		$(meta_of_line "$entry" | grep "^plan$TAB" || true)
+	PLANS
+	plan_list[${#plan_list[@]}]="$plan_path"
+	set_index_field "$(json_get id "$entry")" plan "$(json_array "${plan_list[@]}")"
 	printf 'plan pointer added to "%s"\n' "$(json_get title "$entry")"
 	;;
 
@@ -1080,7 +1169,10 @@ plan-target)
 	printf 'id\t%s\ntitle\t%s\ntask_file\t%s\nplan_file\t%s\n' \
 		"$tid" "$(json_get title "$found")" \
 		"$(entry_path "$found")" "$(plan_path "$tid" "${3:-}")"
-	plans="$(meta_lines "$(entry_path "$found")" | grep "^plan$TAB" || true)"
+	meta="$(meta_of_line "$found")"
+	facts="$(printf '%s\n' "$meta" | grep "^facts$TAB" || true)"
+	[ -z "$facts" ] || printf '%s\n' "$facts"
+	plans="$(printf '%s\n' "$meta" | grep "^plan$TAB" || true)"
 	[ -z "$plans" ] || {
 		printf '%s\n' "$plans"
 		exit 3
@@ -1098,7 +1190,7 @@ set-category)
 	require_index
 	entry="$(single_match "$query")"
 	id="$(json_get id "$entry")"
-	set_index_field "$id" category "$newcat"
+	set_index_field "$id" category "$(json_string "$newcat")"
 	printf 'moved "%s" to %s\n' "$(json_get title "$entry")" "$newcat"
 	;;
 
@@ -1110,7 +1202,7 @@ retitle)
 	require_index
 	entry="$(single_match "$query")"
 	id="$(json_get id "$entry")"
-	set_index_field "$id" title "$newtitle"
+	set_index_field "$id" title "$(json_string "$newtitle")"
 	printf 'retitled %s to "%s"\n' "$id" "$newtitle"
 	;;
 
@@ -1147,10 +1239,53 @@ set-deps)
 		deps_reaches "$id" $deps &&
 			die "depends_on would create a cycle through $id"
 		# shellcheck disable=SC2086
-		dep_array="$(deps_array $deps)"
+		dep_array="$(json_array $deps)"
 	fi
 	set_index_field "$id" depends_on "$dep_array"
 	printf 'depends_on of %s set to %s\n' "$id" "$value"
+	;;
+
+set-meta)
+	query="${2:-}"
+	key="${3:-}"
+	[ -n "$key" ] || usage_die set-meta "set-meta needs an id or title, a key, and a value or --none"
+	case "$key" in
+	plan | skills | acceptance | facts | location) ;;
+	*) usage_die set-meta "key must be plan|skills|acceptance|facts|location, got: $key" ;;
+	esac
+	shift 3
+	[ $# -gt 0 ] || usage_die set-meta "set-meta needs at least one value, or --none"
+	require_index
+	entry="$(single_match "$query")"
+	id="$(json_get id "$entry")"
+	if [ "$1" = "--none" ]; then
+		[ $# -eq 1 ] || usage_die set-meta "--none takes no other value, got: $2"
+		raw=""
+	else
+		case "$key" in
+		facts | location)
+			[ $# -eq 1 ] || usage_die set-meta "$key takes exactly one value, got $#"
+			;;
+		esac
+		# skills takes skill names, like `add --skill`: the instruction
+		# sentence is composed here so no caller writes it by hand.
+		meta_vals=()
+		for v in "$@"; do
+			[ "$key" != skills ] || v="$(skill_instruction "$v")"
+			require_meta_value "$key" "$v"
+			meta_vals[${#meta_vals[@]}]="$v"
+		done
+		case "$key" in
+		facts | location) raw="$(json_string "${meta_vals[0]}")" ;;
+		*) raw="$(json_array "${meta_vals[@]}")" ;;
+		esac
+	fi
+	set_index_field "$id" "$key" "$raw"
+	if [ -z "$raw" ]; then
+		printf '%s of %s cleared\n' "$key" "$id"
+	else
+		printf '%s of %s set\n' "$key" "$id"
+	fi
 	;;
 
 remove)
@@ -1243,7 +1378,7 @@ epic-move)
 	fi
 	[ "$old_rel" != "$new_rel" ] || die "already there: $old_rel"
 	mv "$(task_path "$old_rel")" "$(task_path "$new_rel")"
-	set_index_field "$id" file "$new_rel"
+	set_index_field "$id" file "$(json_string "$new_rel")"
 	prune_empty_epic "$(file_epic "$old_rel")"
 	printf 'moved %s to %s\n' "$id" "$new_rel"
 	;;

@@ -145,16 +145,20 @@ error string, path or snippet they pasted.>
 
 <one **Decision:** <question -- settled answer> line per Step 2 answer, then any
 open facts or deferred decisions in plain prose.>
-
-<**Acceptance:** and one `- [ ] <criterion>` bullet per criterion, each on a
-single unindented line, only when the session already stated a checkable
-outcome: never ask for criteria, never synthesise one.>
 EOF
 ```
 
-Pass Step 3's skill(s) as `--skill <skill-name>` (repeatable). The CLI appends the
-canonical `**Skill:**` instruction line itself; never write it by hand. Omit the
+Pass Step 3's skill(s) as `--skill <skill-name>` (repeatable). The CLI composes
+the canonical instruction sentence itself; never write it by hand. Omit the
 flag when no skill applies.
+
+Acceptance criteria live on the entry, not in the body: one call per entry
+whose session already stated a checkable outcome, each criterion as bare text
+with no bullet and no checkbox. Never ask for criteria, never synthesise one.
+
+```bash
+RADIN_CLI backlog set-meta <id> acceptance "<criterion>" "<criterion>"
+```
 
 Once every approved item is added -- each `add` prints its id -- record Step 4's
 dependencies, one call per dependent entry, always after all the adds and never as

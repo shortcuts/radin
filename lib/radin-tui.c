@@ -814,11 +814,12 @@ static void plan_abs(const char *p, char *dst, size_t cap) {
 }
 
 /* Fills DET with the selected row's detail document as markdown source. The
- * body view reads the task file directly, so a frame forks nothing; the plan
- * view forks one `backlog meta` per repaint, the same cost class as `c` or `p`
- * -- draw() only runs on a keypress or an index change.
- * ponytail: one meta fork per plan-view repaint, cache it keyed by task id if
- * a repaint ever measures slow. The full composed document (epic description,
+ * body view forks one `backlog meta` for the entry's own fields and then reads
+ * the task file; the plan view forks the same `backlog meta` per repaint, the
+ * same cost class as `c` or `p` -- draw() only runs on a keypress or an index
+ * change.
+ * ponytail: one meta fork per repaint in either view, cache it keyed by task
+ * id if a repaint ever measures slow. The full composed document (epic description,
  * every plan file, dependency titles) lives behind `v`. */
 static void build_detail(int width) {
 	DET_N = 0;
@@ -848,6 +849,28 @@ static void build_detail(int width) {
 		det_push("%c", RULE);
 		det_push("");
 		if (!DET_VIEW) {
+			/* The index-line fields (plan/skill/acceptance/facts/location)
+			 * live on the entry, not in the file below, so without this fork
+			 * the body view would silently lose the acceptance criteria a
+			 * human wrote. */
+			int ok;
+			char *meta = cli(BACKLOG, &ok, 0, NULL, "meta", T[ti].id, NULL);
+			char *ml = meta;
+			int shown = 0;
+			while (*ml && DET_N < MAXDET) {
+				char *nl = strchr(ml, '\n');
+				if (nl) *nl = 0;
+				if (*ml) {
+					char *tab = strchr(ml, '\t');
+					if (tab) *tab = 0;
+					det_field(ml, tab ? tab + 1 : "");
+					shown = 1;
+				}
+				if (!nl) break;
+				ml = nl + 1;
+			}
+			free(meta);
+			if (shown) det_push("");
 			char path[PATH_MAX];
 			task_path(ti, path, sizeof path);
 			FILE *f = fopen(path, "r");
@@ -860,8 +883,9 @@ static void build_detail(int width) {
 				fclose(f);
 			}
 		} else {
-			/* `backlog meta` owns **Plan:** parsing, and `### <path>` is the
-			 * heading the composed document uses, so pane and pager agree. */
+			/* `backlog meta` owns the entry's plan pointers, and `### <path>`
+			 * is the heading the composed document uses, so pane and pager
+			 * agree. */
 			int ok;
 			char *meta = cli(BACKLOG, &ok, 0, NULL, "meta", T[ti].id, NULL);
 			char *line = meta;

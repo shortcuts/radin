@@ -32,6 +32,29 @@
           "items": { "type": "string" },
           "description": "Human-authored ordering over other tasks' ids. Absent or empty means unset. `radin-backlog.sh set-deps` refuses an unknown id, a self-reference and a cycle, and `remove` prunes the removed id from every other entry's array — an unresolvable dependency stalls `radin state deps-check` rather than failing it."
         },
+        "plan": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Plan-file paths radin-plan wrote for this task, in order; more than one means it judged the scope broad enough to split into independent sub-plans and the user confirmed the split. Appended by `radin-backlog.sh add-plan`, replaced by `set-meta <id> plan`. Absent means unplanned, which is what `planned` and `list --planned` test."
+        },
+        "skills": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Composed skill instructions for this task, one per string (\"Invoke <name> to tackle this task.\"). Written by `add --skill <name>` or `set-meta <id> skills <name>...`, which compose the sentence themselves. The whole instruction is stored rather than the bare name, because a caller may also record a free-prose standing instruction with no /<name> token, which `field SKILLS` forwards untouched."
+        },
+        "acceptance": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Checkable criteria for this task, one bare-text criterion per string, written by `set-meta <id> acceptance <criterion>...`. A value carrying a \"- \" bullet or a \"[ ]\"/\"[x]\"/\"[X]\" checkbox is rejected on write. `radin-backlog.sh field ACCEPTANCE` renders them into the execution prompt; absent means the entry states no criteria, and nothing ever synthesises one."
+        },
+        "facts": {
+          "type": "string",
+          "description": "Path to this task's $NAMESPACE_DIR/state/facts/<id>.md, holding the long form of a **Fact:** or **Root cause:** line the body carries. Written by `set-meta <id> facts <path>`; exactly one value."
+        },
+        "location": {
+          "type": "string",
+          "description": "The \"path:line\" a review finding was cited at, written by `set-meta <id> location <path:line>`; exactly one value. No shape check beyond the tab/newline rule, so a line range is a legitimate value."
+        },
         "file": {
           "type": "string",
           "description": "Either \"tasks/<id>.md\" or \"tasks/<epic-id>/<id>.md\" for a task grouped under an epic, relative to the backlog/ directory. Points at the matching taskFile, and is the only carrier of epic membership: an epic itself gets no index line and no category. One nesting level only."
@@ -40,7 +63,7 @@
     },
     "taskFile": {
       "type": "string",
-      "description": "Free-form markdown at $BACKLOG_TASKS_DIR/<id>.md: the task's description, as exhaustive as the situation warrants — what the change is, why it matters, affected files/areas if known. Acceptance criteria, when the material for them exists, go in an '**Acceptance:**' label alone on its line followed by flat '- ' bullets (a '[ ]'/'[x]'/'[X]' checkbox prefix is optional and stripped), which radin-backlog.sh meta reports as 'acceptance' lines and radin-execute hands to its execution sub-agent; the list ends at the first line not starting with '- '. radin-execute/radin-plan derive scope and priority entirely from this text, so a thin one-liner starves them of what they need; write enough that a sub-agent picking up only this file (no other session context) could act on it correctly. May end with one or more '**Plan:** <path>' lines, appended by radin-plan after it plans this task (more than one means radin-plan judged the task's scope broad enough to split into independent sub-plans, and the user confirmed the split). Splitting each task into its own file means inserting a **Plan:** line here can never shift or otherwise affect any other task's file."
+      "description": "Free-form markdown at $BACKLOG_TASKS_DIR/<id>.md: the task's description, as exhaustive as the situation warrants — what the change is, why it matters, affected files/areas if known. radin-execute/radin-plan derive scope and priority entirely from this text, so a thin one-liner starves them of what they need; write enough that a sub-agent picking up only this file (no other session context) could act on it correctly. It carries prose labels only ('**Decision:**', '**Fact:**', '**Root cause:**', '**Raised as:**', '**Scope:**', '**Finding:**', '**Preferred remedy:**'): the plan pointers, skill instructions, acceptance criteria, facts pointer and finding location are index-line keys, and `add`/`append` reject a body line that repeats one of those five labels."
     }
   }
 }

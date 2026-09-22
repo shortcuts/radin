@@ -65,16 +65,18 @@ cli() {
   [[ "$output" == *"Add OAuth support"* ]]
 }
 
-@test "add-plan appends the pointer to the task's own file only" {
+@test "add-plan puts the pointer on the task's own entry only, never in a body" {
   cli add feat "planned thing" <<<"the body"
   cli add feat "next thing" <<<"other body"
   run cli add-plan "planned thing" ".claude/.radin/plans/planned-thing.md"
   [ "$status" -eq 0 ]
+  run grep -F '"id":"planned-thing"' "$INDEX"
+  [[ "$output" == *'"plan":[".claude/.radin/plans/planned-thing.md"]'* ]]
+  run grep -F '"id":"next-thing"' "$INDEX"
+  [[ "$output" != *'"plan"'* ]]
+  # The body keeps the prose and nothing else.
   run cat "$TASKS/planned-thing.md"
-  [[ "$output" == *"the body"* ]]
-  [[ "$output" == *"**Plan:** .claude/.radin/plans/planned-thing.md"* ]]
-  run cat "$TASKS/next-thing.md"
-  [[ "$output" != *"**Plan:**"* ]]
+  [ "$output" = "the body" ]
 }
 
 @test "remove deletes the task file and its index line" {
@@ -93,7 +95,9 @@ cli() {
 @test "show renders grouped-by-category markdown from the index and task files" {
   cli add feat "f thing" <<<"body f"
   cli add fix "b thing" <<<"body b"
+  cli set-meta "f thing" acceptance "it renders"
   run cli show
+  [[ "$output" == *"acceptance"$'\t'"it renders"* ]]
   [[ "$output" == *"# Backlog"* ]]
   [[ "$output" == *"## feat"* ]]
   [[ "$output" == *"### f thing"* ]]
@@ -120,26 +124,101 @@ cli() {
 
 
 
-@test "add --skill appends a canonical skill line after the body" {
+@test "add --skill writes the canonical instruction onto the entry, not the body" {
   run cli add feat "styled thing" --skill /frontend-design <<<"the body"
   [ "$status" -eq 0 ]
+  run grep -F '"id":"styled-thing"' "$INDEX"
+  [[ "$output" == *'"skills":["Invoke /frontend-design to tackle this task."]'* ]]
   run cat "$TASKS/styled-thing.md"
-  [[ "${lines[0]}" == "the body" ]]
-  [[ "${lines[1]}" == "**Skill:** Invoke /frontend-design to tackle this task." ]]
+  [ "$output" = "the body" ]
 }
 
 
-@test "meta prints plan and skill lines, nothing for a bare task" {
+@test "meta prints every entry field in key order, nothing for a bare task" {
   cli add feat "rich task" --skill /frontend-design <<<"body"
   cli add fix "bare task" <<<"body"
   cli add-plan "rich task" ".claude/.radin/plans/rich-task.md"
+  cli set-meta "rich task" acceptance "it works"
+  cli set-meta "rich task" facts "/tmp/facts.md"
+  cli set-meta "rich task" location "lib/x.sh:12"
   run cli meta "rich task"
   [ "$status" -eq 0 ]
-  [[ "${lines[0]}" == "skill"$'\t'"Invoke /frontend-design to tackle this task." ]]
-  [[ "${lines[1]}" == "plan"$'\t'".claude/.radin/plans/rich-task.md" ]]
+  [ "${#lines[@]}" -eq 5 ]
+  [[ "${lines[0]}" == "plan"$'\t'".claude/.radin/plans/rich-task.md" ]]
+  [[ "${lines[1]}" == "skill"$'\t'"Invoke /frontend-design to tackle this task." ]]
+  [[ "${lines[2]}" == "acceptance"$'\t'"it works" ]]
+  [[ "${lines[3]}" == "facts"$'\t'"/tmp/facts.md" ]]
+  [[ "${lines[4]}" == "location"$'\t'"lib/x.sh:12" ]]
   run cli meta "bare task"
   [ "$status" -eq 0 ]
   [ -z "$output" ]
+}
+
+@test "set-meta rejects a malformed value on write and --none clears the key" {
+  cli add feat "target" <<<"body"
+  run cli set-meta target acceptance ""
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"must not be empty"* ]]
+  run cli set-meta target acceptance "bad"$'\t'"value"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"must not contain a tab"* ]]
+  run cli set-meta target acceptance "- [ ] bullet form"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"bare text"* ]]
+  run cli set-meta target facts /tmp/a.md /tmp/b.md
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"exactly one value"* ]]
+  run cli set-meta target nosuchkey x
+  [ "$status" -ne 0 ]
+  cli set-meta target acceptance "first" "second"
+  run cli meta target
+  [ "${#lines[@]}" -eq 2 ]
+  cli set-meta target acceptance --none
+  run cli meta target
+  [ -z "$output" ]
+  run grep -F '"id":"target"' "$INDEX"
+  [[ "$output" != *"acceptance"* ]]
+}
+
+@test "set-meta skills composes the instruction sentence from a bare name" {
+  cli add feat "target" <<<"body"
+  cli set-meta target skills /ponytail:ponytail
+  run cli meta target
+  [ "${lines[0]}" = "skill"$'\t'"Invoke /ponytail:ponytail to tackle this task." ]
+}
+
+@test "add and append reject a body that repeats a moved label, prose labels pass" {
+  run cli add feat "bad body" <<<'**Acceptance:**'
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"index line"* ]]
+  run cli add feat "bad body" <<<'**Location:** lib/x.sh:12'
+  [ "$status" -ne 0 ]
+  cli add feat "good body" <<<"the prose"
+  run cli append good-body <<'EOF'
+**Decision:** keep it.
+**Fact:** it is slow.
+**Root cause:** the lock.
+EOF
+  [ "$status" -eq 0 ]
+  run cli append good-body <<<'**Facts:** /tmp/f.md'
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"index line"* ]]
+}
+
+@test "field FACTS and field LOCATION print the value, exit 1 when unset" {
+  cli add feat "target" <<<"body"
+  run cli field target FACTS
+  [ "$status" -eq 1 ]
+  [ -z "$output" ]
+  run cli field target LOCATION
+  [ "$status" -eq 1 ]
+  cli set-meta target facts "/tmp/facts.md"
+  cli set-meta target location "lib/x.sh:12"
+  run cli field target FACTS
+  [ "$status" -eq 0 ]
+  [ "$output" = "/tmp/facts.md" ]
+  run cli field target LOCATION
+  [ "$output" = "lib/x.sh:12" ]
 }
 
 
@@ -772,11 +851,7 @@ IDX
 
 @test "field ACCEPTANCE renders the 1b. block, exit 1 without criteria" {
   cli add feat "criteria" <<<"body"
-  cli append criteria <<'EOF'
-**Acceptance:**
-- [ ] first one
-- second one
-EOF
+  cli set-meta criteria acceptance "first one" "second one"
   cli add feat "no criteria" <<<"body"
   run cli field criteria ACCEPTANCE
   [ "$status" -eq 0 ]

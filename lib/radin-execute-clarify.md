@@ -39,8 +39,9 @@ Route on it:
   secondary write-up, or nothing, is `STATUS: NOT FOUND`.
 
   - `STATUS: FOUND`: append the finding to that task's file with
-    `backlog append` (labels below; a reported `state/facts/<id>.md` path is
-    the `**Facts:**` case), treat the entry as `pending`, retry from Step 4a.
+    `backlog append` (labels below), record a reported `state/facts/<id>.md`
+    path with `backlog set-meta`, treat the entry as `pending`, retry from
+    Step 4a.
     It stays scoped to the one task that needed it: never copy a
     finding onto another entry, and never build a shared notes file.
   - `STATUS: NOT FOUND`: it has escalated into a decision. Fall through to
@@ -62,8 +63,10 @@ EOF
 
 Same command, one label per kind of appended material: `**Decision:**` for a
 settled judgment call, `**Fact:**` for a fact-finder's answer, `**Root
-cause:**` for a diagnosis, `**Facts:** <path>` for the long form of any of
-them. Every one of them is task-scoped.
+cause:**` for a diagnosis. The long form of any of them is a file the entry
+points at, recorded with
+`RADIN_CLI backlog set-meta "<task id>" facts "<path>"`. Every one of them is
+task-scoped.
 
 Then treat the entry as `pending` and continue the loop.
 

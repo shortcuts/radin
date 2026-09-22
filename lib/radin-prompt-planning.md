@@ -17,7 +17,7 @@ The fence states the leaf contract itself: a sub-agent receives only the fence.
 ```
 Invoke the `/radin-plan` skill scoped to the backlog task with id "TASK_ID",
 reading TASK_FILE in full as the task scope. It writes the plan file(s) and
-appends the `**Plan:**` pointer(s) to that same task file.
+records the plan pointer(s) on that task's backlog entry.
 
 You are a leaf: no user, no `AskUserQuestion`, no `Workflow`, and no
 sub-agent of your own. Where the skill would ask (splitting the entry,

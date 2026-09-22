@@ -84,6 +84,10 @@ else
 fi
 acceptance=""
 if acceptance="$(field ACCEPTANCE)"; then :; else acceptance=""; fi
+facts=""
+if facts="$(field FACTS)"; then :; else facts=""; fi
+location=""
+if location="$(field LOCATION)"; then :; else location=""; fi
 
 # Dependency commits are the router's old bookkeeping: `task-next` printed them
 # and the prompt carried them by hand. deps-check is the same read, so the
@@ -114,6 +118,8 @@ active=" CAT_$category "
 [ -z "$plan_paths" ] || active="$active PLAN_PATHS "
 [ -z "$skills" ] || active="$active SKILLS "
 [ -z "$acceptance" ] || active="$active ACCEPTANCE "
+[ -z "$facts" ] || active="$active FACTS "
+[ -z "$location" ] || active="$active LOCATION "
 [ -z "$depends_on" ] || active="$active DEPENDS_ON "
 
 body="$(printf '%s\n' "$body" | awk -v active="$active" '
@@ -146,6 +152,8 @@ sub_token DEPENDS_ON "${depends_on:-none}"
 sub_token SKILLS "${skills:-none}"
 sub_token CATEGORY "$category"
 sub_token ACCEPTANCE "$acceptance"
+sub_token FACTS "$facts"
+sub_token LOCATION "$location"
 case "$kind" in
 debug) sub_token FAILURE "$extra" ;;
 factfind) sub_token QUESTION "$extra" ;;

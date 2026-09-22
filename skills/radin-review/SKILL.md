@@ -173,13 +173,13 @@ finding:
 ```bash
 RADIN_CLI backlog add <fix|refactor> "<short title>" <<'EOF'
 **Scope:** <what was reviewed, from Step 1>
-**Location:** <the cited path:line>
 **Finding:**
 <the problem as the review stated it: direct, specific. A Spec-axis finding
 opens with the spec line the brief quoted.>
 **Preferred remedy:**
 <the concrete restructuring suggested>
 EOF
+RADIN_CLI backlog set-meta <id> location "<the cited path:line>"
 ```
 
 Log one entry per agreed finding, in the order presented. Log nothing the

@@ -669,6 +669,16 @@ planned_body() {
   [[ "$output" != *"plan step one"* ]]
 }
 
+@test "the body view shows the entry's own fields above the task file" {
+  seed
+  bl set-meta dark-mode acceptance "the toggle persists" >/dev/null
+  run wide "q"
+  [ "$status" -eq 0 ]
+  run last_frame
+  [[ "$output" == *"the toggle persists"* ]]
+  [[ "$output" == *"Add dark mode."* ]]
+}
+
 @test "the marker line names both detail views" {
   seed
   run wide "q"

@@ -21,7 +21,8 @@ settle is reported and stops the run.
 RADIN_CLI backlog plan-target "<scope id/title/keyword>"
 ```
 
-It prints `id`/`title`/`task_file`/`plan_file` lines, plus one
+It prints `id`/`title`/`task_file`/`plan_file` lines, plus a
+`facts<TAB><path>` line when the entry carries one, plus one
 `plan<TAB><path>` line per plan the entry already has. Route on its exit code:
 
 - **0**: resolved and unplanned. Use it.
@@ -74,8 +75,9 @@ neither is re-resolved between sub-tasks. For each sub-task, in order:
    - Ask `codebase-memory-mcp`'s MCP tools before Grep/Glob/Read: its own
      skill names the verbs, and its hooks route the search either way.
    - A plan hinging on third-party API or library behavior that local code
-     cannot confirm: read the entry's `**Fact:**` lines and its `**Facts:**`
-     file first, because an earlier invocation may already have answered it.
+     cannot confirm: read the entry's `**Fact:**` lines and the `facts` file
+     Step 1 printed first, because an earlier invocation may already have
+     answered it.
      Still open, and running in the user's own thread with the
      `mattpocock-skills` plugin installed: hand the question to
      `/mattpocock-skills:research` naming
@@ -87,8 +89,8 @@ neither is re-resolved between sub-tasks. For each sub-task, in order:
      source <(RADIN_CLI backlog env --export)
      RADIN_CLI backlog append "<id>" <<'EOF'
      **Fact:** <the answer in one sentence, naming the source that owns it>
-     **Facts:** <the state/facts path above>
      EOF
+     RADIN_CLI backlog set-meta "<id>" facts "<the state/facts path above>"
      ```
 
      No plugin, or the skill asks you anything: drop it, never wait on it, and
@@ -112,8 +114,8 @@ neither is re-resolved between sub-tasks. For each sub-task, in order:
 5. Save the plan at the `plan_file` path Step 1 printed. For a sub-task from a
    split, re-run `plan-target "<id>" "<sub-slug>"` with the sub-task's short
    title in lowercase-hyphen form and use the `plan_file` it prints.
-6. Insert the pointer via the CLI (appends `**Plan:** <path>` to the task's
-   file, after any earlier `**Plan:**` lines):
+6. Insert the pointer via the CLI (adds the path to the entry, after any
+   earlier plan pointer):
 
    ```bash
    RADIN_CLI backlog add-plan "<id>" "<the plan_file path>"
@@ -123,10 +125,10 @@ neither is re-resolved between sub-tasks. For each sub-task, in order:
    <n> spec.` The counts come from Step 4, so write this line after that
    sub-task's review pass, not before it.
 
-This skill's whole output is the plan file(s) it writes, plus the `**Plan:**`
-line — and the `**Fact:**`/`**Facts:**` pointer, when research ran — that the
-CLI appends to the scoped task's file. Nothing else in the tree changes: no
-source file edited, no build or test run, no commit.
+This skill's whole output is the plan file(s) it writes, plus the plan
+pointer — and the `**Fact:**` line and `facts` pointer, when research ran —
+that the CLI records against the scoped task. Nothing else in the tree
+changes: no source file edited, no build or test run, no commit.
 
 ### The plan template
 

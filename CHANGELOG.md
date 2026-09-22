@@ -6,6 +6,28 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **Breaking:** five per-task fields moved from markdown labels in the task
+  body onto JSON keys on the `index.jsonl` line: `**Plan:**`, `**Skill:**`,
+  `**Acceptance:**`, `**Facts:**` and `**Location:**` are now `plan`,
+  `skills`, `acceptance`, `facts` and `location`. Each had a parser, and the
+  markdown parser failed silently — a label written with the colon outside the
+  bold markers, or an indented criterion bullet, yielded nothing and told no
+  caller, so an execution sub-agent was dispatched with no acceptance criteria
+  and reported success. Validation moved to write time: `radin backlog set-meta
+  <id> <key> <value>... | --none` writes or clears any of the five and rejects
+  an empty value, a tab or newline, and an `acceptance` value written as a
+  `-` bullet or a `[ ]` checkbox; `add --skill` and `add-plan` keep their
+  names and now write the entry; `add` and `append` refuse a body line
+  repeating one of the five labels. `radin backlog meta` gains `facts` and
+  `location` lines and keeps its output format otherwise, so `field`, the TUI
+  and `radin-execute` read it unchanged, and `planned` / `list --planned`
+  answer from the index line with no task-file read. An existing backlog is
+  not migrated: re-state each task's criteria, plan pointers and skills with
+  `set-meta` / `add-plan`, then delete the labels from the body. The seven
+  prose labels (`**Decision:**`, `**Fact:**`, `**Root cause:**`,
+  `**Raised as:**`, `**Scope:**`, `**Finding:**`, `**Preferred remedy:**`)
+  stay in the task body: no parser reads them, so moving them would buy no
+  determinism and cost a render step.
 - `radin prompt <planning|execution|debug|factfind> <id>` assembles a
   sub-agent prompt, so `/radin-execute` stops reading four prompt templates at
   Phase 4 and stops substituting placeholders by hand. It reads only the
