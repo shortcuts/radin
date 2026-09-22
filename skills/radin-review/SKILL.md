@@ -77,11 +77,11 @@ these rungs in order and stop at the first that yields a spec:
 
    ```bash
    source <(RADIN_CLI backlog env --export)
-   RADIN_CLI state completed-list "$NAMESPACE_DIR/state/completed.json"
+   RADIN_CLI scope --tasks [<the same scope arg as Step 1>]
    ```
 
-   It prints `id<TAB>commit` per completion. Intersect those commits with Step
-   1's commit list. For each matched id,
+   It prints one matched task id per line, and nothing when no commit in scope
+   came from a task — a `dir` scope always. For each matched id,
    `RADIN_CLI state completed-show "$NAMESPACE_DIR/state/completed.json" "<id>"`
    names the plan the task ran against and the branch it ran on: its `plan`
    line carries the recorded paths, comma-separated, and those files are the

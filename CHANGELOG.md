@@ -6,6 +6,11 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- `radin scope --tasks [<arg>]` prints the completed task ids a review scope
+  covers, one per line, for all five scope types. `radin-review`'s Step 2 reads
+  the task-id join from that one call instead of intersecting a full completion
+  list against a commit list it branched on scope type to build.
+
 - `radin state trace <namespace-dir> <id|commit|branch>` answers the
   provenance lookup in all three directions from one verb: the argument's
   shape decides which, by probing each store the way `radin scope` probes its

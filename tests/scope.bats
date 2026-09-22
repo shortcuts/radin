@@ -24,12 +24,22 @@ cli() {
 
 # gh stub: "pr view <n>" succeeds only for 123.
 mock_gh() {
-  cat > "$MOCK_BIN/gh" <<'EOF'
+  cat > "$MOCK_BIN/gh" <<EOF
 #!/bin/sh
-if [ "$1" = "pr" ] && [ "$2" = "view" ] && [ "$3" = "123" ]; then exit 0; fi
+if [ "\$1" = "pr" ] && [ "\$2" = "view" ] && [ "\$3" = "123" ]; then
+  case " \$* " in *" --json "*) echo "$1" ;; esac
+  exit 0
+fi
 exit 1
 EOF
   chmod +x "$MOCK_BIN/gh"
+}
+
+# Records completion $2 against commit $1 in the repo's own namespace.
+record_done() {
+  mkdir -p "$WORK/repo/.claude/.radin/state"
+  bash "$REPO_ROOT/lib/radin-state.sh" completed-add \
+    "$WORK/repo/.claude/.radin/state/completed.json" "$2" "$1" t
 }
 
 @test "no argument resolves to the branch diff against main's merge-base" {
@@ -185,4 +195,57 @@ EOF
 @test "--in-scope forwards a resolution failure's exit code" {
   run bash -c "printf 'a.c:1\n' | (cd '$WORK/repo' && bash '$CLI' --in-scope 'blorp zonk')"
   [ "$status" -eq 1 ]
+}
+
+@test "--tasks prints the task ids the scope's commits completed" {
+  ( cd "$WORK/repo"
+    printf 'b\n' > f.txt && git commit -qam second )
+  head="$(cd "$WORK/repo" && git rev-parse HEAD)"
+  record_done "$head" my-task
+  record_done cafe1234cafe1234 other-task
+
+  run cli --tasks "$head"
+  [ "$status" -eq 0 ]
+  [ "$output" = "my-task" ]
+
+  run cli --tasks "HEAD~1..HEAD"
+  [ "$status" -eq 0 ]
+  [ "$output" = "my-task" ]
+
+  run cli --tasks "since yesterday"
+  [ "$status" -eq 0 ]
+  [ "$output" = "my-task" ]
+
+  # A task with several commits in scope is still one id, printed once.
+  record_done "$(cd "$WORK/repo" && git rev-parse HEAD~1)" my-task
+  run cli --tasks "HEAD~1..HEAD"
+  [ "$status" -eq 0 ]
+  [ "$output" = "my-task" ]
+
+  mkdir -p "$WORK/repo/src"
+  run cli --tasks src
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+
+  run cli --tasks "blorp zonk"
+  [ "$status" -eq 1 ]
+}
+
+@test "--tasks with no argument covers the branch diff's commits" {
+  ( cd "$WORK/repo"
+    git checkout -qb feature
+    printf 'b\n' > f.txt && git commit -qam change )
+  record_done "$(cd "$WORK/repo" && git rev-parse HEAD)" my-task
+  run cli --tasks
+  [ "$status" -eq 0 ]
+  [ "$output" = "my-task" ]
+}
+
+@test "--tasks reads a PR's commits through gh" {
+  head="$(cd "$WORK/repo" && git rev-parse HEAD)"
+  mock_gh "$head"
+  record_done "$head" my-task
+  run cli --tasks "#123"
+  [ "$status" -eq 0 ]
+  [ "$output" = "my-task" ]
 }
