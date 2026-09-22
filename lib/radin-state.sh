@@ -22,8 +22,9 @@
 #   radin-state.sh set-status <steps-file> <id> <pending|in_progress|failed|blocked> [note]
 #   radin-state.sh remove <steps-file> <id>               # delete a completed entry's line
 #   radin-state.sh deps-check <steps-file> <completed-file> <id>  # print "dep<TAB>hash" per dependency, exit 1 naming the first unresolved one
-#   radin-state.sh completed-add <completed-file> <id> <commit-hash> [title]
+#   radin-state.sh completed-add <completed-file> <id> <commit-hash> [title] [branch] [worktree] [plan]
 #   radin-state.sh completed-get <completed-file> <id>   # prints commit hash, exit 1 if absent
+#   radin-state.sh completed-show <completed-file> <id>  # print "id|commit|title|branch|worktree|plan|ts<TAB>value" lines, exit 1 if absent
 #   radin-state.sh completed-list <completed-file>       # print "id<TAB>commit" per completion, exit 1 if none
 #   radin-state.sh task-done <namespace-dir> <id> <commit-hash>  # completed-add + backlog remove + steps remove, in crash-safe order; exit 3 when the hash does not validate
 #   radin-state.sh task-fail <namespace-dir> <id> <reason>        # exit 3 the first time (send `radin prompt debug`), mark failed the second
@@ -35,6 +36,7 @@
 #   radin-state.sh report <namespace-dir> [<dropped-skill line>...]  # print the finished end-of-session report
 #   radin-state.sh task-dir <repo-root> <id>              # print the task's worktree if it exists, else <repo-root>
 #   radin-state.sh prepare <namespace-dir> <id>           # create/reuse the task's tree and branch per session.json, print the dir to work in
+#                                                         # also records the branch and tree it chose in state/prepared/<id>.json
 #   radin-state.sh dirty-check <dir>                      # git status --porcelain, excluding .claude/.radin
 #   radin-state.sh stash <repo-root> <message>            # stash everything except .claude/.radin, print the stash ref
 #   radin-state.sh session-set <namespace-dir> <worktree-mode> <branch-mode>  # persist Phase 0.5 answers
@@ -70,6 +72,21 @@ MAX_ATTEMPTS=3
 # the entry is already gone (a completed task's entry is deleted).
 task_title() {
 	(cd "$1" 2>/dev/null && bash "$LIB_DIR/radin-backlog.sh" find "$2" 2>/dev/null | head -n1 | cut -f3) || true
+}
+
+# Prints task $2's plan pointers from the backlog index under repo root $1,
+# joined by commas in pointer order; empty when the entry has none or is gone.
+task_plans() {
+	(cd "$1" 2>/dev/null && bash "$LIB_DIR/radin-backlog.sh" meta "$2" 2>/dev/null |
+		sed -n 's/^plan	//p' | paste -sd, -) || true
+}
+
+# Prints key $3 of the record `prepare` wrote for task $2 under namespace dir
+# $1, empty when nothing was recorded (a task prepared before this existed).
+prepared_field() {
+	file="$1/state/prepared/$2.json"
+	[ -s "$file" ] || return 0
+	json_get "$3" "$(cat "$file")"
 }
 
 # Prints line $1's numeric field $2 (order|attempts|debugged), 0 when absent.
@@ -309,14 +326,17 @@ triage)
 	else
 		printf 'completed\tnone\n'
 	fi
-	branch="radin/$id"
+	# Only `prepare` reads a task's branch from git; with no record there is
+	# nothing to name, and no derivation from the id could see a run that
+	# answered `branch: no`.
+	branch="$(prepared_field "$ns" "$id" branch)"
 	wt="$(bash "$LIB_DIR/radin-state.sh" task-dir "$repo_root" "$id")"
 	if [ "$wt" = "$repo_root" ]; then
 		printf 'worktree\tnone\n'
 	else
 		printf 'worktree\t%s\n' "$wt"
 	fi
-	if git -C "$repo_root" rev-parse --verify --quiet "$branch" >/dev/null 2>&1; then
+	if [ -n "$branch" ] && git -C "$repo_root" rev-parse --verify --quiet "$branch" >/dev/null 2>&1; then
 		printf 'branch\t%s\n' "$branch"
 		git -C "$repo_root" log --oneline --no-decorate "$branch" --not HEAD 2>/dev/null |
 			sed -n '1,20p' | sed 's/^/branch_commit\t/'
@@ -342,12 +362,19 @@ completed-add)
 	id="${3:-}"
 	hash="${4:-}"
 	title="${5:-}"
-	[ -n "$file" ] && [ -n "$id" ] && [ -n "$hash" ] || die "usage: completed-add <completed-file> <id> <commit-hash> [title]"
+	prov_branch="${6:-}"
+	prov_worktree="${7:-}"
+	prov_plan="${8:-}"
+	[ -n "$file" ] && [ -n "$id" ] && [ -n "$hash" ] || die "usage: completed-add <completed-file> <id> <commit-hash> [title] [branch] [worktree] [plan]"
 	# The title is stored because completion deletes the backlog entry, so the
-	# final report has nowhere else to read it from. completed-list still
+	# final report has nowhere else to read it from; branch/worktree/plan are
+	# the same story for provenance. `ts` is generated here, never passed, so
+	# a hand-run completed-add cannot record a wrong one. completed-list still
 	# prints two fields: the TUI parses that output.
-	printf '{"id":"%s","commit":"%s","title":"%s"}\n' \
-		"$(json_escape "$id")" "$(json_escape "$hash")" "$(json_escape "$title")" >>"$file"
+	printf '{"id":"%s","commit":"%s","title":"%s","branch":"%s","worktree":"%s","plan":"%s","ts":"%s"}\n' \
+		"$(json_escape "$id")" "$(json_escape "$hash")" "$(json_escape "$title")" \
+		"$(json_escape "$prov_branch")" "$(json_escape "$prov_worktree")" \
+		"$(json_escape "$prov_plan")" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >>"$file"
 	;;
 
 completed-get)
@@ -359,6 +386,25 @@ completed-get)
 		[ -n "$line" ] || continue
 		if [ "$(json_get id "$line")" = "$id" ]; then
 			json_get commit "$line"
+			exit 0
+		fi
+	done <"$file"
+	exit 1
+	;;
+
+completed-show)
+	file="${2:-}"
+	id="${3:-}"
+	[ -n "$file" ] && [ -n "$id" ] || die "usage: completed-show <completed-file> <id>"
+	[ -f "$file" ] || exit 1
+	while IFS= read -r line || [ -n "$line" ]; do
+		[ -n "$line" ] || continue
+		if [ "$(json_get id "$line")" = "$id" ]; then
+			# A line written before provenance existed has no branch, worktree,
+			# plan or ts key: json_get prints nothing, which reads as unknown.
+			for key in id commit title branch worktree plan ts; do
+				printf '%s\t%s\n' "$key" "$(json_get "$key" "$line")"
+			done
 			exit 0
 		fi
 	done <"$file"
@@ -392,21 +438,29 @@ task-done)
 		printf 'task-done: %s is not a commit in %s\n' "$hash" "$dir" >&2
 		exit 3
 	fi
+	# The branch comes from `prepare`'s record, the only place that read it
+	# from git. With no record there is no branch to name, so HEAD of the
+	# task's own dir is what is left.
+	prov_branch="$(prepared_field "$ns" "$id" branch)"
+	prov_worktree="$(prepared_field "$ns" "$id" worktree)"
 	ref="HEAD"
-	if git -C "$dir" rev-parse --verify --quiet "radin/$id" >/dev/null 2>&1; then
-		ref="radin/$id"
+	if [ -n "$prov_branch" ] &&
+		git -C "$dir" rev-parse --verify --quiet "$prov_branch^{commit}" >/dev/null 2>&1; then
+		ref="$prov_branch"
 	fi
 	if ! git -C "$dir" merge-base --is-ancestor "$hash" "$ref" >/dev/null 2>&1; then
 		printf 'task-done: %s is not reachable from %s in %s\n' "$hash" "$ref" "$dir" >&2
 		exit 3
 	fi
-	# Resolved before the backlog entry goes away: nothing else records it.
+	# Resolved before the backlog entry goes away: nothing else records them.
 	title="$(task_title "$repo_root" "$id")"
+	plans="$(task_plans "$repo_root" "$id")"
 	# Order matters: record success first, so a crash mid-way leaves a state
 	# radin-backlog.sh reconcile can repair. Each step is skipped when a
 	# retry already did it, so re-running after a crash is safe.
 	if ! bash "$LIB_DIR/radin-state.sh" completed-get "$completed" "$id" >/dev/null 2>&1; then
-		bash "$LIB_DIR/radin-state.sh" completed-add "$completed" "$id" "$hash" "$title"
+		bash "$LIB_DIR/radin-state.sh" completed-add "$completed" "$id" "$hash" "$title" \
+			"$prov_branch" "$prov_worktree" "$plans"
 	fi
 	if grep -qF "\"id\":\"$id\"" "$ns/backlog/index.jsonl" 2>/dev/null; then
 		(cd "$repo_root" && bash "$LIB_DIR/radin-backlog.sh" remove "$id" >/dev/null)
@@ -432,6 +486,7 @@ prepare)
 	repo_root="${ns%/.claude/.radin}"
 	branch="radin/$id"
 	wt="$repo_root-$id"
+	wt_record=""
 	if [ "$worktree" = "yes" ]; then
 		if [ -d "$wt" ]; then
 			: # a dead attempt's tree -- reuse it rather than fail on `worktree add`
@@ -441,7 +496,8 @@ prepare)
 			git -C "$repo_root" worktree add "$wt" -b "$branch" >&2
 		fi
 		journal "$ns/state" "prepare" "$id" "worktree=$wt branch=$branch"
-		printf '%s\n' "$wt"
+		dir="$wt"
+		wt_record="$wt"
 	else
 		if [ "$branch_mode" = "yes" ]; then
 			if git -C "$repo_root" rev-parse --verify --quiet "$branch" >/dev/null 2>&1; then
@@ -453,8 +509,18 @@ prepare)
 		else
 			journal "$ns/state" "prepare" "$id" "current checkout, current branch"
 		fi
-		printf '%s\n' "$repo_root"
+		dir="$repo_root"
 	fi
+	# The branch is read here, after the git commands and nowhere else: a
+	# `branch: no` run lands on whatever the user had checked out, and no
+	# derivation from the id can see that. A detached HEAD records the literal
+	# `HEAD` git prints -- a fact, not an error.
+	mkdir -p "$ns/state/prepared"
+	real_branch="$(git -C "$dir" rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
+	printf '{"branch":"%s","worktree":"%s"}\n' \
+		"$(json_escape "$real_branch")" "$(json_escape "$wt_record")" \
+		>"$ns/state/prepared/$id.json"
+	printf '%s\n' "$dir"
 	;;
 
 task-dir)
@@ -874,6 +940,6 @@ report)
 	;;
 
 *)
-	die "unknown command: ${cmd:-<none>} (steps-init|next-pending|task-next|start|stuck|triage|recover|recover-reject|set-status|remove|deps-check|completed-add|completed-get|completed-list|task-done|task-fail|task-diagnosis|dirty-recover|report|task-dir|prepare|dirty-check|stash|session-set|session-get|journal-tail)"
+	die "unknown command: ${cmd:-<none>} (steps-init|next-pending|task-next|start|stuck|triage|recover|recover-reject|set-status|remove|deps-check|completed-add|completed-get|completed-show|completed-list|task-done|task-fail|task-diagnosis|dirty-recover|report|task-dir|prepare|dirty-check|stash|session-set|session-get|journal-tail)"
 	;;
 esac

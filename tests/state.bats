@@ -101,7 +101,8 @@ cli() {
   base="$(git -C "$WORK/repo" rev-parse --abbrev-ref HEAD)"
   printf 'a\t1\t\n' | cli steps-init "$ns/state/BACKLOG_STEPS.json"
   cli start "$ns/state/BACKLOG_STEPS.json" a
-  git -C "$WORK/repo" checkout -q -b radin/a
+  cli session-set "$ns" no yes
+  cli prepare "$ns" a > /dev/null
   echo work > "$WORK/repo/g.txt"
   git -C "$WORK/repo" add g.txt
   git -C "$WORK/repo" commit -qm work
@@ -110,9 +111,15 @@ cli() {
   [ "$status" -eq 0 ]
   [[ "$output" == *"$(printf 'attempts\t1')"* ]]
   [[ "$output" == *"$(printf 'completed\tnone')"* ]]
+  # The branch comes from prepare's record, not from the id.
   [[ "$output" == *"$(printf 'branch\tradin/a')"* ]]
   [[ "$output" == *"branch_commit"* ]]
   [[ "$output" == *"$(printf 'dirty_files\t0')"* ]]
+  # An id prepare never saw has no branch to name.
+  run cli triage "$ns" never-prepared
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"$(printf 'branch\tnone')"* ]]
+  [[ "$output" != *"branch_commit"* ]]
 }
 
 @test "session-set persists the worktree/branch answers, session-get reads them back" {
@@ -152,6 +159,8 @@ cli() {
   [ "$(git -C "$WORK/repo" rev-parse --abbrev-ref HEAD)" = "$base" ]
   ! git -C "$WORK/repo" rev-parse --verify -q radin/a
   [ ! -d "$WORK/repo-a" ]
+  # The branch is recorded even here, where no derivation could see it.
+  [[ "$(cat "$ns/state/prepared/a.json")" == *"\"branch\":\"$base\""*'"worktree":""'* ]]
 
   # branch only: task branch in the same checkout, no worktree
   cli session-set "$ns" no yes
@@ -160,6 +169,7 @@ cli() {
   [ "${lines[${#lines[@]}-1]}" = "$WORK/repo" ]
   [ "$(git -C "$WORK/repo" rev-parse --abbrev-ref HEAD)" = "radin/b" ]
   [ ! -d "$WORK/repo-b" ]
+  [[ "$(cat "$ns/state/prepared/b.json")" == *'"branch":"radin/b"'*'"worktree":""'* ]]
   git -C "$WORK/repo" checkout -q "$base"
 
   # worktree: its own tree on its own branch, and reusable after a dead run
@@ -168,6 +178,7 @@ cli() {
   [ "$status" -eq 0 ]
   [ "${lines[${#lines[@]}-1]}" = "$WORK/repo-c" ]
   [ "$(git -C "$WORK/repo-c" rev-parse --abbrev-ref HEAD)" = "radin/c" ]
+  [[ "$(cat "$ns/state/prepared/c.json")" == *'"branch":"radin/c"'*"\"worktree\":\"$WORK/repo-c\""* ]]
   run cli prepare "$ns" c
   [ "$status" -eq 0 ]
   [ "${lines[${#lines[@]}-1]}" = "$WORK/repo-c" ]
@@ -358,7 +369,10 @@ EOF
     bash "$REPO_ROOT/lib/radin-backlog.sh" add fix "my task" <<<"body" )
   hash="$(git -C "$WORK/repo" rev-parse HEAD)"
   NS="$WORK/repo/.claude/.radin"
+  ( cd "$WORK/repo" && bash "$REPO_ROOT/lib/radin-backlog.sh" add-plan my-task "$NS/plans/my-task.md" ) > /dev/null
   printf '{"id":"my-task","order":1,"status":"pending","depends_on":[],"note":""}\n' > "$NS/state/BACKLOG_STEPS.json"
+  cli session-set "$NS" no no
+  cli prepare "$NS" my-task > /dev/null
   run cli task-done "$NS" my-task "$hash"
   [ "$status" -eq 0 ]
   run cli completed-get "$NS/state/completed.json" my-task
@@ -369,9 +383,26 @@ EOF
   # The title is captured before the backlog entry goes away: nothing else
   # can name the task in the final report.
   [[ "$(cat "$NS/state/completed.json")" == *'"title":"my task"'* ]]
+  # So is the provenance: the branch prepare recorded, the entry's plan
+  # pointer, and the completion instant.
+  line="$(cat "$NS/state/completed.json")"
+  [[ "$line" == *"\"plan\":\"$NS/plans/my-task.md\""* ]]
+  [[ "$line" != *'"branch":""'* ]]
+  [[ "$line" == *'"ts":"20'*'Z"'* ]]
+  run cli completed-show "$NS/state/completed.json" my-task
+  [ "$status" -eq 0 ]
+  [ "${lines[0]}" = "$(printf 'id\tmy-task')" ]
+  [[ "$output" == *"$(printf 'plan\t%s' "$NS/plans/my-task.md")"* ]]
+  run cli completed-show "$NS/state/completed.json" nope
+  [ "$status" -eq 1 ]
+  # A line written before provenance existed reads as unknown, not as itself.
+  printf '{"id":"old-task","commit":"cafe","title":"old"}\n' >> "$NS/state/completed.json"
+  run cli completed-show "$NS/state/completed.json" old-task
+  [ "$status" -eq 0 ]
+  [ "${lines[3]}" = "$(printf 'branch\t')" ]
   # completed-list stays two TAB-separated fields: radin tui parses it.
   run cli completed-list "$NS/state/completed.json"
-  [ "$output" = "$(printf 'my-task\t%s' "$hash")" ]
+  [ "${lines[0]}" = "$(printf 'my-task\t%s' "$hash")" ]
   # A retry after a partial run must not duplicate or fail.
   run cli task-done "$NS" my-task "$hash"
   [ "$status" -eq 0 ]
@@ -517,6 +548,24 @@ EOF
   # neither attempt recorded anything
   [ ! -s "$NS/state/completed.json" ]
   [[ "$(cat "$ST")" == *'"id":"aa-task"'* ]]
+}
+
+@test "task-done validates against the branch prepare recorded" {
+  fixture_repo
+  printf 'aa-task\t1\t\n' | cli steps-init "$ST" > /dev/null
+  cli session-set "$NS" no no
+  cli prepare "$NS" aa-task > /dev/null
+  # A stale radin/<id> from an abandoned run, without the work commit: the
+  # branch prepare recorded is the one that counts.
+  git -C "$REPO" branch radin/aa-task
+  printf 'work\n' > "$REPO/g.txt"
+  git -C "$REPO" add g.txt
+  git -C "$REPO" commit -qm work
+  hash="$(git -C "$REPO" rev-parse HEAD)"
+  run cli task-done "$NS" aa-task "$hash"
+  [ "$status" -eq 0 ]
+  base="$(git -C "$REPO" rev-parse --abbrev-ref HEAD)"
+  [[ "$(cat "$NS/state/completed.json")" == *"\"branch\":\"$base\""* ]]
 }
 
 @test "task-fail offers one debug pass per session, then fails the task" {
@@ -672,7 +721,8 @@ EOF
 
   # commits on the task branch: only the model can judge them
   base="$(git -C "$REPO" rev-parse --abbrev-ref HEAD)"
-  git -C "$REPO" checkout -q -b radin/dd-task
+  cli session-set "$NS" no yes
+  cli prepare "$NS" dd-task > /dev/null
   printf 'work\n' > "$REPO/g.txt"
   git -C "$REPO" add g.txt
   git -C "$REPO" commit -qm work

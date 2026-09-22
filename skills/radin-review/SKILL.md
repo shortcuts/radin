@@ -81,7 +81,11 @@ these rungs in order and stop at the first that yields a spec:
    ```
 
    It prints `id<TAB>commit` per completion. Intersect those commits with Step
-   1's commit list. For each matched id, the spec is
+   1's commit list. For each matched id,
+   `RADIN_CLI state completed-show "$NAMESPACE_DIR/state/completed.json" "<id>"`
+   names the plan the task ran against and the branch it ran on: its `plan`
+   line carries the recorded paths, comma-separated, and those files are the
+   spec. Empty `plan` line (a completion recorded before provenance existed):
    `$NAMESPACE_DIR/plans/<id>.md` when that file exists — an id slug alone is
    too thin to review a diff against. Several matched ids: every one of their
    plan files is the spec, and the axis covers all of them.

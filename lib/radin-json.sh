@@ -10,9 +10,10 @@ json_escape() {
 }
 
 # Extracts field $1 (e.g. id|status|commit|category|title|file) from JSONL
-# line $2, unescaped.
+# line $2, unescaped. Empty when the key is absent, same as json_get_raw: a
+# line written before a field existed reads as unknown, never as its own text.
 json_get() {
-	printf '%s' "$2" | sed -E "s/.*\"$1\":\"((\\\\.|[^\"\\\\])*)\".*/\\1/" | sed -e 's/\\"/"/g' -e 's/\\\\/\\/g'
+	printf '%s' "$2" | sed -n -E "s/.*\"$1\":\"((\\\\.|[^\"\\\\])*)\".*/\\1/p" | sed -e 's/\\"/"/g' -e 's/\\\\/\\/g'
 }
 
 # Extracts non-string field $1 (integer or array of strings) from JSONL line

@@ -6,6 +6,13 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **Breaking.** The `completed.json` line gains `branch`, `worktree`, `plan`
+  and `ts`, so "which branch did this task run on, against which plan" is one
+  `radin state completed-show` call instead of a correlation hunt. `prepare`
+  records the branch and tree it chose — the one moment the truth is readable —
+  and `task-done` and `triage` read that record instead of deriving
+  `radin/<id>`, so a task prepared by an older session reports an unknown
+  branch. Nothing is backfilled: an absent field reads as unknown.
 - The execution prompt carries the task body inline — preceded by the epic's
   `DESCRIPTION.md` when the task lives in one — instead of the task file's
   path, so an execution sub-agent sees its whole task with no file read.
