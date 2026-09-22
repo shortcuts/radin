@@ -6,6 +6,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- `/radin-plan`'s Step 4 reviews each plan it writes on two axes instead of one.
+  Standards keeps the `/thermo-nuclear` and `/ponytail:ponytail-review` passes;
+  the new Spec axis reads the plan against the backlog entry it came from and
+  reports acceptance criteria no step implements, steps no criterion asked for,
+  and `**Decision:**` lines the plan contradicts. Both axes run as parallel
+  sub-agents, so neither inherits the context that wrote the plan. An
+  approach-level finding goes to `/mattpocock-skills:grilling` when a user is
+  reachable, and ends the run with a report line when one is not. Findings
+  still land in the plan file, never in the backlog.
+
 - The `tui` verb is gone from the dispatcher. Bare `radin` on a terminal is the
   TUI's only entry point; `radin tui` now prints the usage text and exits
   non-zero like any unknown verb.

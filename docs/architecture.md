@@ -439,6 +439,14 @@ The one Debug pass a `FAILED` task gets is enforced by the `debugged` flag on
 its steps entry, flipped by `radin state task-fail`, not by a counter the
 router holds — a counter cannot survive a resume or a compaction.
 
+The pass that moved earlier instead is `radin-plan`'s Step 4, which reviews the
+plan on the same two axes `radin-review` runs over code: Standards against the
+repo's rubrics, Spec against the entry the plan came from. It costs two
+sub-agents per plan and catches a missing acceptance criterion or a contradicted
+`**Decision:**` line while the fix is still one edit to a Markdown file. Its
+findings stay in the plan file — a backlog entry about code nobody has written
+yet would come back to `radin-execute` as work.
+
 Planning is unconditional for the same reason. Step 4a used to skip the
 planning sub-agent for a "single obvious change"; the router cannot size a
 task without reading the code, and that read is the cost the leaf-worker split

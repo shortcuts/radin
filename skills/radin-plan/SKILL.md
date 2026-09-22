@@ -142,9 +142,9 @@ neither is re-resolved between sub-tasks. For each sub-task, in order:
    RADIN_CLI backlog add-plan "<id>" "<the plan_file path>"
    ```
 
-7. Report: `✅ <id> planned. Plan: <path>. Review findings: <n or none>.` The
-   count comes from Step 4, so write this line after that sub-task's review
-   pass, not before it.
+7. Report: `✅ <id> planned. Plan: <path>. Review findings: <n> standards,
+   <n> spec.` The counts come from Step 4, so write this line after that
+   sub-task's review pass, not before it.
 
 Planning and executing are separate tools, so this skill's whole output is the
 plan file(s) it writes plus the one `**Plan:**` line the CLI appends to the
@@ -221,18 +221,56 @@ above.">
 
 </plan-template>
 
-## Step 4: Review each plan before handing it off
+## Step 4: Review each plan on both axes
 
-A plan is a proposal, so review it before `radin-execute` builds on it. For
-each plan file just written:
+The plan is the cheapest place to correct the work. Two **axes** carry the
+review of it, separate for
+the same reason they stay separate over code (`skills/radin-review/SKILL.md`,
+"Why two axes"):
 
-1. Invoke `/thermo-nuclear` against the plan file's content (not the
-   codebase): does the proposed approach itself carry a structural issue
-   the rubric flags?
-2. Invoke `/ponytail:ponytail-review` against the same file: speculative
-   flexibility, reinvented stdlib, single-caller layers?
-3. Fix each finding by editing the plan file in place. The fix belongs in
-   the plan itself, and nothing goes to the backlog.
+- **Standards** — does the proposed approach hold up against this repo's
+  rubrics?
+- **Spec** — does the plan do what the entry asked for?
+
+Per plan file, dispatch both axes in one message as two parallel sub-agents.
+Each brief names two absolute paths — the plan file, and the `task_file` Step 1
+printed — and says "read both in full before reviewing". The plan file is the
+whole review surface: every finding cites one section and entry inside it, and
+the repo supplies context only.
+
+Non-interactive: run both briefs inline, Standards first. A non-interactive
+`radin-plan` is itself a sub-agent and cannot rely on getting a spawned agent's
+result (`docs/technical-constraints.md`).
+
+**Standards brief.** Invoke `/thermo-nuclear` against the plan's content, then
+`/ponytail:ponytail-review` against the same content. Report (a) every
+structural issue the rubric flags in the approach itself; (b) every speculative
+abstraction, reinvented stdlib call and single-caller layer in the `## Changes`
+entries; (c) every `## Decisions` claim about current code carrying no
+`path:line` or command, and every third-party claim naming no owning source.
+Under 400 words.
+
+**Spec brief.** The entry is the spec. Report (a) every acceptance criterion in
+the entry that no `## Changes` entry implements and no `## Testing` box checks;
+(b) every `## Changes` entry no criterion asks for, and where `## Out of scope`
+would put it; (c) every `**Decision:**` line in the entry the plan contradicts.
+Quote the entry's line for each finding. Under 400 words.
+
+Relay both reports under `## Standards` and `## Spec` headings before editing
+anything, each axis in its own order and neither reranked against the other.
+
+Then fix each finding by editing the plan file in place. The fix lands in the
+plan, and the backlog gains nothing: `radin-review` logs findings against code
+that exists, and nobody has written this code yet.
+
+One class of finding outruns an edit — a finding that the approach itself is
+wrong, or that leaves a decision for the executor to invent:
+
+- **Interactive**: invoke `/mattpocock-skills:grilling` over those findings,
+  one at a time, and fold each settled answer into the plan's `## Decisions`
+  before starting the next one.
+- **Non-interactive**: report the finding and stop, on the bound Step 3's
+  step 4 already sets.
 
 ## Step 5: Report back
 
