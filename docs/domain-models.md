@@ -158,7 +158,7 @@ Append-only, one event per line, written by every `radin-state.sh` mutation (`st
 {"ts":"2026-08-18T09:57:13Z","event":"in_progress","id":"add-route-exports","detail":""}
 ```
 
-`event` either status just written or verb's own name. `detail` free text (commit hash for `done`, stash message for `stash`, note for status writes). Exists so agent whose context got compacted can reconstruct what session already did (`journal-tail`), and so human can see what happened before crash. Never read for control flow, never truncated by radin — `BACKLOG_STEPS.json` plus `completed.json` stay state; journal only records how it got there.
+`event` either status just written or verb's own name. `detail` free text (commit hash for `done`, stash message for `stash`, note for status writes). Exists so agent whose context got compacted can reconstruct what session already did (`journal-tail`), and so human can see what happened before crash. Never read for control flow — `trace` reads it for reporting, which takes no branch — never truncated by radin — `BACKLOG_STEPS.json` plus `completed.json` stay state; journal only records how it got there.
 
 ## Completed-task log (`completed.json`)
 

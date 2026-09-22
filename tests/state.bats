@@ -409,6 +409,71 @@ EOF
   [ "$(grep -c my-task "$NS/state/completed.json")" -eq 1 ]
 }
 
+@test "trace answers from a task id, a commit hash and a branch name" {
+  git init -q "$WORK/repo"
+  ( cd "$WORK/repo"
+    git config user.email t@t && git config user.name t
+    printf 'a\n' > f.txt && git add f.txt && git commit -qm init
+    bash "$REPO_ROOT/lib/radin-backlog.sh" add fix "my task" <<<"body" )
+  hash="$(git -C "$WORK/repo" rev-parse HEAD)"
+  branch="$(git -C "$WORK/repo" rev-parse --abbrev-ref HEAD)"
+  NS="$WORK/repo/.claude/.radin"
+  ( cd "$WORK/repo" && bash "$REPO_ROOT/lib/radin-backlog.sh" add-plan my-task "$NS/plans/my-task.md" ) > /dev/null
+  printf '{"id":"my-task","order":1,"status":"pending","depends_on":[],"note":""}\n' > "$NS/state/BACKLOG_STEPS.json"
+  cli session-set "$NS" no no
+  cli prepare "$NS" my-task > /dev/null
+  cli task-done "$NS" my-task "$hash"
+  run cli trace "$NS" my-task
+  [ "$status" -eq 0 ]
+  [ "${lines[0]}" = "$(printf 'task\tmy-task')" ]
+  [[ "$output" == *"$(printf 'commit\t%s' "$hash")"* ]]
+  [[ "$output" == *"$(printf 'branch\t%s' "$branch")"* ]]
+  [[ "$output" == *"$(printf 'plan\t%s' "$NS/plans/my-task.md")"* ]]
+  [[ "$output" == *"$(printf 'status\tdone')"* ]]
+  # A reviewer pastes git log's full 40 while the store may hold a short hash:
+  # either side may be the prefix, with a seven-character floor.
+  run cli trace "$NS" "${hash:0:7}"
+  [ "$status" -eq 0 ]
+  [ "${lines[0]}" = "$(printf 'task\tmy-task')" ]
+  # `session-set no no` makes the user's own checkout the recorded branch.
+  run cli trace "$NS" "$branch"
+  [ "$status" -eq 0 ]
+  [ "${lines[0]}" = "$(printf 'task\tmy-task')" ]
+  run cli trace "$NS" not-a-thing
+  [ "$status" -eq 1 ]
+  # One token really can read two ways: a task whose id is that branch name.
+  printf '{"id":"%s","commit":"cafe1234","title":"x"}\n' "$branch" >> "$NS/state/completed.json"
+  run cli trace "$NS" "$branch"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"ambiguous, 2 candidate readings"* ]]
+}
+
+@test "trace falls back to the journal for a failed task" {
+  git init -q "$WORK/repo"
+  ( cd "$WORK/repo"
+    git config user.email t@t && git config user.name t
+    printf 'a\n' > f.txt && git add f.txt && git commit -qm init
+    bash "$REPO_ROOT/lib/radin-backlog.sh" add fix "my task" <<<"body" )
+  branch="$(git -C "$WORK/repo" rev-parse --abbrev-ref HEAD)"
+  NS="$WORK/repo/.claude/.radin"
+  printf 'my-task\t1\t\n' | cli steps-init "$NS/state/BACKLOG_STEPS.json"
+  cli session-set "$NS" no no
+  cli prepare "$NS" my-task > /dev/null
+  cli set-status "$NS/state/BACKLOG_STEPS.json" my-task failed "boom"
+  run cli trace "$NS" my-task
+  [ "$status" -eq 0 ]
+  [ "${lines[0]}" = "$(printf 'task\tmy-task')" ]
+  [[ "$output" == *"$(printf 'status\tfailed')"* ]]
+  [ "${lines[1]}" = "$(printf 'commit\t')" ]
+  [[ "$output" == *"$(printf 'branch\t%s' "$branch")"* ]]
+  # And the reverse lookup finds it too: no completion line pairs it with the
+  # branch, so `prepare`'s record is what answers.
+  run cli trace "$NS" "$branch"
+  [ "$status" -eq 0 ]
+  [ "${lines[0]}" = "$(printf 'task\tmy-task')" ]
+  [[ "$output" == *"$(printf 'status\tfailed')"* ]]
+}
+
 @test "stash parks everything except radin's namespace and prints the ref" {
   git init -q "$WORK/repo"
   ( cd "$WORK/repo"

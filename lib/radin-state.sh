@@ -26,6 +26,7 @@
 #   radin-state.sh completed-get <completed-file> <id>   # prints commit hash, exit 1 if absent
 #   radin-state.sh completed-show <completed-file> <id>  # print "id|commit|title|branch|worktree|plan|ts<TAB>value" lines, exit 1 if absent
 #   radin-state.sh completed-list <completed-file>       # print "id<TAB>commit" per completion, exit 1 if none
+#   radin-state.sh trace <namespace-dir> <id|commit|branch>  # print "task|commit|branch|worktree|plan|facts|status<TAB>value" per matching task; exit 1 no match, 2 ambiguous
 #   radin-state.sh task-done <namespace-dir> <id> <commit-hash>  # completed-add + backlog remove + steps remove, in crash-safe order; exit 3 when the hash does not validate
 #   radin-state.sh task-fail <namespace-dir> <id> <reason>        # exit 3 the first time (send `radin prompt debug`), mark failed the second
 #   radin-state.sh task-fail <namespace-dir> <id> --no-status <last line>  # no debug pass, straight to failed
@@ -45,7 +46,8 @@
 #
 # Every mutation also appends one event to <state-dir>/journal.jsonl. The
 # journal is append-only forensics: it survives context compaction and a
-# killed session, and nothing reads it for control flow.
+# killed session, and nothing reads it for control flow; `trace` reads it
+# for reporting.
 #
 # Must stay bash-3.2-compatible (macOS /bin/bash).
 set -euo pipefail
@@ -87,6 +89,27 @@ prepared_field() {
 	file="$1/state/prepared/$2.json"
 	[ -s "$file" ] || return 0
 	json_get "$3" "$(cat "$file")"
+}
+
+# Prints the last status word namespace dir $1's journal recorded for task $2,
+# empty when it recorded none. Reporting only: no caller branches on it.
+trace_status() {
+	f="$1/state/journal.jsonl"
+	[ -s "$f" ] || return 0
+	{ grep -F "\"id\":\"$(json_escape "$2")\"" "$f" || true; } |
+		sed -nE 's/.*"event":"(pending|in_progress|failed|blocked)".*/\1/p' |
+		tail -n1
+}
+
+# Prints the seven fixed TAB lines `trace` reports for one task: id $2, commit
+# $3, branch $4, worktree $5, plan $6, status $7, with `facts` resolved from
+# namespace dir $1. An unknown value prints as an empty one, so the block is
+# always seven lines and `task` is always the first.
+trace_block() {
+	facts="$1/state/facts/$2.md"
+	[ -f "$facts" ] || facts=""
+	printf 'task\t%s\ncommit\t%s\nbranch\t%s\nworktree\t%s\nplan\t%s\nfacts\t%s\nstatus\t%s\n' \
+		"$2" "$3" "$4" "$5" "$6" "$facts" "$7"
 }
 
 # Prints line $1's numeric field $2 (order|attempts|debugged), 0 when absent.
@@ -419,6 +442,121 @@ completed-list)
 		[ -n "$line" ] || continue
 		printf '%s\t%s\n' "$(json_get id "$line")" "$(json_get commit "$line")"
 	done <"$file"
+	;;
+
+trace)
+	# Which direction the lookup runs is decided by probing each store for a
+	# match -- the convention `radin scope` uses for its own argument, not a
+	# regex on the token's shape. A completion line answers a done task in
+	# full; a failed or blocked one has no such line, so `prepared/<id>.json`
+	# answers its tree and the journal answers its status.
+	ns="${2:-}"
+	arg="${3:-}"
+	[ -n "$ns" ] && [ -n "$arg" ] || die "usage: trace <namespace-dir> <id|commit|branch>"
+	[ -d "$ns" ] || die "no namespace dir: $ns"
+	repo_root="${ns%/.claude/.radin}"
+	completed="$ns/state/completed.json"
+	candidates=0
+	id_read=""
+	commit_read=""
+	branch_read=""
+	seen=""
+
+	done_line=""
+	if [ -s "$completed" ]; then
+		while IFS= read -r line || [ -n "$line" ]; do
+			[ -n "$line" ] || continue
+			if [ "$(json_get id "$line")" = "$arg" ]; then
+				done_line="$line"
+				break
+			fi
+		done <"$completed"
+	fi
+	if [ -n "$done_line" ]; then
+		id_read="$(trace_block "$ns" "$arg" "$(json_get commit "$done_line")" \
+			"$(json_get branch "$done_line")" "$(json_get worktree "$done_line")" \
+			"$(json_get plan "$done_line")" "done")"
+	elif [ -s "$ns/state/prepared/$arg.json" ] ||
+		grep -qF "\"id\":\"$(json_escape "$arg")\"" "$ns/state/journal.jsonl" 2>/dev/null; then
+		# Dispatched but never completed: provenance from `prepare`'s record,
+		# status from the journal, plan from the entry that still exists.
+		id_read="$(trace_block "$ns" "$arg" "" \
+			"$(prepared_field "$ns" "$arg" branch)" \
+			"$(prepared_field "$ns" "$arg" worktree)" \
+			"$(task_plans "$repo_root" "$arg")" "$(trace_status "$ns" "$arg")")"
+	fi
+	if [ -n "$id_read" ]; then
+		id_read="$id_read
+"
+		candidates=$((candidates + 1))
+	fi
+
+	# `task-done` records whatever hash the sub-agent's STATUS: line carried,
+	# so the store holds short and full hashes interchangeably: either side may
+	# be the prefix. Seven characters is the floor, so a stub matches nothing.
+	case "$arg" in
+	???????*)
+		if [ -s "$completed" ]; then
+			while IFS= read -r line || [ -n "$line" ]; do
+				[ -n "$line" ] || continue
+				c="$(json_get commit "$line")"
+				case "$c" in
+				???????*) ;;
+				*) continue ;;
+				esac
+				match=0
+				case "$c" in "$arg"*) match=1 ;; esac
+				case "$arg" in "$c"*) match=1 ;; esac
+				[ "$match" -eq 1 ] || continue
+				block="$(trace_block "$ns" "$(json_get id "$line")" "$c" \
+					"$(json_get branch "$line")" "$(json_get worktree "$line")" \
+					"$(json_get plan "$line")" "done")"
+				commit_read="$commit_read$block
+"
+			done <"$completed"
+		fi
+		;;
+	esac
+	if [ -n "$commit_read" ]; then candidates=$((candidates + 1)); fi
+
+	if [ -s "$completed" ]; then
+		while IFS= read -r line || [ -n "$line" ]; do
+			[ -n "$line" ] || continue
+			[ "$(json_get branch "$line")" = "$arg" ] || continue
+			id="$(json_get id "$line")"
+			seen="$seen $id"
+			block="$(trace_block "$ns" "$id" "$(json_get commit "$line")" \
+				"$arg" "$(json_get worktree "$line")" \
+				"$(json_get plan "$line")" "done")"
+			branch_read="$branch_read$block
+"
+		done <"$completed"
+	fi
+	for f in "$ns"/state/prepared/*.json; do
+		[ -e "$f" ] || continue
+		id="$(basename "$f" .json)"
+		case " $seen " in *" $id "*) continue ;; esac
+		[ "$(prepared_field "$ns" "$id" branch)" = "$arg" ] || continue
+		block="$(trace_block "$ns" "$id" "" "$arg" \
+			"$(prepared_field "$ns" "$id" worktree)" \
+			"$(task_plans "$repo_root" "$id")" "$(trace_status "$ns" "$id")")"
+		branch_read="$branch_read$block
+"
+	done
+	if [ -n "$branch_read" ]; then candidates=$((candidates + 1)); fi
+
+	if [ "$candidates" -eq 1 ]; then
+		printf '%s' "$id_read$commit_read$branch_read"
+		exit 0
+	fi
+	if [ "$candidates" -gt 1 ]; then
+		printf 'radin-state: "%s" is ambiguous, %d candidate readings:\n' "$arg" "$candidates" >&2
+		for c in "$id_read" "$commit_read" "$branch_read"; do
+			if [ -n "$c" ]; then printf '%s---\n' "$c" >&2; fi
+		done
+		exit 2
+	fi
+	die "\"$arg\" is not a traced task, commit or branch in $ns"
 	;;
 
 task-done)
@@ -940,6 +1078,6 @@ report)
 	;;
 
 *)
-	die "unknown command: ${cmd:-<none>} (steps-init|next-pending|task-next|start|stuck|triage|recover|recover-reject|set-status|remove|deps-check|completed-add|completed-get|completed-show|completed-list|task-done|task-fail|task-diagnosis|dirty-recover|report|task-dir|prepare|dirty-check|stash|session-set|session-get|journal-tail)"
+	die "unknown command: ${cmd:-<none>} (steps-init|next-pending|task-next|start|stuck|triage|recover|recover-reject|set-status|remove|deps-check|completed-add|completed-get|completed-show|completed-list|trace|task-done|task-fail|task-diagnosis|dirty-recover|report|task-dir|prepare|dirty-check|stash|session-set|session-get|journal-tail)"
 	;;
 esac

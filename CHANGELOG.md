@@ -4,6 +4,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Unreleased
 
+### Added
+
+- `radin state trace <namespace-dir> <id|commit|branch>` answers the
+  provenance lookup in all three directions from one verb: the argument's
+  shape decides which, by probing each store the way `radin scope` probes its
+  own argument. A failed or blocked task still traces — it has no completion
+  line, so `state/prepared/<id>.json` answers its tree and the transition
+  journal its status.
+
 ### Changed
 
 - **Breaking.** The `completed.json` line gains `branch`, `worktree`, `plan`
