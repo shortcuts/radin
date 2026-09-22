@@ -7,8 +7,8 @@
 # reruns the same write, which is why this is a shipped command and not a
 # one-shot inside install.sh.
 #
-#   radin cbm-config install   snapshot, run upstream's config, restore, report
-#   radin cbm-config repair    restore from the newest snapshot (after an update)
+#   radin-cbm-config.sh install   snapshot, run upstream's config, restore, report
+#   radin repair                  restore from the newest snapshot (after an update)
 #
 # Restoring only ever puts back an entry that was in the snapshot and is now
 # missing; upstream's own entries stay, and radin adds none of its own. The
@@ -57,7 +57,7 @@ die() {
 	exit 1
 }
 
-[ -x "$CBM_JSON" ] || die "radin-cbm-json not built (no C compiler at install time) -- it is what puts your own hooks back after upstream's write, so this command refuses to run without it. Use 'radin cbm-hooks all' for the merge-only wiring instead."
+[ -x "$CBM_JSON" ] || die "radin-cbm-json not built (no C compiler at install time) -- it is what puts your own hooks back after upstream's write, so this command refuses to run without it. Use 'radin hooks all' for the merge-only wiring instead."
 
 cbm_bin() {
 	local bin
@@ -195,7 +195,7 @@ cmd_install() {
 	adopt_staged_mcp
 	# An exit 0 that wired nothing is what makes install.sh claim the tool is
 	# ready when it is not, so end non-zero and let its fallback branch run.
-	cbm_wired || die "$CBM_NAME exited 0 but configured no Claude Code hooks or MCP entry -- your own hooks are untouched. Use 'radin cbm-hooks all' for the merge-only wiring."
+	cbm_wired || die "$CBM_NAME exited 0 but configured no Claude Code hooks or MCP entry -- your own hooks are untouched. Use 'radin hooks all' for the merge-only wiring."
 }
 
 cmd_repair() {

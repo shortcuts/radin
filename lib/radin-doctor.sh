@@ -124,13 +124,13 @@ if command -v codebase-memory-mcp >/dev/null 2>&1 || [ -x "$HOME/.local/bin/code
 	if [ -f "$CLAUDE_DIR/settings.json" ] && grep -q 'cbm' "$CLAUDE_DIR/settings.json"; then
 		printf '  OK       hooks in %s/settings.json\n' "$CLAUDE_DIR"
 	else
-		printf '  MISSING  hooks in %s/settings.json (re-run install.sh, or radin cbm-config install)\n' "$CLAUDE_DIR"
+		printf '  MISSING  hooks in %s/settings.json (re-run install.sh, or radin hooks all)\n' "$CLAUDE_DIR"
 	fi
 	if { [ -f "$HOME/.claude.json" ] && grep -q 'codebase-memory-mcp' "$HOME/.claude.json"; } ||
 		{ [ -f "$PWD/.mcp.json" ] && grep -q 'codebase-memory-mcp' "$PWD/.mcp.json"; }; then
 		printf '  OK       MCP server entry (user scope or this repo)\n'
 	else
-		printf '  MISSING  MCP server entry -- run radin cbm-config install, or radin cbm-hooks mcp here\n'
+		printf '  MISSING  MCP server entry -- re-run install.sh, or radin hooks mcp here\n'
 	fi
 	if [ -d "$CLAUDE_DIR/.radin/backups" ]; then
 		printf '  OK       config snapshots in %s/.radin/backups\n' "$CLAUDE_DIR"

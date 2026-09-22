@@ -42,6 +42,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- `radin cbm-hooks` and `radin cbm-config repair` are now `radin hooks` and
+  `radin repair`: umbrella verbs that name no companion, since
+  codebase-memory-mcp is the only one either backs today. `lib/radin-cbm-hooks.sh`
+  and `lib/radin-cbm-config.sh` keep their names and subcommands; only the
+  `bin/radin` dispatch entries changed.
+
 - `radin-execute` now writes each task's plan in the loop iteration that
   executes it, instead of planning every confirmed task in one wave before the
   first execution sub-agent runs. A plan written up front describes a tree the

@@ -106,10 +106,10 @@ wrong one cost failed call in every sub-agent
 - **Two C file only: TUI (`lib/radin-tui.c`) and JSON helper
   (`lib/radin-cbm-json.c`).** TUI draw and dispatch keys only — raw ANSI,
   `termios`, every mutation shell out to `radin-backlog.sh`. Helper hold every
-  JSON rule `radin cbm-config` and `radin cbm-hooks mcp` need; those script
+  JSON rule `radin repair` and `radin hooks mcp` need; those script
   keep none, and radin need no python of own. `install.sh` build
   both with `cc`, advisory: no compiler mean no `radin tui`, no
-  `radin cbm-config`, and `radin cbm-hooks mcp` print entry to paste by hand,
+  `radin repair`, and `radin hooks mcp` print entry to paste by hand,
   rest still install
   ([rules](docs/architecture.md#the-human-tui)).
 - **`order` move dependency UP, never dependent down.** Human priority

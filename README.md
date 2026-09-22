@@ -33,7 +33,7 @@ curl -fsSL https://raw.githubusercontent.com/shortcuts/radin/main/install.sh | b
 ```
 
 Needs `curl`, `tar`, `bash`, and the `claude` CLI. Two files are C -- `radin tui` and the
-JSON surgery behind `radin cbm-config`: install builds both with `cc` (Xcode
+JSON surgery behind `radin repair`: install builds both with `cc` (Xcode
 Command Line Tools on macOS, gcc on Linux) and skips each with a warning when
 no compiler is there. Companion tools pull their
 own stacks; one that fails is reported and skipped, and radin still installs.
@@ -96,7 +96,7 @@ can sit under an epic whose `DESCRIPTION.md` every child inherits.
 
 Two caveats: a graph answer is a pointer, never proof of absence — read the
 file before editing. And after `codebase-memory-mcp update`, run
-`radin cbm-config repair`, because that update reruns a config write which
+`radin repair`, because that update reruns a config write which
 drops other tools' hooks. radin snapshots `~/.claude/settings.json` and
 `~/.claude.json` into `~/.claude/.radin/backups/` before that write and never
 deletes a snapshot; `codebase-memory-mcp uninstall` undoes upstream's own side.

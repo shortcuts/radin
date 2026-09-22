@@ -55,7 +55,7 @@ It:
 
 One exception to "delegates, nothing more": when a companion installer writes
 into `~/.claude` itself, radin brackets that write instead of trusting it.
-`codebase-memory-mcp` installs with `--skip-config`, and `radin cbm-config
+`codebase-memory-mcp` installs with `--skip-config`, and `radin-cbm-config.sh
 install` then runs upstream's own configuration (`codebase-memory-mcp install
 -y` — skill, three graph agents, user-scope MCP entry, lifecycle hooks) between
 a snapshot and a restore.
@@ -75,7 +75,7 @@ half a tool and a broken config.
 
 ## What radin's codebase-memory-mcp bracket does and does not cover
 
-`radin cbm-config install` runs upstream's own configuration between a
+`radin-cbm-config.sh install` runs upstream's own configuration between a
 snapshot and a restore (see `docs/architecture.md`). Its limits are load-
 bearing — read them before changing that script or telling a user they are
 covered.
@@ -135,7 +135,7 @@ covered.
   reconstructing a much older config.
 - **The compiled JSON helper gates the whole path.** Every JSON read and write
   here is `lib/radin-cbm-json.c`, built by `install.sh` with `cc`. No compiler
-  at install time means binary-only install plus `radin cbm-hooks claude-md`.
+  at install time means binary-only install plus `radin hooks claude-md`.
   Never run upstream's configuration without a working restore.
 - **Snapshots are the user's data.** Plain copies under
   `~/.claude/.radin/backups/`, possibly containing `env` values and hook
@@ -144,7 +144,7 @@ covered.
 - **Uninstall is asymmetric.** `/radin-uninstall` removes radin's files.
   Upstream's skill, three agents and hooks under `~/.claude` are upstream's to
   remove.
-- **`radin cbm-hooks mcp` writes a machine-specific path.** The `.mcp.json`
+- **`radin hooks mcp` writes a machine-specific path.** The `.mcp.json`
   entry carries the resolved binary path, so it is wrong in a shared repo on
   someone else's machine. Say so when a user asks about committing it.
 - **Only names from upstream's MCP Tools table exist.** `semantic_query` and
@@ -155,7 +155,7 @@ covered.
   writes under a symlinked config directory and exits 0 having configured
   nothing for Claude Code
   ([#1722](https://github.com/DeusData/codebase-memory-mcp/issues/1722)).
-  `radin cbm-config install` resolves the link, passes it as
+  `radin-cbm-config.sh install` resolves the link, passes it as
   `CLAUDE_CONFIG_DIR`, and adopts the MCP entry that override stages at
   `$CLAUDE_CONFIG_DIR/.claude.json` into `~/.claude.json`. The staged file
   stays on disk — radin never deletes a file it did not ship. A user who

@@ -682,7 +682,7 @@ install_tool "rtk" "rtk" "$RTK_INSTALL_CMD"
 # here: without it, upstream writes MCP entries, a skill, three agent
 # definitions and SessionStart/SubagentStart/PreToolUse hooks into ~/.claude
 # across 45 client surfaces. radin owns every ~/.claude write, and
-# `radin cbm-hooks` does the two it wants, merge-only.
+# `radin hooks` does the two it wants, merge-only.
 install_tool "codebase-memory-mcp" "codebase-memory-mcp" \
 	"curl -fsSL https://raw.githubusercontent.com/DeusData/codebase-memory-mcp/main/install.sh | bash -s -- --skip-config"
 
@@ -731,12 +731,12 @@ if CBM_BIN="$(cbm_bin)"; then
 	# The whole tool: binary, then upstream's own Claude Code configuration (its
 	# skill, three graph agents, user-scope MCP entry, and the hooks that route
 	# Grep/Glob to the graph).
-	# `radin cbm-config install` wraps that write because upstream #1200 (open
-	# through v0.10.8) replaces the whole SessionStart array in settings.json
-	# instead of merging: it snapshots first, runs their installer, then puts
-	# back every pre-existing hook and MCP entry the write dropped. Their
-	# entries stay, yours come back, and `codebase-memory-mcp update` can be
-	# followed by `radin cbm-config repair` for the same reason.
+	# This step wraps that write because upstream #1200 (open through v0.10.8)
+	# replaces the whole SessionStart array in settings.json instead of
+	# merging: it snapshots first, runs their installer, then puts back every
+	# pre-existing hook and MCP entry the write dropped. Their entries stay,
+	# yours come back, and `codebase-memory-mcp update` can be followed by
+	# `radin repair` for the same reason -- the caller names no companion.
 	if [ -x "$HOME/.claude/.radin/bin/radin-cbm-json" ]; then
 		# Same contract as install_tool: the per-item trace (SNAPSHOT/STASHED/
 		# RESTORED/INTACT/CBM, and upstream's own 45-client inventory on a
@@ -781,7 +781,7 @@ if CBM_BIN="$(cbm_bin)"; then
 fi
 
 step "radin CLI on PATH"
-# One `radin <backlog|state|scope|cbm-hooks|cbm-config|doctor|uninstall>`
+# One `radin <backlog|state|scope|hooks|repair|doctor|uninstall>`
 # command instead of long lib paths in every Bash call. The dispatcher always
 # lands in ~/.claude/.radin/bin; this only symlinks it into ~/.local/bin.
 # Never overwrites: an existing non-radin `radin` there is named and left
