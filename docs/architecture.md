@@ -179,12 +179,12 @@ It writes no `settings.json` hook of radin's own: `auto_index` indexes a project
 An MCP tool name must exist in upstream's [MCP
 Tools](https://github.com/DeusData/codebase-memory-mcp#mcp-tools) table — a
 wrong one costs a failed call plus a fallback in every sub-agent that reads
-the prompt. Names appear in three files only:
-`skills/radin-plan/SKILL.md` (exploration), `lib/radin-execute-prompts.md`
-(execution, debug, fact-finding), and the CLAUDE.md section inside
-`lib/radin-cbm-hooks.sh`. `radin-review` names none: its Standards axis
-invokes `/thermo-nuclear` and the `passes` skills, which choose their own
-reading.
+the prompt. Names appear in two files only:
+`lib/radin-execute-prompts.md` (execution, debug, fact-finding) and the
+CLAUDE.md section inside `lib/radin-cbm-hooks.sh`. The skills name none:
+`radin-plan` points at the companion's own skill for the verbs, and
+`radin-review`'s Standards axis invokes `/thermo-nuclear` and the `passes`
+skills, which choose their own reading.
 Between them they name `index_repository`, `list_projects`, `search_graph`,
 `search_code`, `trace_path`, `detect_changes`, `query_graph`,
 `get_graph_schema`, `get_code_snippet` and `get_architecture`. Each file names

@@ -6,6 +6,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- `/radin-record` and `/radin-plan` state each rule once too. `radin-record`
+  drops the expand-contract sequencing recipe, the second pass over its own
+  decision gate, and the quote-versus-paraphrase prose the entry template
+  already shows. `radin-plan` drops the graph-verb list and the `rtk`/`headroom`
+  advice — `codebase-memory-mcp`'s own skill names its tools, and the hooks
+  route the search either way — and both review briefs now check the plan
+  against its template contract instead of restating it.
+
 - `/radin-review` goes from 346 lines to 200. It states each rule once and
   leaves the review method to the skills it already invokes: the two-axis
   rationale now points at `/mattpocock-skills:code-review`, the graph and `rtk`

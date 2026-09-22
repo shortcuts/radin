@@ -86,7 +86,7 @@ delegation named in exactly one file — second copy drift silent, and
 | Output compression · structural search/diff | `rtk` · `headroom sg`/`diff`/`loc` |
 | Agent-doc writing rules | `/mattpocock-skills:writing-for-agents` |
 
-Graph tool name live in four files only and must exist in upstream table —
+Graph tool name live in two files only and must exist in upstream table —
 wrong one cost failed call in every sub-agent
 ([which files, and the pointer rule](docs/architecture.md#code-graph-wiring-codebase-memory-mcp)).
 
