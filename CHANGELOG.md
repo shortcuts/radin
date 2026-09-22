@@ -28,6 +28,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- The dead-hook prune only checked a hook command's first word, so any hook
+  written as `sh /path/to/script` (upstream's own format) was never checked
+  for a dead target and survived forever, including one baked with another
+  machine's `$HOME`. It now checks the script path after `sh`/`bash`/`zsh`.
 - `radin cbm-config install` passes `SHELL=/bin/sh` to
   `codebase-memory-mcp install`. Upstream 0.11.0's last step writes its PATH
   line to the rc file of `$SHELL` and exits 1 with no message under fish or

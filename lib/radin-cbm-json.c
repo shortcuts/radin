@@ -704,10 +704,19 @@ static int is_cbm_entry(JVal *entry)
 	return strstr(b, cbm) != NULL || strstr(b, "cbm-") != NULL;
 }
 
+/* sh/bash/zsh's own path never carries $HOME, so a wrapped script surviving
+ * a machine switch (upstream bakes the writing machine's $HOME into the
+ * target, not the interpreter) looks live forever unless the word after the
+ * interpreter is checked instead of the interpreter itself. */
+static int is_shell(const char *w)
+{
+	return !strcmp(w, "sh") || !strcmp(w, "bash") || !strcmp(w, "zsh");
+}
+
 static int command_exists(JVal *cmd)
 {
 	char *s, **w;
-	int n;
+	int n, i;
 	if (!cmd || cmd->kind != J_STR)
 		return 1;
 	s = str_decode(cmd->raw);
@@ -717,12 +726,15 @@ static int command_exists(JVal *cmd)
 	 * the whole restore, and keeping a hook can never corrupt the file. */
 	if (shlex_split(s, &w, &n) || n == 0)
 		return 1;
+	i = 0;
+	if (!strchr(w[0], '/') && is_shell(w[0]) && n > 1)
+		i = 1;
 	/* Judge a path only. A bare shim name resolves against Claude Code's
 	 * PATH, not this process's, so calling it missing here would prune a live
 	 * hook. */
-	if (!strchr(w[0], '/'))
+	if (!strchr(w[i], '/'))
 		return 1;
-	return path_exists(expanduser(w[0]));
+	return path_exists(expanduser(w[i]));
 }
 
 /* A hook command naming a path that does not exist can only fail. Upstream

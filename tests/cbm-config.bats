@@ -151,6 +151,19 @@ EOF
   [ "$(hook_commands "$TEST_HOME/.claude/settings.json")" = "$(printf '%s\n' "$TEST_HOME/live-hook" bare-shim-not-on-path cbm-hook-augment cbm-session-reminder)" ]
 }
 
+@test "install prunes a dead hook wrapped in sh, not just a bare dead path" {
+  stub_cbm "$(cat <<EOF
+{"hooks": {"SessionStart": [{"matcher": "startup", "hooks": [{"type": "command", "command": "sh /Users/someone-else/.claude/hooks/cbm-session-reminder"}]},
+                            {"matcher": "startup", "hooks": [{"type": "command", "command": "cbm-session-reminder"}]}]}}
+EOF
+  )"
+  echo '{}' > "$TEST_HOME/.claude/settings.json"
+  run bash "$CLI" install
+  [ "$status" -eq 0 ]
+  [[ "$output" == *PRUNED*someone-else* ]]
+  [ "$(hook_commands "$TEST_HOME/.claude/settings.json")" = "cbm-session-reminder" ]
+}
+
 @test "install stashes upstream's hook scripts so it rewrites them for this machine" {
   stub_cbm
   mkdir -p "$TEST_HOME/.claude/hooks"
