@@ -49,7 +49,28 @@ backlog() {
   [[ "$output" != *"TASK_FILE"* ]]
   [[ "$output" != *"NAMESPACE_DIR"* ]]
   [[ "$output" != *"TASK_ID"* ]]
-  [[ "$output" == *"$NS/backlog/tasks/tidy-up.md"* ]]
+  [[ "$output" != *"TASK_BODY"* ]]
+  [[ "$output" != *"EPIC_CONTEXT"* ]]
+  # The body is inlined, so the leaf is never sent its task file's path.
+  [[ "$output" == *"Remove the dead flag."* ]]
+  [[ "$output" != *"$NS/backlog/tasks/tidy-up.md"* ]]
+}
+
+@test "an epic's description reaches its child task's execution prompt" {
+  backlog add chore "in an epic" <<<"Do the epic bit."
+  backlog epic-add shipping <<<"Every shipping task assumes the queue is drained."
+  backlog epic-move in-an-epic shipping
+  run cli execution in-an-epic
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Every shipping task assumes the queue is drained."* ]]
+  [[ "$output" == *"<epic>"* ]]
+  [[ "$output" == *"Do the epic bit."* ]]
+  # A flat task gets neither the tag nor its framing sentence.
+  backlog add chore "flat one" <<<"Do the flat bit."
+  run cli execution flat-one
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"<epic>"* ]]
+  [[ "$output" != *"Shared context for the epic"* ]]
 }
 
 @test "each category gets its own step 3 row" {

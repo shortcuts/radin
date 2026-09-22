@@ -6,6 +6,11 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- The execution prompt carries the task body inline — preceded by the epic's
+  `DESCRIPTION.md` when the task lives in one — instead of the task file's
+  path, so an execution sub-agent sees its whole task with no file read.
+  `radin backlog field` gains `TASK_BODY` and `EPIC_CONTEXT`.
+
 - **Breaking:** five per-task fields moved from markdown labels in the task
   body onto JSON keys on the `index.jsonl` line: `**Plan:**`, `**Skill:**`,
   `**Acceptance:**`, `**Facts:**` and `**Location:**` are now `plan`,

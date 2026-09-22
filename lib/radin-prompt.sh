@@ -88,6 +88,11 @@ facts=""
 if facts="$(field FACTS)"; then :; else facts=""; fi
 location=""
 if location="$(field LOCATION)"; then :; else location=""; fi
+epic_context=""
+if epic_context="$(field EPIC_CONTEXT)"; then :; else epic_context=""; fi
+# `|| die`, not a bare assignment: `set -e` exits on a failing command
+# substitution before any following check runs.
+task_body="$(field TASK_BODY)" || die "task file is empty or missing: $task_file"
 
 # Dependency commits are the router's old bookkeeping: `task-next` printed them
 # and the prompt carried them by hand. deps-check is the same read, so the
@@ -120,6 +125,7 @@ active=" CAT_$category "
 [ -z "$acceptance" ] || active="$active ACCEPTANCE "
 [ -z "$facts" ] || active="$active FACTS "
 [ -z "$location" ] || active="$active LOCATION "
+[ -z "$epic_context" ] || active="$active EPIC_CONTEXT "
 [ -z "$depends_on" ] || active="$active DEPENDS_ON "
 
 body="$(printf '%s\n' "$body" | awk -v active="$active" '
@@ -158,6 +164,11 @@ case "$kind" in
 debug) sub_token FAILURE "$extra" ;;
 factfind) sub_token QUESTION "$extra" ;;
 esac
+# Last, because substitution is sequential: a body whose own prose mentions
+# TASK_ID or NAMESPACE_DIR would otherwise be rewritten. Guard stripping
+# already ran above, so an `<!-- if:NAME -->` line inside a body is inert.
+sub_token EPIC_CONTEXT "$epic_context"
+sub_token TASK_BODY "$task_body"
 
 printf 'model\t%s\n' "$model"
 printf -- '--- prompt ---\n'

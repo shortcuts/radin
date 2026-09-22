@@ -802,6 +802,14 @@ IDX
   [ "$output" = "feat" ]
   run cli field a-thing TASK_FILE
   [ "$output" = "$TASKS/shipping/a-thing.md" ]
+  run cli field a-thing TASK_BODY
+  [ "$output" = "body" ]
+  run cli field a-thing EPIC_CONTEXT
+  [ "$output" = "epic ctx" ]
+  cli add feat "flat thing" <<<"body"
+  run cli field flat-thing EPIC_CONTEXT
+  [ "$status" -ne 0 ]
+  [ -z "$output" ]
   run cli field nosuchtask TASK_FILE
   [ "$status" -ne 0 ]
   run cli field a-thing NOSUCHFIELD

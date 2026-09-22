@@ -39,7 +39,7 @@
 #   radin-backlog.sh meta <id-or-title>          # print "plan<TAB><path>" / "skill<TAB><instruction>" / "acceptance<TAB><criterion>" / "facts<TAB><path>" / "location<TAB><path:line>" lines from the task's entry
 #   radin-backlog.sh planned                     # print the id of every task whose entry already carries a plan pointer
 #   radin-backlog.sh order <--rank-needed|--report|--steps> [--rank <csv-of-ids>] [--infer-deps <id>=<csv>]... [--defer <csv-of-ids>]  # the execution order: the priority order with the topological dependency fix applied (--rank-needed: print every unset-priority id, exit 1 when there are none; --report: "<order>. <title> (id: <id>)" plus one "dependency override:" line per violated edge; --steps: "id<TAB>order<TAB>depends-on-csv<TAB>pending|deferred", which is `radin state steps-init`'s stdin format)
-#   radin-backlog.sh field <id-or-title> <TASK_FILE|TASK_ID|CATEGORY|PLAN_PATHS|SKILLS|SKILLS_DROPPED|ACCEPTANCE|FACTS|LOCATION>  # one Execution-prompt placeholder, rendered ready to substitute
+#   radin-backlog.sh field <id-or-title> <TASK_FILE|TASK_BODY|EPIC_CONTEXT|TASK_ID|CATEGORY|PLAN_PATHS|SKILLS|SKILLS_DROPPED|ACCEPTANCE|FACTS|LOCATION>  # one Execution-prompt placeholder, rendered ready to substitute
 #   radin-backlog.sh duplicates                  # print "id<TAB><value><TAB><ids>" / "title<TAB><value><TAB><ids>" per duplicated value, exit 1 when there are none
 #   radin-backlog.sh remove <id-or-title>        # delete task file + index entry (exact single match required)
 #   radin-backlog.sh reconcile <completed-file>  # drop backlog entries whose id is already in completed.json
@@ -1031,6 +1031,23 @@ field)
 	TASK_ID) printf '%s\n' "$(json_get id "$entry")" ;;
 	CATEGORY) printf '%s\n' "$(json_get category "$entry")" ;;
 	TASK_FILE) entry_path "$entry" ;;
+	TASK_BODY)
+		# The execution prompt inlines the body instead of naming the file, so
+		# the leaf spends no read on its own task. An empty file is a broken
+		# entry (`add` refuses one), hence exit 1 rather than an empty prompt.
+		file="$(entry_path "$entry")"
+		[ -s "$file" ] || exit 1
+		cat "$file"
+		;;
+	EPIC_CONTEXT)
+		# A task inside an epic inherits the epic's DESCRIPTION.md; a flat task
+		# and an empty description both exit 1, the "drop the whole block"
+		# contract FACTS and LOCATION use.
+		epic="$(file_epic "$(json_get file "$entry")")"
+		[ -n "$epic" ] || exit 1
+		[ -s "$BACKLOG_TASKS_DIR/$epic/DESCRIPTION.md" ] || exit 1
+		cat "$BACKLOG_TASKS_DIR/$epic/DESCRIPTION.md"
+		;;
 	FACTS | LOCATION)
 		key=facts
 		[ "$fname" = FACTS ] || key=location

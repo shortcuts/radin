@@ -15,7 +15,7 @@ The fence states the leaf contract itself: a sub-agent receives only the fence.
 `model: "RADIN_MODEL_EXECUTION"`
 
 ```
-Execute the task described in TASK_FILE.
+Execute the task below.
 
 Report back the LAST line of your response as exactly one of:
 `STATUS: SUCCESS — <commit hash(es), or "no new commit, already satisfied by <existing
@@ -51,11 +51,24 @@ Ground rules, applying to every step below:
   never conclude something is absent from an empty result. Wrap commands in
   `rtk` where installed (`command -v rtk`), for the token savings.
 
-1. Read TASK_FILE to understand the task. Anything the router appended to it
-   is part of the task, not commentary: `**Decision:**`, `**Fact:**`,
-   and `**Root cause:**` lines are settled and binding. That file, plus
-   whatever it names, is the only cross-agent context you get, and that is
-   deliberate: no other task's material reaches you.
+<!-- if:EPIC_CONTEXT -->
+Shared context for the epic this task belongs to, inherited by every task in
+it:
+
+<epic>
+EPIC_CONTEXT
+</epic>
+
+<!-- end -->
+1. Your task, in full. Anything the router appended to it is part of the task,
+   not commentary: `**Decision:**`, `**Fact:**`, and `**Root cause:**` lines
+   are settled and binding. This text, plus whatever it names, is the only
+   cross-agent context you get, and that is deliberate: no other task's
+   material reaches you.
+
+<task>
+TASK_BODY
+</task>
 <!-- if:FACTS -->
    Read FACTS as well: it holds the long form of the evidence behind one of
    those lines.

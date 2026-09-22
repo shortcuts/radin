@@ -299,7 +299,7 @@ RADIN_CLI backlog field "<task id>" SKILLS_DROPPED
 
 `prompt` prints `model<TAB><name>`, a `--- prompt ---` line, then the prompt:
 send everything after that line verbatim, with that model. It resolved the
-task's file, plan, skills, acceptance criteria, dependency commits and
+task's text, plan, skills, acceptance criteria, dependency commits and
 category itself, and left out every step this task has no input for — so your
 own read of the task's shape never enters the prompt, and there is no
 placeholder to substitute. `SKILLS_DROPPED` exit 0 prints the standing
