@@ -120,6 +120,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- `radin doctor` reports the codebase-memory-mcp hooks in
+  `~/.claude/settings.json` as present. It matched the string `cbm`, which that
+  tool writes nowhere, so a correct install still read `MISSING  hooks`.
+
 - `radin tui`'s detail pane wraps a line too wide for the pane instead of
   truncating it, so no part of a task body is invisible. The break falls on a
   word boundary, a continuation indents to its line's content column, and an

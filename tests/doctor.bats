@@ -100,3 +100,20 @@ EOF
   [ -z "$(ls -A "$WORK")" ]
   rm -rf "$WORK"
 }
+
+@test "reports the codebase-memory-mcp hooks that upstream wrote as OK" {
+  install_all_expected
+  cat > "$MOCK_BIN/codebase-memory-mcp" <<'MOCK'
+#!/bin/sh
+exit 0
+MOCK
+  chmod +x "$MOCK_BIN/codebase-memory-mcp"
+  # Verbatim shape of an upstream hook entry: the tool's name appears only as
+  # the command path.
+  cat > "$TEST_HOME/.claude/settings.json" <<'JSON'
+{"hooks":{"SessionStart":[{"hooks":[{"type":"command","command":"/usr/local/bin/codebase-memory-mcp"}]}]}}
+JSON
+  run env HOME="$TEST_HOME" bash "$CLI"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"OK       hooks in $TEST_HOME/.claude/settings.json"* ]]
+}

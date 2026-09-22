@@ -124,7 +124,9 @@ check_plugin "mattpocock-skills" "mattpocock-skills@claude-plugins-official"
 # and still answer nothing if its Claude Code wiring never landed.
 if command -v codebase-memory-mcp >/dev/null 2>&1 || [ -x "$HOME/.local/bin/codebase-memory-mcp" ]; then
 	printf '\ncodebase-memory-mcp wiring (informational):\n'
-	if [ -f "$CLAUDE_DIR/settings.json" ] && grep -q 'cbm' "$CLAUDE_DIR/settings.json"; then
+	# Match the hook command path, which is the tool's own name: it ships no
+	# "cbm" string of its own, so that shorthand matched nothing.
+	if [ -f "$CLAUDE_DIR/settings.json" ] && grep -q 'codebase-memory-mcp' "$CLAUDE_DIR/settings.json"; then
 		printf '  OK       hooks in %s/settings.json\n' "$CLAUDE_DIR"
 	else
 		printf '  MISSING  hooks in %s/settings.json (re-run install.sh, or radin hooks all)\n' "$CLAUDE_DIR"
