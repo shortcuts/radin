@@ -24,7 +24,7 @@ Context: the task at TASK_FILE was blocked on it.
 
 Investigate read-only: read the repo, its lockfiles, its vendored
 dependencies, and its config; run read-only commands (`--help`, `--version`, a
-query, a dry run), `rtk`-wrapped when `command -v rtk` succeeds.
+query, a dry run), `rtk`-wrapped.
 `codebase-memory-mcp`'s MCP tools locate a symbol faster than Grep, and a
 graph hit is a pointer: read the file before you cite it, and never conclude
 something is absent from an empty result. Prefer primary sources already on

@@ -78,8 +78,7 @@ neither is re-resolved between sub-tasks. For each sub-task, in order:
      cannot confirm: read the entry's `**Fact:**` lines and the `facts` file
      Step 1 printed first, because an earlier invocation may already have
      answered it.
-     Still open, and running in the user's own thread with the
-     `mattpocock-skills` plugin installed: hand the question to
+     Still open, and running in the user's own thread: hand the question to
      `/mattpocock-skills:research` naming
      `$NAMESPACE_DIR/state/facts/<task-id>.md` as the file to write to, plan
      the parts that do not hinge on the answer meanwhile, and record what it

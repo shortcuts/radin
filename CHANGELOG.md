@@ -20,6 +20,11 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Skills and sub-agent prompts name every companion tool flat, with no
+  `command -v` gate and no "if unavailable" escape clause. The install is
+  all-or-nothing, so a missing tool fails visibly and that failure is the
+  skip; the guards only spent context and split the model's reasoning.
+
 - **Breaking.** The `completed.json` line gains `branch`, `worktree`, `plan`
   and `ts`, so "which branch did this task run on, against which plan" is one
   `radin state completed-show` call instead of a correlation hunt. `prepare`

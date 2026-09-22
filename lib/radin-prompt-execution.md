@@ -49,7 +49,7 @@ Ground rules, applying to every step below:
 - Explore through `codebase-memory-mcp`'s MCP tools before Grep/Glob/Read: a
   graph hit is a pointer, so read the file before you cite or edit it, and
   never conclude something is absent from an empty result. Wrap commands in
-  `rtk` where installed (`command -v rtk`), for the token savings.
+  `rtk`, for the token savings.
 
 <!-- if:EPIC_CONTEXT -->
 Shared context for the epic this task belongs to, inherited by every task in
@@ -131,15 +131,14 @@ ACCEPTANCE
 <!-- end -->
    Invoke `/ponytail:ponytail` in every case and apply its ladder: the minimum
    code that satisfies the task, reusing what the repo already has. Use
-   `headroom sg` (ast-grep) where installed (`command -v headroom`) for
-   mechanical multi-site renames and signature changes; hand-edit each site
-   otherwise.
+   `headroom sg` (ast-grep) for mechanical multi-site renames and signature
+   changes; hand-edit each site otherwise.
 4. Where the task changes behavior (not a pure deletion/rename), add or update a unit
    test that pins the expected behavior, following existing test conventions in the repo
 5. Run the project's typecheck and the test file you touched as you go, and its
    full check suite (lint, tests, format) once before committing; fix what they
    surface before step 6.
-6. Invoke the `/caveman:caveman-commit` skill to draft the commit message, then commit. If `/caveman:caveman-commit` is unavailable, write a conventional-commit message yourself.
+6. Invoke the `/caveman:caveman-commit` skill to draft the commit message, then commit.
 7. Run `RADIN_CLI state dirty-check "$(pwd)"` from the tree
    step 1a handed you, so the check covers the files you actually touched.
    If anything is still uncommitted (including changes made incidentally while

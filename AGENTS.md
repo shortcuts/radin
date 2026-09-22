@@ -52,9 +52,10 @@ talk to them. Sub-agent cannot: no prose to user, no `AskUserQuestion`,
 no background-task notification — all three look like hang. Sub-agent be
 leaf worker skill dispatch, so before point prompt at skill check
 it ask user nothing and spawn no agent
-([constraints](docs/technical-constraints.md)). Every prompt that name
-companion gate on `command -v` and carry escape clause: drop skill,
-never wait on it.
+([constraints](docs/technical-constraints.md)). Every prompt name companion
+flat, no `command -v` gate and no escape clause: install be all-or-nothing,
+so missing tool fail loud and that failure be skip. Only guard stay: skill
+that ask human anything — sub-agent drop it, never wait on it.
 
 ## Writing prose for agents
 

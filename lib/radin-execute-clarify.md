@@ -24,9 +24,9 @@ Route on it:
   dispatch is yours rather than a sub-agent's: it needs no human and no
   working tree, a sub-agent cannot rely on a spawned agent's result, and you
   can — a backgrounded agent's result reaches you as a completion notification
-  (Core Constraints). The skill missing, or asking you anything: drop it, never
-  wait on it, and treat the question as `STATUS: NOT FOUND` below. Otherwise
-  give it the question plus these two demands.
+  (Core Constraints). It asking you anything: drop it, never wait on it, and
+  treat the question as `STATUS: NOT FOUND` below. Otherwise give it the
+  question plus these two demands.
 
   - Investigate the question against **primary sources** — official docs,
     source code, specs, first-party APIs — not a secondary write-up of them.
