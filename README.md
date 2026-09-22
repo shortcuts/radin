@@ -32,7 +32,7 @@ gives you:
 curl -fsSL https://raw.githubusercontent.com/shortcuts/radin/main/install.sh | bash
 ```
 
-Needs `curl`, `tar`, `bash`, and the `claude` CLI. Two files are C -- `radin tui` and the
+Needs `curl`, `tar`, `bash`, and the `claude` CLI. Two files are C -- the TUI and the
 JSON surgery behind `radin repair`: install builds both with `cc` (Xcode
 Command Line Tools on macOS, gcc on Linux) and skips each with a warning when
 no compiler is there. Companion tools pull their
@@ -59,8 +59,7 @@ answers come from `~/.claude/.radin/manifest.json`, so nothing is re-asked.
 | `/radin-stats` | Every companion tool's own savings report, side by side |
 | `/radin-doctor` | Verify the install, report unreachable companions |
 | `/radin-uninstall` | Remove what `install.sh` put in `~/.claude` |
-| `radin tui` | Full-screen backlog browser for humans. No agent involved; `?` lists keys |
-| `radin` | Same TUI: bare `radin` on a terminal is the human entry point. Off a terminal it prints the usage text and exits non-zero, so a skill or pipe never hangs in a full-screen app. `radin help` prints that text on purpose |
+| `radin` | Full-screen backlog browser for humans: bare `radin` on a terminal is the human entry point. No agent involved; `?` lists keys. Off a terminal it prints the usage text and exits non-zero, so a skill or pipe never hangs in a full-screen app. `radin help` prints that text on purpose |
 
 Typical loop: record → (plan) → execute → review, whose findings feed the next
 execute. Each skill runs in your own conversation, so it can ask you

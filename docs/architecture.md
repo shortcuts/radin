@@ -46,7 +46,7 @@ Every one of `skills/radin-execute/SKILL.md`, `skills/radin-plan/SKILL.md`, `ski
 radin backlog <env|show|list|count|find|add|add-plan|append|meta|planned|order|field|duplicates|path|plan-target|set-category|retitle|set-priority|set-deps|remove|reconcile|epics|epic-add|epic-show|epic-move|epic-remove>   # dispatcher at ~/.claude/.radin/bin/radin, symlinked into ~/.local/bin
 ```
 
-The subcommand is what switches the two modes apart, so no flag does. `radin <verb> ...` is the agent and power-user entry point. Bare `radin` is the human one: on a terminal it is exactly `radin tui` (missing-binary message included), and off one it prints the usage text and exits non-zero, because a skill or pipe trapped in a full-screen app would hang the agentic loop until a timeout. `radin help` is the documented way to get that text.
+The subcommand is what switches the two modes apart, so no flag does. `radin <verb> ...` is the agent and power-user entry point. Bare `radin` is the human one: on a terminal it execs the TUI (missing-binary message included), and off one it prints the usage text and exits non-zero, because a skill or pipe trapped in a full-screen app would hang the agentic loop until a timeout. `radin help` is the documented way to get that text.
 
 - `env` — namespace resolution (delegates to `lib/radin-namespace.sh`, single source of truth for path logic; prints `REPO_ROOT`, `NAMESPACE_DIR`, `BACKLOG_INDEX`, `BACKLOG_TASKS_DIR`)
 - `show [category]` — render backlog as markdown (all tasks, or one category), reconstructed from `index.jsonl` + each task's file
@@ -58,7 +58,7 @@ The subcommand is what switches the two modes apart, so no flag does. `radin <ve
 - `add <category> <title> [--epic <epic-id>] [--priority <1|2|3|5|8|13|21>] [--depends-on <csv>]` — create task (body on stdin): slugifies title into id (dedupe on collision against the index's `id` fields), writes file, appends one line to index
 - `add-plan <id-or-title> <path>` — append `**Plan:**` pointer to task's own file
 - `planned` — print the id of every task whose file already carries a `**Plan:**` line; one call answers "which tasks are planned?" for a whole listing, where `meta` per task costs one file read each
-- `path <id-or-title>` — print task file's absolute path, resolved by reading matched index line's `file` field and joining it to `backlog/` (what `radin tui` reads and hands to `$EDITOR`)
+- `path <id-or-title>` — print task file's absolute path, resolved by reading matched index line's `file` field and joining it to `backlog/` (what the TUI reads and hands to `$EDITOR`)
 - `plan-target <id-or-title> [<sub-slug>]` — the one call `radin-plan` opens on: `id`/`title`/`task_file`/`plan_file` lines, plus one `plan<TAB><path>` line per pointer the entry already carries. It exists because `find`'s four outcomes (one match, several, none, already planned) were a route the skill computed by counting lines and then calling `meta`; they are exit codes 0/2/1/3 here, and exit 2's candidates go to stderr so a resolved record is never confused with a candidate list. `plan_file` is also the one place the `plans/<id>.md` convention lives in code — `add-plan` keeps its required path argument, because the skill has to write the file before it can point at it
 - `set-category <id-or-title> <category>` / `retitle <id-or-title> <title>` — rewrite that one index line, id and task file untouched (id stays stable for the task's lifetime, so a retitle can't orphan a `depends_on` or a plan pointer)
 - `set-priority <id-or-title> <1|2|3|5|8|13|21|--none>` / `set-deps <id-or-title> <csv-of-ids|--none>` — store the human's ranking and ordering on the index line; `set-deps` refuses an unknown id, a self-reference and a cycle, because an unresolvable dependency stalls `radin state deps-check` instead of failing it
@@ -101,7 +101,7 @@ radin state <steps-init|next-pending|task-next|start|stuck|triage|recover|recove
 - `remove <steps-file> <id>` — delete one completed entry's line
 - `completed-add <completed-file> <id> <hash> [title]` — append completed task's commit, create file if absent. Title stored because completion deletes backlog entry, so nothing else can name task in final report
 - `completed-get <completed-file> <id>` — print completed task's commit hash (exit 1 if not recorded), for later task's `depends_on` check
-- `completed-list <completed-file>` — print `id<TAB>commit` per completion in file order (exit 1 when nothing is recorded), for `radin tui`'s Done view: completion deletes the backlog entry, so this file is the only record left
+- `completed-list <completed-file>` — print `id<TAB>commit` per completion in file order (exit 1 when nothing is recorded), for the TUI's Done view: completion deletes the backlog entry, so this file is the only record left
 - `task-done <namespace-dir> <id> <hash>` — record success, drop backlog and steps entries, crash-safe order. Validates hash first: must be commit reachable from `radin/<id>` (or `HEAD`) in the task's tree, else exit 3 and nothing written. Hash comes off a sub-agent's free-text `STATUS:` line, so nothing else checks it
 - `task-fail <namespace-dir> <id> <reason>` — the `FAILED` route. First call per task per session flips the entry's `debugged` flag and exits 3, the caller's signal to send the Debug prompt; second call marks entry `failed` with the composed note and prints the finished report line. `--no-status <last line>` never offers the debug pass
 - `task-diagnosis <namespace-dir> <id>` — stdin becomes a `**Root cause:**` line on the task file (only place that label is written). Changes no status: the retry's `start` bumps `attempts`, so `MAX_ATTEMPTS` still ends the loop
@@ -250,7 +250,7 @@ radin/
 
 `list`'s output format is the TUI's parser contract, and `order`/`field`/`duplicates` added no field to it: the TUI still loads `list --order created` and splits on US exactly as before.
 
-`radin tui` — or bare `radin` on a terminal — (`lib/radin-tui.c`) is the human's way into the same backlog the
+Bare `radin` on a terminal (`lib/radin-tui.c`) is the human's way into the same backlog the
 skills drive: a two-pane split — the task tree on the left 40% of the width,
 the selected row's detail on the right 60% — and one key per operation (`e`
 edit in `$EDITOR`, `v` view in `$PAGER`, `o` execution order in `$PAGER`, `a`

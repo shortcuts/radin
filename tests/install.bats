@@ -282,11 +282,10 @@ run_install_defaults() {
   [ "$status" -eq 0 ]
   run cat "$TEST_HOME/screen"
   [[ "$output" == *"no tasks"* ]]
-  run env HOME="$TEST_HOME" "$PTY_RUN" "$TEST_HOME/screen" "q" \
-    bash "$TEST_HOME/.claude/.radin/bin/radin" tui
-  [ "$status" -eq 0 ]
-  run cat "$TEST_HOME/screen"
-  [[ "$output" == *"no tasks"* ]]
+  # The `tui` verb is gone: it is an unknown verb like any other.
+  run env HOME="$TEST_HOME" bash "$TEST_HOME/.claude/.radin/bin/radin" tui
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"usage: radin"* ]]
 }
 
 @test "an existing non-radin ~/.local/bin/radin is named, never replaced" {

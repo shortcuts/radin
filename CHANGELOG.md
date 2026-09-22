@@ -4,6 +4,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Unreleased
 
+### Changed
+
+- The `tui` verb is gone from the dispatcher. Bare `radin` on a terminal is the
+  TUI's only entry point; `radin tui` now prints the usage text and exits
+  non-zero like any unknown verb.
+
 ### Fixed
 
 - `radin tui`'s detail pane wraps a line too wide for the pane instead of

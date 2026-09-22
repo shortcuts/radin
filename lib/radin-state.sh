@@ -343,7 +343,7 @@ completed-add)
 	[ -n "$file" ] && [ -n "$id" ] && [ -n "$hash" ] || die "usage: completed-add <completed-file> <id> <commit-hash> [title]"
 	# The title is stored because completion deletes the backlog entry, so the
 	# final report has nowhere else to read it from. completed-list still
-	# prints two fields: radin tui parses that output.
+	# prints two fields: the TUI parses that output.
 	printf '{"id":"%s","commit":"%s","title":"%s"}\n' \
 		"$(json_escape "$id")" "$(json_escape "$hash")" "$(json_escape "$title")" >>"$file"
 	;;

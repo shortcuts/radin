@@ -190,10 +190,10 @@ if [ -n "$TUI_CC" ]; then
 	CC_LOG="$(mktemp)"
 	if "$TUI_CC" -O2 -o "$HOME/.claude/.radin/bin/radin-tui" \
 		"$HOME/.claude/.radin/lib/radin-tui.c" >"$CC_LOG" 2>&1; then
-		ok "radin tui built."
+		ok "TUI built."
 	else
 		tail -n 20 "$CC_LOG" >&2
-		warn "radin tui failed to build -- every other subcommand still works."
+		warn "the TUI failed to build -- every other subcommand still works."
 	fi
 	if "$TUI_CC" -O2 -o "$HOME/.claude/.radin/bin/radin-cbm-json" \
 		"$HOME/.claude/.radin/lib/radin-cbm-json.c" >"$CC_LOG" 2>&1; then
@@ -205,7 +205,7 @@ if [ -n "$TUI_CC" ]; then
 	fi
 	rm -f "$CC_LOG"
 else
-	warn "no C compiler found -- skipping radin tui. Use \`radin backlog show\`."
+	warn "no C compiler found -- skipping the TUI. Use \`radin backlog show\`."
 fi
 # thermo-nuclear is vendored via the vercel-labs/skills CLI (agentskills.io
 # spec), not a Claude Code plugin -- cursor/plugins isn't a plugin marketplace

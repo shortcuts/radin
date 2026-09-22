@@ -8,30 +8,25 @@ set -euo pipefail
 LIB="$HOME/.claude/.radin/lib"
 
 usage() {
-	printf 'usage: radin <backlog|tui|state|scope|hooks|repair|update|doctor|uninstall> [args]\n'
+	printf 'usage: radin <backlog|state|scope|hooks|repair|update|doctor|uninstall> [args]\n'
 	printf 'With no subcommand on a terminal, radin opens the TUI; "radin help" prints this text.\n'
 	printf 'Each subcommand prints its own usage when run with no arguments.\n'
 }
 
 cmd="${1:-}"
-# Bare `radin` is the human entry point: on a terminal it is `radin tui`.
+# Bare `radin` is the human entry point: on a terminal it execs the TUI.
 # Piped or redirected it falls through to the usage text below, so a skill or
 # pipe can never get trapped in a full-screen app.
 if [ -z "$cmd" ] && [ -t 1 ]; then
-	cmd=tui
-	set -- tui
+	# The only compiled artifact; install.sh builds it from lib/radin-tui.c.
+	[ -x "$HOME/.claude/.radin/bin/radin-tui" ] || {
+		printf 'radin: TUI not built (no C compiler at install time). Use "radin backlog show".\n' >&2
+		exit 1
+	}
+	RADIN_LIB="$LIB" exec "$HOME/.claude/.radin/bin/radin-tui"
 fi
 
 case "$cmd" in
-tui)
-	shift
-	# The only compiled subcommand; install.sh builds it from lib/radin-tui.c.
-	[ -x "$HOME/.claude/.radin/bin/radin-tui" ] || {
-		printf 'radin tui: not built (no C compiler at install time). Use "radin backlog show".\n' >&2
-		exit 1
-	}
-	RADIN_LIB="$LIB" exec "$HOME/.claude/.radin/bin/radin-tui" "$@"
-	;;
 backlog | state | scope | update | doctor | uninstall)
 	shift
 	exec bash "$LIB/radin-$cmd.sh" "$@"

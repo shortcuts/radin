@@ -12,7 +12,7 @@ One index line:
 {"id":"add-route-exports","category":"feat","title":"Add route exports","file":"tasks/add-route-exports.md"}
 ```
 
-`id` slug derived from title when task created, deduped with `-2`/`-3` suffix on collision. Never changes afterward, even if title text later edited (`radin backlog retitle`, or `r` in `radin tui`, rewrites only `title`; `set-category` only `category`) — stable key `depends_on` (state schema below) and `radin-plan`/`radin-execute` key off. `file` task body's location relative to `backlog/` directory — `tasks/<id>.md`, or `tasks/<epic-id>/<id>.md` for a task inside an epic. Ids stay globally unique across epics, so `add`'s dedup loop checks the index's own `id` fields, not the task files on disk. `add` decides it; every other verb reads it back, so it's sole authority on where task's body lives (`radin backlog path <id>` prints absolute form).
+`id` slug derived from title when task created, deduped with `-2`/`-3` suffix on collision. Never changes afterward, even if title text later edited (`radin backlog retitle`, or `r` in the TUI, rewrites only `title`; `set-category` only `category`) — stable key `depends_on` (state schema below) and `radin-plan`/`radin-execute` key off. `file` task body's location relative to `backlog/` directory — `tasks/<id>.md`, or `tasks/<epic-id>/<id>.md` for a task inside an epic. Ids stay globally unique across epics, so `add`'s dedup loop checks the index's own `id` fields, not the task files on disk. `add` decides it; every other verb reads it back, so it's sole authority on where task's body lives (`radin backlog path <id>` prints absolute form).
 
 Two optional keys carry human judgment that must survive a run. They are also `radin backlog order`'s only inputs besides its own `--rank` / `--infer-deps` / `--defer` flags:
 
@@ -174,7 +174,7 @@ JSONL, one compact object per line:
 Appended to `$NAMESPACE_DIR/state/completed.json` via `lib/radin-state.sh
 completed-add` on every `STATUS: SUCCESS`. Task's entry in `BACKLOG_STEPS.json` deleted once complete, so can no longer carry commit hash. Later task whose `depends_on` names completed `id` looks its commit up here via `radin-state.sh completed-get`, forwards to that task's execution sub-agent, so sub-agent can check whether dependency's actual changes still match what this task's plan assumed.
 
-`title` recorded because `task-done` deletes backlog entry, so nothing else can name the task in Phase 5's report; empty when entry was already gone. `completed-list`'s output stays two fields (`id<TAB>commit`) even so — `radin tui`'s Done view parses that.
+`title` recorded because `task-done` deletes backlog entry, so nothing else can name the task in Phase 5's report; empty when entry was already gone. `completed-list`'s output stays two fields (`id<TAB>commit`) even so — the TUI's Done view parses that.
 
 ## Install manifest (`manifest.json`)
 

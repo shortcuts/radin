@@ -108,7 +108,7 @@ wrong one cost failed call in every sub-agent
   `termios`, every mutation shell out to `radin-backlog.sh`. Helper hold every
   JSON rule `radin repair` and `radin hooks mcp` need; those script
   keep none, and radin need no python of own. `install.sh` build
-  both with `cc`, advisory: no compiler mean no `radin tui`, no
+  both with `cc`, advisory: no compiler mean no TUI, no
   `radin repair`, and `radin hooks mcp` print entry to paste by hand,
   rest still install
   ([rules](docs/architecture.md#the-human-tui)).
