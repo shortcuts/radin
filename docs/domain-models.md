@@ -64,7 +64,7 @@ Every one of them is binding on the next sub-agent that reads the task, not comm
 
 ## Per-task facts file (`state/facts/<task-id>.md`)
 
-Free-form markdown, one file per task, written when a fact-finding or debug sub-agent's evidence runs past ~15 lines, and by a `/mattpocock-skills:research` invocation, which always writes its findings there. Holds command output, file excerpts, and the reasoning that establishes one `**Fact:**` or `**Root cause:**` line. The task body keeps the summary, and the entry's `facts` key points here. There is deliberately no shared, cross-task notes file: a sub-agent gets its own task's material and nothing more.
+Free-form markdown, one file per task, written when a fact-finding or debug sub-agent's evidence is longer than its summary can carry, and by a `/mattpocock-skills:research` invocation, which always writes its findings there. Holds command output, file excerpts, and the reasoning that establishes one `**Fact:**` or `**Root cause:**` line. The task body keeps the summary, and the entry's `facts` key points here. There is deliberately no shared, cross-task notes file: a sub-agent gets its own task's material and nothing more.
 
 ## Migration note
 

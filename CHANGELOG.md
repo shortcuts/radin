@@ -20,6 +20,13 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Sub-agent prompts and review briefs drop their numeric report limits ("at
+  most ten lines", "~15 lines", "one or two lines each"). Each one now says
+  what the report carries instead: the router still holds every report, but
+  current models size it to the content. The planning and recording gates
+  lose their `MANDATORY GATE` labels, and the fact-finding prompt loses a
+  capitalised "Do NOT edit" line that contradicted its own facts-file rule.
+
 - `install.sh` no longer asks whether `radin-execute` may run execution
   sub-agents in parallel, and `manifest.json` drops `parallel_execution`.
   `radin-execute` derives concurrency from the per-repo worktree answer

@@ -167,7 +167,7 @@ persist them.
    Carry those flags into every later `order` call this session; carry
    nothing else.
 
-## Phase 2: Confirm Execution Order (MANDATORY GATE)
+## Phase 2: Confirm Execution Order
 
 The gate is unconditional (Core Constraints). Phase 0.5's preferences are the
 only questions a prompt may pre-answer.

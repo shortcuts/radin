@@ -55,7 +55,7 @@ A ticket key or a Jira/Confluence URL: fetch it through the Atlassian MCP and
 treat the ticket as more of the user's prompt. No Atlassian MCP, or a failed
 fetch: log from the ask alone, and continue.
 
-## Step 2: Chart each item's open decisions (MANDATORY GATE)
+## Step 2: Chart each item's open decisions
 
 The user is at the keyboard now, and `radin-execute` may later run with nobody
 behind it: settle judgment calls here and execution never has to.

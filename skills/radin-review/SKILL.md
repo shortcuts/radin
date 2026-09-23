@@ -120,13 +120,13 @@ rubric, file and rule; and (b) every structural finding the passes raise: name
 it and quote the hunk. A documented repo rubric overrides a pass's generic
 judgement, and a pass finding stays a labelled judgement call
 ("possible <name>") — the label reaches the backlog entry an agent later acts
-on without the review in front of it. Report findings only, one or two lines each.
+on without the review in front of it. Report findings only, each as its claim and citation.
 
 **Spec brief.** Skipped entirely when Step 2 reached rung 4. Report: (a)
 requirements the spec asked for that are missing or only partly implemented;
 (b) behaviour in the scope that the spec never asked for (scope creep); (c)
 requirements that look implemented but whose implementation looks wrong. Quote
-the spec line for each finding, and cite the `path:line` it lands on. Report findings only, one or two lines each.
+the spec line for each finding, and cite the `path:line` it lands on. Report findings only, each as its claim and citation.
 
 Relay both reports under `## Standards` and `## Spec` headings before any
 triage, each axis in its own order and neither reranked against the other.

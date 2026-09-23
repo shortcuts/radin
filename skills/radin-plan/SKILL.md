@@ -49,8 +49,8 @@ adds no entry, picks no candidate among several, and overwrites no plan.
 ## Step 2: Judge whether the scope should split
 
 Invoke `/ponytail:ponytail` and apply its ladder: does this entry need more than one
-plan? Lean toward NOT splitting. Split only when the entry genuinely
-bundles multiple unrelated, independently plannable changes.
+plan? Split only when the entry bundles unrelated changes that can each be
+planned on its own.
 
 Interactive: state your read (split or not, and why) and confirm it.
 Non-interactive: take the default (no split) without asking.
@@ -212,13 +212,13 @@ result.
 `/ponytail:ponytail-review` against the same content. Report every structural
 issue the rubric flags in the approach, and every place the plan breaks its own
 template contract — a speculative abstraction in `## Changes`, a `## Decisions`
-claim carrying no source. Report findings only, one or two lines each.
+claim carrying no source. Report findings only, each as its claim and citation.
 
 **Spec brief.** The entry is the spec. Report (a) every acceptance criterion no
 `## Changes` entry implements and no `## Testing` box checks; (b) every
 `## Changes` entry no criterion asks for, and where `## Out of scope` would put
 it; (c) every `**Decision:**` line the plan contradicts. Quote the entry's line
-for each finding. Report findings only, one or two lines each.
+for each finding. Report findings only, each as its claim and citation.
 
 Relay both reports under `## Standards` and `## Spec` headings before editing
 anything, each axis in its own order and neither reranked against the other.

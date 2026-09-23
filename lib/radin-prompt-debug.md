@@ -40,14 +40,14 @@ your own. A skill that starts asking questions a human is meant to answer:
 stop invoking it and diagnose on your own, because waiting is a hang the
 router cannot break.
 
-Write nothing except, if the detail runs past ~15 lines,
+Write nothing except, when the evidence is longer than a summary can carry,
 `NAMESPACE_DIR/state/facts/TASK_ID.md` (create the directory if needed);
 report the summary plus that path. Change no repo file, commit nothing,
 revert nothing, and fix nothing: the fix is the next execution sub-agent's
 job.
 
-Keep your report to at most ten lines, with the output or file that
-establishes the cause. Then the LAST line exactly one of:
+Report the cause and the output or file that establishes it, and nothing
+else. Then the LAST line exactly one of:
 `STATUS: DIAGNOSED — <root cause in one sentence, then the concrete fix direction>`
 `STATUS: NOT DIAGNOSED — <what you ruled out, and what is left to check>`
 Use NOT DIAGNOSED after you have actually looked, and never as a guess with a

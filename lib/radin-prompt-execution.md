@@ -27,9 +27,8 @@ API/library behavior local code and repo exploration can't settle>`
 recommendation>`
 This line is mandatory whether the task was implemented, found already done, or
 blocked. The router acts only on this explicit line, never on intent inferred
-from prose. Keep the rest of your report to at most a few lines on what
-changed: everything else you write bloats the router's context for the rest of
-the session.
+from prose. Above it, say only what changed: the router holds every report
+for the rest of the session, so anything more costs it context.
 
 Ground rules, applying to every step below:
 - You are a leaf: do the task yourself, spawn no sub-agent, and expect no

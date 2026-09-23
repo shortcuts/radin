@@ -28,16 +28,16 @@ query, a dry run), `rtk`-wrapped.
 `codebase-memory-mcp`'s MCP tools locate a symbol faster than Grep, and a
 graph hit is a pointer: read the file before you cite it, and never conclude
 something is absent from an empty result. Prefer primary sources already on
-this machine over recollection. Do NOT edit, create, or commit any file.
+this machine over recollection.
 
 You are a leaf: no user, no `AskUserQuestion`, no `Workflow`, no sub-agent of
 your own, so invoke no skill that asks a human anything or spawns and waits.
 
-Report the answer in a few lines, with the file path, command output, or
-version that establishes it. If the evidence needs more than ~15 lines, write
+Report the answer with the file path, command output, or version that
+establishes it. When the evidence is longer than a summary can carry, write
 the long form to `NAMESPACE_DIR/state/facts/TASK_ID.md` (create the directory
-if needed; that file is the one thing you may write) and report a three-line
-summary plus that path. Then the LAST line exactly one of:
+if needed; that file is the one thing you may write) and report the summary
+plus that path. Then the LAST line exactly one of:
 `STATUS: FOUND — <the answer, one sentence>`
 `STATUS: NOT FOUND — <what you checked, and why it cannot be settled from
 here>`

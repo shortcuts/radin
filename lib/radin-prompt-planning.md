@@ -33,7 +33,8 @@ is a fact you could go find (read more of the repo, check a config, run a
 read-only command) or a judgment call only the user can make. Find the fact
 yourself; block only on the judgment call.
 
-Keep your report to a few lines, then the LAST line exactly one of:
+Report only what the router needs to route the task, then the LAST line
+exactly one of:
 `STATUS: PLANNED — <plan file path(s)>`
 `STATUS: BLOCKED (FACT) — <what's unverifiable from here and why, e.g. a
 third-party API/library behavior local code and repo exploration can't
