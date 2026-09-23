@@ -52,7 +52,7 @@ printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-cbm-
   [ "$status" -eq 0 ]
   [[ "$output" != *"MISSING"* ]]
   [[ "$output" == *"All expected files present."* ]]
-  [[ "$output" == *"no unsubstituted token or marker left"* ]]
+  [[ "$output" == *"no unsubstituted token left"* ]]
 }
 
 @test "exits 1 and reports MISSING for an absent on-demand lib file" {

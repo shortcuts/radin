@@ -31,8 +31,8 @@ constructs before committing script change.
 
 Installing radin installs every companion tool. There is no per-tool
 question: a half-installed stack is the case radin's skills cannot rely on,
-and every skill below delegates to tools it assumes are there. Three
-questions are asked: execution behaviour (concurrency, sub-agent models),
+and every skill below delegates to tools it assumes are there. Two
+questions are asked: execution behaviour (sub-agent models),
 because it changes what a run does rather than what exists, and which
 package manager installs `rtk` and `headroom` (`brew`, `mise`, or each
 tool's own `curl`/`pipx` installer), because installing through a manager

@@ -157,9 +157,9 @@ radin ships no agent for this. `claude agents` (agent view) dispatches full Clau
 - source has a `.git` dir (dev clone): `git pull --ff-only`, refusing outright when `git status --porcelain` prints anything, then `bash "$SRC/install.sh" --update`.
 - anything else (tarball install, or an install predating `install_root`): download the newest `install.sh` from `main` and run it with `--update`, since that installer re-resolves the latest release tarball itself.
 
-`--update` implies `--force` and `--yes`, so every companion tool takes its upgrade path and no behaviour question is re-asked. Instead `install.sh` reads its own previous `manifest.json` (`manifest_value`, a `sed` lookup — no JSON parser) for `parallel_execution` and the five `model_<role>` keys, and writes those answers back into the installed files. Models are all-or-nothing: a manifest missing any of the five falls through to the pickers, so a half-read manifest can't mix recorded picks with defaults. No manifest at all (first install with `--update`) means the documented defaults, never a blocking prompt.
+`--update` implies `--force` and `--yes`, so every companion tool takes its upgrade path and no behaviour question is re-asked. Instead `install.sh` reads its own previous `manifest.json` (`manifest_value`, a `sed` lookup — no JSON parser) for the five `model_<role>` keys, and writes those answers back into the installed files. Models are all-or-nothing: a manifest missing any of the five falls through to the pickers, so a half-read manifest can't mix recorded picks with defaults. No manifest at all (first install with `--update`) means the documented defaults, never a blocking prompt.
 
-Non-destructive by construction: the installer only `cp`s radin's own files, plugins go through `claude plugin update`, brew/pipx installs re-run as upgrades, and the `radin-cbm-config.sh install` step re-brackets upstream's `settings.json` write with a fresh snapshot. `--force` alone still works, and still asks the three questions.
+Non-destructive by construction: the installer only `cp`s radin's own files, plugins go through `claude plugin update`, brew/pipx installs re-run as upgrades, and the `radin-cbm-config.sh install` step re-brackets upstream's `settings.json` write with a fresh snapshot. `--force` alone still works, and still asks the two questions.
 
 ## Code-graph wiring (codebase-memory-mcp)
 
@@ -200,7 +200,7 @@ it, never conclude something is absent from an empty result.
 
 ## Install manifest
 
-`install.sh` writes `~/.claude/.radin/manifest.json` every run: generated snapshot of what installed. Records `version` (release tag, or `dev` for local git clone), `installed_at` (UTC timestamp), `skills`/`lib` file lists copied, `parallel_execution` (whether install allowed `radin-execute` to fan out execution sub-agents), `install_root` and the five `model_<role>` keys (both read back by `install.sh --update`), `claude_md_guidance` (whether the radin section in `~/.claude/CLAUDE.md` was written), `cbm_agent_config` (whether upstream's own `codebase-memory-mcp install` ran), `cli_on_path` (whether the symlink landed), `companion_tools` object recording which of rtk, codebase-memory-mcp, headroom, caveman, ponytail, mattpocock-skills came out reachable — a companion install is advisory, so `false` means its own installer failed or its CLI is missing.
+`install.sh` writes `~/.claude/.radin/manifest.json` every run: generated snapshot of what installed. Records `version` (release tag, or `dev` for local git clone), `installed_at` (UTC timestamp), `skills`/`lib` file lists copied, `install_root` and the five `model_<role>` keys (both read back by `install.sh --update`), `claude_md_guidance` (whether the radin section in `~/.claude/CLAUDE.md` was written), `cbm_agent_config` (whether upstream's own `codebase-memory-mcp install` ran), `cli_on_path` (whether the symlink landed), `companion_tools` object recording which of rtk, codebase-memory-mcp, headroom, caveman, ponytail, mattpocock-skills came out reachable — a companion install is advisory, so `false` means its own installer failed or its CLI is missing.
 
 Snapshot for external tooling to read, not live source of truth. `radin-doctor.sh` and `radin-uninstall.sh` each keep own independent file list, check filesystem direct, rather than trust manifest. Corrupted or stale manifest must never make either report false "OK" or delete wrong thing.
 
@@ -413,7 +413,7 @@ This repo source of truth. `skills/*/SKILL.md` authored/edited direct here — n
 
 ## Install-time substitution
 
-Four things no radin file may state literally. `install.sh` writes each one
+Three things no radin file may state literally. `install.sh` writes each one
 in, and each substitution exits non-zero if its token survives — a file that
 ships with the token intact invents its own answer.
 
@@ -422,17 +422,17 @@ ships with the token intact invents its own answer.
 | `RADIN_CLI <subcommand>` in every `skills/*/SKILL.md` and shipped `lib/*.md` | bare `radin` when the `~/.local/bin` symlink is on PATH, else `"$HOME/.claude/.radin/bin/radin"` (`set_cli`) |
 | `RADIN_MODEL_<ROLE>` — `PLANNING`, `EXECUTION`, `DEBUG`, `FACTFIND` each in its own `lib/radin-prompt-<kind>.md`, `REVIEW` in `skills/radin-execute/SKILL.md` | the install-time pick (`set_role_models`). Defaults sonnet, except fact-finding: haiku, since its prompt demands the evidence and the router can reject a wrong answer |
 | `RADIN_LIB/<doc>.md` in `skills/radin-execute/SKILL.md` | `$HOME/.claude/.radin/lib` (`set_lib`). The Read tool takes no `$HOME`, so the literal would leave the model expanding it before every on-demand doc read |
-| one `<!-- radin:concurrency -->` line in `radin-execute`'s Core Constraints | `$SEQUENTIAL_RULE` or `$PARALLEL_RULE`, both defined only in `install.sh` (`set_concurrency`) |
 
-Edit the concurrency wording in `install.sh`, never in the skill. A new
-sub-agent role needs a token, a `MODEL_<ROLE>` default, a picker, and a `-e`
+A new sub-agent role needs a token, a `MODEL_<ROLE>` default, a picker, and a `-e`
 clause in `set_role_models`.
 
-Sub-agent prompts carry no concurrency variant: each `lib/radin-prompt-<kind>.md`
-states the flat rule (a sub-agent never spawns a sub-agent) instead. The
-install-time answer covers execution sub-agents only — planning, debug and
-fact-finding dispatches write no repo code, so both rule texts allow them in
-parallel unconditionally.
+Execution concurrency is no install-time answer. `radin-execute` derives it
+from Phase 0.5's worktree answer: parallel agents are safe only in separate
+trees, so a second question could only restate the first or contradict it.
+Planning, debug and fact-finding dispatches write no repo code, so they run in
+parallel unconditionally. Sub-agent prompts carry no concurrency rule: each
+`lib/radin-prompt-<kind>.md` states the flat rule (a sub-agent never spawns a
+sub-agent) instead.
 
 Any new install-time question must also be recorded in `manifest.json`, or the
 next `radin update` resets it.

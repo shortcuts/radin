@@ -25,7 +25,7 @@ radin be Claude Code plugin: skills, CLI, install glue. Bash, plus two C file (T
 | A skill's behavior | `skills/<name>/SKILL.md` — truth source, never installed copy |
 | Anything deterministic (install, update, doctor, uninstall, backlog, state, TUI) | a `bin/radin` subcommand in `lib/`, never skill |
 | Rare-need part of `radin-execute` | `lib/radin-execute-*.md`, read on demand |
-| Concurrency rule, sub-agent model, how CLI invoked | none — write token, `install.sh` resolve it ([how](docs/architecture.md#install-time-substitution)) |
+| Sub-agent model, how CLI invoked | none — write token, `install.sh` resolve it ([how](docs/architecture.md#install-time-substitution)) |
 
 `install.sh` go one way, repo to `~/.claude`. New skill need
 `cp -r` line there, `lib/radin-doctor.sh` entry, README row and

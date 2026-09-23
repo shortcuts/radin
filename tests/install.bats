@@ -33,7 +33,7 @@ setup_file() {
   rm -f "$MOCK_BIN/cc" "$MOCK_BIN/gcc" "$MOCK_BIN/clang"
 
   local st=0
-  (cd "$REPO_ROOT" && printf '2\n2\n' |
+  (cd "$REPO_ROOT" && printf '2\n' |
     env HOME="$TEST_HOME" PATH="$MOCK_BIN:/usr/bin:/bin:/usr/sbin:/sbin" \
       bash ./install.sh) >"$TEMPLATE/output" 2>&1 || st=$?
   printf '%s\n' "$st" >"$TEMPLATE/status"
@@ -78,13 +78,13 @@ replay_install() {
 # does while running (a missing binary, a pre-existing file, a second run)
 # cannot use the replay, and costs the suite ~1.1s. See AGENTS.md.
 real_install() {
-  cd "$REPO_ROOT" && printf '2\n2\n' | bash ./install.sh
+  cd "$REPO_ROOT" && printf '2\n' | bash ./install.sh
 }
 
-# Three questions, in this order: 1 concurrency, 2 sub-agent models,
-# 3 package manager. Each is a numbered picker where 1 is the first option
-# (parallel / yes / first detected manager) and 2 the second, so two 2s takes
-# every documented execution default and leaves the manager pick at its own.
+# Two questions, in this order: 1 sub-agent models, 2 package manager. Each is
+# a numbered picker where 1 is the first option (yes / first detected manager)
+# and 2 the second, so one 2 takes the default models and leaves the manager
+# pick at its own.
 # No companion tool is asked about beyond that one manager -- the stubs on
 # MOCK_BIN absorb those calls.
 run_install_defaults() {
@@ -101,22 +101,18 @@ run_install_defaults() {
   [ -x "$TEMPLATE/home/.claude/.radin/bin/radin-cbm-json" ]
 }
 
-@test "a companion install that reads stdin can't eat the piped answers, and parallel execution is recorded" {
+@test "a companion install that reads stdin can't eat the piped answers" {
   export MOCK_NPX=eat-stdin
-  cd "$REPO_ROOT" && run bash -c "printf '1\n2\n2\n' | bash ./install.sh"
+  cd "$REPO_ROOT" && run bash -c "printf '1\n1\n2\n' | bash ./install.sh"
   [ "$status" -eq 0 ]
-  agent="$TEST_HOME/.claude/skills/radin-execute/SKILL.md"
-  grep -q 'Concurrency allowed' "$agent"
-  ! grep -q "One execution sub-agent at a time" "$agent"
-  ! grep -q "radin:concurrency" "$agent"
-  grep -q '"parallel_execution": true' "$TEST_HOME/.claude/.radin/manifest.json"
+  grep -q '"model_planning": "opus"' "$TEST_HOME/.claude/.radin/manifest.json"
 }
 
 # Exiting before "Done" leaves a partial ~/.claude, so the run must say so
 # instead of returning success-looking silence.
 @test "an install that dies mid-run says the install is partial" {
   export MOCK_NPX=fail
-  cd "$REPO_ROOT" && run bash -c "printf '2\n2\n2\n' | bash ./install.sh"
+  cd "$REPO_ROOT" && run bash -c "printf '2\n2\n' | bash ./install.sh"
   [ "$status" -ne 0 ]
   [[ "$output" == *"partial install"* ]]
 }
@@ -148,7 +144,7 @@ run_install_defaults() {
 # "Same model for every role?" defaults to yes: one pick sets all five tokens,
 # fact-finding's haiku default included.
 @test "one same-model pick covers every role" {
-  cd "$REPO_ROOT" && run bash -c "printf '2\n1\n1\n2\n' | bash ./install.sh"
+  cd "$REPO_ROOT" && run bash -c "printf '1\n1\n2\n' | bash ./install.sh"
   [ "$status" -eq 0 ]
   ! grep -rq 'RADIN_MODEL_' "$TEST_HOME/.claude/skills" "$TEST_HOME/.claude/.radin/lib"
   grep -q 'model: "opus"' "$TEST_HOME/.claude/skills/radin-execute/SKILL.md"
@@ -304,13 +300,10 @@ run_install_defaults() {
   grep -q "Never verify a .SUCCESS. yourself" "$agent"
 }
 
-@test "the default keeps the sequential constraint only" {
+@test "concurrency follows the worktree answer, not an install question" {
   run_install_defaults
-  agent="$TEST_HOME/.claude/skills/radin-execute/SKILL.md"
-  grep -q "One execution sub-agent at a time" "$agent"
-  ! grep -q "Concurrency allowed" "$agent"
-  ! grep -q "radin:concurrency" "$agent"
-  grep -q '"parallel_execution": false' "$TEST_HOME/.claude/.radin/manifest.json"
+  grep -q "worktree answer sets execution concurrency" "$TEST_HOME/.claude/skills/radin-execute/SKILL.md"
+  ! grep -q "parallel_execution" "$TEST_HOME/.claude/.radin/manifest.json"
 }
 
 
@@ -364,7 +357,7 @@ pick_with_keys() {
   FETCH_DIR="$TEST_HOME/preexisting"
   mkdir -p "$FETCH_DIR"
   echo "not ours" > "$FETCH_DIR/some_other_file"
-  run bash -c "cd '$FAKE_ROOT' && printf '2\n2\n2\n' | RADIN_ROOT_OVERRIDE='$FETCH_DIR' bash ./install.sh"
+  run bash -c "cd '$FAKE_ROOT' && printf '2\n2\n' | RADIN_ROOT_OVERRIDE='$FETCH_DIR' bash ./install.sh"
   [ "$status" -ne 0 ]
   [[ "$output" == *"wasn't created by this installer"* ]]
 }
@@ -391,7 +384,7 @@ pick_with_keys() {
 # the answer must survive into the manifest so `radin update` reuses it.
 @test "picking mise installs rtk and headroom through mise, not brew" {
   ln "$MOCK_BIN/mock" "$MOCK_BIN/mise" 2>/dev/null || ln -s "$MOCK_BIN/mock" "$MOCK_BIN/mise"
-  cd "$REPO_ROOT" && run bash -c "printf '2\n2\n2\n' | bash ./install.sh"
+  cd "$REPO_ROOT" && run bash -c "printf '2\n2\n' | bash ./install.sh"
   [ "$status" -eq 0 ]
   [[ "$(cat "$TEST_HOME/mise.log")" == *"aqua:rtk-ai/rtk"* ]]
   [[ "$(cat "$TEST_HOME/mise.log")" == *"pipx:headroom-ai"* ]]
@@ -436,16 +429,13 @@ pick_with_keys() {
 # `radin update` runs install.sh --update: no question is asked again, and the
 # answers come from the manifest the previous install wrote.
 @test "--update reuses the recorded behaviour answers instead of asking" {
-  cd "$REPO_ROOT" && printf '1\n1\n1\n1\n' | bash ./install.sh
+  cd "$REPO_ROOT" && printf '1\n1\n1\n' | bash ./install.sh
   manifest="$TEST_HOME/.claude/.radin/manifest.json"
-  grep -q '"parallel_execution": true' "$manifest"
   grep -q '"model_planning": "fable"' "$manifest"
 
   run bash ./install.sh --update
   [ "$status" -eq 0 ]
-  [[ "$output" == *"keeping the recorded answer: parallel"* ]]
   [[ "$output" == *"keeping recorded sub-agent models: plan fable"* ]]
-  grep -q '"parallel_execution": true' "$manifest"
   grep -q '"model_planning": "fable"' "$manifest"
   grep -q 'fable' "$TEST_HOME/.claude/.radin/lib/radin-prompt-planning.md"
   [[ "$output" == *"radin updated"* ]]

@@ -67,8 +67,7 @@ neither is re-resolved between sub-tasks. For each sub-task, in order:
 
 1. Read the entry's file. A sub-task from a split has only its one-line
    Step 2 description as scope, so plan just that part.
-2. Explore the repo to understand the current state of the codebase, if you
-   haven't already: structure, affected files, patterns, constraints. Carry the
+2. Explore the repo as far as the plan needs. Carry the
    project's own vocabulary into the plan — its glossary or domain-model doc
    where it has one — and respect any ADR covering the area you're touching.
 
@@ -207,19 +206,19 @@ the repo supplies context only.
 
 Non-interactive: run both briefs inline, Standards first. A non-interactive
 `radin-plan` is itself a sub-agent and cannot rely on getting a spawned agent's
-result (`docs/technical-constraints.md`).
+result.
 
 **Standards brief.** Invoke `/thermo-nuclear` against the plan's content, then
 `/ponytail:ponytail-review` against the same content. Report every structural
 issue the rubric flags in the approach, and every place the plan breaks its own
 template contract — a speculative abstraction in `## Changes`, a `## Decisions`
-claim carrying no source. Under 400 words.
+claim carrying no source. Report findings only, one or two lines each.
 
 **Spec brief.** The entry is the spec. Report (a) every acceptance criterion no
 `## Changes` entry implements and no `## Testing` box checks; (b) every
 `## Changes` entry no criterion asks for, and where `## Out of scope` would put
 it; (c) every `**Decision:**` line the plan contradicts. Quote the entry's line
-for each finding. Under 400 words.
+for each finding. Report findings only, one or two lines each.
 
 Relay both reports under `## Standards` and `## Spec` headings before editing
 anything, each axis in its own order and neither reranked against the other.

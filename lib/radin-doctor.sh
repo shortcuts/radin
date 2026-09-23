@@ -96,20 +96,20 @@ check_lib_script "radin-update.sh" "$CLAUDE_DIR/.radin/lib/radin-update.sh"
 check_lib_script "radin-doctor.sh" "$CLAUDE_DIR/.radin/lib/radin-doctor.sh"
 check_lib_script "radin-uninstall.sh" "$CLAUDE_DIR/.radin/lib/radin-uninstall.sh"
 
-# install.sh swaps every RADIN_* token and marker for the recorded answer. One
+# install.sh swaps every RADIN_* token for the recorded answer. One
 # that survived means the run died mid-install, and the skill then ships a
-# literal token where a model name or a rule belongs. This script carries the
+# literal token where a model name or a command belongs. This script carries the
 # token names as its own search pattern and ships into the scanned lib
 # directory, so exclude it or it always matches itself.
 printf '\nInstall-time substitutions:\n'
-if grep -rq --exclude=radin-doctor.sh 'RADIN_MODEL_\|RADIN_CLI \|radin:concurrency' \
+if grep -rq --exclude=radin-doctor.sh 'RADIN_MODEL_\|RADIN_CLI ' \
 	"$CLAUDE_DIR/skills/radin-execute" "$CLAUDE_DIR/skills/radin-plan" \
 	"$CLAUDE_DIR/skills/radin-review" "$CLAUDE_DIR/skills/radin-record" \
 	"$CLAUDE_DIR/skills/radin-show" "$CLAUDE_DIR/.radin/lib" 2>/dev/null; then
-	printf '  INVALID  unsubstituted RADIN_ token or marker -- re-run install.sh\n'
+	printf '  INVALID  unsubstituted RADIN_ token -- re-run install.sh\n'
 	MISSING=$((MISSING + 1))
 else
-	printf '  OK       no unsubstituted token or marker left\n'
+	printf '  OK       no unsubstituted token left\n'
 fi
 
 printf '\nCompanion tools (optional, advisory-only):\n'

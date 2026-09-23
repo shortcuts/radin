@@ -20,6 +20,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- `install.sh` no longer asks whether `radin-execute` may run execution
+  sub-agents in parallel, and `manifest.json` drops `parallel_execution`.
+  `radin-execute` derives concurrency from the per-repo worktree answer
+  instead: worktrees allow independent tasks in parallel, no worktrees run one
+  task at a time.
+
 - Skills and sub-agent prompts name every companion tool flat, with no
   `command -v` gate and no "if unavailable" escape clause. The install is
   all-or-nothing, so a missing tool fails visibly and that failure is the

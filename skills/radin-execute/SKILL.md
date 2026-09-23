@@ -54,7 +54,13 @@ you.
   worktree and never call `radin-state.sh prepare`, whatever Phase 0.5
   recorded. N of them to send is N `Task` calls in one message, however large
   the wave. The bullet below governs execution sub-agents, and only them.
-<!-- radin:concurrency -->
+- **Phase 0.5's worktree answer sets execution concurrency.** `yes`: several
+  execution sub-agents may go out in one message when the tasks share no
+  `depends_on` chain and no files, since each lands in its own tree. `no`, or
+  file overlap unclear: dispatch one task, wait for its `STATUS:` line, finish
+  its bookkeeping, then dispatch the next. Parallel agents in one checkout
+  corrupt each other's commits. Each task still gets its own `start`, its own
+  dispatch, and its own `task-report`.
 
 ## Clarifying Ambiguity
 

@@ -534,49 +534,6 @@ set_lib() {
 	fi
 }
 
-# The agent ships no concurrency rule of its own -- only a marker line. awk
-# swaps that line for whichever rule the answer below picks, so the agent file
-# never carries a variant the user didn't choose.
-# shellcheck disable=SC2016  # backticks here are markdown code spans, not command substitution
-SEQUENTIAL_RULE='- **One execution sub-agent at a time.** Dispatch one task, wait for its `STATUS:` line, finish its bookkeeping, then dispatch the next. Never put two `Task` calls in one message, however independent the tasks look. Batching other tool calls stays fine -- this rule is about `Task` only, and about execution sub-agents only: read-only dispatches stay parallel per Core Constraints.'
-# shellcheck disable=SC2016  # backticks here are markdown code spans, not command substitution
-PARALLEL_RULE='- **Concurrency allowed, and only under these conditions.** Several execution sub-agents may run in the same turn when they share no `depends_on` chain and no files, and only when Phase 0.5 recorded the worktree answer as yes -- parallel agents in one worktree corrupt each other commits. Worktree answer is no, or file overlap is at all unclear: dispatch strictly one at a time. Launch parallel ones in one message. Per-task steps stay unchanged, and each targets that task own tree, resolved for you by `radin-state.sh dirty-recover` -- its own dirty check, its own commit, its own `task-done`. Never check the shared checkout while another agent is in flight: you would stash a sibling task work out from under it.'
-
-set_concurrency() {
-	local file="$1" rule="$2" tmp
-	tmp="$(mktemp)"
-	awk -v rule="$rule" '/^<!-- radin:concurrency -->$/ { print rule; next } { print }' \
-		"$file" >"$tmp" && mv "$tmp" "$file"
-	# A surviving marker means the agent ships with no concurrency rule at all,
-	# and the model then invents one -- louder to fail here than to debug that.
-	if grep -q '^<!-- radin:concurrency -->$' "$file"; then
-		printf "%b\n" "${RED}${RAT} failed to write the concurrency rule into $file.${RESET} Re-run the installer." >&2
-		exit 1
-	fi
-}
-
-step "Execution concurrency"
-CONCURRENCY_ANSWER=""
-if [ -n "$UPDATE" ]; then
-	case "$(manifest_value parallel_execution)" in
-	true) CONCURRENCY_ANSWER="parallel" ;;
-	false) CONCURRENCY_ANSWER="sequential" ;;
-	esac
-	[ -n "$CONCURRENCY_ANSWER" ] && info "keeping the recorded answer: $CONCURRENCY_ANSWER"
-fi
-if [ -z "$CONCURRENCY_ANSWER" ]; then
-	CONCURRENCY_ANSWER="$(prompt_pick "How should radin-execute run sub-agents? (parallel only ever applies to independent tasks)" 2 "parallel" "sequential")"
-fi
-if [ "$CONCURRENCY_ANSWER" = "parallel" ]; then
-	PARALLEL_MODE="true"
-	set_concurrency "$HOME/.claude/skills/radin-execute/SKILL.md" "$PARALLEL_RULE"
-	ok "parallel execution allowed (independent tasks only, worktree mode required)"
-else
-	PARALLEL_MODE="false"
-	set_concurrency "$HOME/.claude/skills/radin-execute/SKILL.md" "$SEQUENTIAL_RULE"
-	ok "sequential execution — one sub-agent at a time"
-fi
-
 step "Sub-agent models"
 # radin-execute is a skill running in the user's own thread, so its own model
 # is whatever they picked with /model. Only its leaf sub-agents get a choice,
@@ -894,7 +851,6 @@ cat >"$MANIFEST_FILE" <<EOF
 {
   "version": "$MANIFEST_VERSION",
   "installed_at": "$INSTALLED_AT",
-  "parallel_execution": $PARALLEL_MODE,
   "package_manager": "$PKG_MGR",
   "install_root": "$RADIN_ROOT",
   "model_planning": "$MODEL_PLANNING",

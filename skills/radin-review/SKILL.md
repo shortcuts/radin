@@ -24,8 +24,8 @@ the spec that skill has to hunt for: the backlog entry, or the plan
 `radin-plan` wrote from it.
 
 **Sub-agent caller** — `radin-execute`'s Phase 6 dispatches this skill that
-way, and a sub-agent reaches neither the user nor a spawned agent's result
-(`docs/technical-constraints.md`): run every step inline, Standards axis
+way, and a sub-agent reaches neither the user nor a spawned agent's result:
+run every step inline, Standards axis
 first, skip each `AskUserQuestion`, log every in-scope finding, and say in
 Step 6's report that no triage happened.
 
@@ -120,14 +120,13 @@ rubric, file and rule; and (b) every structural finding the passes raise: name
 it and quote the hunk. A documented repo rubric overrides a pass's generic
 judgement, and a pass finding stays a labelled judgement call
 ("possible <name>") — the label reaches the backlog entry an agent later acts
-on without the review in front of it. Under 400 words.
+on without the review in front of it. Report findings only, one or two lines each.
 
 **Spec brief.** Skipped entirely when Step 2 reached rung 4. Report: (a)
 requirements the spec asked for that are missing or only partly implemented;
 (b) behaviour in the scope that the spec never asked for (scope creep); (c)
 requirements that look implemented but whose implementation looks wrong. Quote
-the spec line for each finding, and cite the `path:line` it lands on. Under
-400 words.
+the spec line for each finding, and cite the `path:line` it lands on. Report findings only, one or two lines each.
 
 Relay both reports under `## Standards` and `## Spec` headings before any
 triage, each axis in its own order and neither reranked against the other.
