@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# radin update: refresh radin itself and every companion tool it installs, by
-# re-running install.sh in --update mode (no questions, recorded answers kept).
+# radin update: refresh radin itself by re-running install.sh in --update mode
+# (radin's own steps and questions, no companion installer).
 # Installed to ~/.claude/.radin/lib/radin-update.sh by install.sh.
 #
 # Usage: radin update [--yes]

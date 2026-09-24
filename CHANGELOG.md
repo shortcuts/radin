@@ -6,6 +6,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- `install.sh` (`make install`) always reinstalls or upgrades every companion
+  tool, including the ones already installed. `radin update` (`make update`)
+  runs only radin's own steps: no companion installer runs. It asks the
+  sub-agent model question again.
 - `/radin-execute` and `/radin-implement` make one CLI call per task instead
   of five. `radin state task-next` now checks the entry, claims the task and
   writes its prompt file. Routers stopped writing their own glue scripts.
@@ -22,6 +26,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Removed
 
+- `install.sh --force` and `make install-force`. A plain install now does
+  what `--force` did.
 - `radin state` verbs no caller needed on their own: `next-pending`,
   `start`, `triage`, `remove`, `completed-add`, `completed-get`, `stash`,
   `task-fail` and `dirty-recover`. `task-next`, `task-report`, `task-done`

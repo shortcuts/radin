@@ -160,9 +160,12 @@ radin ships no agent for this. `claude agents` (agent view) dispatches full Clau
 - source has a `.git` dir (dev clone): `git pull --ff-only`, refusing outright when `git status --porcelain` prints anything, then `bash "$SRC/install.sh" --update`.
 - anything else (tarball install, or an install predating `install_root`): download the newest `install.sh` from `main` and run it with `--update`, since that installer re-resolves the latest release tarball itself.
 
-`--update` implies `--force` and `--yes`, so every companion tool takes its upgrade path and no behaviour question is re-asked. Instead `install.sh` reads its own previous `manifest.json` (`manifest_value`, a `sed` lookup — no JSON parser) for the five `model_<role>` keys, and writes those answers back into the installed files. Models are all-or-nothing: a manifest missing any of the five falls through to the pickers, so a half-read manifest can't mix recorded picks with defaults. No manifest at all (first install with `--update`) means the documented defaults, never a blocking prompt.
+`install.sh` has two paths:
 
-Non-destructive by construction: the installer only `cp`s radin's own files, plugins go through `claude plugin update`, brew/pipx installs re-run as upgrades, and the `radin-cbm-config.sh install` step re-brackets upstream's `settings.json` write with a fresh snapshot. `--force` alone still works, and still asks the two questions.
+- plain run (`make install`): every step, and every companion tool takes its install or upgrade path, installed or not.
+- `--update` (`make update`, `radin update`): radin's own steps only. It asks the sub-agent model question again and skips the whole "Companion tools" step, so no companion installer runs. The package-manager answer and `cbm_agent_config` only come from that step, so `install.sh` reads them back from its previous `manifest.json` (`manifest_value`, a `sed` lookup — no JSON parser).
+
+Non-destructive by construction: the installer only `cp`s radin's own files, plugins go through `claude plugin update`, brew/pipx installs re-run as upgrades, and the `radin-cbm-config.sh install` step re-brackets upstream's `settings.json` write with a fresh snapshot.
 
 ## Code-graph wiring (codebase-memory-mcp)
 

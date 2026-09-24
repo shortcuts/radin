@@ -36,8 +36,8 @@ questions are asked: execution behaviour (sub-agent models),
 because it changes what a run does rather than what exists, and which
 package manager installs `rtk` and `headroom` (`brew`, `mise`, or each
 tool's own `curl`/`pipx` installer), because installing through a manager
-the user does not run adds one they never chose. `radin update` reuses the
-recorded answer.
+the user does not run adds one they never chose. `radin update` installs no
+companion, so it keeps the recorded answer.
 
 `install.sh` reaches each tool through an existing install path
 (brew/mise/npm/pipx, a plugin marketplace, or the tool's own `curl`

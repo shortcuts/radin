@@ -44,8 +44,9 @@ Install asks two questions: one about `radin-execute`'s sub-agent models,
 one naming the package manager for companion tools. Add `-s -- --yes` to take the defaults. Add `-s -- --verbose` to
 trace every command, for an install that hangs or fails.
 
-Update the whole stack — radin plus every companion — with `radin update`. The
-answers come from `~/.claude/.radin/manifest.json`, so nothing is re-asked.
+Update radin itself with `radin update`. It asks the sub-agent model question
+again and runs no companion installer. Re-run `install.sh` to update the
+companions too.
 
 ## Use it
 

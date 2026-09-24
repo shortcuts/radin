@@ -401,7 +401,7 @@ pick_with_keys() {
 
 # The package-manager pick is what keeps radin off a manager the user doesn't
 # use: picking mise must install rtk and headroom through mise, never brew, and
-# the answer must survive into the manifest so `radin update` reuses it.
+# the answer must survive into the manifest so `radin update` keeps it.
 @test "picking mise installs rtk and headroom through mise, not brew" {
   ln "$MOCK_BIN/mock" "$MOCK_BIN/mise" 2>/dev/null || ln -s "$MOCK_BIN/mock" "$MOCK_BIN/mise"
   cd "$REPO_ROOT" && run bash -c "printf '2\n2\n' | bash ./install.sh"
@@ -446,19 +446,35 @@ pick_with_keys() {
 }
 
 
-# `radin update` runs install.sh --update: no question is asked again, and the
-# answers come from the manifest the previous install wrote.
-@test "--update reuses the recorded behaviour answers instead of asking" {
-  cd "$REPO_ROOT" && printf '1\n1\n1\n' | bash ./install.sh
+# `radin update` runs install.sh --update: radin's own steps and questions
+# only. No companion installer runs, and the package-manager answer, which
+# only companions use, comes from the manifest the previous install wrote.
+@test "--update asks the questions again and installs no companion tool" {
+  cd "$REPO_ROOT" && printf '2\n' | bash ./install.sh
   manifest="$TEST_HOME/.claude/.radin/manifest.json"
-  grep -q '"model_planning": "fable"' "$manifest"
+  grep -q '"package_manager": "brew"' "$manifest"
+  rm -f "$TEST_HOME"/*.log
 
-  run bash ./install.sh --update
+  run bash -c "printf '1\n1\n1\n' | bash ./install.sh --update"
   [ "$status" -eq 0 ]
-  [[ "$output" == *"keeping recorded sub-agent models: plan fable"* ]]
-  grep -q '"model_planning": "fable"' "$manifest"
+  [[ "$output" == *"sub-agent models: plan fable"* ]]
   grep -q 'fable' "$TEST_HOME/.claude/.radin/lib/radin-prompt-planning.md"
+  grep -q '"package_manager": "brew"' "$manifest"
+  [ ! -e "$TEST_HOME/brew.log" ]
+  [ ! -e "$TEST_HOME/npx.log" ]
+  [ ! -e "$TEST_HOME/pipx.log" ]
+  [ ! -e "$TEST_HOME/curl.log" ]
+  ! grep -qE 'install|update|marketplace' "$TEST_HOME/claude.log"
   [[ "$output" == *"radin updated"* ]]
+}
+
+# install is the one path that touches companions, so a tool already on PATH
+# still takes its install/upgrade command instead of being skipped.
+@test "install reinstalls a companion tool that is already installed" {
+  ln "$MOCK_BIN/mock" "$MOCK_BIN/rtk" 2>/dev/null || ln -s "$MOCK_BIN/mock" "$MOCK_BIN/rtk"
+  run real_install
+  [ "$status" -eq 0 ]
+  grep -q 'install rtk' "$TEST_HOME/brew.log"
 }
 
 @test "the install records its source root for radin update" {

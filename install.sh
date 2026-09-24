@@ -22,22 +22,16 @@ else
 	RESET=''
 fi
 
-FORCE=""
 YES=""
 UPDATE=""
 VERBOSE=""
 for arg in "$@"; do
-	[ "$arg" = "--force" ] && FORCE="1"
 	[ "$arg" = "--yes" ] && YES="1"
 	[ "$arg" = "--verbose" ] && VERBOSE="1"
-	# --update is what `radin update` runs: every companion tool updates, and
-	# no behaviour question is asked again -- the answers come from the
-	# manifest the last install wrote.
-	if [ "$arg" = "--update" ]; then
-		UPDATE="1"
-		FORCE="1"
-		YES="1"
-	fi
+	# --update is what `radin update` runs: radin's own files and questions
+	# only. Companion tools have their own update paths; a plain install
+	# re-runs every one of them.
+	[ "$arg" = "--update" ] && UPDATE="1"
 done
 
 MANIFEST_FILE="$HOME/.claude/.radin/manifest.json"
@@ -342,11 +336,7 @@ prompt_yn() {
 }
 
 install_tool() {
-	local name="$1" check_cmd="$2" install_cmd="$3"
-	if command -v "$check_cmd" >/dev/null 2>&1 && [ -z "$FORCE" ]; then
-		ok "$name already installed, skipping (--force to update)."
-		return
-	fi
+	local name="$1" install_cmd="$2"
 	# Companion installs are advisory: a failed one warns, never aborts radin's
 	# own install (set -e would otherwise kill the script here). Their output
 	# is noise on success (pip dependency walls, brew hints) -- log it, show
@@ -375,14 +365,10 @@ install_plugin() {
 	# Plugins install through the `claude` CLI and nothing else, so on a machine
 	# without it say so once per plugin instead of asking and then failing.
 	if ! command -v claude >/dev/null 2>&1; then
-		warn "$name skipped: the 'claude' CLI is not on PATH. Install Claude Code, then re-run with --force."
+		warn "$name skipped: the 'claude' CLI is not on PATH. Install Claude Code, then re-run install.sh."
 		return 0
 	fi
 	if claude plugin list 2>/dev/null | grep -q "$plugin_id"; then
-		if [ -z "$FORCE" ]; then
-			ok "$name already installed, skipping (--force to update)."
-			return
-		fi
 		if [ -n "$VERBOSE" ]; then
 			if {
 				claude plugin marketplace update
@@ -502,28 +488,7 @@ step "Sub-agent models"
 MODELS="fable opus sonnet haiku"
 SONNET_INDEX=3
 HAIKU_INDEX=4
-MODELS_RECORDED=""
-if [ -n "$UPDATE" ]; then
-	REC_PLANNING="$(manifest_value model_planning)"
-	REC_EXECUTION="$(manifest_value model_execution)"
-	REC_REVIEW="$(manifest_value model_review)"
-	REC_DEBUG="$(manifest_value model_debug)"
-	REC_FACTFIND="$(manifest_value model_factfind)"
-	# All five or none: a half-read manifest would silently mix recorded picks
-	# with defaults, which is worse than asking.
-	if [ -n "$REC_PLANNING" ] && [ -n "$REC_EXECUTION" ] && [ -n "$REC_REVIEW" ] &&
-		[ -n "$REC_DEBUG" ] && [ -n "$REC_FACTFIND" ]; then
-		MODEL_PLANNING="$REC_PLANNING"
-		MODEL_EXECUTION="$REC_EXECUTION"
-		MODEL_REVIEW="$REC_REVIEW"
-		MODEL_DEBUG="$REC_DEBUG"
-		MODEL_FACTFIND="$REC_FACTFIND"
-		MODELS_RECORDED="1"
-	fi
-fi
-if [ -n "$MODELS_RECORDED" ]; then
-	ok "keeping recorded sub-agent models: plan $MODEL_PLANNING, exec $MODEL_EXECUTION, review $MODEL_REVIEW, debug $MODEL_DEBUG, facts $MODEL_FACTFIND"
-elif prompt_yn "Choose radin-execute's sub-agent models? (defaults: sonnet, haiku for fact-finding)"; then
+if prompt_yn "Choose radin-execute's sub-agent models? (defaults: sonnet, haiku for fact-finding)"; then
 	# One pick covers the common case; the per-role walk is 5-6 pickers deep.
 	if [ "$(prompt_pick "Same model for every role? (default: yes)" 1 "yes" "no")" = "yes" ]; then
 		# shellcheck disable=SC2086  # word splitting is the point -- one arg per model
@@ -654,109 +619,6 @@ python_ok() {
 	return 1
 }
 
-step "Companion tools"
-# thermo-nuclear is vendored via the vercel-labs/skills CLI (agentskills.io
-# spec), not a Claude Code plugin -- cursor/plugins isn't a plugin marketplace
-# repo, just a SKILL.md at this subpath. Falls back to a raw curl of the file
-# if npx isn't available.
-if command -v npx >/dev/null 2>&1; then
-	NPX_LOG="$(mktemp)"
-	# </dev/null everywhere below: under `curl | bash` fd0 is the script itself,
-	# and a child that reads stdin eats the rest of it -- the install then just
-	# stops, silently, before the questions.
-	if ! npx -y skills add "https://github.com/cursor/plugins/tree/main/cursor-team-kit/skills/thermo-nuclear-code-quality-review" -g -a claude-code -y >"$NPX_LOG" 2>&1 </dev/null; then
-		cat "$NPX_LOG" >&2
-		rm -f "$NPX_LOG"
-		exit 1
-	fi
-	rm -f "$NPX_LOG"
-	# Renamed back to "thermo-nuclear" -- every radin agent/skill invokes it
-	# under that name, and skills CLI installs use the source folder's name.
-	# A rerun where the CLI kept an existing install writes no source folder,
-	# so guard the move instead of letting set -e abort the install there.
-	if [ -d "$HOME/.claude/skills/thermo-nuclear-code-quality-review" ]; then
-		rm -rf "$HOME/.claude/skills/thermo-nuclear"
-		mv "$HOME/.claude/skills/thermo-nuclear-code-quality-review" "$HOME/.claude/skills/thermo-nuclear"
-	fi
-else
-	warn "npx not found -- falling back to a direct SKILL.md download for thermo-nuclear."
-	mkdir -p "$HOME/.claude/skills/thermo-nuclear"
-	curl -fsSL "https://raw.githubusercontent.com/cursor/plugins/refs/heads/main/cursor-team-kit/skills/thermo-nuclear-code-quality-review/SKILL.md" \
-		-o "$HOME/.claude/skills/thermo-nuclear/SKILL.md"
-fi
-# Strip disable-model-invocation so radin-review can invoke thermo-nuclear as
-# a sub-skill; upstream sets it to block direct end-user invocation, which
-# also blocks our own agent-to-skill call. sed -i differs BSD/GNU -- write to
-# temp then mv, portable across both.
-THERMO_SKILL="$HOME/.claude/skills/thermo-nuclear/SKILL.md"
-if [ -f "$THERMO_SKILL" ]; then
-	THERMO_TMP="$(mktemp)"
-	grep -v '^disable-model-invocation:' "$THERMO_SKILL" >"$THERMO_TMP"
-	mv "$THERMO_TMP" "$THERMO_SKILL"
-fi
-ok "thermo-nuclear installed."
-
-# rtk and headroom ship in more than one package manager. Installing them with
-# brew on a mise-managed machine leaves behind a manager the user never chose,
-# so the one question here is which manager to install through. `curl` keeps
-# each tool's own installer (upstream script for rtk, pipx for headroom).
-PKG_CHOICES=""
-[ -n "$BREW" ] && PKG_CHOICES="$PKG_CHOICES brew"
-[ -n "$MISE" ] && PKG_CHOICES="$PKG_CHOICES mise"
-PKG_MGR=""
-[ -n "$UPDATE" ] && PKG_MGR="$(manifest_value package_manager)"
-if [ -n "$PKG_MGR" ]; then
-	ok "keeping recorded package manager: $PKG_MGR"
-elif [ -n "$PKG_CHOICES" ]; then
-	# shellcheck disable=SC2086  # word splitting is the point -- one arg per manager
-	PKG_MGR="$(prompt_pick "install rtk and headroom through" 1 $PKG_CHOICES "curl")"
-else
-	PKG_MGR="curl"
-fi
-# A manager that doesn't carry the tool falls through to `curl`'s command, so
-# every case below ends up installable: brew has no headroom-ai formula, and
-# neither manager is asked for codebase-memory-mcp -- its own installer
-# resolves OS/arch and verifies checksums, which radin doesn't reimplement.
-case "$PKG_MGR" in
-brew) RTK_INSTALL_CMD="HOMEBREW_NO_AUTO_UPDATE=1 $BREW install rtk || HOMEBREW_NO_AUTO_UPDATE=1 $BREW upgrade rtk" ;;
-mise) RTK_INSTALL_CMD="$MISE use -g aqua:rtk-ai/rtk@latest" ;;
-*) RTK_INSTALL_CMD="curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh | sh" ;;
-esac
-install_tool "rtk" "rtk" "$RTK_INSTALL_CMD"
-
-# codebase-memory-mcp ships one static binary and its own installer resolves
-# OS/arch and verifies checksums, so radin delegates instead of reimplementing
-# that (same reasoning as rtk's fallback). `--skip-config` is not optional
-# here: without it, upstream writes MCP entries, a skill, three agent
-# definitions and SessionStart/SubagentStart/PreToolUse hooks into ~/.claude
-# across 45 client surfaces. radin owns every ~/.claude write, and
-# `radin hooks` does the two it wants, merge-only.
-install_tool "codebase-memory-mcp" "codebase-memory-mcp" \
-	"curl -fsSL https://raw.githubusercontent.com/DeusData/codebase-memory-mcp/main/install.sh | bash -s -- --skip-config"
-
-# headroom complements rtk (whole-session wrap vs per-command output
-# compression), not a replacement -- never phrase this as preferred over rtk.
-# python_ok gates the pip path only: mise's pipx backend brings its own
-# interpreter, so a broken system python3 doesn't apply there.
-if [ "$PKG_MGR" = mise ]; then
-	HEADROOM_INSTALL_CMD="$MISE use -g pipx:headroom-ai@latest"
-else
-	HEADROOM_INSTALL_CMD="python_ok && { pipx --version >/dev/null 2>&1 && pipx install --force headroom-ai || pip3 install --user --upgrade headroom-ai; }"
-fi
-install_tool "headroom" "headroom" "$HEADROOM_INSTALL_CMD"
-
-# caveman ships as a Claude Code plugin (not an npm package) -- installs via
-# the plugin marketplace flow, same as the interactive `/plugin` command.
-install_plugin "caveman" "caveman@caveman" "JuliusBrussee/caveman"
-
-# ponytail ships as a Claude Code plugin too -- same marketplace flow.
-install_plugin "ponytail" "ponytail@ponytail" "DietrichGebert/ponytail"
-
-# mattpocock-skills ships from Anthropic's own official marketplace, not a
-# third-party repo. radin-plan invokes its /grilling and /research skills
-# rather than reimplementing an interview loop or a research step.
-install_plugin "mattpocock-skills" "mattpocock-skills@claude-plugins-official" "anthropics/claude-plugins-official"
-
 # Its own installer's default target isn't on PATH in every shell, so resolve
 # the just-installed binary by path too.
 cbm_bin() {
@@ -767,64 +629,171 @@ cbm_bin() {
 	printf '%s' "$bin"
 }
 
-CBM_AGENT_CONFIG="false"
-if CBM_BIN="$(cbm_bin)"; then
-	# auto_index is off upstream, which leaves a wired session querying an empty
-	# graph until someone indexes by hand. Idempotent, so it also fixes an
-	# install that predates this line.
-	if ! "$CBM_BIN" config set auto_index true >/dev/null 2>&1; then
-		warn "could not enable codebase-memory-mcp auto-index -- run: codebase-memory-mcp config set auto_index true"
-	fi
-
-	# The whole tool: binary, then upstream's own Claude Code configuration (its
-	# skill, three graph agents, user-scope MCP entry, and the hooks that route
-	# Grep/Glob to the graph).
-	# This step wraps that write because upstream #1200 (open through v0.10.8)
-	# replaces the whole SessionStart array in settings.json instead of
-	# merging: it snapshots first, runs their installer, then puts back every
-	# pre-existing hook and MCP entry the write dropped. Their entries stay,
-	# yours come back, and `codebase-memory-mcp update` can be followed by
-	# `radin repair` for the same reason -- the caller names no companion.
-	if [ -x "$HOME/.claude/.radin/bin/radin-cbm-json" ]; then
-		# Same contract as install_tool: the per-item trace (SNAPSHOT/STASHED/
-		# RESTORED/INTACT/CBM, and upstream's own 45-client inventory on a
-		# failed run) is what a failure needs and noise on success, so it all
-		# stays in one log and never reaches the terminal. Its own exit code
-		# only says whether the graph came out wired: a PARTIAL run exits 0,
-		# so read that back out of the log rather than claiming success.
-		CBM_LOG="$HOME/.claude/.radin/cbm-config.log"
-		if [ -n "$VERBOSE" ]; then
-			bash "$HOME/.claude/.radin/lib/radin-cbm-config.sh" install </dev/null 2>&1 | tee "$CBM_LOG"
-			CBM_STATUS="${PIPESTATUS[0]}"
-		else
-			bash "$HOME/.claude/.radin/lib/radin-cbm-config.sh" install >"$CBM_LOG" 2>&1 </dev/null
-			CBM_STATUS="$?"
+if [ -n "$UPDATE" ]; then
+	# Neither answer is re-derived without the companion step, and the manifest
+	# is rewritten wholesale below, so carry both over.
+	PKG_MGR="$(manifest_value package_manager)"
+	CBM_AGENT_CONFIG="$(manifest_value cbm_agent_config)"
+	[ -n "$CBM_AGENT_CONFIG" ] || CBM_AGENT_CONFIG="false"
+else
+	step "Companion tools"
+	# thermo-nuclear is vendored via the vercel-labs/skills CLI (agentskills.io
+	# spec), not a Claude Code plugin -- cursor/plugins isn't a plugin marketplace
+	# repo, just a SKILL.md at this subpath. Falls back to a raw curl of the file
+	# if npx isn't available.
+	if command -v npx >/dev/null 2>&1; then
+		NPX_LOG="$(mktemp)"
+		# </dev/null everywhere below: under `curl | bash` fd0 is the script itself,
+		# and a child that reads stdin eats the rest of it -- the install then just
+		# stops, silently, before the questions.
+		if ! npx -y skills add "https://github.com/cursor/plugins/tree/main/cursor-team-kit/skills/thermo-nuclear-code-quality-review" -g -a claude-code -y >"$NPX_LOG" 2>&1 </dev/null; then
+			cat "$NPX_LOG" >&2
+			rm -f "$NPX_LOG"
+			exit 1
 		fi
-		if [ "$CBM_STATUS" = 0 ]; then
-			CBM_AGENT_CONFIG="true"
-			if grep -q '^PARTIAL ' "$CBM_LOG"; then
-				warn "codebase-memory-mcp reported a failure while configuring Claude Code,"
-				warn "but its hooks and MCP entry are in place. Details: ${BOLD}$CBM_LOG${RESET}"
+		rm -f "$NPX_LOG"
+		# Renamed back to "thermo-nuclear" -- every radin agent/skill invokes it
+		# under that name, and skills CLI installs use the source folder's name.
+		# A rerun where the CLI kept an existing install writes no source folder,
+		# so guard the move instead of letting set -e abort the install there.
+		if [ -d "$HOME/.claude/skills/thermo-nuclear-code-quality-review" ]; then
+			rm -rf "$HOME/.claude/skills/thermo-nuclear"
+			mv "$HOME/.claude/skills/thermo-nuclear-code-quality-review" "$HOME/.claude/skills/thermo-nuclear"
+		fi
+	else
+		warn "npx not found -- falling back to a direct SKILL.md download for thermo-nuclear."
+		mkdir -p "$HOME/.claude/skills/thermo-nuclear"
+		curl -fsSL "https://raw.githubusercontent.com/cursor/plugins/refs/heads/main/cursor-team-kit/skills/thermo-nuclear-code-quality-review/SKILL.md" \
+			-o "$HOME/.claude/skills/thermo-nuclear/SKILL.md"
+	fi
+	# Strip disable-model-invocation so radin-review can invoke thermo-nuclear as
+	# a sub-skill; upstream sets it to block direct end-user invocation, which
+	# also blocks our own agent-to-skill call. sed -i differs BSD/GNU -- write to
+	# temp then mv, portable across both.
+	THERMO_SKILL="$HOME/.claude/skills/thermo-nuclear/SKILL.md"
+	if [ -f "$THERMO_SKILL" ]; then
+		THERMO_TMP="$(mktemp)"
+		grep -v '^disable-model-invocation:' "$THERMO_SKILL" >"$THERMO_TMP"
+		mv "$THERMO_TMP" "$THERMO_SKILL"
+	fi
+	ok "thermo-nuclear installed."
+
+	# rtk and headroom ship in more than one package manager. Installing them with
+	# brew on a mise-managed machine leaves behind a manager the user never chose,
+	# so the one question here is which manager to install through. `curl` keeps
+	# each tool's own installer (upstream script for rtk, pipx for headroom).
+	PKG_CHOICES=""
+	[ -n "$BREW" ] && PKG_CHOICES="$PKG_CHOICES brew"
+	[ -n "$MISE" ] && PKG_CHOICES="$PKG_CHOICES mise"
+	if [ -n "$PKG_CHOICES" ]; then
+		# shellcheck disable=SC2086  # word splitting is the point -- one arg per manager
+		PKG_MGR="$(prompt_pick "install rtk and headroom through" 1 $PKG_CHOICES "curl")"
+	else
+		PKG_MGR="curl"
+	fi
+	# A manager that doesn't carry the tool falls through to `curl`'s command, so
+	# every case below ends up installable: brew has no headroom-ai formula, and
+	# neither manager is asked for codebase-memory-mcp -- its own installer
+	# resolves OS/arch and verifies checksums, which radin doesn't reimplement.
+	case "$PKG_MGR" in
+	brew) RTK_INSTALL_CMD="HOMEBREW_NO_AUTO_UPDATE=1 $BREW install rtk || HOMEBREW_NO_AUTO_UPDATE=1 $BREW upgrade rtk" ;;
+	mise) RTK_INSTALL_CMD="$MISE use -g aqua:rtk-ai/rtk@latest" ;;
+	*) RTK_INSTALL_CMD="curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh | sh" ;;
+	esac
+	install_tool "rtk" "$RTK_INSTALL_CMD"
+
+	# codebase-memory-mcp ships one static binary and its own installer resolves
+	# OS/arch and verifies checksums, so radin delegates instead of reimplementing
+	# that (same reasoning as rtk's fallback). `--skip-config` is not optional
+	# here: without it, upstream writes MCP entries, a skill, three agent
+	# definitions and SessionStart/SubagentStart/PreToolUse hooks into ~/.claude
+	# across 45 client surfaces. radin owns every ~/.claude write, and
+	# `radin hooks` does the two it wants, merge-only.
+	install_tool "codebase-memory-mcp" \
+		"curl -fsSL https://raw.githubusercontent.com/DeusData/codebase-memory-mcp/main/install.sh | bash -s -- --skip-config"
+
+	# headroom complements rtk (whole-session wrap vs per-command output
+	# compression), not a replacement -- never phrase this as preferred over rtk.
+	# python_ok gates the pip path only: mise's pipx backend brings its own
+	# interpreter, so a broken system python3 doesn't apply there.
+	if [ "$PKG_MGR" = mise ]; then
+		HEADROOM_INSTALL_CMD="$MISE use -g pipx:headroom-ai@latest"
+	else
+		HEADROOM_INSTALL_CMD="python_ok && { pipx --version >/dev/null 2>&1 && pipx install --force headroom-ai || pip3 install --user --upgrade headroom-ai; }"
+	fi
+	install_tool "headroom" "$HEADROOM_INSTALL_CMD"
+
+	# caveman ships as a Claude Code plugin (not an npm package) -- installs via
+	# the plugin marketplace flow, same as the interactive `/plugin` command.
+	install_plugin "caveman" "caveman@caveman" "JuliusBrussee/caveman"
+
+	# ponytail ships as a Claude Code plugin too -- same marketplace flow.
+	install_plugin "ponytail" "ponytail@ponytail" "DietrichGebert/ponytail"
+
+	# mattpocock-skills ships from Anthropic's own official marketplace, not a
+	# third-party repo. radin-plan invokes its /grilling and /research skills
+	# rather than reimplementing an interview loop or a research step.
+	install_plugin "mattpocock-skills" "mattpocock-skills@claude-plugins-official" "anthropics/claude-plugins-official"
+
+	CBM_AGENT_CONFIG="false"
+	if CBM_BIN="$(cbm_bin)"; then
+		# auto_index is off upstream, which leaves a wired session querying an empty
+		# graph until someone indexes by hand. Idempotent, so it also fixes an
+		# install that predates this line.
+		if ! "$CBM_BIN" config set auto_index true >/dev/null 2>&1; then
+			warn "could not enable codebase-memory-mcp auto-index -- run: codebase-memory-mcp config set auto_index true"
+		fi
+
+		# The whole tool: binary, then upstream's own Claude Code configuration (its
+		# skill, three graph agents, user-scope MCP entry, and the hooks that route
+		# Grep/Glob to the graph).
+		# This step wraps that write because upstream #1200 (open through v0.10.8)
+		# replaces the whole SessionStart array in settings.json instead of
+		# merging: it snapshots first, runs their installer, then puts back every
+		# pre-existing hook and MCP entry the write dropped. Their entries stay,
+		# yours come back, and `codebase-memory-mcp update` can be followed by
+		# `radin repair` for the same reason -- the caller names no companion.
+		if [ -x "$HOME/.claude/.radin/bin/radin-cbm-json" ]; then
+			# Same contract as install_tool: the per-item trace (SNAPSHOT/STASHED/
+			# RESTORED/INTACT/CBM, and upstream's own 45-client inventory on a
+			# failed run) is what a failure needs and noise on success, so it all
+			# stays in one log and never reaches the terminal. Its own exit code
+			# only says whether the graph came out wired: a PARTIAL run exits 0,
+			# so read that back out of the log rather than claiming success.
+			CBM_LOG="$HOME/.claude/.radin/cbm-config.log"
+			if [ -n "$VERBOSE" ]; then
+				bash "$HOME/.claude/.radin/lib/radin-cbm-config.sh" install </dev/null 2>&1 | tee "$CBM_LOG"
+				CBM_STATUS="${PIPESTATUS[0]}"
 			else
-				ok "codebase-memory-mcp wired: skill, graph agents, hooks, user-scope MCP (every repo, no per-project step)."
+				bash "$HOME/.claude/.radin/lib/radin-cbm-config.sh" install >"$CBM_LOG" 2>&1 </dev/null
+				CBM_STATUS="$?"
+			fi
+			if [ "$CBM_STATUS" = 0 ]; then
+				CBM_AGENT_CONFIG="true"
+				if grep -q '^PARTIAL ' "$CBM_LOG"; then
+					warn "codebase-memory-mcp reported a failure while configuring Claude Code,"
+					warn "but its hooks and MCP entry are in place. Details: ${BOLD}$CBM_LOG${RESET}"
+				else
+					ok "codebase-memory-mcp wired: skill, graph agents, hooks, user-scope MCP (every repo, no per-project step)."
+				fi
+			else
+				warn "codebase-memory-mcp configuration failed -- radin itself is unaffected."
+				warn "Your own hooks were restored from the snapshot. Details: ${BOLD}$CBM_LOG${RESET}"
+				info "Falling back to radin's merge-only wiring:"
+				bash "$HOME/.claude/.radin/lib/radin-cbm-hooks.sh" claude-md || true
+				info "Then run /radin-setup-hooks in each repo for its .mcp.json entry."
 			fi
 		else
-			warn "codebase-memory-mcp configuration failed -- radin itself is unaffected."
-			warn "Your own hooks were restored from the snapshot. Details: ${BOLD}$CBM_LOG${RESET}"
-			info "Falling back to radin's merge-only wiring:"
+			# The restore step is the compiled JSON helper, and running upstream's
+			# write without it is how a machine loses caveman's and ponytail's
+			# SessionStart hooks. A smaller install beats a destructive write with
+			# no restore behind it.
+			warn "no C compiler -- skipping upstream's own Claude Code configuration:"
+			warn "its write drops other tools' SessionStart hooks (#1200) and radin"
+			warn "needs radin-cbm-json to put them back. Using the merge-only wiring."
 			bash "$HOME/.claude/.radin/lib/radin-cbm-hooks.sh" claude-md || true
 			info "Then run /radin-setup-hooks in each repo for its .mcp.json entry."
 		fi
-	else
-		# The restore step is the compiled JSON helper, and running upstream's
-		# write without it is how a machine loses caveman's and ponytail's
-		# SessionStart hooks. A smaller install beats a destructive write with
-		# no restore behind it.
-		warn "no C compiler -- skipping upstream's own Claude Code configuration:"
-		warn "its write drops other tools' SessionStart hooks (#1200) and radin"
-		warn "needs radin-cbm-json to put them back. Using the merge-only wiring."
-		bash "$HOME/.claude/.radin/lib/radin-cbm-hooks.sh" claude-md || true
-		info "Then run /radin-setup-hooks in each repo for its .mcp.json entry."
 	fi
 fi
 
@@ -927,4 +896,4 @@ else
 	info "Open Claude Code in a repo and run ${BOLD}/radin-record${RESET} to file your first"
 	info "task, then ${BOLD}/radin-execute${RESET} to work the backlog. ${BOLD}radin${RESET} opens the TUI."
 fi
-info "${BOLD}radin doctor${RESET} checks this install · ${BOLD}radin update${RESET} updates the whole stack."
+info "${BOLD}radin doctor${RESET} checks this install · ${BOLD}radin update${RESET} updates radin itself."

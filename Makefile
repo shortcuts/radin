@@ -1,10 +1,7 @@
-.PHONY: install install-force update build run test lint clean
+.PHONY: install update build run test lint clean
 
 install:
 	./install.sh
-
-install-force:
-	./install.sh --force
 
 update:
 	./install.sh --update
