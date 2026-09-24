@@ -4,6 +4,8 @@
 # shared JSON helpers in radin-json.sh from the state side (note escaping,
 # field extraction).
 
+bats_require_minimum_version 1.5.0
+
 setup() {
   REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
   CLI="$REPO_ROOT/lib/radin-state.sh"
@@ -104,7 +106,7 @@ cli() {
   [ "$status" -eq 0 ]
   [ "${lines[${#lines[@]}-1]}" = "$WORK/repo" ]
   [ "$(git -C "$WORK/repo" rev-parse --abbrev-ref HEAD)" = "$base" ]
-  ! git -C "$WORK/repo" rev-parse --verify -q radin/a
+  run ! git -C "$WORK/repo" rev-parse --verify -q radin/a
   [ ! -d "$WORK/repo-a" ]
   # The branch is recorded even here, where no derivation could see it.
   [[ "$(cat "$ns/state/prepared/a.json")" == *"\"branch\":\"$base\""*'"worktree":""'* ]]

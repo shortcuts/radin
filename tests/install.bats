@@ -4,6 +4,8 @@
 # reduced to MOCK_BIN + core system dirs so real rtk/codebase-memory-mcp/brew
 # installs on the dev machine can't leak into "not installed" assertions.
 
+bats_require_minimum_version 1.5.0
+
 setup() {
   REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
 
@@ -126,7 +128,7 @@ run_install_defaults() {
 # every dispatch would fail, so no installed file may keep one.
 @test "writes a model into every sub-agent role, leaving no marker behind" {
   run_install_defaults
-  ! grep -rq 'RADIN_MODEL_' "$TEST_HOME/.claude/skills" "$TEST_HOME/.claude/.radin/lib"
+  run ! grep -rq --exclude=radin-doctor.sh 'RADIN_MODEL_' "$TEST_HOME/.claude/skills" "$TEST_HOME/.claude/.radin/lib"
   grep -q 'model: "sonnet"' "$TEST_HOME/.claude/.radin/lib/radin-run.md"
   grep -q 'model: "haiku"' "$TEST_HOME/.claude/.radin/lib/radin-prompt-factfind.md"
 }
@@ -138,7 +140,7 @@ run_install_defaults() {
   cd "$REPO_ROOT" && run bash -c "printf '1\n1\n2\n' | bash ./install.sh"
   [ "$status" -eq 0 ]
   grep -q '"model_planning": "opus"' "$TEST_HOME/.claude/.radin/manifest.json"
-  ! grep -rq 'RADIN_MODEL_' "$TEST_HOME/.claude/skills" "$TEST_HOME/.claude/.radin/lib"
+  run ! grep -rq --exclude=radin-doctor.sh 'RADIN_MODEL_' "$TEST_HOME/.claude/skills" "$TEST_HOME/.claude/.radin/lib"
   grep -q 'model: "opus"' "$TEST_HOME/.claude/.radin/lib/radin-run.md"
   grep -q 'model: "opus"' "$TEST_HOME/.claude/.radin/lib/radin-prompt-factfind.md"
   ! grep -q 'model: "haiku"' "$TEST_HOME/.claude/.radin/lib/radin-prompt-factfind.md"
@@ -215,7 +217,7 @@ run_install_defaults() {
 # dispatcher path is written -- bare `radin` would break every skill here.
 @test "RADIN_CLI resolves to the full path when ~/.local/bin is off PATH" {
   run_install_defaults
-  ! grep -rq 'RADIN_CLI' "$TEST_HOME/.claude/skills" "$TEST_HOME/.claude/.radin/lib"
+  run ! grep -rq --exclude=radin-doctor.sh 'RADIN_CLI' "$TEST_HOME/.claude/skills" "$TEST_HOME/.claude/.radin/lib"
   grep -q '"$HOME/.claude/.radin/bin/radin" backlog' "$TEST_HOME/.claude/.radin/lib/radin-run.md"
 }
 
@@ -226,8 +228,8 @@ run_install_defaults() {
 @test "RADIN_LIB resolves to the installed lib directory" {
   run_install_defaults
   run_doc="$TEST_HOME/.claude/.radin/lib/radin-run.md"
-  ! grep -rq 'RADIN_LIB' "$TEST_HOME/.claude/skills" "$run_doc"
-  ! grep -q '$HOME/.claude/.radin/lib' "$run_doc"
+  run ! grep -rq 'RADIN_LIB' "$TEST_HOME/.claude/skills" "$run_doc"
+  run ! grep -q '$HOME/.claude/.radin/lib' "$run_doc"
   grep -q "$TEMPLATE/home/.claude/.radin/lib/radin-execute-clarify.md" "$run_doc"
   for s in radin-execute radin-implement; do
     grep -q "$TEMPLATE/home/.claude/.radin/lib/radin-run.md" "$TEST_HOME/.claude/skills/$s/SKILL.md"
@@ -296,7 +298,7 @@ run_install_defaults() {
 @test "the skill ships no per-task verification pass" {
   run_install_defaults
   agent="$TEST_HOME/.claude/.radin/lib/radin-run.md"
-  ! grep -qi "refut" "$agent"
+  run ! grep -qi "refut" "$agent"
   grep -q "Never verify a .SUCCESS. yourself" "$agent"
 }
 
@@ -305,8 +307,8 @@ run_install_defaults() {
 @test "only radin-execute dispatches a planning sub-agent" {
   run_install_defaults
   grep -q -- "--plan-first" "$TEST_HOME/.claude/skills/radin-execute/SKILL.md"
-  ! grep -q -- "--plan-first" "$TEST_HOME/.claude/skills/radin-implement/SKILL.md"
-  ! grep -q -- "--plan-first" "$TEST_HOME/.claude/.radin/lib/radin-run.md"
+  run ! grep -q -- "--plan-first" "$TEST_HOME/.claude/skills/radin-implement/SKILL.md"
+  run ! grep -q -- "--plan-first" "$TEST_HOME/.claude/.radin/lib/radin-run.md"
   grep -q '"radin-implement"' "$TEST_HOME/.claude/.radin/manifest.json"
   grep -q '"radin-run.md"' "$TEST_HOME/.claude/.radin/manifest.json"
 }
@@ -431,8 +433,8 @@ pick_with_keys() {
   [ ! -e "$TEST_HOME/npx.log" ]
   [ ! -e "$TEST_HOME/pipx.log" ]
   [ ! -e "$TEST_HOME/curl.log" ]
-  ! grep -qE 'install|update|marketplace' "$TEST_HOME/claude.log"
   [[ "$output" == *"radin updated"* ]]
+  run ! grep -qE 'install|update|marketplace' "$TEST_HOME/claude.log"
 }
 
 # install is the one path that touches companions, so a tool already on PATH

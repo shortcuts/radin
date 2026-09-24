@@ -3,6 +3,8 @@
 # the non-terminal guard. Every mutation is asserted on the backlog store,
 # never on the drawn frame, so the assertions survive a layout change.
 
+bats_require_minimum_version 1.5.0
+
 setup() {
   REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
   TUI="$REPO_ROOT/lib/radin-tui"
@@ -700,18 +702,17 @@ planned_body() {
 }
 
 @test "h and l on an epic header row change nothing" {
-  seed
   two_epics
-  snapshot
-  run wide "l|q"
+  # Row 1 is the aaa-epic header, row 2 its child. The view sticks as the
+  # selection moves, so the child shows which view the epic row left behind.
+  run wide "l|j|q"
   [ "$status" -eq 0 ]
   run last_frame
-  # Row 1 is the aaa-epic header, and an epic has no plan, so the pane keeps
-  # its epic document and draws no marker line.
-  [[ "$output" == *"epic: aaa-epic"* ]]
-  ! grep -q 'body.*plan' <<<"$output"
-  [ "$(last_pos)" = "[1/6]" ]
-  unchanged
+  [[ "$output" == *"aaa body"* ]]
+  run wide "j|l|k|h|j|q"
+  [ "$status" -eq 0 ]
+  run last_frame
+  [[ "$output" == *"no plan yet"* ]]
 }
 
 @test "the detail pane renders markdown beside the tree at 120 columns" {
