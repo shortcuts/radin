@@ -27,6 +27,17 @@ teardown() {
   [ -d "$WORK/proj/.claude/.radin/backlog/tasks" ]
 }
 
+# A worktree-mode sub-agent runs in <repo>-<id> and must reach the one backlog.
+@test "a linked worktree resolves to its main checkout" {
+  git init -q "$WORK/proj"
+  git -C "$WORK/proj" -c user.email=t@t -c user.name=t commit -q --allow-empty -m init
+  git -C "$WORK/proj" worktree add -q "$WORK/proj-a"
+  run bash -c "cd '$WORK/proj-a' && bash '$NS_SCRIPT'"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"BACKLOG_INDEX=$WORK/proj/.claude/.radin/backlog/index.jsonl"* ]]
+  [ ! -e "$WORK/proj-a/.claude" ]
+}
+
 @test "falls back to \$PWD outside any git repo" {
   mkdir -p "$WORK/plain"
   run bash -c "cd '$WORK/plain' && bash '$NS_SCRIPT'"

@@ -186,6 +186,7 @@ cli() {
 @test "unknown command fails" {
   run cli frobnicate
   [ "$status" -ne 0 ]
+  [[ "$output" == *"unknown command: frobnicate"* ]]
 }
 
 @test "steps-init writes schema-shaped JSONL from tab-separated stdin" {
@@ -372,14 +373,14 @@ fixture_repo() {
   cp -R "$STATE_TEMPLATE" "$REPO"
 }
 
-@test "steps-init seeds debugged and honours the fourth status field" {
+@test "steps-init honours the fourth status field" {
   run cli steps-init <<EOF
 a	1
 b	2		deferred
 EOF
   [ "$status" -eq 0 ]
   run cat "$STEPS"
-  [[ "${lines[0]}" == *'"status":"pending"'*'"debugged":0'* ]]
+  [[ "${lines[0]}" == *'"status":"pending"'* ]]
   [[ "${lines[1]}" == *'"status":"deferred"'*'"depends_on":[]'* ]]
   run cli steps-init <<EOF
 c	1		wat

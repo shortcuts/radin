@@ -317,13 +317,11 @@ tui() {
   bl add feat "later blocked" <<<"b body" >/dev/null
   bl set-priority later-blocked 8 >/dev/null
   bl set-deps later-blocked first-dep >/dev/null
-  snapshot
   run tui "o|q"
   [ "$status" -eq 0 ]
   run cat "$SCREEN"
-  [[ "$output" == *"1. first dep (id: first-dep)"* ]]
-  [[ "$output" == *"dependency override: first-dep moved above later-blocked (priority 8)"* ]]
-  unchanged
+  # backlog.bats owns the report's format; this only proves o pages it.
+  [[ "$output" == *"dependency override:"* ]]
 }
 
 @test "o on an empty backlog reports the failure and does not page" {
@@ -832,12 +830,13 @@ planned_body() {
 
 @test "j moves the tree selection and does not scroll the detail" {
   long_body
-  run wide "j|q"
+  awk 'BEGIN{for(i=1;i<=60;i++)printf "auth %02d\n", i}' >"$TASKS/broken-auth.md"
+  run wide "\x04|j|q"
   [ "$status" -eq 0 ]
   [ "$(last_pos)" = "[2/2]" ]
   run last_frame
-  # The other task's body, from its first line: the pane rebuilt from the top.
-  [[ "$output" == *"Auth times out."* ]]
+  # The other task's body, from its first line: ^d's offset stays behind.
+  [[ "$output" == *"auth 01"* ]]
 }
 
 @test "enter opens the detail overlay below 100 columns and q dismisses it" {

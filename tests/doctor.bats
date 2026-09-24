@@ -84,12 +84,13 @@ EOF
   [[ "$output" == *"codebase-memory-mcp"*"not found"* ]]
 }
 
-@test "does not mutate the filesystem outside HOME/.claude" {
+@test "writes nothing, in HOME or in the working directory" {
   install_all_expected
   WORK="$(mktemp -d)"
+  touch "$BATS_TEST_TMPDIR/before"
   run env HOME="$TEST_HOME" bash -c "cd '$WORK' && bash '$CLI'"
   [ "$status" -eq 0 ]
-  [ -z "$(ls -A "$WORK")" ]
+  [ -z "$(find "$TEST_HOME" "$WORK" -newer "$BATS_TEST_TMPDIR/before")" ]
   rm -rf "$WORK"
 }
 

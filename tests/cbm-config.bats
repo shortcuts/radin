@@ -272,6 +272,7 @@ EOF
   run bash "$CLI" repair
   [ "$status" -ne 0 ]
   [ "$(cat "$TEST_HOME/.claude/settings.json")" = "not json" ]
+  grep -q '"model": "opus"' "$TEST_HOME/.claude/.radin/backups/"settings.json.*.bak
 }
 
 # Reproduces upstream #1722: writes under a symlinked ~/.claude are refused,

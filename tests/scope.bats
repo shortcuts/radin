@@ -51,6 +51,7 @@ record_done() {
   base="$(cd "$WORK/repo" && git merge-base main HEAD)"
   [[ "$output" == *"type"$'\t'"branch-diff"* ]]
   [[ "$output" == *"git diff $base..HEAD"* ]]
+  [[ "$output" == *"passes"$'\t'"/ponytail:ponytail-review"* ]]
 }
 
 @test "a commit hash resolves to a commit scope" {
@@ -59,6 +60,7 @@ record_done() {
   [ "$status" -eq 0 ]
   [[ "$output" == *"type"$'\t'"commit"* ]]
   [[ "$output" == *"git diff $hash^..$hash"* ]]
+  [[ "$output" == *"passes"$'\t'"/ponytail:ponytail-review"* ]]
 }
 
 @test "a directory resolves to a dir scope" {
@@ -66,7 +68,8 @@ record_done() {
   run cli "src"
   [ "$status" -eq 0 ]
   [[ "$output" == *"type"$'\t'"dir"* ]]
-  [[ "$output" == *"src"* ]]
+  [[ "$output" == *"passes"$'\t'"/ponytail:ponytail-audit /ponytail:ponytail-debt"* ]]
+  [[ "$output" != *"ponytail-review"* ]]
 }
 
 @test "#-prefixed PR resolves via gh, fails when gh doesn't know it" {
@@ -94,14 +97,21 @@ record_done() {
 
 @test "a date phrase resolves to the range starting before its oldest commit" {
   ( cd "$WORK/repo"
+    GIT_COMMITTER_DATE=2020-01-01T00:00:00 git commit -q --amend --no-edit --date=2020-01-01T00:00:00
     printf 'b\n' > f.txt && git commit -qam second )
-  oldest="$(cd "$WORK/repo" && git log --since=yesterday --format=%H | tail -1)"
+  second="$(cd "$WORK/repo" && git rev-parse HEAD)"
   run cli "since yesterday"
   [ "$status" -eq 0 ]
   [[ "$output" == *"type"$'\t'"range"* ]]
-  # The window reaches the root commit, so the left side is the empty tree.
+  [[ "$output" == *"git diff $second~1..HEAD"* ]]
+}
+
+@test "a date window that reaches the root commit starts from the empty tree" {
+  ( cd "$WORK/repo"
+    printf 'b\n' > f.txt && git commit -qam second )
+  run cli "since yesterday"
+  [ "$status" -eq 0 ]
   empty="$(cd "$WORK/repo" && git hash-object -t tree /dev/null)"
-  [ "$oldest" = "$(cd "$WORK/repo" && git rev-list --max-parents=0 HEAD)" ]
   [[ "$output" == *"git diff $empty..HEAD"* ]]
 }
 
@@ -114,19 +124,6 @@ record_done() {
   [[ "$output" == *"ambiguous"* ]]
   [[ "$output" == *"pr"* ]]
   [[ "$output" == *"dir"* ]]
-}
-
-@test "every resolved type names the ponytail passes it calls for" {
-  mkdir -p "$WORK/repo/src"
-  run cli "src"
-  [ "$status" -eq 0 ]
-  [[ "$output" == *"passes"$'\t'"/ponytail:ponytail-audit /ponytail:ponytail-debt"* ]]
-  [[ "$output" != *"ponytail-review"* ]]
-  hash="$(cd "$WORK/repo" && git rev-parse HEAD)"
-  run cli "$hash"
-  [[ "$output" == *"passes"$'\t'"/ponytail:ponytail-review"* ]]
-  run cli
-  [[ "$output" == *"passes"$'\t'"/ponytail:ponytail-review"* ]]
 }
 
 @test "a commit-count range resolves, and one longer than the history does not" {

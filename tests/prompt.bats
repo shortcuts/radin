@@ -171,14 +171,17 @@ assembled() {
   [[ "$output" != *"QUESTION"* ]]
 }
 
-@test "debug and factfind refuse to assemble without their third argument" {
+@test "prompt assembly refuses bad input" {
   backlog add fix "a bug" <<<"It breaks."
   run assembled debug a-bug
   [ "$status" -ne 0 ]
+  [[ "$output" == *"needs the failure reason"* ]]
   run assembled factfind a-bug
   [ "$status" -ne 0 ]
+  [[ "$output" == *"needs the question"* ]]
   run assembled execution no-such-task
   [ "$status" -ne 0 ]
+  [[ "$output" == *"no backlog task matches: no-such-task"* ]]
   run assembled wat a-bug
   [ "$status" -ne 0 ]
   [[ "$output" == *"unknown prompt kind"* ]]
