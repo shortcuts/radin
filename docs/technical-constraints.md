@@ -205,7 +205,7 @@ directly, or records entry `blocked` and moves on.
 
 Skill instructions user recorded on entry's `skills` key pass through to
 execution sub-agent unfiltered except for this one class. Filtering happens at forward point in
-`skills/radin-execute/SKILL.md` Step 4b, and dropped skill named in Phase 5
+`radin state task-next`, and dropped skill named in Phase 5
 summary so user can run it themselves.
 
 ## Background sub-agents keep a smaller built-in tool set

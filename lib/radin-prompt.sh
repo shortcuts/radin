@@ -10,8 +10,11 @@
 #   radin-prompt.sh debug     <id> <failure reason>
 #   radin-prompt.sh factfind  <id> <question>
 #
-# Prints `model<TAB><name>`, then a `--- prompt ---` line, then the prompt to
-# send. Exit 1 on a bad kind, an unresolvable id, or an unresolved dependency.
+# Writes the prompt to <namespace>/state/prompts/<id>-<kind>.md and prints
+# `model<TAB><name>` and `prompt<TAB><path>`. The router dispatches the path,
+# never the text: echoing a whole prompt back as a Task argument costs output
+# tokens on every dispatch. Exit 1 on a bad kind, an unresolvable id, or an
+# unresolved dependency.
 #
 # One template per kind, radin-prompt-<kind>.md: a single fenced prompt, guarded
 # blocks marked `<!-- if:NAME -->`/`<!-- if:!NAME -->` … `<!-- end -->`, and the
@@ -99,9 +102,7 @@ task_body="$(field TASK_BODY)" || die "task file is empty or missing: $task_file
 # prompt gets them without the router holding a pair list.
 depends_on=""
 if [ "$kind" = execution ] && [ -f "$NAMESPACE_DIR/state/BACKLOG_STEPS.json" ]; then
-	deps="$(bash "$LIB_DIR/radin-state.sh" deps-check \
-		"$NAMESPACE_DIR/state/BACKLOG_STEPS.json" \
-		"$NAMESPACE_DIR/state/completed.json" "$task_id")" ||
+	deps="$(bash "$LIB_DIR/radin-state.sh" deps-check "$task_id")" ||
 		die "dependency of $task_id is unresolved, so no execution prompt is due yet"
 	while IFS="$TAB" read -r dep hash; do
 		[ -n "$dep" ] || continue
@@ -114,7 +115,7 @@ fi
 
 task_dir=""
 if [ "$kind" = debug ]; then
-	task_dir="$(bash "$LIB_DIR/radin-state.sh" task-dir "$REPO_ROOT" "$task_id")"
+	task_dir="$(bash "$LIB_DIR/radin-state.sh" task-dir "$task_id")"
 fi
 
 # Guard names active for this task. A `<!-- if:NAME -->` block survives only
@@ -170,6 +171,7 @@ esac
 sub_token EPIC_CONTEXT "$epic_context"
 sub_token TASK_BODY "$task_body"
 
-printf 'model\t%s\n' "$model"
-printf -- '--- prompt ---\n'
-printf '%s\n' "$body"
+mkdir -p "$NAMESPACE_DIR/state/prompts"
+out="$NAMESPACE_DIR/state/prompts/$task_id-$kind.md"
+printf '%s\n' "$body" >"$out"
+printf 'model\t%s\nprompt\t%s\n' "$model" "$out"

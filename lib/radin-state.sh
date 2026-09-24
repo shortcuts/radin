@@ -8,41 +8,34 @@
 # as the backlog index (radin-backlog.sh) -- never a bracketed/comma-joined
 # JSON array, so editing one line never risks another.
 #
+# Every verb resolves the namespace from the current directory, a linked
+# worktree included (lib/radin-namespace.sh), so no caller passes a path.
+#
 # Usage:
-#   radin-state.sh steps-init <steps-file> [<backlog-index>]  # write the file from "id<TAB>order<TAB>depends-on-csv<TAB>pending|deferred" lines on stdin
-#                                                         # with an index, each entry's depends_on comes from its index line; the stdin csv is used only where the index has none
-#                                                         # the fourth field is optional and defaults to pending; also writes state/baseline.json
-#   radin-state.sh next-pending <steps-file>              # print lowest-order pending entry as "id<TAB>order<TAB>depends-on-csv", exit 1 if none
-#   radin-state.sh task-next <namespace-dir>              # next-pending + deps-check + block-and-skip, in one call; exit 1 when nothing is left
-#   radin-state.sh start <steps-file> <id>                # mark in_progress, bump attempts; exit 2 (entry set blocked) past MAX_ATTEMPTS
-#   radin-state.sh stuck <steps-file>                     # print "id<TAB>attempts<TAB>note" per in_progress entry, exit 1 if none
-#   radin-state.sh triage <namespace-dir> <id>            # print recovery facts for a task a dead session left in_progress
-#   radin-state.sh recover <namespace-dir> <id>           # act on those facts; exit 3 prints commits only the model can judge
-#   radin-state.sh recover-reject <namespace-dir> <id>    # those commits do not satisfy the task: block the entry naming them
-#   radin-state.sh set-status <steps-file> <id> <pending|in_progress|failed|blocked> [note]
-#   radin-state.sh remove <steps-file> <id>               # delete a completed entry's line
-#   radin-state.sh deps-check <steps-file> <completed-file> <id>  # print "dep<TAB>hash" per dependency, exit 1 naming the first unresolved one
-#   radin-state.sh completed-add <completed-file> <id> <commit-hash> [title] [branch] [worktree] [plan]
-#   radin-state.sh completed-get <completed-file> <id>   # prints commit hash, exit 1 if absent
-#   radin-state.sh completed-show <completed-file> <id>  # print "id|commit|title|branch|worktree|plan|ts<TAB>value" lines, exit 1 if absent
-#   radin-state.sh completed-list <completed-file>       # print "id<TAB>commit" per completion, exit 1 if none
-#   radin-state.sh trace <namespace-dir> <id|commit|branch>  # print "task|commit|branch|worktree|plan|facts|status<TAB>value" per matching task; exit 1 no match, 2 ambiguous
-#   radin-state.sh task-done <namespace-dir> <id> <commit-hash>  # completed-add + backlog remove + steps remove, in crash-safe order; exit 3 when the hash does not validate
-#   radin-state.sh task-fail <namespace-dir> <id> <reason>        # exit 3 the first time (send `radin prompt debug`), mark failed the second
-#   radin-state.sh task-fail <namespace-dir> <id> --no-status <last line>  # no debug pass, straight to failed
-#   radin-state.sh task-diagnosis <namespace-dir> <id>   # stdin becomes a **Root cause:** line on the task file, status untouched
-#   radin-state.sh dirty-recover <namespace-dir> <id> <status-word>  # stash + fail a sub-agent's dirty tree; exit 1 when it is clean
-#   radin-state.sh task-report <namespace-dir> <id> <the sub-agent's STATUS: line>  # dirty-recover + task-done/task-fail in one call, then a final "next<TAB>continue|debug|clarify FACT|clarify DECISION" line
-#   radin-state.sh task-report <namespace-dir> <id> --no-status <last line>        # the same, for a sub-agent that ended with no STATUS: line
-#   radin-state.sh report <namespace-dir> [<dropped-skill line>...]  # print the finished end-of-session report
-#   radin-state.sh task-dir <repo-root> <id>              # print the task's worktree if it exists, else <repo-root>
-#   radin-state.sh prepare <namespace-dir> <id>           # create/reuse the task's tree and branch per session.json, print the dir to work in
-#                                                         # also records the branch and tree it chose in state/prepared/<id>.json
-#   radin-state.sh dirty-check <dir>                      # git status --porcelain, excluding .claude/.radin
-#   radin-state.sh stash <repo-root> <message>            # stash everything except .claude/.radin, print the stash ref
-#   radin-state.sh session-set <namespace-dir> <worktree-mode> <branch-mode>  # persist Phase 0.5 answers
-#   radin-state.sh session-get <namespace-dir>            # print "worktree<TAB>yes" / "branch<TAB>no", exit 1 if unanswered
-#   radin-state.sh journal-tail <namespace-dir> [n]        # last n journal events (default 20)
+#   radin-state.sh steps-init                   # write BACKLOG_STEPS.json from "id<TAB>order<TAB>depends-on-csv<TAB>pending|deferred" lines on stdin
+#                                               # each entry's depends_on comes from its index line; the stdin csv is used only where the index has none
+#                                               # the fourth field is optional and defaults to pending; also writes state/baseline.json
+#   radin-state.sh task-next [--plan-first] [<id>]  # pick, gate, claim and write the prompt in one call; exit 1 when nothing is left
+#   radin-state.sh task-report <id> <the sub-agent's STATUS: line>  # verify the tree, record the outcome, then a final "next<TAB>continue|debug|clarify FACT|clarify DECISION" line
+#   radin-state.sh task-report <id> --no-status <last line>         # the same, for a sub-agent that ended with no STATUS: line
+#   radin-state.sh task-diagnosis <id>          # stdin becomes a **Root cause:** line on the task file, status untouched
+#   radin-state.sh task-done <id> <commit-hash> # record completion, remove backlog and steps entries, in crash-safe order; exit 3 when the hash does not validate
+#   radin-state.sh set-status <id> <pending|in_progress|failed|blocked> [note]
+#   radin-state.sh stuck                        # print "id<TAB>attempts<TAB>note" per in_progress entry, exit 1 if none
+#   radin-state.sh recover <id>                 # recover a task a dead session left in_progress; exit 3 prints commits only the model can judge
+#   radin-state.sh recover-reject <id>          # those commits do not satisfy the task: block the entry naming them
+#   radin-state.sh report                       # print the finished end-of-session report
+#   radin-state.sh session-set <yes|no> <yes|no>  # persist the worktree and branch answers
+#   radin-state.sh session-get                  # print "worktree<TAB>yes" / "branch<TAB>no", exit 1 if unanswered
+#   radin-state.sh prepare <id>                 # create/reuse the task's tree and branch per session.json, print the dir to work in
+#                                               # also records the branch and tree it chose in state/prepared/<id>.json
+#   radin-state.sh dirty-check                  # git status --porcelain of the current directory, excluding .claude/.radin
+#   radin-state.sh trace <id|commit|branch>     # print "task|commit|branch|worktree|plan|facts|status<TAB>value" per matching task; exit 1 no match, 2 ambiguous
+#   radin-state.sh completed-show <id>          # print "id|commit|title|branch|worktree|plan|ts<TAB>value" lines, exit 1 if absent
+#   radin-state.sh completed-list               # print "id<TAB>commit" per completion, exit 1 if none (the TUI's Done view)
+#   radin-state.sh deps-check <id>              # print "dep<TAB>hash" per dependency, exit 1 naming the first unresolved one (radin-prompt.sh)
+#   radin-state.sh task-dir <id>                # print the task's worktree if it exists, else the repo root (radin-prompt.sh)
+#   radin-state.sh journal-tail [n]             # last n journal events (default 20)
 #
 # Every mutation also appends one event to <state-dir>/journal.jsonl. The
 # journal is append-only forensics: it survives context compaction and a
@@ -60,6 +53,13 @@ die() {
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
 . "$LIB_DIR/radin-json.sh"
+# shellcheck disable=SC1091
+. "$LIB_DIR/radin-namespace.sh"
+ns="$NAMESPACE_DIR"
+# shellcheck disable=SC2153  # set by radin-namespace.sh
+repo_root="$REPO_ROOT"
+steps="$ns/state/BACKLOG_STEPS.json"
+completed="$ns/state/completed.json"
 
 # Prints line $1's depends_on as a comma-separated id list (empty for []).
 deps_csv() {
@@ -114,32 +114,25 @@ trace_block() {
 
 # Prints line $1's numeric field $2 (order|attempts|debugged), 0 when absent.
 num_field() {
+	local v
 	v="$(printf '%s' "$1" | sed -nE "s/.*\"$2\":([0-9]+).*/\1/p")"
 	printf '%s' "${v:-0}"
 }
 
 journal() {
-	state_dir="$1"
-	event="$2"
-	id="$3"
-	detail="${4:-}"
-	[ -d "$state_dir" ] || return 0
+	[ -d "$1" ] || return 0
 	printf '{"ts":"%s","event":"%s","id":"%s","detail":"%s"}\n' \
-		"$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$(json_escape "$event")" \
-		"$(json_escape "$id")" "$(json_escape "$detail")" >>"$state_dir/journal.jsonl"
+		"$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$(json_escape "$2")" \
+		"$(json_escape "$3")" "$(json_escape "${4:-}")" >>"$1/journal.jsonl"
 }
 
 # Rewrites entry $2 in steps-file $1 with status $3, attempts $4, note $5.
 # $6 is the debugged flag; empty keeps whatever the entry already carries, so
 # every other caller preserves it without knowing about it.
 write_entry() {
-	file="$1"
-	id="$2"
-	status="$3"
-	attempts="$4"
+	local file="$1" id="$2" status="$3" attempts="$4" dbg="${6:-}" found=0
+	local esc_note line order depends_on
 	esc_note="$(json_escape "$5")"
-	dbg="${6:-}"
-	found=0
 	while IFS= read -r line || [ -n "$line" ]; do
 		[ -n "$line" ] || continue
 		if [ "$(json_get id "$line")" = "$id" ]; then
@@ -160,6 +153,7 @@ write_entry() {
 
 # Prints entry $2's line from steps-file $1, empty when absent.
 entry_line() {
+	local line
 	while IFS= read -r line || [ -n "$line" ]; do
 		[ -n "$line" ] || continue
 		if [ "$(json_get id "$line")" = "$2" ]; then
@@ -169,13 +163,172 @@ entry_line() {
 	return 0
 }
 
+# Sets task $1's status $2 with note $3, keeping its attempts.
+set_status() {
+	local entry
+	entry="$(entry_line "$steps" "$1")"
+	[ -n "$entry" ] || die "no entry with id: $1"
+	write_entry "$steps" "$1" "$2" "$(num_field "$entry" attempts)" "${3:-}"
+}
+
+# Prints the lowest-order pending entry as "id<TAB>order", returns 1 if none.
+next_pending() {
+	local line order best_line="" best_order=""
+	[ -f "$steps" ] || return 1
+	while IFS= read -r line || [ -n "$line" ]; do
+		[ -n "$line" ] || continue
+		[ "$(json_get status "$line")" = "pending" ] || continue
+		order="$(num_field "$line" order)"
+		if [ -z "$best_order" ] || [ "$order" -lt "$best_order" ]; then
+			best_order="$order"
+			best_line="$line"
+		fi
+	done <"$steps"
+	[ -n "$best_line" ] || return 1
+	printf '%s\t%s\n' "$(json_get id "$best_line")" "$best_order"
+}
+
+# Claims task $1: in_progress, attempts bumped. Returns 2, with the entry
+# marked blocked, once it passes MAX_ATTEMPTS.
+claim() {
+	local entry attempts
+	entry="$(entry_line "$steps" "$1")"
+	[ -n "$entry" ] || die "no entry with id: $1"
+	attempts=$(($(num_field "$entry" attempts) + 1))
+	if [ "$attempts" -gt "$MAX_ATTEMPTS" ]; then
+		write_entry "$steps" "$1" "blocked" "$((attempts - 1))" "dispatched $MAX_ATTEMPTS times without a terminal status (MAX_ATTEMPTS) -- needs a human look before another retry"
+		return 2
+	fi
+	write_entry "$steps" "$1" "in_progress" "$attempts" ""
+}
+
+# Prints task $1's recorded commit hash, returns 1 if it has none.
+completed_get() {
+	local line
+	[ -f "$completed" ] || return 1
+	while IFS= read -r line || [ -n "$line" ]; do
+		[ -n "$line" ] || continue
+		if [ "$(json_get id "$line")" = "$1" ]; then
+			json_get commit "$line"
+			return 0
+		fi
+	done <"$completed"
+	return 1
+}
+
+# Prints the tree task $1's sub-agent worked in: its worktree if one exists,
+# else the repo root. Derived, never recorded: the execution prompt pins the
+# worktree to this path.
+task_dir() {
+	if [ -d "$repo_root-$1" ]; then
+		printf '%s\n' "$repo_root-$1"
+	else
+		printf '%s\n' "$repo_root"
+	fi
+}
+
+dirty_files() {
+	git -C "$1" status --porcelain -- . ':(exclude).claude/.radin'
+}
+
+# Stashes everything in tree $1 except .claude/.radin under message $2, prints
+# the stash ref.
+stash_tree() {
+	local before after
+	before="$(git -C "$1" stash list | grep -c . || true)"
+	git -C "$1" stash push -u -m "$2" -- . ':(exclude).claude/.radin' >/dev/null
+	after="$(git -C "$1" stash list | grep -c . || true)"
+	[ "$after" -gt "$before" ] || die "nothing to stash"
+	printf 'stash@{0}\n'
+}
+
+# Prints task $1's order and title, TAB-separated, the id standing in for a
+# title the backlog no longer has.
+order_title() {
+	local entry title
+	entry="$(entry_line "$steps" "$1")"
+	title="$(task_title "$repo_root" "$1")"
+	printf '%s\t%s' "$(num_field "${entry:-}" order)" "${title:-$1}"
+}
+
+# The FAILED route for task $1 with reason $2. Returns 3 the first time, the
+# caller's signal to send the debug prompt; marks the task failed after that.
+task_fail() {
+	local entry ot note
+	entry="$(entry_line "$steps" "$1")"
+	[ -n "$entry" ] || die "no entry with id: $1"
+	ot="$(order_title "$1")"
+	if [ "$(num_field "$entry" debugged)" -eq 0 ]; then
+		# One debug pass per task per session, and the flag is what enforces
+		# it -- a counter the model holds cannot survive a resume.
+		write_entry "$steps" "$1" "$(json_get status "$entry")" \
+			"$(num_field "$entry" attempts)" "$(json_get note "$entry")" 1
+		journal "$ns/state" "debug" "$1" "$2"
+		return 3
+	fi
+	note="$2"
+	if grep -qF "\"event\":\"diagnosis\",\"id\":\"$1\"" "$ns/state/journal.jsonl" 2>/dev/null; then
+		note="$2 (a diagnosis was recorded on the task file under **Root cause:**)"
+	fi
+	write_entry "$steps" "$1" failed "$(num_field "$entry" attempts)" "$note"
+	printf "❌ Task %s '%s' failed: %s. Continuing to next task.\n" "${ot%%	*}" "${ot#*	}" "$2"
+}
+
+# Stashes and fails task $1 when its tree is dirty, whatever status word $2
+# the sub-agent reported. Returns 1 when the tree is clean.
+dirty_recover() {
+	local dir ot order title ref entry
+	dir="$(task_dir "$1")"
+	[ -n "$(dirty_files "$dir")" ] || return 1
+	ot="$(order_title "$1")"
+	order="${ot%%	*}"
+	title="${ot#*	}"
+	ref="$(stash_tree "$dir" "radin-execute: task $order '$title' left uncommitted (sub-agent reported $2)")"
+	entry="$(entry_line "$steps" "$1")"
+	write_entry "$steps" "$1" failed "$(num_field "$entry" attempts)" \
+		"sub-agent left uncommitted changes in $dir, stashed as $ref. Run 'git -C $dir stash show -p $ref' to inspect, 'git -C $dir stash pop' to recover."
+	journal "$ns/state" "stash" "$1" \
+		"$ref in $dir -- task $order '$title' left uncommitted. Recover: git -C $dir stash pop"
+	printf "⚠️ Task %s '%s': sub-agent reported %s but left a dirty tree. Stashed as %s, treated as failed.\n" \
+		"$order" "$title" "$2" "$ref"
+}
+
+# Prints "dep<TAB>hash" per dependency of task $1. Returns 1, naming the first
+# unresolved one on stderr.
+deps_check() {
+	local entry deps dep hash dep_line dep_status old_ifs
+	entry="$(entry_line "$steps" "$1")"
+	[ -n "$entry" ] || die "no entry with id: $1"
+	deps="$(deps_csv "$entry")"
+	[ -n "$deps" ] || return 0
+	old_ifs="$IFS"
+	IFS=','
+	# Splitting the csv into positional params is the point here.
+	# shellcheck disable=SC2086
+	set -- "$1" $deps
+	IFS="$old_ifs"
+	local id="$1"
+	shift
+	for dep in "$@"; do
+		[ -n "$dep" ] || continue
+		if hash="$(completed_get "$dep")"; then
+			printf '%s\t%s\n' "$dep" "$hash"
+		else
+			dep_status="missing from $steps"
+			dep_line="$(entry_line "$steps" "$dep")"
+			[ -z "$dep_line" ] || dep_status="$(json_get status "$dep_line")"
+			printf "task '%s' waiting on dependency '%s', which is %s\n" "$id" "$dep" "$dep_status" >&2
+			return 1
+		fi
+	done
+}
+
 cmd="${1:-}"
 case "$cmd" in
 steps-init)
-	file="${2:-}"
-	[ -n "$file" ] || die "usage: steps-init <steps-file> [<backlog-index>]  (lines of id<TAB>order<TAB>depends-on-csv<TAB>pending|deferred on stdin)"
-	index="${3:-}"
-	[ -z "$index" ] || [ -f "$index" ] || die "no backlog index: $index"
+	file="$steps"
+	index="$BACKLOG_INDEX"
+	[ -f "$index" ] || index=""
 	n=0
 	: >"$file.tmp"
 	TAB=$'\t'
@@ -225,10 +378,8 @@ steps-init)
 	mv "$file.tmp" "$file"
 	# The session baseline, so `report` can scope "this session" without the
 	# orchestrator carrying counts across phases.
-	state_dir="$(dirname "$file")"
+	state_dir="$ns/state"
 	if [ -d "$state_dir" ]; then
-		repo_root="${state_dir%/state}"
-		repo_root="${repo_root%/.claude/.radin}"
 		backlog_count="$( (cd "$repo_root" 2>/dev/null && bash "$LIB_DIR/radin-backlog.sh" count 2>/dev/null) || printf '0')"
 		completed_count="$(grep -c . "$state_dir/completed.json" 2>/dev/null || true)"
 		printf '{"backlog_count":%s,"completed_count":%s}\n' \
@@ -238,60 +389,19 @@ steps-init)
 	printf 'steps-init: wrote %d entries to %s\n' "$n" "$file"
 	;;
 
-next-pending)
-	file="${2:-}"
-	[ -n "$file" ] || die "usage: next-pending <steps-file>"
-	[ -f "$file" ] || exit 1
-	best_line=""
-	best_order=""
-	while IFS= read -r line || [ -n "$line" ]; do
-		[ -n "$line" ] || continue
-		[ "$(json_get status "$line")" = "pending" ] || continue
-		order="$(printf '%s' "$line" | sed -E 's/.*"order":([0-9]+).*/\1/')"
-		if [ -z "$best_order" ] || [ "$order" -lt "$best_order" ]; then
-			best_order="$order"
-			best_line="$line"
-		fi
-	done <"$file"
-	[ -n "$best_line" ] || exit 1
-	printf '%s\t%s\t%s\n' "$(json_get id "$best_line")" "$best_order" "$(deps_csv "$best_line")"
-	;;
-
 deps-check)
-	steps="${2:-}"
-	completed="${3:-}"
-	id="${4:-}"
-	[ -n "$steps" ] && [ -n "$completed" ] && [ -n "$id" ] || die "usage: deps-check <steps-file> <completed-file> <id>"
+	id="${2:-}"
+	[ -n "$id" ] || die "usage: deps-check <id>"
 	[ -f "$steps" ] || die "no state file: $steps"
-	entry="$(entry_line "$steps" "$id")"
-	[ -n "$entry" ] || die "no entry with id: $id"
-	deps="$(deps_csv "$entry")"
-	[ -n "$deps" ] || exit 0
-	old_ifs="$IFS"
-	IFS=','
-	# Splitting the csv into positional params is the point here.
-	# shellcheck disable=SC2086
-	set -- $deps
-	IFS="$old_ifs"
-	for dep in "$@"; do
-		[ -n "$dep" ] || continue
-		if hash="$(bash "$LIB_DIR/radin-state.sh" completed-get "$completed" "$dep")"; then
-			printf '%s\t%s\n' "$dep" "$hash"
-		else
-			dep_status="missing from $steps"
-			dep_line="$(entry_line "$steps" "$dep")"
-			[ -z "$dep_line" ] || dep_status="$(json_get status "$dep_line")"
-			die "task '$id' waiting on dependency '$dep', which is $dep_status"
-		fi
-	done
+	deps_check "$id" 2>"$ns/state/.deps-err" || die "$(cat "$ns/state/.deps-err")"
 	;;
 
 set-status)
-	file="${2:-}"
-	id="${3:-}"
-	status="${4:-}"
-	note="${5:-}"
-	[ -n "$file" ] && [ -n "$id" ] && [ -n "$status" ] || die "usage: set-status <steps-file> <id> <pending|in_progress|failed|blocked> [note]"
+	file="$steps"
+	id="${2:-}"
+	status="${3:-}"
+	note="${4:-}"
+	[ -n "$id" ] && [ -n "$status" ] || die "usage: set-status <id> <pending|in_progress|failed|blocked> [note]"
 	[ -f "$file" ] || die "no state file: $file"
 	case "$status" in
 	pending | in_progress | failed | blocked) ;;
@@ -302,27 +412,8 @@ set-status)
 	write_entry "$file" "$id" "$status" "$(num_field "$entry" attempts)" "$note"
 	;;
 
-start)
-	file="${2:-}"
-	id="${3:-}"
-	[ -n "$file" ] && [ -n "$id" ] || die "usage: start <steps-file> <id>"
-	[ -f "$file" ] || die "no state file: $file"
-	entry="$(entry_line "$file" "$id")"
-	[ -n "$entry" ] || die "no entry with id: $id"
-	attempts="$(num_field "$entry" attempts)"
-	attempts=$((attempts + 1))
-	if [ "$attempts" -gt "$MAX_ATTEMPTS" ]; then
-		write_entry "$file" "$id" "blocked" "$((attempts - 1))" "dispatched $MAX_ATTEMPTS times without a terminal status -- needs a human look before another retry"
-		printf 'start: %s hit MAX_ATTEMPTS=%d, marked blocked\n' "$id" "$MAX_ATTEMPTS" >&2
-		exit 2
-	fi
-	write_entry "$file" "$id" "in_progress" "$attempts" ""
-	printf 'attempts\t%s\n' "$attempts"
-	;;
-
 stuck)
-	file="${2:-}"
-	[ -n "$file" ] || die "usage: stuck <steps-file>"
+	file="$steps"
 	[ -f "$file" ] || exit 1
 	n=0
 	while IFS= read -r line || [ -n "$line" ]; do
@@ -334,91 +425,10 @@ stuck)
 	[ "$n" -gt 0 ] || exit 1
 	;;
 
-triage)
-	ns="${2:-}"
-	id="${3:-}"
-	[ -n "$ns" ] && [ -n "$id" ] || die "usage: triage <namespace-dir> <id>"
-	[ -d "$ns" ] || die "no namespace dir: $ns"
-	repo_root="${ns%/.claude/.radin}"
-	steps="$ns/state/BACKLOG_STEPS.json"
-	entry=""
-	[ -f "$steps" ] && entry="$(entry_line "$steps" "$id")"
-	printf 'attempts\t%s\n' "$(num_field "${entry:-}" attempts)"
-	if hash="$(bash "$LIB_DIR/radin-state.sh" completed-get "$ns/state/completed.json" "$id" 2>/dev/null)"; then
-		printf 'completed\t%s\n' "$hash"
-	else
-		printf 'completed\tnone\n'
-	fi
-	# Only `prepare` reads a task's branch from git; with no record there is
-	# nothing to name, and no derivation from the id could see a run that
-	# answered `branch: no`.
-	branch="$(prepared_field "$ns" "$id" branch)"
-	wt="$(bash "$LIB_DIR/radin-state.sh" task-dir "$repo_root" "$id")"
-	if [ "$wt" = "$repo_root" ]; then
-		printf 'worktree\tnone\n'
-	else
-		printf 'worktree\t%s\n' "$wt"
-	fi
-	if [ -n "$branch" ] && git -C "$repo_root" rev-parse --verify --quiet "$branch" >/dev/null 2>&1; then
-		printf 'branch\t%s\n' "$branch"
-		git -C "$repo_root" log --oneline --no-decorate "$branch" --not HEAD 2>/dev/null |
-			sed -n '1,20p' | sed 's/^/branch_commit\t/'
-	else
-		printf 'branch\tnone\n'
-	fi
-	dirty="$(git -C "$wt" status --porcelain -- . ':(exclude).claude/.radin' 2>/dev/null | grep -c . || true)"
-	printf 'dirty_files\t%s\n' "$dirty"
-	;;
-
-remove)
-	file="${2:-}"
-	id="${3:-}"
-	[ -n "$file" ] && [ -n "$id" ] || die "usage: remove <steps-file> <id>"
-	[ -f "$file" ] || die "no state file: $file"
-	grep -v -F "\"id\":\"$id\"" "$file" >"$file.tmp" || true
-	mv "$file.tmp" "$file"
-	journal "$(dirname "$file")" "removed" "$id" ""
-	;;
-
-completed-add)
-	file="${2:-}"
-	id="${3:-}"
-	hash="${4:-}"
-	title="${5:-}"
-	prov_branch="${6:-}"
-	prov_worktree="${7:-}"
-	prov_plan="${8:-}"
-	[ -n "$file" ] && [ -n "$id" ] && [ -n "$hash" ] || die "usage: completed-add <completed-file> <id> <commit-hash> [title] [branch] [worktree] [plan]"
-	# The title is stored because completion deletes the backlog entry, so the
-	# final report has nowhere else to read it from; branch/worktree/plan are
-	# the same story for provenance. `ts` is generated here, never passed, so
-	# a hand-run completed-add cannot record a wrong one. completed-list still
-	# prints two fields: the TUI parses that output.
-	printf '{"id":"%s","commit":"%s","title":"%s","branch":"%s","worktree":"%s","plan":"%s","ts":"%s"}\n' \
-		"$(json_escape "$id")" "$(json_escape "$hash")" "$(json_escape "$title")" \
-		"$(json_escape "$prov_branch")" "$(json_escape "$prov_worktree")" \
-		"$(json_escape "$prov_plan")" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >>"$file"
-	;;
-
-completed-get)
-	file="${2:-}"
-	id="${3:-}"
-	[ -n "$file" ] && [ -n "$id" ] || die "usage: completed-get <completed-file> <id>"
-	[ -f "$file" ] || exit 1
-	while IFS= read -r line || [ -n "$line" ]; do
-		[ -n "$line" ] || continue
-		if [ "$(json_get id "$line")" = "$id" ]; then
-			json_get commit "$line"
-			exit 0
-		fi
-	done <"$file"
-	exit 1
-	;;
-
 completed-show)
-	file="${2:-}"
-	id="${3:-}"
-	[ -n "$file" ] && [ -n "$id" ] || die "usage: completed-show <completed-file> <id>"
+	file="$completed"
+	id="${2:-}"
+	[ -n "$id" ] || die "usage: completed-show <id>"
 	[ -f "$file" ] || exit 1
 	while IFS= read -r line || [ -n "$line" ]; do
 		[ -n "$line" ] || continue
@@ -435,8 +445,7 @@ completed-show)
 	;;
 
 completed-list)
-	file="${2:-}"
-	[ -n "$file" ] || die "usage: completed-list <completed-file>"
+	file="$completed"
 	[ -s "$file" ] || exit 1
 	while IFS= read -r line || [ -n "$line" ]; do
 		[ -n "$line" ] || continue
@@ -450,12 +459,8 @@ trace)
 	# regex on the token's shape. A completion line answers a done task in
 	# full; a failed or blocked one has no such line, so `prepared/<id>.json`
 	# answers its tree and the journal answers its status.
-	ns="${2:-}"
-	arg="${3:-}"
-	[ -n "$ns" ] && [ -n "$arg" ] || die "usage: trace <namespace-dir> <id|commit|branch>"
-	[ -d "$ns" ] || die "no namespace dir: $ns"
-	repo_root="${ns%/.claude/.radin}"
-	completed="$ns/state/completed.json"
+	arg="${2:-}"
+	[ -n "$arg" ] || die "usage: trace <id|commit|branch>"
 	candidates=0
 	id_read=""
 	commit_read=""
@@ -560,18 +565,13 @@ trace)
 	;;
 
 task-done)
-	ns="${2:-}"
-	id="${3:-}"
-	hash="${4:-}"
-	[ -n "$ns" ] && [ -n "$id" ] && [ -n "$hash" ] || die "usage: task-done <namespace-dir> <id> <commit-hash>"
-	[ -d "$ns" ] || die "no namespace dir: $ns"
-	repo_root="${ns%/.claude/.radin}"
-	completed="$ns/state/completed.json"
-	steps="$ns/state/BACKLOG_STEPS.json"
+	id="${2:-}"
+	hash="${3:-}"
+	[ -n "$id" ] && [ -n "$hash" ] || die "usage: task-done <id> <commit-hash>"
 	# The hash is free text off a sub-agent's STATUS: line, so validate it
 	# before any bookkeeping believes it. Exit 3, not the generic die, so the
 	# caller can route it as a failure instead of a CLI misuse.
-	dir="$(bash "$LIB_DIR/radin-state.sh" task-dir "$repo_root" "$id")"
+	dir="$(task_dir "$id")"
 	if ! git -C "$dir" rev-parse --verify --quiet "$hash^{commit}" >/dev/null 2>&1; then
 		printf 'task-done: %s is not a commit in %s\n' "$hash" "$dir" >&2
 		exit 3
@@ -596,15 +596,20 @@ task-done)
 	# Order matters: record success first, so a crash mid-way leaves a state
 	# radin-backlog.sh reconcile can repair. Each step is skipped when a
 	# retry already did it, so re-running after a crash is safe.
-	if ! bash "$LIB_DIR/radin-state.sh" completed-get "$completed" "$id" >/dev/null 2>&1; then
-		bash "$LIB_DIR/radin-state.sh" completed-add "$completed" "$id" "$hash" "$title" \
-			"$prov_branch" "$prov_worktree" "$plans"
+	if ! completed_get "$id" >/dev/null; then
+		# `ts` is generated here, never passed, so no caller can record a
+		# wrong one.
+		printf '{"id":"%s","commit":"%s","title":"%s","branch":"%s","worktree":"%s","plan":"%s","ts":"%s"}\n' \
+			"$(json_escape "$id")" "$(json_escape "$hash")" "$(json_escape "$title")" \
+			"$(json_escape "$prov_branch")" "$(json_escape "$prov_worktree")" \
+			"$(json_escape "$plans")" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >>"$completed"
 	fi
 	if grep -qF "\"id\":\"$id\"" "$ns/backlog/index.jsonl" 2>/dev/null; then
 		(cd "$repo_root" && bash "$LIB_DIR/radin-backlog.sh" remove "$id" >/dev/null)
 	fi
 	if [ -f "$steps" ]; then
-		bash "$LIB_DIR/radin-state.sh" remove "$steps" "$id"
+		grep -v -F "\"id\":\"$id\"" "$steps" >"$steps.tmp" || true
+		mv "$steps.tmp" "$steps"
 	fi
 	journal "$ns/state" "done" "$id" "$hash"
 	printf 'task-done: %s recorded at %s; backlog and steps entries removed\n' "$id" "$hash"
@@ -614,14 +619,12 @@ prepare)
 	# The one place the recorded worktree/branch answers turn into git
 	# commands. A sub-agent only cds to the path this prints, so a "no" the
 	# model would rather ignore never reaches a git invocation.
-	ns="${2:-}"
-	id="${3:-}"
-	[ -n "$ns" ] && [ -n "$id" ] || die "usage: prepare <namespace-dir> <id>"
-	session="$(bash "$LIB_DIR/radin-state.sh" session-get "$ns" 2>/dev/null)" ||
+	id="${2:-}"
+	[ -n "$id" ] || die "usage: prepare <id>"
+	session="$(bash "$LIB_DIR/radin-state.sh" session-get 2>/dev/null)" ||
 		die "no recorded worktree/branch preference in $ns/state/session.json -- run session-set first"
 	worktree="$(printf '%s\n' "$session" | sed -n 's/^worktree\t//p')"
 	branch_mode="$(printf '%s\n' "$session" | sed -n 's/^branch\t//p')"
-	repo_root="${ns%/.claude/.radin}"
 	branch="radin/$id"
 	wt="$repo_root-$id"
 	wt_record=""
@@ -662,41 +665,18 @@ prepare)
 	;;
 
 task-dir)
-	repo_root="${2:-}"
-	id="${3:-}"
-	[ -n "$repo_root" ] && [ -n "$id" ] || die "usage: task-dir <repo-root> <id>"
-	# Derived, never recorded: the execution prompt pins the worktree to this
-	# path, so the tree a task's sub-agent worked in is findable from its id.
-	if [ -d "$repo_root-$id" ]; then
-		printf '%s\n' "$repo_root-$id"
-	else
-		printf '%s\n' "$repo_root"
-	fi
+	[ -n "${2:-}" ] || die "usage: task-dir <id>"
+	task_dir "$2"
 	;;
 
 dirty-check)
-	dir="${2:-}"
-	[ -n "$dir" ] || die "usage: dirty-check <dir>"
-	git -C "$dir" status --porcelain -- . ':(exclude).claude/.radin'
-	;;
-
-stash)
-	repo_root="${2:-}"
-	msg="${3:-}"
-	[ -n "$repo_root" ] && [ -n "$msg" ] || die "usage: stash <dir> <message>"
-	before="$(git -C "$repo_root" stash list | grep -c . || true)"
-	git -C "$repo_root" stash push -u -m "$msg" -- . ':(exclude).claude/.radin' >/dev/null
-	after="$(git -C "$repo_root" stash list | grep -c . || true)"
-	[ "$after" -gt "$before" ] || die "nothing to stash"
-	journal "$repo_root/.claude/.radin/state" "stash" "" "$msg"
-	printf 'stash@{0}\n'
+	dirty_files .
 	;;
 
 session-set)
-	ns="${2:-}"
-	worktree="${3:-}"
-	branch="${4:-}"
-	[ -n "$ns" ] && [ -n "$worktree" ] && [ -n "$branch" ] || die "usage: session-set <namespace-dir> <yes|no> <yes|no>"
+	worktree="${2:-}"
+	branch="${3:-}"
+	[ -n "$worktree" ] && [ -n "$branch" ] || die "usage: session-set <yes|no> <yes|no>"
 	[ -d "$ns/state" ] || die "no state dir: $ns/state"
 	for mode in "$worktree" "$branch"; do
 		case "$mode" in
@@ -709,8 +689,6 @@ session-set)
 	;;
 
 session-get)
-	ns="${2:-}"
-	[ -n "$ns" ] || die "usage: session-get <namespace-dir>"
 	file="$ns/state/session.json"
 	[ -s "$file" ] || exit 1
 	line="$(cat "$file")"
@@ -718,91 +696,88 @@ session-get)
 	;;
 
 journal-tail)
-	ns="${2:-}"
-	n="${3:-20}"
-	[ -n "$ns" ] || die "usage: journal-tail <namespace-dir> [n]"
+	n="${2:-20}"
 	file="$ns/state/journal.jsonl"
 	[ -s "$file" ] || exit 1
 	tail -n "$n" "$file"
 	;;
 
 task-next)
-	# next-pending + deps-check + the block-and-skip route, so the picker is
-	# one call and the orchestrator filters nothing.
-	ns="${2:-}"
-	[ -n "$ns" ] || die "usage: task-next <namespace-dir>"
-	[ -d "$ns" ] || die "no namespace dir: $ns"
-	steps="$ns/state/BACKLOG_STEPS.json"
-	completed="$ns/state/completed.json"
+	# Everything between two dispatches, so the router makes one call per task
+	# and composes nothing: pick, dependency gate, drift check, claim, prompt.
+	# A named id skips the pick -- the debug and clarify retry of a task
+	# already in flight.
+	plan_first=0
+	want=""
+	for arg in "${@:2}"; do
+		case "$arg" in
+		--plan-first) plan_first=1 ;;
+		*) want="$arg" ;;
+		esac
+	done
 	errfile="$(mktemp)"
 	trap 'rm -f "$errfile"' EXIT
+	# Prints the blocked line; a named id has no next task to fall through to.
+	skip() {
+		printf 'blocked\t%s\t%s\n' "$pid" "$1"
+		[ -z "$want" ] || exit 1
+	}
+	field() {
+		(cd "$repo_root" && bash "$LIB_DIR/radin-backlog.sh" field "$pid" "$1" 2>"$errfile")
+	}
 	while :; do
-		pick="$(bash "$LIB_DIR/radin-state.sh" next-pending "$steps")" || exit 1
-		pid="$(printf '%s' "$pick" | cut -f1)"
-		order="$(printf '%s' "$pick" | cut -f2)"
-		if deps="$(bash "$LIB_DIR/radin-state.sh" deps-check "$steps" "$completed" "$pid" 2>"$errfile")"; then
-			printf 'id\t%s\norder\t%s\n' "$pid" "$order"
-			[ -z "$deps" ] || printf '%s\n' "$deps" | sed 's/^/dep\t/'
-			exit 0
+		if [ -n "$want" ]; then
+			pid="$want"
+			entry="$(entry_line "$steps" "$pid")"
+			[ -n "$entry" ] || die "no entry with id: $pid"
+			order="$(num_field "$entry" order)"
+		else
+			pick="$(next_pending)" || exit 1
+			pid="$(printf '%s' "$pick" | cut -f1)"
+			order="$(printf '%s' "$pick" | cut -f2)"
 		fi
-		msg="$(sed -e 's/^radin-state: //' "$errfile" | sed -n '1p')"
-		bash "$LIB_DIR/radin-state.sh" set-status "$steps" "$pid" blocked "$msg"
-		printf 'blocked\t%s\t%s\n' "$pid" "$msg"
-		# Every iteration moves one entry out of pending, so this terminates.
+		if ! deps_check "$pid" >/dev/null 2>"$errfile"; then
+			msg="$(sed -n '1p' "$errfile")"
+			set_status "$pid" blocked "$msg"
+			skip "$msg"
+			continue
+		fi
+		if ! field TASK_FILE >/dev/null; then
+			msg="backlog entry is gone: $(sed -e 's/^radin-backlog: //' "$errfile" | sed -n '1p')"
+			set_status "$pid" blocked "$msg"
+			skip "$msg"
+			continue
+		fi
+		kind=execution
+		# Planning claims nothing: the task is still pending when its plan
+		# lands, so the next call hands out its execution prompt.
+		if [ "$plan_first" -eq 1 ] && ! field PLAN_PATHS >/dev/null; then
+			kind=planning
+		fi
+		if [ "$kind" = execution ] && ! claim "$pid"; then
+			skip "dispatched $MAX_ATTEMPTS times without a terminal status (MAX_ATTEMPTS), marked blocked"
+			continue
+		fi
+		if [ "$kind" = execution ] && dropped="$(field SKILLS_DROPPED)"; then
+			title="$(task_title "$repo_root" "$pid")"
+			printf '%s\n' "$dropped" | while IFS= read -r inst; do
+				[ -z "$inst" ] || journal "$ns/state" "skill-dropped" "$pid" "${title:-$pid} — $inst"
+			done
+		fi
+		prompt="$(cd "$repo_root" && bash "$LIB_DIR/radin-prompt.sh" "$kind" "$pid")"
+		printf 'id\t%s\norder\t%s\nkind\t%s\n%s\n' "$pid" "$order" "$kind" "$prompt"
+		exit 0
+		# Every skipped iteration moves one entry out of pending, so this terminates.
 	done
 	;;
 
-task-fail)
-	ns="${2:-}"
-	id="${3:-}"
-	third="${4:-}"
-	[ -n "$ns" ] && [ -n "$id" ] && [ -n "$third" ] ||
-		die "usage: task-fail <namespace-dir> <id> <reason>  |  task-fail <namespace-dir> <id> --no-status <last line>"
-	[ -d "$ns" ] || die "no namespace dir: $ns"
-	repo_root="${ns%/.claude/.radin}"
-	steps="$ns/state/BACKLOG_STEPS.json"
-	entry="$(entry_line "$steps" "$id")"
-	[ -n "$entry" ] || die "no entry with id: $id"
-	order="$(num_field "$entry" order)"
-	title="$(task_title "$repo_root" "$id")"
-	[ -n "$title" ] || title="$id"
-	if [ "$third" = "--no-status" ]; then
-		# No debug pass ever: there is no failure reason to debug against.
-		last="${5:-}"
-		note="sub-agent returned no STATUS line, likely an interactive skill or a spawned background task; last words: $last"
-		bash "$LIB_DIR/radin-state.sh" set-status "$steps" "$id" failed "$note"
-		printf "❌ Task %s '%s' failed: %s. Continuing to next task.\n" \
-			"$order" "$title" "sub-agent returned no STATUS line"
-		exit 0
-	fi
-	reason="$third"
-	if [ "$(num_field "$entry" debugged)" -eq 0 ]; then
-		# One debug pass per task per session, and the flag is what enforces
-		# it -- a counter the model holds cannot survive a resume.
-		write_entry "$steps" "$id" "$(json_get status "$entry")" \
-			"$(num_field "$entry" attempts)" "$(json_get note "$entry")" 1
-		journal "$ns/state" "debug" "$id" "$reason"
-		printf 'debug\t%s\n' "$reason"
-		exit 3
-	fi
-	note="$reason"
-	if grep -qF "\"event\":\"diagnosis\",\"id\":\"$id\"" "$ns/state/journal.jsonl" 2>/dev/null; then
-		note="$reason (a diagnosis was recorded on the task file under **Root cause:**)"
-	fi
-	bash "$LIB_DIR/radin-state.sh" set-status "$steps" "$id" failed "$note"
-	printf "❌ Task %s '%s' failed: %s. Continuing to next task.\n" "$order" "$title" "$reason"
-	;;
-
 task-diagnosis)
-	ns="${2:-}"
-	id="${3:-}"
-	[ -n "$ns" ] && [ -n "$id" ] || die "usage: task-diagnosis <namespace-dir> <id>  (diagnosis text on stdin)"
-	[ -d "$ns" ] || die "no namespace dir: $ns"
-	repo_root="${ns%/.claude/.radin}"
+	id="${2:-}"
+	[ -n "$id" ] || die "usage: task-diagnosis <id>  (diagnosis text on stdin)"
 	text="$(cat)"
 	[ -n "$text" ] || die "diagnosis text is empty (pass it on stdin)"
 	# The only place the **Root cause:** label is written. Status is left
-	# alone: the entry is still in_progress, and the retry's `start` bumps
+	# alone: the entry is still in_progress, and the retry's claim bumps
 	# attempts, so MAX_ATTEMPTS still ends the loop.
 	printf '**Root cause:** %s\n' "$text" |
 		(cd "$repo_root" && bash "$LIB_DIR/radin-backlog.sh" append "$id" >/dev/null)
@@ -810,46 +785,24 @@ task-diagnosis)
 	printf 'task-diagnosis: recorded on %s\n' "$id"
 	;;
 
-dirty-recover)
-	ns="${2:-}"
-	id="${3:-}"
-	status_word="${4:-}"
-	[ -n "$ns" ] && [ -n "$id" ] && [ -n "$status_word" ] ||
-		die "usage: dirty-recover <namespace-dir> <id> <status-word>"
-	[ -d "$ns" ] || die "no namespace dir: $ns"
-	repo_root="${ns%/.claude/.radin}"
-	steps="$ns/state/BACKLOG_STEPS.json"
-	dir="$(bash "$LIB_DIR/radin-state.sh" task-dir "$repo_root" "$id")"
-	# In worktree mode the repo root is not the tree the sub-agent worked in,
-	# so task-dir decides which one gets checked.
-	[ -n "$(bash "$LIB_DIR/radin-state.sh" dirty-check "$dir")" ] || exit 1
-	entry="$(entry_line "$steps" "$id")"
-	order="$(num_field "${entry:-}" order)"
-	title="$(task_title "$repo_root" "$id")"
-	[ -n "$title" ] || title="$id"
-	ref="$(bash "$LIB_DIR/radin-state.sh" stash "$dir" \
-		"radin-execute: task $order '$title' left uncommitted (sub-agent reported $status_word)")"
-	bash "$LIB_DIR/radin-state.sh" set-status "$steps" "$id" failed \
-		"sub-agent left uncommitted changes in $dir, stashed as $ref. Run 'git -C $dir stash show -p $ref' to inspect, 'git -C $dir stash pop' to recover."
-	journal "$ns/state" "stash" "$id" \
-		"$ref in $dir -- task $order '$title' left uncommitted. Recover: git -C $dir stash pop"
-	printf "⚠️ Task %s '%s': sub-agent reported %s but left a dirty tree. Stashed as %s, treated as failed.\n" \
-		"$order" "$title" "$status_word" "$ref"
-	;;
-
 task-report)
 	# One call for everything that happens after a dispatch reports, because
-	# the router picking between dirty-recover, task-done and task-fail by
+	# the router picking between the dirty-tree stash, task-done and the failure route by
 	# hand was four exit-code routes in its prose and one chance to write the
 	# wrong file. Every outcome ends in one `next` line.
-	ns="${2:-}"
-	id="${3:-}"
-	third="${4:-}"
-	[ -n "$ns" ] && [ -n "$id" ] && [ -n "$third" ] ||
-		die "usage: task-report <namespace-dir> <id> <STATUS line>  |  task-report <namespace-dir> <id> --no-status <last line>"
-	[ -d "$ns" ] || die "no namespace dir: $ns"
+	id="${2:-}"
+	third="${3:-}"
+	[ -n "$id" ] && [ -n "$third" ] ||
+		die "usage: task-report <id> <STATUS line>  |  task-report <id> --no-status <last line>"
+	entry="$(entry_line "$steps" "$id")"
+	[ -n "$entry" ] || die "no entry with id: $id"
 	if [ "$third" = "--no-status" ]; then
-		bash "$LIB_DIR/radin-state.sh" task-fail "$ns" "$id" --no-status "${5:-}"
+		# No debug pass ever: there is no failure reason to debug against.
+		ot="$(order_title "$id")"
+		write_entry "$steps" "$id" failed "$(num_field "$entry" attempts)" \
+			"sub-agent returned no STATUS line, likely an interactive skill or a spawned background task; last words: ${4:-}"
+		printf "❌ Task %s '%s' failed: %s. Continuing to next task.\n" \
+			"${ot%%	*}" "${ot#*	}" "sub-agent returned no STATUS line"
 		printf 'next\tcontinue\n'
 		exit 0
 	fi
@@ -870,7 +823,7 @@ task-report)
 	esac
 	# The tree comes first whatever the line claimed: a dirty tree fails the
 	# task and nothing else runs.
-	if dirty="$(bash "$LIB_DIR/radin-state.sh" dirty-recover "$ns" "$id" "$word")"; then
+	if dirty="$(dirty_recover "$id" "$word")"; then
 		printf '%s\n' "$dirty"
 		printf 'next\tcontinue\n'
 		exit 0
@@ -890,7 +843,7 @@ task-report)
 	if [ "$word" = "SUCCESS" ]; then
 		hash="$(printf '%s\n' "$detail" | grep -oE '[0-9a-f]{7,40}' | head -1 || true)"
 		if [ -n "$hash" ]; then
-			if done_out="$(bash "$LIB_DIR/radin-state.sh" task-done "$ns" "$id" "$hash" 2>&1)"; then
+			if done_out="$(bash "$LIB_DIR/radin-state.sh" task-done "$id" "$hash" 2>&1)"; then
 				printf '%s\n' "$done_out"
 				printf 'next\tcontinue\n'
 				exit 0
@@ -904,78 +857,73 @@ task-report)
 			detail="reported SUCCESS with no commit hash in the line"
 		fi
 	fi
-	if fail_out="$(bash "$LIB_DIR/radin-state.sh" task-fail "$ns" "$id" "$detail")"; then
+	if fail_out="$(task_fail "$id" "$detail")"; then
 		printf '%s\n' "$fail_out"
 		printf 'next\tcontinue\n'
 		exit 0
 	fi
-	# Exit 3 from task-fail: this task still has its one debug pass.
+	# Return 3 from task_fail: this task still has its one debug pass.
 	printf 'next\tdebug\n'
 	;;
 
 recover)
-	ns="${2:-}"
-	id="${3:-}"
-	[ -n "$ns" ] && [ -n "$id" ] || die "usage: recover <namespace-dir> <id>"
-	[ -d "$ns" ] || die "no namespace dir: $ns"
-	repo_root="${ns%/.claude/.radin}"
-	steps="$ns/state/BACKLOG_STEPS.json"
-	facts="$(bash "$LIB_DIR/radin-state.sh" triage "$ns" "$id")"
-	hash="$(printf '%s\n' "$facts" | sed -n 's/^completed	//p')"
-	if [ -n "$hash" ] && [ "$hash" != "none" ]; then
-		bash "$LIB_DIR/radin-state.sh" task-done "$ns" "$id" "$hash" >/dev/null
+	id="${2:-}"
+	[ -n "$id" ] || die "usage: recover <id>"
+	if hash="$(completed_get "$id")"; then
+		bash "$LIB_DIR/radin-state.sh" task-done "$id" "$hash" >/dev/null
 		printf 'recovered\t%s\tbookkeeping completed at %s\n' "$id" "$hash"
 		exit 0
 	fi
-	if printf '%s\n' "$facts" | grep -q '^branch_commit	'; then
-		# The one branch no verb can settle: only the model can say whether
-		# these commits satisfy the task. It answers with task-done or
-		# recover-reject.
-		printf '%s\n' "$facts" | grep -E '^(branch|worktree|branch_commit)	'
-		exit 3
+	dir="$(task_dir "$id")"
+	# Only `prepare` reads a task's branch from git; with no record there is
+	# nothing to name, and no derivation from the id could see a run that
+	# answered `branch: no`.
+	branch="$(prepared_field "$ns" "$id" branch)"
+	if [ -n "$branch" ] && git -C "$repo_root" rev-parse --verify --quiet "$branch" >/dev/null 2>&1; then
+		commits="$(git -C "$repo_root" log --oneline --no-decorate "$branch" --not HEAD 2>/dev/null | sed -n '1,20p')"
+		if [ -n "$commits" ]; then
+			# The one branch no verb can settle: only the model can say
+			# whether these commits satisfy the task. It answers with
+			# task-done or recover-reject.
+			if [ "$dir" = "$repo_root" ]; then
+				printf 'worktree\tnone\n'
+			else
+				printf 'worktree\t%s\n' "$dir"
+			fi
+			printf 'branch\t%s\n' "$branch"
+			printf '%s\n' "$commits" | sed 's/^/branch_commit\t/'
+			exit 3
+		fi
 	fi
-	dir="$(bash "$LIB_DIR/radin-state.sh" task-dir "$repo_root" "$id")"
-	if [ "$(printf '%s\n' "$facts" | sed -n 's/^dirty_files	//p')" = "0" ]; then
-		bash "$LIB_DIR/radin-state.sh" set-status "$steps" "$id" pending ""
+	if [ -z "$(dirty_files "$dir")" ]; then
+		set_status "$id" pending ""
 		printf 'recovered\t%s\tnothing left behind, back to pending\n' "$id"
 		exit 0
 	fi
-	ref="$(bash "$LIB_DIR/radin-state.sh" stash "$dir" "radin-execute: crash recovery for task $id")"
-	bash "$LIB_DIR/radin-state.sh" set-status "$steps" "$id" pending \
-		"tree stashed as $ref in $dir before retry"
+	ref="$(stash_tree "$dir" "radin-execute: crash recovery for task $id")"
+	set_status "$id" pending "tree stashed as $ref in $dir before retry"
 	journal "$ns/state" "stash" "$id" \
 		"$ref in $dir -- crash recovery for task $id. Recover: git -C $dir stash pop"
 	printf 'recovered\t%s\tstashed %s, back to pending\n' "$id" "$ref"
 	;;
 
 recover-reject)
-	ns="${2:-}"
-	id="${3:-}"
-	[ -n "$ns" ] && [ -n "$id" ] || die "usage: recover-reject <namespace-dir> <id>"
-	[ -d "$ns" ] || die "no namespace dir: $ns"
-	repo_root="${ns%/.claude/.radin}"
-	steps="$ns/state/BACKLOG_STEPS.json"
-	dir="$(bash "$LIB_DIR/radin-state.sh" task-dir "$repo_root" "$id")"
+	id="${2:-}"
+	[ -n "$id" ] || die "usage: recover-reject <id>"
+	dir="$(task_dir "$id")"
 	note="a dead session left commits on radin/$id that do not satisfy the task -- inspect them before retrying"
 	if [ "$dir" != "$repo_root" ]; then
 		note="a dead session left commits on radin/$id (worktree $dir) that do not satisfy the task -- inspect them before retrying"
 	fi
-	bash "$LIB_DIR/radin-state.sh" set-status "$steps" "$id" blocked "$note"
+	set_status "$id" blocked "$note"
 	printf 'blocked\t%s\t%s\n' "$id" "$note"
 	;;
 
 report)
-	ns="${2:-}"
-	[ -n "$ns" ] || die "usage: report <namespace-dir> [<dropped-skill line>...]"
-	[ -d "$ns" ] || die "no namespace dir: $ns"
-	shift 2
-	repo_root="${ns%/.claude/.radin}"
 	state_dir="$ns/state"
-	steps="$state_dir/BACKLOG_STEPS.json"
-	completed="$state_dir/completed.json"
 	worktree_mode="no"
 	branch_mode="no"
-	if session="$(bash "$LIB_DIR/radin-state.sh" session-get "$ns" 2>/dev/null)"; then
+	if session="$(bash "$LIB_DIR/radin-state.sh" session-get 2>/dev/null)"; then
 		worktree_mode="$(printf '%s\n' "$session" | sed -n 's/^worktree	//p')"
 		branch_mode="$(printf '%s\n' "$session" | sed -n 's/^branch	//p')"
 	fi
@@ -990,16 +938,21 @@ report)
 	# Stashes of this session: every stash event since the last steps-init.
 	# Reporting only -- no control flow reads the journal.
 	stash_block=""
+	dropped_block=""
 	if [ -s "$state_dir/journal.jsonl" ]; then
 		from="$(grep -n '"event":"steps-init"' "$state_dir/journal.jsonl" | tail -n1 | cut -d: -f1)"
 		stash_block="$(tail -n "+${from:-1}" "$state_dir/journal.jsonl" |
 			sed -nE 's/.*"event":"stash","id":"[^"]+","detail":"(.*)"\}$/- \1/p')"
+		# A retried task journals its drops again, hence the dedupe.
+		dropped_block="$(tail -n "+${from:-1}" "$state_dir/journal.jsonl" |
+			sed -nE 's/.*"event":"skill-dropped","id":"[^"]+","detail":"(.*)"\}$/- \1/p' | awk '!seen[$0]++')"
 	fi
 
 	# Residual changes: never committed, parked instead. The user's call.
 	residual="no residual changes"
 	if [ -n "$(git -C "$repo_root" status --porcelain -- . ':(exclude).claude/.radin' 2>/dev/null)" ]; then
-		ref="$(bash "$LIB_DIR/radin-state.sh" stash "$repo_root" "radin-execute: session end, untracked to any task")"
+		ref="$(stash_tree "$repo_root" "radin-execute: session end, untracked to any task")"
+		journal "$state_dir" "stash" "" "radin-execute: session end, untracked to any task"
 		residual="residual changes stashed as $ref"
 		stash_block="${stash_block:+$stash_block$'\n'}- $ref in $repo_root -- session end, untracked to any task. Recover: git -C $repo_root stash pop"
 	fi
@@ -1069,15 +1022,10 @@ report)
 	[ -z "$blocked" ] || printf '\nNeeds your decision (left in the backlog, nothing implemented):%s\n' "$blocked"
 	[ -z "$deferred" ] || printf '\nDeferred at your request (left in the backlog):%s\n' "$deferred"
 	[ -z "$stash_block" ] || printf '\nStashes created this session:\n%s\n' "$stash_block"
-	if [ "$#" -gt 0 ]; then
-		printf '\nSkills dropped as unrunnable by a sub-agent (run them yourself):\n'
-		for dropped in "$@"; do
-			printf -- '- %s\n' "$dropped"
-		done
-	fi
+	[ -z "$dropped_block" ] || printf '\nSkills dropped as unrunnable by a sub-agent (run them yourself):\n%s\n' "$dropped_block"
 	;;
 
 *)
-	die "unknown command: ${cmd:-<none>} (steps-init|next-pending|task-next|start|stuck|triage|recover|recover-reject|set-status|remove|deps-check|completed-add|completed-get|completed-show|completed-list|trace|task-done|task-fail|task-diagnosis|dirty-recover|report|task-dir|prepare|dirty-check|stash|session-set|session-get|journal-tail)"
+	die "unknown command: ${cmd:-<none>} (steps-init|task-next|task-report|task-diagnosis|task-done|set-status|stuck|recover|recover-reject|report|session-set|session-get|prepare|dirty-check|trace|completed-show|completed-list|deps-check|task-dir|journal-tail)"
 	;;
 esac

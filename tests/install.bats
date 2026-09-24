@@ -319,9 +319,9 @@ run_install_defaults() {
 # own no-plan rule is the only thing that tells them apart.
 @test "only radin-execute dispatches a planning sub-agent" {
   run_install_defaults
-  grep -q "prompt planning" "$TEST_HOME/.claude/skills/radin-execute/SKILL.md"
-  ! grep -q "prompt planning" "$TEST_HOME/.claude/skills/radin-implement/SKILL.md"
-  ! grep -q "prompt planning" "$TEST_HOME/.claude/.radin/lib/radin-run.md"
+  grep -q -- "--plan-first" "$TEST_HOME/.claude/skills/radin-execute/SKILL.md"
+  ! grep -q -- "--plan-first" "$TEST_HOME/.claude/skills/radin-implement/SKILL.md"
+  ! grep -q -- "--plan-first" "$TEST_HOME/.claude/.radin/lib/radin-run.md"
   grep -q '"radin-implement"' "$TEST_HOME/.claude/.radin/manifest.json"
   grep -q '"radin-run.md"' "$TEST_HOME/.claude/.radin/manifest.json"
 }

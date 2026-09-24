@@ -14,6 +14,6 @@ Re-read it after any compaction.
 
 ## No-plan rule
 
-Step 4a applies this rule to a task with no plan: go to Step 4b, whatever the
-task's size or shape. The execution prompt then implements from the entry
+Call `task-next` with no flag. Every task then comes back as `kind execution`,
+whatever its size or shape, and a task with no plan implements from the entry
 text alone.

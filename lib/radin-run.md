@@ -2,7 +2,7 @@
 
 The shared body of `/radin-execute` and `/radin-implement`. The skill that
 sent you here holds the one rule that differs between them: the **no-plan
-rule** Step 4a applies.
+rule** Phase 4 applies.
 
 You are a **router**: you prioritize the backlog, dispatch every
 implementation step to a sub-agent, and record status. The pull to just fix it
@@ -54,7 +54,7 @@ you.
   `depends_on` chain and no files, since each lands in its own tree. `no`, or
   file overlap unclear: dispatch one task, wait for its `STATUS:` line, finish
   its bookkeeping, then dispatch the next. Parallel agents in one checkout
-  corrupt each other's commits. Each task still gets its own `start`, its own
+  corrupt each other's commits. Each task still gets its own `task-next`, its own
   dispatch, and its own `task-report`.
 
 ## Clarifying Ambiguity
@@ -74,9 +74,7 @@ Every status change this skill makes goes through one command, and this is its
 only signature:
 
 ```bash
-RADIN_CLI state set-status \
-  "$NAMESPACE_DIR/state/BACKLOG_STEPS.json" "<task id>" \
-  <pending|in_progress|failed|blocked> "<note>"
+RADIN_CLI state set-status "<task id>" <pending|in_progress|failed|blocked> "<note>"
 ```
 
 The `note` is a single shell argument, so quote it whole however many
@@ -89,17 +87,14 @@ sentences it holds.
 `RADIN_CLI backlog` and `RADIN_CLI state` own every radin state file. Never
 hand-edit one, and never parse one to decide what to do next;
 `radin-execute-resume.md`'s read-only resume triage is the one exception.
-Resolve the namespace and verify a backlog exists in the **same Bash
-call** (shell state does not persist across calls):
+Every `RADIN_CLI` call resolves the namespace from the current directory, so
+no call takes a path. Verify a backlog exists:
 
 ```bash
-source <(RADIN_CLI backlog env --export)
 RADIN_CLI backlog count
 ```
 
-Use `$REPO_ROOT`, `$NAMESPACE_DIR`, `$BACKLOG_INDEX`, `$BACKLOG_TASKS_DIR`
-thereafter, and re-run the `source` line in any later Bash call that needs
-them. On a non-zero count, continue to Phase 0.5. A count of `0` is not a
+On a non-zero count, continue to Phase 0.5. A count of `0` is not a
 stop here: Phase 1 step 1 owns that branch.
 
 ## Phase 0.5: Worktree/Branch Preference
@@ -110,7 +105,7 @@ and own branch per task. They are recorded once per repo in
 before Phase 4 dispatches anything. Read the recorded answers first:
 
 ```bash
-RADIN_CLI state session-get "$NAMESPACE_DIR"
+RADIN_CLI state session-get
 ```
 
 Exit 0 prints `worktree<TAB><yes|no>` and `branch<TAB><yes|no>`: the repo has
@@ -130,7 +125,7 @@ persist them.
    success and removing the entry leaves a finished task in the backlog:
 
    ```bash
-   RADIN_CLI backlog reconcile "$NAMESPACE_DIR/state/completed.json"
+   RADIN_CLI backlog reconcile
    ```
 
    No-op when there is nothing stale. If reconcile emptied the backlog,
@@ -138,7 +133,7 @@ persist them.
 3. Recover tasks an interrupted run left mid-flight:
 
    ```bash
-   RADIN_CLI state stuck "$NAMESPACE_DIR/state/BACKLOG_STEPS.json"
+   RADIN_CLI state stuck
    ```
 
    Exit 1: nothing to recover, continue to step 4. Exit 0 prints one
@@ -214,7 +209,7 @@ The confirmed order is persisted by exactly this pipe:
 
 ```bash
 RADIN_CLI backlog order --steps <Phase 1's flags> --defer "<ids Phase 2 excluded>" |
-  RADIN_CLI state steps-init "$NAMESPACE_DIR/state/BACKLOG_STEPS.json" "$BACKLOG_INDEX"
+  RADIN_CLI state steps-init
 ```
 
 `--defer` takes the ids Phase 2 excluded; omit the flag entirely when nothing
@@ -224,81 +219,42 @@ task keeps the `order` number the user just confirmed.
 
 ## Phase 4: Task Execution Loop
 
-`RADIN_CLI state task-next` computes the **frontier** — the pending, unblocked
-tasks — and hands you the first of them. The frontier is the CLI's to compute,
+One call does everything between two dispatches: it picks the next
+**frontier** task (pending, unblocked), checks the entry still exists, claims
+it, and writes its prompt to a file. The frontier is the CLI's to compute,
 never yours:
 
 ```bash
-RADIN_CLI state task-next "$NAMESPACE_DIR"
+RADIN_CLI state task-next <no-plan rule flag>
 ```
 
 Exit 1 means nothing is left to run, so go to Phase 5. Exit 0 prints, in
 order:
 
-- zero or more `blocked<TAB><id><TAB><why>` lines — tasks it skipped because
-  a dependency is unresolved. It already marked each one `blocked` with that
-  note; report each as skipped.
-- `id<TAB><id>` and `order<TAB><n>` for the task to run now.
-- zero or more `dep<TAB><id><TAB><commit hash>` lines. Keep the pairs: Step
-  4b forwards them so the sub-agent can check whether a dependency's actual
-  changes diverged from what this task's plan assumed.
+- zero or more `blocked<TAB><id><TAB><why>` lines — tasks it skipped (an
+  unresolved dependency, an entry the backlog lost, `MAX_ATTEMPTS` reached).
+  It already marked each one `blocked`; report each as skipped.
+- `id`, `order`, `kind`, `model` and `prompt` lines for the task to run now.
 
-### Step 4a: Resolve the entry and its plan
+`kind` is `planning` or `execution`, and the no-plan rule of the skill that
+sent you here says what a `planning` one needs. Dispatch the prompt as one
+`Task` call with exactly that model and this text, and nothing else:
 
-Two calls, each answering one question:
-
-```bash
-RADIN_CLI backlog field "<task id>" TASK_FILE
-RADIN_CLI backlog field "<task id>" PLAN_PATHS
+```
+Read <the prompt path> and follow it.
 ```
 
-`TASK_FILE` resolves the entry, so a non-zero exit is the drift case (the
-backlog may have moved since Phase 3): mark the task `blocked` with that
-call's output as its `note` and continue to the next task.
-
-`PLAN_PATHS` exit 0: a plan exists — `/radin-plan` wrote it, or an earlier
-Step 4a did — so skip to Step 4b. Exit 1: apply the **no-plan rule** of the
-skill that sent you here.
-
-### Step 4b: Execution sub-agent
-
-**Claim** the task first, before any work: a pending entry with no
-`in_progress` record is unclaimed, and Phase 1 step 3's stuck-recovery sees
-only what this call records:
-
-```bash
-RADIN_CLI state start "$NAMESPACE_DIR/state/BACKLOG_STEPS.json" "<task id>"
-```
-
-Exit 0 prints `attempts<TAB><n>`. Exit 2 means the task has been dispatched
-`MAX_ATTEMPTS` times without ever reaching a terminal status; the CLI already
-marked it `blocked`. Report it and continue to the next task. Do not retry.
-
-Then take the prompt from the CLI, and dispatch it under the concurrency rule
-in Core Constraints — it decides whether this task's `Task` call may share a
-message with another's:
-
-```bash
-RADIN_CLI prompt execution "<task id>"
-RADIN_CLI backlog field "<task id>" SKILLS_DROPPED
-```
-
-`prompt` prints `model<TAB><name>`, a `--- prompt ---` line, then the prompt:
-send everything after that line verbatim, with that model. It resolved the
-task's text, plan, skills, acceptance criteria, dependency commits and
-category itself, and left out every step this task has no input for — so your
-own read of the task's shape never enters the prompt, and there is no
-placeholder to substitute. `SKILLS_DROPPED` exit 0 prints the standing
-instructions the CLI filtered out as unrunnable by a leaf; name each in the
-Phase 5 summary so the user can run it themselves. Exit 1 — the common case —
-means none were dropped.
+Dispatch under the concurrency rule in Core Constraints — it decides whether
+this task's `Task` call may share a message with another's. An `execution`
+task is already claimed, so Phase 1 step 3's stuck-recovery sees it if the
+session dies.
 
 When the sub-agent reports, hand its last line to one call. It verifies the
 tree first (a dirty tree fails the task, whatever the `STATUS:` claimed), then
 records the terminal state and prints the report line:
 
 ```bash
-RADIN_CLI state task-report "$NAMESPACE_DIR" "<task id>" "<the sub-agent's STATUS: line>"
+RADIN_CLI state task-report "<task id>" "<the sub-agent's STATUS: line>"
 ```
 
 Two dispatches hand back no such line. A last line that is not a `STATUS:`
@@ -308,16 +264,17 @@ all is still working, whatever the elapsed time suggests: wait, and if your
 turn ends first, leave the entry `in_progress` for Phase 1's stuck-recovery.
 
 Print what the call printed, then route on its final `next` line and nothing
-else:
+else. A re-run names the task: `task-next <flag> "<task id>"`
+claims it again and bumps `attempts`, so the cap still ends it.
 
 | `next` | Do |
 | --- | --- |
-| `continue` | Recorded on disk. Go to Step 4c. |
-| `debug` | This task still has its one debug pass. Dispatch `RADIN_CLI prompt debug "<task id>" "<the reason from the STATUS: line>"`. `STATUS: DIAGNOSED`: record it, then re-run this task from Step 4b — `start` bumps `attempts`, so the cap still ends it. `STATUS: NOT DIAGNOSED`: re-run `task-report` with the same line, which routes to `continue` this time. |
-| `clarify FACT` / `clarify DECISION` | Route per Clarifying Ambiguity. Once settled, re-run this task from Step 4a. |
+| `continue` | Recorded on disk. Run `task-next` again for the next task. |
+| `debug` | This task still has its one debug pass. `RADIN_CLI prompt debug "<task id>" "<the reason from the STATUS: line>"` prints a `model` and a `prompt` path: dispatch it the same way. `STATUS: DIAGNOSED`: record it, then re-run the task. `STATUS: NOT DIAGNOSED`: re-run `task-report` with the same line, which routes to `continue` this time. |
+| `clarify FACT` / `clarify DECISION` | Route per Clarifying Ambiguity. Once settled, re-run the task. |
 
 ```bash
-RADIN_CLI state task-diagnosis "$NAMESPACE_DIR" "<task id>" <<'EOF'
+RADIN_CLI state task-diagnosis "<task id>" <<'EOF'
 <the diagnosis>
 EOF
 ```
@@ -327,10 +284,6 @@ re-reading the diff — that read is the cost Phase 6's `/radin-review` pass
 exists to avoid. A task is finished when `task-report` has recorded it,
 whatever the sub-agent's prose said.
 
-### Step 4c: Repeat
-
-Re-run `task-next` for the next frontier task. Exit 0: process that task.
-Exit 1: go to Phase 5.
 Failed, blocked and deferred entries stay in the file for the user to retry
 or decide later. They are not retried within this session, and never block the
 loop from reaching Phase 5.
@@ -340,7 +293,7 @@ loop from reaching Phase 5.
 Always runs once the loop exits, and the CLI prints it whole:
 
 ```bash
-RADIN_CLI state report "$NAMESPACE_DIR" "<one dropped-skill line per skill Step 4b dropped>"
+RADIN_CLI state report
 ```
 
 Print its output verbatim. Read

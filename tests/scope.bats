@@ -38,8 +38,8 @@ EOF
 # Records completion $2 against commit $1 in the repo's own namespace.
 record_done() {
   mkdir -p "$WORK/repo/.claude/.radin/state"
-  bash "$REPO_ROOT/lib/radin-state.sh" completed-add \
-    "$WORK/repo/.claude/.radin/state/completed.json" "$2" "$1" t
+  printf '{"id":"%s","commit":"%s","title":"t"}\n' "$2" "$1" \
+    >> "$WORK/repo/.claude/.radin/state/completed.json"
 }
 
 @test "no argument resolves to the branch diff against main's merge-base" {

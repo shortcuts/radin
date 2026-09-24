@@ -4,6 +4,34 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Unreleased
 
+### Changed
+
+- `/radin-execute` and `/radin-implement` make one CLI call per task instead
+  of five. `radin state task-next` now checks the entry, claims the task and
+  writes its prompt file. Routers stopped writing their own glue scripts.
+- `radin prompt` writes the prompt to `state/prompts/<id>-<kind>.md` and
+  prints its path. The router dispatches the path, not the 6KB text, which
+  cuts output tokens on every dispatch.
+- `radin state report` finds dropped skills in the journal. It takes no
+  extra arguments.
+- `radin state` verbs and `radin backlog reconcile` resolve the namespace
+  from the current directory and take no path arguments. Skills no longer
+  source `radin backlog env` before each call.
+- A linked worktree resolves to its main checkout's namespace, so a
+  sub-agent working in `<repo>-<id>` reads and writes the real backlog.
+
+### Removed
+
+- `radin state` verbs no caller needed on their own: `next-pending`,
+  `start`, `triage`, `remove`, `completed-add`, `completed-get`, `stash`,
+  `task-fail` and `dirty-recover`. `task-next`, `task-report`, `task-done`
+  and `recover` do that work.
+
+### Fixed
+
+- Skills resolve the namespace with `eval "$(radin backlog env --export)"`.
+  `source <(…)` read nothing under macOS `/bin/bash` 3.2.
+
 ### Added
 
 - `/radin-implement` works the backlog like `/radin-execute`, with no

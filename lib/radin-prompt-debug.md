@@ -1,4 +1,4 @@
-# Template: radin-execute debug prompt (Step 4b, after `STATUS: FAILED`)
+# Template: radin-execute debug prompt (Phase 4, after `STATUS: FAILED`)
 
 Source text for `radin prompt debug <id>` (`lib/radin-prompt.sh`), which drops the
 guarded blocks that do not apply to the task, substitutes every `UPPERCASE`
@@ -14,7 +14,7 @@ The fence states the leaf contract itself: a sub-agent receives only the fence.
 
 `model: "RADIN_MODEL_DEBUG"`
 
-One dispatch per task per session: `state task-fail` exits 3 exactly once, and
+One dispatch per task per session: `state task-report` answers `next debug` exactly once, and
 that exit is what sends this.
 
 ```

@@ -42,7 +42,7 @@
 #   radin-backlog.sh field <id-or-title> <TASK_FILE|TASK_BODY|EPIC_CONTEXT|TASK_ID|CATEGORY|PLAN_PATHS|SKILLS|SKILLS_DROPPED|ACCEPTANCE|FACTS|LOCATION>  # one Execution-prompt placeholder, rendered ready to substitute
 #   radin-backlog.sh duplicates                  # print "id<TAB><value><TAB><ids>" / "title<TAB><value><TAB><ids>" per duplicated value, exit 1 when there are none
 #   radin-backlog.sh remove <id-or-title>        # delete task file + index entry (exact single match required)
-#   radin-backlog.sh reconcile <completed-file>  # drop backlog entries whose id is already in completed.json
+#   radin-backlog.sh reconcile                  # drop backlog entries whose id is already in completed.json
 #   radin-backlog.sh epics                       # print every epic id, one per line
 #   radin-backlog.sh epic-add <epic-id>          # create the epic dir + DESCRIPTION.md (body from stdin when piped)
 #   radin-backlog.sh epic-show <epic-id>         # print the epic's DESCRIPTION.md
@@ -1318,15 +1318,14 @@ remove)
 
 reconcile)
 	# A task's success is recorded in completed.json (radin-state.sh
-	# completed-add) BEFORE its backlog entry is removed. If the run dies
+	# task-done) BEFORE its backlog entry is removed. If the run dies
 	# between those two steps the completed entry stays in the backlog and
 	# looks unstarted next session. Reconcile closes that gap: drop every
 	# backlog entry whose id already sits in completed.json.
 	# ponytail: id-keyed match. A brand-new task that reuses a removed
 	# task's slug (same title) would be dropped too; clear completed.json
 	# between sessions if that ever bites.
-	completed_file="${2:-}"
-	[ -n "$completed_file" ] || usage_die reconcile "reconcile needs a completed-file path"
+	completed_file="$NAMESPACE_DIR/state/completed.json"
 	require_index
 	[ -f "$completed_file" ] || {
 		printf 'reconcile: no completed file, nothing to do\n'

@@ -7,7 +7,7 @@ A stuck task's sub-agent died with the session, so what it left on disk is
 unknown. Never re-dispatch one blind. For each id `stuck` printed:
 
 ```bash
-RADIN_CLI state recover "$NAMESPACE_DIR" "<task id>"
+RADIN_CLI state recover "<task id>"
 ```
 
 Exit 0: it already finished the recovery — print the
@@ -27,10 +27,9 @@ It prints one `acceptance<TAB><criterion>` line per criterion the entry states,
 and none when it states none.
 
 - **There is at least one `acceptance` line and the commits meet every one of
-  them**: `RADIN_CLI state task-done "$NAMESPACE_DIR" "<task id>" "<last
-  hash>"`.
+  them**: `RADIN_CLI state task-done "<task id>" "<last hash>"`.
 - **Anything else** — a criterion the commits miss, a criterion you cannot
   settle without running the project's checks, or no `acceptance` line at all:
-  `RADIN_CLI state recover-reject "$NAMESPACE_DIR" "<task id>"`. Partial work
+  `RADIN_CLI state recover-reject "<task id>"`. Partial work
   is the user's call, and the command blocks the entry naming the branch and
   worktree to inspect. An entry stating no criteria always lands here.

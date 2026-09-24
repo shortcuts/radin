@@ -1,4 +1,4 @@
-# Template: radin-execute planning prompt (Step 4a)
+# Template: radin-execute planning prompt (Phase 4, `--plan-first`)
 
 Source text for `radin prompt planning <id>` (`lib/radin-prompt.sh`), which drops the
 guarded blocks that do not apply to the task, substitutes every `UPPERCASE`

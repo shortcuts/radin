@@ -79,12 +79,11 @@ neither is re-resolved between sub-tasks. For each sub-task, in order:
      answered it.
      Still open, and running in the user's own thread: hand the question to
      `/mattpocock-skills:research` naming
-     `$NAMESPACE_DIR/state/facts/<task-id>.md` as the file to write to, plan
+     `<repo root>/.claude/.radin/state/facts/<task-id>.md` as the file to write to, plan
      the parts that do not hinge on the answer meanwhile, and record what it
      reports so the next invocation reads it instead of re-researching:
 
      ```bash
-     source <(RADIN_CLI backlog env --export)
      RADIN_CLI backlog append "<id>" <<'EOF'
      **Fact:** <the answer in one sentence, naming the source that owns it>
      EOF

@@ -11,6 +11,13 @@ set -euo pipefail
 
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || true)
 [ -n "$REPO_ROOT" ] || REPO_ROOT="$PWD"
+# A linked worktree resolves to its main checkout: a sub-agent working in
+# <repo>-<id> must read and write the one backlog, not an empty copy. Only a
+# linked worktree has a git dir apart from the common dir, so only it pays the
+# extra fork.
+if [ "$(git rev-parse --git-dir 2>/dev/null)" != "$(git rev-parse --git-common-dir 2>/dev/null)" ]; then
+	REPO_ROOT="$(git worktree list --porcelain | sed -n '1s/^worktree //p')"
+fi
 NAMESPACE_DIR="$REPO_ROOT/.claude/.radin"
 BACKLOG_TASKS_DIR="$NAMESPACE_DIR/backlog/tasks"
 # One `mkdir` exec per CLI call is ~3ms every skill pays; the dirs only need

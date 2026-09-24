@@ -112,7 +112,7 @@ cli() {
   cli add feat "still open" <<<"body open"
   mkdir -p "$WORK/proj/.claude/.radin/state"
   printf '{"id":"done-task","commit":"abc123"}\n' > "$WORK/proj/.claude/.radin/state/completed.json"
-  run cli reconcile "$WORK/proj/.claude/.radin/state/completed.json"
+  run cli reconcile
   [ "$status" -eq 0 ]
   [[ "$output" == *"done-task"* ]]
   [ ! -f "$TASKS/done-task.md" ]

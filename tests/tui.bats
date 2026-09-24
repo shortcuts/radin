@@ -365,7 +365,7 @@ tui() {
 @test "Tab shows the Done view from completed.json" {
   seed
   mkdir -p "$NS/state"
-  bash "$REPO_ROOT/lib/radin-state.sh" completed-add "$NS/state/completed.json" shipped-thing abc1234
+  printf '{"id":"shipped-thing","commit":"abc1234","title":""}\n' >> "$NS/state/completed.json"
   snapshot
   run tui "\t|q"
   [ "$status" -eq 0 ]
@@ -604,7 +604,7 @@ row_titles() {
   mkdir -p "$NS/state"
   i=1
   while [ "$i" -le 25 ]; do
-    bash "$REPO_ROOT/lib/radin-state.sh" completed-add "$NS/state/completed.json" "done-$i" "hash$i"
+    printf '{"id":"done-%s","commit":"hash%s","title":""}\n' "$i" "$i" >> "$NS/state/completed.json"
     i=$((i + 1))
   done
   run tui "\t|G|q"

@@ -147,7 +147,7 @@ if [ "${1:-}" = "--tasks" ]; then
 		[ -n "$h" ] || continue
 		# `trace` exits 1 for a commit no task completed and 2 when the hash
 		# also reads as an id or branch; stdout is empty either way.
-		traced="$(bash "$LIB_DIR/radin-state.sh" trace "$NAMESPACE_DIR" "$h" 2>/dev/null || true)"
+		traced="$(bash "$LIB_DIR/radin-state.sh" trace "$h" 2>/dev/null || true)"
 		for id in $(printf '%s\n' "$traced" | sed -n "s/^task$TAB//p"); do
 			case " $seen " in *" $id "*) continue ;; esac
 			seen="$seen $id"

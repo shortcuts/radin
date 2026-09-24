@@ -15,5 +15,5 @@ the same `AskUserQuestion` call as Phase 2's order confirmation, so one call
 covers all three questions. Then persist them:
 
 ```bash
-RADIN_CLI state session-set "$NAMESPACE_DIR" "<worktree yes|no>" "<branch yes|no>"
+RADIN_CLI state session-set "<worktree yes|no>" "<branch yes|no>"
 ```

@@ -1061,10 +1061,8 @@ static void draw(void) {
 static void load_done(void) {
 	for (int i = 0; i < DONE_N; i++) free(done_rows[i]);
 	DONE_N = 0;
-	char path[PATH_MAX];
-	snprintf(path, sizeof path, "%s/state/completed.json", NAMESPACE_DIR);
 	int ok;
-	char *out = cli(STATE, &ok, 0, NULL, "completed-list", path, NULL);
+	char *out = cli(STATE, &ok, 0, NULL, "completed-list", NULL);
 	char *line = out;
 	while (*line && DONE_N < MAXT) {
 		char *nl = strchr(line, '\n');

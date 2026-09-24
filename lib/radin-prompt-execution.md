@@ -1,4 +1,4 @@
-# Template: radin-execute execution prompt (Step 4b)
+# Template: radin-execute execution prompt (Phase 4)
 
 Source text for `radin prompt execution <id>` (`lib/radin-prompt.sh`), which drops the
 guarded blocks that do not apply to the task, substitutes every `UPPERCASE`
@@ -76,7 +76,7 @@ TASK_BODY
    LOCATION is the `path:line` this task's finding was cited at; start there.
 <!-- end -->
 1a. Set up the tree you will work in:
-   `RADIN_CLI state prepare "NAMESPACE_DIR" "TASK_ID"`.
+   `RADIN_CLI state prepare "TASK_ID"`.
    It prints one absolute path on stdout, and that path is the tree — repo root
    or worktree, task branch or the branch the user already had checked out:
    `cd` there and do every step below in it. It has already applied the user's
@@ -138,7 +138,7 @@ ACCEPTANCE
    full check suite (lint, tests, format) once before committing; fix what they
    surface before step 6.
 6. Invoke the `/caveman:caveman-commit` skill to draft the commit message, then commit.
-7. Run `RADIN_CLI state dirty-check "$(pwd)"` from the tree
+7. Run `RADIN_CLI state dirty-check` from the tree
    step 1a handed you, so the check covers the files you actually touched.
    If anything is still uncommitted (including changes made incidentally while
    investigating, e.g. formatter/linter auto-fixes), either commit it as part of this
