@@ -14,7 +14,7 @@ teardown() {
 install_all_expected() {
   mkdir -p "$TEST_HOME/.claude/.radin/lib" "$TEST_HOME/.claude/.radin/bin"
   printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/bin/radin"
-  for name in radin-execute radin-plan radin-record radin-review radin-setup-hooks radin-show radin-stats radin-doctor radin-uninstall; do
+  for name in radin-execute radin-implement radin-plan radin-record radin-review radin-setup-hooks radin-show radin-stats radin-doctor radin-uninstall; do
     mkdir -p "$TEST_HOME/.claude/skills/$name"
     : > "$TEST_HOME/.claude/skills/$name/SKILL.md"
   done
@@ -37,6 +37,7 @@ printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-cbm-
   : > "$TEST_HOME/.claude/.radin/lib/radin-execute-clarify.md"
   : > "$TEST_HOME/.claude/.radin/lib/radin-execute-session.md"
   : > "$TEST_HOME/.claude/.radin/lib/radin-execute-resume.md"
+  : > "$TEST_HOME/.claude/.radin/lib/radin-run.md"
   printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-doctor.sh"
   cp "$CLI" "$TEST_HOME/.claude/.radin/lib/radin-uninstall.sh"
 }
@@ -45,7 +46,7 @@ printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-cbm-
   install_all_expected
   run env HOME="$TEST_HOME" bash "$TEST_HOME/.claude/.radin/lib/radin-uninstall.sh"
   [ "$status" -eq 0 ]
-  for name in radin-execute radin-plan radin-record radin-review radin-setup-hooks radin-show radin-stats radin-doctor radin-uninstall; do
+  for name in radin-execute radin-implement radin-plan radin-record radin-review radin-setup-hooks radin-show radin-stats radin-doctor radin-uninstall; do
     [ ! -e "$TEST_HOME/.claude/skills/$name" ]
   done
   [ ! -e "$TEST_HOME/.claude/.radin/bin/radin" ]
@@ -63,6 +64,7 @@ printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-cbm-
   [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-execute-clarify.md" ]
   [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-execute-session.md" ]
   [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-execute-resume.md" ]
+  [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-run.md" ]
   [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-doctor.sh" ]
   [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-uninstall.sh" ]
 }

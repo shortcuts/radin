@@ -170,12 +170,12 @@ for f in radin-namespace.sh radin-json.sh radin-backlog.sh radin-tui.c \
 	radin-prioritization.md \
 	radin-execute-recovery.md radin-execute-reporting.md \
 	radin-execute-clarify.md radin-execute-session.md \
-	radin-execute-resume.md radin-cbm-hooks.sh \
+	radin-execute-resume.md radin-run.md radin-cbm-hooks.sh \
 	radin-cbm-config.sh radin-update.sh \
 	radin-doctor.sh radin-uninstall.sh; do
 	cp "$RADIN_ROOT/lib/$f" "$HOME/.claude/.radin/lib/"
 done
-for s in radin-execute radin-review radin-record radin-show radin-plan \
+for s in radin-execute radin-implement radin-review radin-record radin-show radin-plan \
 	radin-setup-hooks radin-stats radin-doctor radin-uninstall; do
 	cp -r "$RADIN_ROOT/skills/$s" "$HOME/.claude/skills/"
 done
@@ -588,7 +588,7 @@ elif prompt_yn "Choose radin-execute's sub-agent models? (defaults: sonnet, haik
 else
 	ok "keeping default sub-agent models (sonnet; haiku for fact-finding)"
 fi
-set_role_models "$HOME/.claude/skills/radin-execute/SKILL.md"
+set_role_models "$HOME/.claude/.radin/lib/radin-run.md"
 for k in planning execution debug factfind; do
 	set_role_models "$HOME/.claude/.radin/lib/radin-prompt-$k.md"
 done
@@ -772,7 +772,7 @@ else
 		;;
 	esac
 fi
-for f in radin-execute radin-plan radin-record radin-review radin-show \
+for f in radin-execute radin-implement radin-plan radin-record radin-review radin-show \
 	radin-doctor radin-uninstall radin-setup-hooks radin-stats; do
 	set_cli "$HOME/.claude/skills/$f/SKILL.md" "$RADIN_CLI_VALUE"
 done
@@ -784,7 +784,10 @@ set_cli "$HOME/.claude/.radin/lib/radin-prioritization.md" "$RADIN_CLI_VALUE"
 set_cli "$HOME/.claude/.radin/lib/radin-execute-clarify.md" "$RADIN_CLI_VALUE"
 set_cli "$HOME/.claude/.radin/lib/radin-execute-session.md" "$RADIN_CLI_VALUE"
 set_cli "$HOME/.claude/.radin/lib/radin-execute-reporting.md" "$RADIN_CLI_VALUE"
+set_cli "$HOME/.claude/.radin/lib/radin-run.md" "$RADIN_CLI_VALUE"
 set_lib "$HOME/.claude/skills/radin-execute/SKILL.md"
+set_lib "$HOME/.claude/skills/radin-implement/SKILL.md"
+set_lib "$HOME/.claude/.radin/lib/radin-run.md"
 
 step "Agent guidance"
 # A short section in ~/.claude/CLAUDE.md telling Claude when to reach for
@@ -802,7 +805,7 @@ survive past one conversation. Reach for it instead of ad-hoc task tracking:
 
 - A bug, idea, or follow-up comes up mid-session: record it with `/radin-record`.
 - The user asks what is pending: `/radin-show`. One entry needs a plan first: `/radin-plan`.
-- The user wants the backlog worked through: `/radin-execute`. A code review whose findings should become tasks: `/radin-review`.
+- The user wants the backlog worked through: `/radin-execute`, or `/radin-implement` to skip the planning pass. A code review whose findings should become tasks: `/radin-review`.
 - Never hand-edit files under `.claude/.radin/` -- every backlog operation goes through the `'"$RADIN_CLI_VALUE"' backlog` CLI.
 - Never guess on a broad or ambiguous ask: invoke `/mattpocock-skills:grilling` and let the user settle it before radin writes anything.
 <!-- radin:end -->'
@@ -863,6 +866,7 @@ cat >"$MANIFEST_FILE" <<EOF
   "cli_on_path": $CLI_ON_PATH,
   "skills": [
     "radin-execute",
+    "radin-implement",
     "radin-plan",
     "radin-record",
     "radin-review",
@@ -892,6 +896,7 @@ cat >"$MANIFEST_FILE" <<EOF
     "radin-execute-clarify.md",
     "radin-execute-session.md",
     "radin-execute-resume.md",
+    "radin-run.md",
     "radin-cbm-hooks.sh",
     "radin-cbm-config.sh",
     "radin-update.sh",

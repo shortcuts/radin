@@ -136,7 +136,7 @@ run_install_defaults() {
 @test "writes a model into every sub-agent role, leaving no marker behind" {
   run_install_defaults
   ! grep -rq 'RADIN_MODEL_' "$TEST_HOME/.claude/skills" "$TEST_HOME/.claude/.radin/lib"
-  grep -q 'model: "sonnet"' "$TEST_HOME/.claude/skills/radin-execute/SKILL.md"
+  grep -q 'model: "sonnet"' "$TEST_HOME/.claude/.radin/lib/radin-run.md"
   grep -q 'model: "haiku"' "$TEST_HOME/.claude/.radin/lib/radin-prompt-factfind.md"
 }
 
@@ -147,7 +147,7 @@ run_install_defaults() {
   cd "$REPO_ROOT" && run bash -c "printf '1\n1\n2\n' | bash ./install.sh"
   [ "$status" -eq 0 ]
   ! grep -rq 'RADIN_MODEL_' "$TEST_HOME/.claude/skills" "$TEST_HOME/.claude/.radin/lib"
-  grep -q 'model: "opus"' "$TEST_HOME/.claude/skills/radin-execute/SKILL.md"
+  grep -q 'model: "opus"' "$TEST_HOME/.claude/.radin/lib/radin-run.md"
   grep -q 'model: "opus"' "$TEST_HOME/.claude/.radin/lib/radin-prompt-factfind.md"
   ! grep -q 'model: "haiku"' "$TEST_HOME/.claude/.radin/lib/radin-prompt-factfind.md"
 }
@@ -162,8 +162,10 @@ run_install_defaults() {
   [ -f "$TEST_HOME/.claude/.radin/lib/radin-execute-clarify.md" ]
   [ -f "$TEST_HOME/.claude/.radin/lib/radin-execute-session.md" ]
   [ -f "$TEST_HOME/.claude/.radin/lib/radin-execute-resume.md" ]
+  [ -f "$TEST_HOME/.claude/.radin/lib/radin-run.md" ]
   [ -f "$TEST_HOME/.claude/skills/thermo-nuclear/SKILL.md" ]
   [ -d "$TEST_HOME/.claude/skills/radin-execute" ]
+  [ -d "$TEST_HOME/.claude/skills/radin-implement" ]
   [ -d "$TEST_HOME/.claude/skills/radin-review" ]
   [ -d "$TEST_HOME/.claude/skills/radin-record" ]
   [ -d "$TEST_HOME/.claude/skills/radin-setup-hooks" ]
@@ -231,19 +233,22 @@ run_install_defaults() {
 @test "RADIN_CLI resolves to the full path when ~/.local/bin is off PATH" {
   run_install_defaults
   ! grep -rq 'RADIN_CLI' "$TEST_HOME/.claude/skills" "$TEST_HOME/.claude/.radin/lib"
-  grep -q '"$HOME/.claude/.radin/bin/radin" backlog' "$TEST_HOME/.claude/skills/radin-execute/SKILL.md"
+  grep -q '"$HOME/.claude/.radin/bin/radin" backlog' "$TEST_HOME/.claude/.radin/lib/radin-run.md"
 }
 
-# radin-execute reads its rare-need lib docs with the Read tool, which takes no
-# `$HOME`. set_lib resolves RADIN_LIB at install time, so the installed skill
-# carries a path Read accepts. The replayed tree was installed under
+# radin-execute and radin-implement read lib docs with the Read tool, which
+# takes no `$HOME`. set_lib resolves RADIN_LIB at install time, so the installed
+# files carry a path Read accepts. The replayed tree was installed under
 # $TEMPLATE/home, which is the HOME the recorded run resolved against.
 @test "RADIN_LIB resolves to the installed lib directory" {
   run_install_defaults
-  agent="$TEST_HOME/.claude/skills/radin-execute/SKILL.md"
-  ! grep -rq 'RADIN_LIB' "$TEST_HOME/.claude/skills"
-  ! grep -q '$HOME/.claude/.radin/lib' "$agent"
-  grep -q "$TEMPLATE/home/.claude/.radin/lib/radin-execute-clarify.md" "$agent"
+  run_doc="$TEST_HOME/.claude/.radin/lib/radin-run.md"
+  ! grep -rq 'RADIN_LIB' "$TEST_HOME/.claude/skills" "$run_doc"
+  ! grep -q '$HOME/.claude/.radin/lib' "$run_doc"
+  grep -q "$TEMPLATE/home/.claude/.radin/lib/radin-execute-clarify.md" "$run_doc"
+  for s in radin-execute radin-implement; do
+    grep -q "$TEMPLATE/home/.claude/.radin/lib/radin-run.md" "$TEST_HOME/.claude/skills/$s/SKILL.md"
+  done
 }
 
 
@@ -295,15 +300,26 @@ run_install_defaults() {
 
 @test "the skill ships no per-task verification pass" {
   run_install_defaults
-  agent="$TEST_HOME/.claude/skills/radin-execute/SKILL.md"
+  agent="$TEST_HOME/.claude/.radin/lib/radin-run.md"
   ! grep -qi "refut" "$agent"
   grep -q "Never verify a .SUCCESS. yourself" "$agent"
 }
 
 @test "concurrency follows the worktree answer, not an install question" {
   run_install_defaults
-  grep -q "worktree answer sets execution concurrency" "$TEST_HOME/.claude/skills/radin-execute/SKILL.md"
+  grep -q "worktree answer sets execution concurrency" "$TEST_HOME/.claude/.radin/lib/radin-run.md"
   ! grep -q "parallel_execution" "$TEST_HOME/.claude/.radin/manifest.json"
+}
+
+# radin-implement is radin-execute minus the planning dispatch; each skill's
+# own no-plan rule is the only thing that tells them apart.
+@test "only radin-execute dispatches a planning sub-agent" {
+  run_install_defaults
+  grep -q "prompt planning" "$TEST_HOME/.claude/skills/radin-execute/SKILL.md"
+  ! grep -q "prompt planning" "$TEST_HOME/.claude/skills/radin-implement/SKILL.md"
+  ! grep -q "prompt planning" "$TEST_HOME/.claude/.radin/lib/radin-run.md"
+  grep -q '"radin-implement"' "$TEST_HOME/.claude/.radin/manifest.json"
+  grep -q '"radin-run.md"' "$TEST_HOME/.claude/.radin/manifest.json"
 }
 
 

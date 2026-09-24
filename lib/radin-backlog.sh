@@ -661,7 +661,7 @@ meta_of_line() {
 # recurse (docs/technical-constraints.md has the why for each).
 # Written with the leading slash a user would type, so tests/skill-names.bats
 # pins each one to a skill radin or a companion actually ships.
-SKILL_DENY="/mattpocock-skills:grilling /mattpocock-skills:research /deep-research /radin-execute /radin-plan /radin-review"
+SKILL_DENY="/mattpocock-skills:grilling /mattpocock-skills:research /deep-research /radin-execute /radin-implement /radin-plan /radin-review"
 
 # The canonical skill instruction sentence, in one place: `add --skill` and
 # `set-meta skills` both compose it here, so no skill writes it by hand.

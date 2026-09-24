@@ -71,8 +71,8 @@ task-scoped.
 Then treat the entry as `pending` and continue the loop.
 
 If the user defers the decision, it cannot be had this session. Do not guess.
-Mark the entry `blocked` with `set-status` (its signature is in the skill
-body), `note` holding the question, the options, and the recommendation. Then
+Mark the entry `blocked` with `set-status` (its signature is in
+`radin-run.md`), `note` holding the question, the options, and the recommendation. Then
 report `⏸️ Task <order> '<title>' deferred: <question>. Continuing to next
 task.` and continue. Blocked entries surface in the Phase 5 summary, and
 re-invoking the skill resumes them: append the decision first, then treat the

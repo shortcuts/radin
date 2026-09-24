@@ -60,7 +60,7 @@ check_plugin() {
 printf 'radin doctor\n============\n'
 
 printf '\nSkills (%s/skills):\n' "$CLAUDE_DIR"
-for name in radin-execute radin-plan radin-record radin-review radin-setup-hooks radin-show radin-stats radin-doctor radin-uninstall thermo-nuclear; do
+for name in radin-execute radin-implement radin-plan radin-record radin-review radin-setup-hooks radin-show radin-stats radin-doctor radin-uninstall thermo-nuclear; do
 	check_file "$name" "$CLAUDE_DIR/skills/$name/SKILL.md"
 done
 
@@ -92,6 +92,7 @@ check_file "radin-execute-reporting.md" "$CLAUDE_DIR/.radin/lib/radin-execute-re
 check_file "radin-execute-clarify.md" "$CLAUDE_DIR/.radin/lib/radin-execute-clarify.md"
 check_file "radin-execute-session.md" "$CLAUDE_DIR/.radin/lib/radin-execute-session.md"
 check_file "radin-execute-resume.md" "$CLAUDE_DIR/.radin/lib/radin-execute-resume.md"
+check_file "radin-run.md" "$CLAUDE_DIR/.radin/lib/radin-run.md"
 check_lib_script "radin-update.sh" "$CLAUDE_DIR/.radin/lib/radin-update.sh"
 check_lib_script "radin-doctor.sh" "$CLAUDE_DIR/.radin/lib/radin-doctor.sh"
 check_lib_script "radin-uninstall.sh" "$CLAUDE_DIR/.radin/lib/radin-uninstall.sh"
@@ -103,7 +104,8 @@ check_lib_script "radin-uninstall.sh" "$CLAUDE_DIR/.radin/lib/radin-uninstall.sh
 # directory, so exclude it or it always matches itself.
 printf '\nInstall-time substitutions:\n'
 if grep -rq --exclude=radin-doctor.sh 'RADIN_MODEL_\|RADIN_CLI ' \
-	"$CLAUDE_DIR/skills/radin-execute" "$CLAUDE_DIR/skills/radin-plan" \
+	"$CLAUDE_DIR/skills/radin-execute" "$CLAUDE_DIR/skills/radin-implement" \
+	"$CLAUDE_DIR/skills/radin-plan" \
 	"$CLAUDE_DIR/skills/radin-review" "$CLAUDE_DIR/skills/radin-record" \
 	"$CLAUDE_DIR/skills/radin-show" "$CLAUDE_DIR/.radin/lib" 2>/dev/null; then
 	printf '  INVALID  unsubstituted RADIN_ token -- re-run install.sh\n'

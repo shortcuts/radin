@@ -6,6 +6,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- `/radin-implement` works the backlog like `/radin-execute`, with no
+  planning pass: a task with no plan goes straight to its execution
+  sub-agent, which implements from the entry text. A task that already has a
+  `/radin-plan` plan still follows it. Both skills share one body,
+  `lib/radin-run.md`, so the loop changes in one place.
+
 - `radin scope --tasks [<arg>]` prints the completed task ids a review scope
   covers, one per line, for all five scope types. `radin-review`'s Step 2 reads
   the task-id join from that one call instead of intersecting a full completion
