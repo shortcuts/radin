@@ -23,13 +23,12 @@
 #   radin-backlog.sh help [command]              # print every command's usage, or one command's
 #   radin-backlog.sh env [--export]             # print REPO_ROOT/NAMESPACE_DIR/BACKLOG_INDEX/BACKLOG_TASKS_DIR (--export: source-able with export)
 #   radin-backlog.sh show [category]             # print backlog as markdown, or one ## section
-#   radin-backlog.sh list [--category <cat>] [--priority-min <n>] [--priority-max <n>] [--epic <epic-id>] [--order created|priority] [--planned] [--json]  # print "id<US>category<US>title<US>file<US>priority<US>depends-on-csv" (US = \037), priority-descending by default, unset priorities last (--order created gives index order; --planned appends a 7th P/empty field; --json prints the index lines instead)
+#   radin-backlog.sh list [--order created|priority] [--planned]  # print "id<US>category<US>title<US>file<US>priority<US>depends-on-csv" (US = \037), priority-descending by default, unset priorities last (--order created gives index order; --planned appends a 7th P/empty field)
 #   radin-backlog.sh find <id-or-title>          # print matching "id<TAB>category<TAB>title<TAB>file<TAB>priority<TAB>depends-on-csv" line(s)
 #   radin-backlog.sh count                       # print the number of entries (0 without an index)
-#   radin-backlog.sh add <category> <title> [--epic <epic-id>] [--skill <name>]... [--priority <1|2|3|5|8|13|21>] [--depends-on <csv>]  # create task, body read from stdin, prints its id
+#   radin-backlog.sh add <category> <title> [--skill <name>]...  # create task, body read from stdin, prints its id
 #   radin-backlog.sh add-plan <id-or-title> <path>  # add one plan pointer to the task's entry
 #   radin-backlog.sh append <id-or-title>        # append text from stdin to the task's file
-#   radin-backlog.sh path <id-or-title>          # print the task file's absolute path
 #   radin-backlog.sh plan-target <id-or-title> [<sub-slug>]  # resolve one task for planning: "id"/"title"/"task_file"/"plan_file" TAB lines plus a "facts<TAB><path>" line when set and one "plan<TAB><path>" per existing pointer; exit 1 no match, 2 several (candidates on stderr), 3 already planned
 #   radin-backlog.sh set-category <id-or-title> <category>  # move a task to another category
 #   radin-backlog.sh retitle <id-or-title> <title>  # change a task's title (its id never changes)
@@ -37,7 +36,6 @@
 #   radin-backlog.sh set-deps <id-or-title> <csv-of-ids|--none>   # set/clear depends_on (rejects an unknown id and any cycle)
 #   radin-backlog.sh set-meta <id-or-title> <plan|skills|acceptance|facts|location> <value>...|--none  # set/clear one index-line field (skills takes skill names; facts and location take exactly one value)
 #   radin-backlog.sh meta <id-or-title>          # print "plan<TAB><path>" / "skill<TAB><instruction>" / "acceptance<TAB><criterion>" / "facts<TAB><path>" / "location<TAB><path:line>" lines from the task's entry
-#   radin-backlog.sh planned                     # print the id of every task whose entry already carries a plan pointer
 #   radin-backlog.sh order <--rank-needed|--report|--steps> [--rank <csv-of-ids>] [--infer-deps <id>=<csv>]... [--defer <csv-of-ids>]  # the execution order: the priority order with the topological dependency fix applied (--rank-needed: print every unset-priority id, exit 1 when there are none; --report: "<order>. <title> (id: <id>)" plus one "dependency override:" line per violated edge; --steps: "id<TAB>order<TAB>depends-on-csv<TAB>pending|deferred", which is `radin state steps-init`'s stdin format)
 #   radin-backlog.sh field <id-or-title> <TASK_FILE|TASK_BODY|EPIC_CONTEXT|TASK_ID|CATEGORY|PLAN_PATHS|SKILLS|SKILLS_DROPPED|ACCEPTANCE|FACTS|LOCATION>  # one Execution-prompt placeholder, rendered ready to substitute
 #   radin-backlog.sh duplicates                  # print "id<TAB><value><TAB><ids>" / "title<TAB><value><TAB><ids>" per duplicated value, exit 1 when there are none
@@ -194,25 +192,16 @@ function row(line, sep) {
          sep depscsv(jraw(line, "depends_on")) }
 '
 
-# `list`: filters and the sort keys in the same pass, so a filter costs no
-# extra fork and two filters compose. The two leading keys are TAB-separated
+# `list`: the row and its sort keys in one pass. The two leading keys are TAB-separated
 # from the row because require_plain_title already rejects a tab in a title,
 # so `cut -f3-` can never split a row.
 # shellcheck disable=SC2016  # $0 is awk's record, not a shell expansion
 AWK_LIST='
-BEGIN { cat = ENVIRON["RADIN_CAT"]; epic = ENVIRON["RADIN_EPIC"]
-        pmin = ENVIRON["RADIN_PMIN"]; pmax = ENVIRON["RADIN_PMAX"]
-        json = ENVIRON["RADIN_JSON"]; plan = ENVIRON["RADIN_PLANNED"] }
+BEGIN { plan = ENVIRON["RADIN_PLANNED"] }
 $0 == "" { next }
-{ if (cat != "" && jstr($0, "category") != cat) next
-  if (epic != "" && fepic(jstr($0, "file")) != epic) next
-  p = jraw($0, "priority")
-  if (pmin != "" && (p == "" || p + 0 < pmin + 0)) next
-  if (pmax != "" && (p == "" || p + 0 > pmax + 0)) next
-  if (json != "") out = $0
-  else {
-    out = row($0, US)
-    if (plan != "") out = out US (jhas($0, "plan") ? "P" : "") }
+{ p = jraw($0, "priority")
+  out = row($0, US)
+  if (plan != "") out = out US (jhas($0, "plan") ? "P" : "")
   if (p == "") print "1" TAB "0" TAB out
   else print "0" TAB p TAB out }
 '
@@ -230,13 +219,6 @@ END { hit = 0
   for (i = 1; i <= n; i++) if (titles[i] == q) { print lines[i]; hit = 1 }
   if (hit) exit
   for (i = 1; i <= n; i++) if (index(tolower(titles[i]), lq) > 0) print lines[i] }
-'
-
-# `planned`: one pass over the index, no task-file read at all -- the plan
-# pointer lives on the index line, so "is this planned?" is a key test.
-# shellcheck disable=SC2016  # $0 is awk's record, not a shell expansion
-AWK_PLANNED='
-$0 != "" && jhas($0, "plan") { print jstr($0, "id") }
 '
 
 # `meta`: the five parser-read fields of one index line on stdin, in a fixed
@@ -561,17 +543,15 @@ prune_empty_epic() {
 	rmdir "$BACKLOG_TASKS_DIR/$epic" 2>/dev/null || true
 }
 
-# One index line. An empty $5/$6/$7 omits the key entirely, so every verb that
-# rewrites a line keeps "unset" unset instead of defaulting it to a value.
-# Only `add` calls it: every other key reaches a line through jsplice, which
-# needs no positional shape and cannot re-escape what is already escaped.
+# One index line. An empty $5 omits the key entirely, so an entry with no skill
+# carries no "skills" key. Only `add` calls it: every other key reaches a line
+# through jsplice, which needs no positional shape and cannot re-escape what is
+# already escaped.
 compose_line() {
 	local out
 	out="$(printf '{"id":"%s","category":"%s","title":"%s","file":"%s"' \
 		"$1" "$2" "$(json_escape "$3")" "$4")"
-	[ -z "$5" ] || out="$out,\"priority\":$5"
-	[ -z "$6" ] || out="$out,\"depends_on\":$6"
-	[ -z "$7" ] || out="$out,\"skills\":$7"
+	[ -z "$5" ] || out="$out,\"skills\":$5"
 	printf '%s}\n' "$out"
 }
 
@@ -692,12 +672,6 @@ skill_denied() {
 	return 1
 }
 
-require_integer() {
-	case "$1" in
-	'' | - | *[!0-9-]* | ?*-*) die "priority must be an integer, got: $1" ;;
-	esac
-}
-
 # Fibonacci sizing scale, ascending with radin's "higher wins", so 21 is the
 # most important. Seven candidates is a smaller decision for an agent than an
 # unbounded integer. Enforced on write only: index lines written before the
@@ -813,40 +787,10 @@ show)
 list)
 	require_index
 	shift
-	RADIN_CAT=""
-	RADIN_EPIC=""
-	RADIN_PMIN=""
-	RADIN_PMAX=""
-	RADIN_JSON=""
 	RADIN_PLANNED=""
 	order=priority
 	while [ $# -gt 0 ]; do
 		case "$1" in
-		--category)
-			case "${2:-}" in
-			feat | fix | chore | refactor) RADIN_CAT="$2" ;;
-			*) usage_die list "--category must be feat|fix|chore|refactor, got: ${2:-<none>}" ;;
-			esac
-			shift 2
-			;;
-		--priority-min)
-			[ -n "${2:-}" ] || usage_die list "--priority-min needs an integer"
-			require_integer "$2"
-			RADIN_PMIN="$2"
-			shift 2
-			;;
-		--priority-max)
-			[ -n "${2:-}" ] || usage_die list "--priority-max needs an integer"
-			require_integer "$2"
-			RADIN_PMAX="$2"
-			shift 2
-			;;
-		--epic)
-			[ -n "${2:-}" ] || usage_die list "--epic needs an epic id"
-			require_epic_id "$2"
-			RADIN_EPIC="$2"
-			shift 2
-			;;
 		--order)
 			case "${2:-}" in
 			created | priority) order="$2" ;;
@@ -858,10 +802,6 @@ list)
 			RADIN_PLANNED=1
 			shift
 			;;
-		--json)
-			RADIN_JSON=1
-			shift
-			;;
 		*) usage_die list "unknown list option: $1" ;;
 		esac
 	done
@@ -871,7 +811,7 @@ list)
 	# is what puts every unset priority after every set one.
 	# --order created is index order, which is creation order because
 	# index.jsonl is append-only: the TUI wants a list no mutation reorders.
-	export RADIN_CAT RADIN_EPIC RADIN_PMIN RADIN_PMAX RADIN_JSON RADIN_PLANNED
+	export RADIN_PLANNED
 	if [ "$order" = created ]; then
 		awk "$AWK_JSON$AWK_LIST" "$BACKLOG_INDEX" | cut -f3-
 	else
@@ -898,35 +838,11 @@ add)
 	esac
 	shift 3
 	skill_list=()
-	epic=""
-	priority=""
-	deps=""
 	while [ $# -gt 0 ]; do
 		case "$1" in
-		--priority)
-			[ -n "${2:-}" ] || usage_die add "--priority needs one of $PRIORITY_SCALE"
-			require_priority "$2"
-			priority="$2"
-			shift 2
-			;;
-		--depends-on)
-			[ -n "${2:-}" ] || usage_die add "--depends-on needs a csv of task ids"
-			deps="$(printf '%s' "$2" | tr ',' ' ')"
-			# Checked before the task file is written, so a bad flag
-			# leaves no orphan body behind.
-			# shellcheck disable=SC2086
-			require_known_ids $deps
-			shift 2
-			;;
 		--skill)
 			[ -n "${2:-}" ] || usage_die add "--skill needs a name"
 			skill_list[${#skill_list[@]}]="$(skill_instruction "$2")"
-			shift 2
-			;;
-		--epic)
-			[ -n "${2:-}" ] || usage_die add "--epic needs an epic id"
-			epic="$2"
-			require_epic_id "$epic"
 			shift 2
 			;;
 		*) usage_die add "unknown add option: $1" ;;
@@ -946,18 +862,12 @@ add)
 	done
 	# `add` is the one verb that decides a task's location instead of reading
 	# it: the `file` field it writes here is what lets every other verb read.
-	if [ -n "$epic" ]; then
-		rel="tasks/$epic/$id.md"
-	else
-		rel="tasks/$id.md"
-	fi
+	rel="tasks/$id.md"
 	task_file="$(task_path "$rel")"
 	printf '%s\n' "$BODY" >"$task_file"
 	skills_array=""
 	[ "${#skill_list[@]}" -eq 0 ] || skills_array="$(json_array "${skill_list[@]}")"
-	# shellcheck disable=SC2086
-	dep_array="$(json_array $deps)"
-	compose_line "$id" "$category" "$title" "$rel" "$priority" "$dep_array" "$skills_array" >>"$BACKLOG_INDEX"
+	compose_line "$id" "$category" "$title" "$rel" "$skills_array" >>"$BACKLOG_INDEX"
 	printf 'added "%s" (id: %s) under %s in %s\n' "$title" "$id" "$category" "$BACKLOG_INDEX"
 	;;
 
@@ -1122,12 +1032,6 @@ duplicates)
 	awk "$AWK_JSON$AWK_DUP" "$BACKLOG_INDEX"
 	;;
 
-planned)
-	require_index
-	[ $# -le 1 ] || usage_die planned "planned takes no argument, got: $2"
-	awk "$AWK_JSON$AWK_PLANNED" "$BACKLOG_INDEX"
-	;;
-
 append)
 	[ -n "${2:-}" ] || usage_die append "append needs an id or title, with the text on stdin"
 	require_index
@@ -1157,13 +1061,6 @@ add-plan)
 	plan_list[${#plan_list[@]}]="$plan_path"
 	set_index_field "$(json_get id "$entry")" plan "$(json_array "${plan_list[@]}")"
 	printf 'plan pointer added to "%s"\n' "$(json_get title "$entry")"
-	;;
-
-path)
-	[ -n "${2:-}" ] || usage_die path "path needs an id or title"
-	require_index
-	entry="$(single_match "$2")"
-	entry_path "$entry"
 	;;
 
 plan-target)

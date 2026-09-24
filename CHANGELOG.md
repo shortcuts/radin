@@ -32,6 +32,11 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `start`, `triage`, `remove`, `completed-add`, `completed-get`, `stash`,
   `task-fail` and `dirty-recover`. `task-next`, `task-report`, `task-done`
   and `recover` do that work.
+- `radin backlog` verbs and flags no caller used: `path` (use
+  `field <id> TASK_FILE`), `planned` (use `list --planned`),
+  `list --category|--priority-min|--priority-max|--epic|--json` and
+  `add --priority|--depends-on|--epic` (use `set-priority`, `set-deps` and
+  `epic-move` after `add`).
 
 ### Fixed
 

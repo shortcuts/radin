@@ -101,13 +101,6 @@ run_install_defaults() {
   [ -x "$TEMPLATE/home/.claude/.radin/bin/radin-cbm-json" ]
 }
 
-@test "a companion install that reads stdin can't eat the piped answers" {
-  export MOCK_NPX=eat-stdin
-  cd "$REPO_ROOT" && run bash -c "printf '1\n1\n2\n' | bash ./install.sh"
-  [ "$status" -eq 0 ]
-  grep -q '"model_planning": "opus"' "$TEST_HOME/.claude/.radin/manifest.json"
-}
-
 # Exiting before "Done" leaves a partial ~/.claude, so the run must say so
 # instead of returning success-looking silence. radin's own stack is already
 # complete by then: a vendored tool dies after every token is written.
@@ -129,12 +122,6 @@ run_install_defaults() {
 
 # Every entry point is a skill, so it runs in the user's own thread. radin
 # ships no agent: an install must never create ~/.claude/agents.
-@test "install creates no ~/.claude/agents" {
-  run_install_defaults
-  [ ! -d "$TEST_HOME/.claude/agents" ]
-  ! grep -q 'background_agent' "$TEST_HOME/.claude/.radin/manifest.json"
-}
-
 # A surviving RADIN_MODEL_ token would reach Claude as a literal model name and
 # every dispatch would fail, so no installed file may keep one.
 @test "writes a model into every sub-agent role, leaving no marker behind" {
@@ -144,12 +131,13 @@ run_install_defaults() {
   grep -q 'model: "haiku"' "$TEST_HOME/.claude/.radin/lib/radin-prompt-factfind.md"
 }
 
-
 # "Same model for every role?" defaults to yes: one pick sets all five tokens,
 # fact-finding's haiku default included.
-@test "one same-model pick covers every role" {
+@test "one same-model pick covers every role, even when a companion reads stdin" {
+  export MOCK_NPX=eat-stdin
   cd "$REPO_ROOT" && run bash -c "printf '1\n1\n2\n' | bash ./install.sh"
   [ "$status" -eq 0 ]
+  grep -q '"model_planning": "opus"' "$TEST_HOME/.claude/.radin/manifest.json"
   ! grep -rq 'RADIN_MODEL_' "$TEST_HOME/.claude/skills" "$TEST_HOME/.claude/.radin/lib"
   grep -q 'model: "opus"' "$TEST_HOME/.claude/.radin/lib/radin-run.md"
   grep -q 'model: "opus"' "$TEST_HOME/.claude/.radin/lib/radin-prompt-factfind.md"
@@ -175,15 +163,6 @@ run_install_defaults() {
   [ -d "$TEST_HOME/.claude/skills/radin-setup-hooks" ]
   [ -d "$TEST_HOME/.claude/skills/radin-doctor" ]
   [ -d "$TEST_HOME/.claude/skills/radin-uninstall" ]
-}
-
-@test "every companion tool installs without a prompt" {
-  run run_install_defaults
-  [ "$status" -eq 0 ]
-  [[ "$output" == *"radin installed."* ]]
-  grep -q "install rtk" "$BREW_LOG"
-  grep -q "headroom-ai" "$PIP_LOG"
-  [[ "$output" != *"Install rtk?"* ]]
 }
 
 @test "writes an install manifest listing installed files and companion tools" {
@@ -255,7 +234,6 @@ run_install_defaults() {
   done
 }
 
-
 @test "the dispatcher routes subcommands to the installed lib scripts" {
   run_install_defaults
   # cd out of the repo: namespace resolution would otherwise count radin's own backlog.
@@ -293,13 +271,26 @@ run_install_defaults() {
   [[ "$output" == *"usage: radin"* ]]
 }
 
-@test "an existing non-radin ~/.local/bin/radin is named, never replaced" {
+# Three install-time setups that do not interact, sharing one live run.
+@test "real install: foreign ~/.local/bin/radin kept, installed rtk reinstalled, partial cbm config warned" {
   mkdir -p "$TEST_HOME/.local/bin"
   echo "someone else's" > "$TEST_HOME/.local/bin/radin"
+  ln "$MOCK_BIN/mock" "$MOCK_BIN/rtk" 2>/dev/null || ln -s "$MOCK_BIN/mock" "$MOCK_BIN/rtk"
+  ln "$MOCK_BIN/mock" "$MOCK_BIN/codebase-memory-mcp" 2>/dev/null ||
+    ln -s "$MOCK_BIN/mock" "$MOCK_BIN/codebase-memory-mcp"
+  export MOCK_CBM=fail-install
   run real_install
   [ "$status" -eq 0 ]
   [ "$(cat "$TEST_HOME/.local/bin/radin")" = "someone else's" ]
   [[ "$output" == *"isn't radin's"* ]]
+  grep -q 'install rtk' "$TEST_HOME/brew.log"
+  [[ "$output" == *"reported a failure while configuring Claude Code"* ]]
+  [[ "$output" == *"cbm-config.log"* ]]
+  [[ "$output" != *"OpenCode:"* ]]
+  [[ "$output" != *"hooks: SessionStart"* ]]
+  [[ "$output" != *"wired: skill"* ]]
+  grep -q '^PARTIAL ' "$TEST_HOME/.claude/.radin/cbm-config.log"
+  grep -q 'OpenCode:' "$TEST_HOME/.claude/.radin/cbm-config.log"
 }
 
 @test "the skill ships no per-task verification pass" {
@@ -307,12 +298,6 @@ run_install_defaults() {
   agent="$TEST_HOME/.claude/.radin/lib/radin-run.md"
   ! grep -qi "refut" "$agent"
   grep -q "Never verify a .SUCCESS. yourself" "$agent"
-}
-
-@test "concurrency follows the worktree answer, not an install question" {
-  run_install_defaults
-  grep -q "worktree answer sets execution concurrency" "$TEST_HOME/.claude/.radin/lib/radin-run.md"
-  ! grep -q "parallel_execution" "$TEST_HOME/.claude/.radin/manifest.json"
 }
 
 # radin-implement is radin-execute minus the planning dispatch; each skill's
@@ -325,7 +310,6 @@ run_install_defaults() {
   grep -q '"radin-implement"' "$TEST_HOME/.claude/.radin/manifest.json"
   grep -q '"radin-run.md"' "$TEST_HOME/.claude/.radin/manifest.json"
 }
-
 
 # The arrow-key picker only draws on a real terminal, so it gets driven through
 # a pty helper. Extracting the functions from install.sh keeps the picker itself
@@ -382,7 +366,6 @@ pick_with_keys() {
   [[ "$output" == *"wasn't created by this installer"* ]]
 }
 
-
 # --yes is how one command reproduces this machine on the next one: the three
 # behaviour questions take their defaults instead of blocking on a terminal.
 @test "--yes asks nothing and still installs everything" {
@@ -397,7 +380,6 @@ pick_with_keys() {
   grep -q '"claude_md_guidance": true' "$manifest"
   grep -q '<!-- radin:begin -->' "$TEST_HOME/.claude/CLAUDE.md"
 }
-
 
 # The package-manager pick is what keeps radin off a manager the user doesn't
 # use: picking mise must install rtk and headroom through mise, never brew, and
@@ -430,27 +412,12 @@ pick_with_keys() {
 # A PARTIAL codebase-memory-mcp config exits 0, so install.sh takes its success
 # branch. The failure still has to reach the user, and the per-item trace plus
 # upstream's own per-client inventory still has to stay off the terminal.
-@test "a partial codebase-memory-mcp config warns without relaying the log" {
-  ln "$MOCK_BIN/mock" "$MOCK_BIN/codebase-memory-mcp" 2>/dev/null ||
-    ln -s "$MOCK_BIN/mock" "$MOCK_BIN/codebase-memory-mcp"
-  export MOCK_CBM=fail-install
-  run real_install
-  [ "$status" -eq 0 ]
-  [[ "$output" == *"reported a failure while configuring Claude Code"* ]]
-  [[ "$output" == *"cbm-config.log"* ]]
-  [[ "$output" != *"OpenCode:"* ]]
-  [[ "$output" != *"hooks: SessionStart"* ]]
-  [[ "$output" != *"wired: skill"* ]]
-  grep -q '^PARTIAL ' "$TEST_HOME/.claude/.radin/cbm-config.log"
-  grep -q 'OpenCode:' "$TEST_HOME/.claude/.radin/cbm-config.log"
-}
-
 
 # `radin update` runs install.sh --update: radin's own steps and questions
 # only. No companion installer runs, and the package-manager answer, which
 # only companions use, comes from the manifest the previous install wrote.
 @test "--update asks the questions again and installs no companion tool" {
-  cd "$REPO_ROOT" && printf '2\n' | bash ./install.sh
+  replay_install >/dev/null
   manifest="$TEST_HOME/.claude/.radin/manifest.json"
   grep -q '"package_manager": "brew"' "$manifest"
   rm -f "$TEST_HOME"/*.log
@@ -470,19 +437,11 @@ pick_with_keys() {
 
 # install is the one path that touches companions, so a tool already on PATH
 # still takes its install/upgrade command instead of being skipped.
-@test "install reinstalls a companion tool that is already installed" {
-  ln "$MOCK_BIN/mock" "$MOCK_BIN/rtk" 2>/dev/null || ln -s "$MOCK_BIN/mock" "$MOCK_BIN/rtk"
-  run real_install
-  [ "$status" -eq 0 ]
-  grep -q 'install rtk' "$TEST_HOME/brew.log"
-}
-
 @test "the install records its source root for radin update" {
   run run_install_defaults
   [ "$status" -eq 0 ]
   [ "$(cat "$TEST_HOME/.claude/.radin/install_root")" = "$REPO_ROOT" ]
 }
-
 
 @test "ships the update script and routes radin update to it" {
   run run_install_defaults

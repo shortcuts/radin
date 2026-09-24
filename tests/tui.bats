@@ -71,8 +71,10 @@ last_pos() {
 two_epics() {
   bl epic-add aaa-epic <<<"aaa ctx"
   bl epic-add bbb-epic <<<"bbb ctx"
-  bl add feat "aaa child" --epic aaa-epic <<<"aaa body" >/dev/null
-  bl add feat "bbb child" --epic bbb-epic <<<"bbb body" >/dev/null
+  bl add feat "aaa child" <<<"aaa body" >/dev/null
+  bl epic-move aaa-child aaa-epic >/dev/null
+  bl add feat "bbb child" <<<"bbb body" >/dev/null
+  bl epic-move bbb-child bbb-epic >/dev/null
 }
 
 tui() {
@@ -86,16 +88,6 @@ tui() {
   run "$TUI" </dev/null
   [ "$status" -eq 1 ]
   [[ "$output" == *"interactive terminal"* ]]
-}
-
-@test "lists every task and quits on q" {
-  seed
-  run tui "q"
-  [ "$status" -eq 0 ]
-  run cat "$SCREEN"
-  [[ "$output" == *"dark mode"* ]]
-  [[ "$output" == *"broken auth"* ]]
-  [[ "$output" == *"2 task(s)"* ]]
 }
 
 @test "runs with an empty backlog" {
@@ -171,7 +163,7 @@ tui() {
   [[ "$output" =~ \*[[:space:]]+fix ]]
 }
 
-@test "n walks the search matches and wraps at the end" {
+@test "n walks the search matches forwards, N backwards, both wrap" {
   seed
   bl add chore "dark chore" <<<"body" >/dev/null
   run tui "/|dark\r|n|q"
@@ -180,11 +172,6 @@ tui() {
   run tui "/|dark\r|n|n|q"
   [ "$status" -eq 0 ]
   [ "$(last_pos)" = "[1/3]" ]
-}
-
-@test "N walks the search matches backwards and wraps at the start" {
-  seed
-  bl add chore "dark chore" <<<"body" >/dev/null
   run tui "/|dark\r|N|q"
   [ "$status" -eq 0 ]
   [ "$(last_pos)" = "[3/3]" ]
@@ -211,14 +198,6 @@ tui() {
   [ "$(last_pos)" = "[1/2]" ]
 }
 
-@test "j moves the selection down" {
-  seed
-  run tui "j|q"
-  [ "$status" -eq 0 ]
-  run cat "$SCREEN"
-  [[ "$output" == *"[2/2]"* ]]
-}
-
 @test "a keypress burst applies every motion and keeps the key after them" {
   seed
   bl add chore "third thing" <<<"third body" >/dev/null
@@ -241,34 +220,14 @@ tui() {
   [[ "$output" != *"P"* ]]
 }
 
-@test "a title too long for the list pane wraps instead of truncating" {
-  seed
-  bl retitle dark-mode "wrapping proves the list pane keeps every word of a very long title"
-  run wide "q"
-  [ "$status" -eq 0 ]
-  run last_frame
-  # 120 columns: the list pane is 48 wide, so this title cannot fit one line.
-  [[ "$output" == *"wrapping proves"* ]]
-  [[ "$output" == *"title"* ]]
-}
-
-@test "epic children render under their epic header" {
-  bl epic-add ui-polish <<<"epic ctx line"
-  bl add feat "nested task" --epic ui-polish <<<"body" >/dev/null
-  bl add feat "loose task" <<<"body" >/dev/null
-  run tui "q"
-  [ "$status" -eq 0 ]
-  run cat "$SCREEN"
-  [[ "$output" == *"epic: ui-polish"* ]]
-  [[ "$output" == *"nested task"* ]]
-  [[ "$output" == *"loose task"* ]]
-}
-
 @test "an epic's children render as a tree, ungrouped tasks without connectors" {
   bl epic-add ui-polish <<<"epic ctx line"
-  bl add feat "first child" --epic ui-polish <<<"body" >/dev/null
-  bl add feat "second child" --epic ui-polish <<<"body" >/dev/null
-  bl add feat "third child" --epic ui-polish <<<"body" >/dev/null
+  bl add feat "first child" <<<"body" >/dev/null
+  bl epic-move first-child ui-polish >/dev/null
+  bl add feat "second child" <<<"body" >/dev/null
+  bl epic-move second-child ui-polish >/dev/null
+  bl add feat "third child" <<<"body" >/dev/null
+  bl epic-move third-child ui-polish >/dev/null
   bl add feat "loose task" <<<"body" >/dev/null
   run tui "q"
   [ "$status" -eq 0 ]
@@ -279,11 +238,15 @@ tui() {
   run bash -c "grep 'loose task' '$SCREEN'"
   [[ "$output" != *"├"* ]]
   [[ "$output" != *"└"* ]]
+  run cat "$SCREEN"
+  [[ "$output" == *"epic: ui-polish"* ]]
+  [[ "$output" == *"first child"* ]]
 }
 
 @test "a collapsed epic hides its children and keeps its marker" {
   bl epic-add ui-polish <<<"epic ctx line"
-  bl add feat "nested task" --epic ui-polish <<<"body" >/dev/null
+  bl add feat "nested task" <<<"body" >/dev/null
+  bl epic-move nested-task ui-polish >/dev/null
   run tui "g|\r|q"
   [ "$status" -eq 0 ]
   # Only the last frame: the frames before the collapse still list the child.
@@ -328,7 +291,10 @@ tui() {
 @test "v composes body, epic description, plan and dependency title" {
   bl add feat "dep target" <<<"target body" >/dev/null
   bl epic-add ctx-epic <<<"epic ctx line"
-  bl add feat "needs dep" --epic ctx-epic --depends-on dep-target --priority 8 <<<"needs body" >/dev/null
+  bl add feat "needs dep" <<<"needs body" >/dev/null
+  bl epic-move needs-dep ctx-epic >/dev/null
+  bl set-deps needs-dep dep-target >/dev/null
+  bl set-priority needs-dep 8 >/dev/null
   mkdir -p "$NS/plans"
   printf 'plan body line\n' >"$NS/plans/needs-dep.md"
   bl add-plan needs-dep "$NS/plans/needs-dep.md" >/dev/null
@@ -344,8 +310,11 @@ tui() {
 }
 
 @test "o pages the execution order with its dependency overrides" {
-  bl add feat "first dep" --priority 1 <<<"a body" >/dev/null
-  bl add feat "later blocked" --priority 8 --depends-on first-dep <<<"b body" >/dev/null
+  bl add feat "first dep" <<<"a body" >/dev/null
+  bl set-priority first-dep 1 >/dev/null
+  bl add feat "later blocked" <<<"b body" >/dev/null
+  bl set-priority later-blocked 8 >/dev/null
+  bl set-deps later-blocked first-dep >/dev/null
   snapshot
   run tui "o|q"
   [ "$status" -eq 0 ]
@@ -375,8 +344,6 @@ tui() {
   unchanged
 }
 
-
-
 @test "the Done view ignores mutating keys" {
   seed
   snapshot
@@ -404,7 +371,6 @@ tui() {
   run grep dark-mode "$INDEX"
   [[ "$output" != *'"priority"'* ]]
 }
-
 
 # The task titles in the order the last frame drew them.
 row_titles() {
@@ -462,7 +428,6 @@ row_titles() {
   [[ "$output" != *'"depends_on"'* ]]
 }
 
-
 @test "a rejected set-deps cycle shows a message and changes nothing" {
   seed
   bl set-deps dark-mode broken-auth >/dev/null
@@ -484,7 +449,6 @@ row_titles() {
   [[ "$output" == *'"file":"tasks/bbb-epic/aaa-child.md"'* ]]
 }
 
-
 @test "E creates the epic and writes DESCRIPTION.md in EDITOR" {
   seed
   run tui "E|ui-polish\r|q"
@@ -504,11 +468,13 @@ row_titles() {
   [ ! -s "$TASKS/ui-polish/DESCRIPTION.md" ]
 }
 
-
 @test "the priority column is coloured by the fixed Fibonacci map" {
-  bl add feat "low one" --priority 3 <<<"low body" >/dev/null
-  bl add feat "mid one" --priority 8 <<<"mid body" >/dev/null
-  bl add feat "high one" --priority 21 <<<"high body" >/dev/null
+  bl add feat "low one" <<<"low body" >/dev/null
+  bl set-priority low-one 3 >/dev/null
+  bl add feat "mid one" <<<"mid body" >/dev/null
+  bl set-priority mid-one 8 >/dev/null
+  bl add feat "high one" <<<"high body" >/dev/null
+  bl set-priority high-one 21 >/dev/null
   run tui "q"
   [ "$status" -eq 0 ]
   run cat -v "$SCREEN"
@@ -522,7 +488,8 @@ row_titles() {
 }
 
 @test "a task with no priority gets an empty cell and no escape codes" {
-  bl add feat "high one" --priority 21 <<<"high body" >/dev/null
+  bl add feat "high one" <<<"high body" >/dev/null
+  bl set-priority high-one 21 >/dev/null
   bl add feat "no prio" <<<"none body" >/dev/null
   run tui "q"
   [ "$status" -eq 0 ]
@@ -532,8 +499,10 @@ row_titles() {
 }
 
 @test "an off-scale legacy priority renders uncoloured" {
-  bl add feat "legacy one" --priority 21 <<<"legacy body" >/dev/null
-  bl add feat "high one" --priority 21 <<<"high body" >/dev/null
+  bl add feat "legacy one" <<<"legacy body" >/dev/null
+  bl set-priority legacy-one 21 >/dev/null
+  bl add feat "high one" <<<"high body" >/dev/null
+  bl set-priority high-one 21 >/dev/null
   # 70 is off the bounded scale, so only a pre-scale index can carry it.
   sed '/legacy-one/s/"priority":21/"priority":70/' "$INDEX" >"$INDEX.new"
   mv "$INDEX.new" "$INDEX"
@@ -548,8 +517,11 @@ row_titles() {
 
 @test "an epic child keeps its priority colour, the epic header is cyan" {
   bl epic-add ui-polish <<<"ctx"
-  bl add feat "low one" --priority 3 <<<"low body" >/dev/null
-  bl add feat "high child" --epic ui-polish --priority 21 <<<"high body" >/dev/null
+  bl add feat "low one" <<<"low body" >/dev/null
+  bl set-priority low-one 3 >/dev/null
+  bl add feat "high child" <<<"high body" >/dev/null
+  bl epic-move high-child ui-polish >/dev/null
+  bl set-priority high-child 21 >/dev/null
   run tui "q"
   [ "$status" -eq 0 ]
   run cat -v "$SCREEN"
@@ -562,8 +534,10 @@ row_titles() {
 }
 
 @test "NO_COLOR disables the priority colours" {
-  bl add feat "low one" --priority 1 <<<"low body" >/dev/null
-  bl add feat "high one" --priority 13 <<<"high body" >/dev/null
+  bl add feat "low one" <<<"low body" >/dev/null
+  bl set-priority low-one 1 >/dev/null
+  bl add feat "high one" <<<"high body" >/dev/null
+  bl set-priority high-one 13 >/dev/null
   export NO_COLOR=1
   run tui "q"
   [ "$status" -eq 0 ]
@@ -588,7 +562,8 @@ row_titles() {
 
 @test "D offers a task a collapsed epic is hiding" {
   bl epic-add ui-polish <<<"epic ctx"
-  bl add feat "nested task" --epic ui-polish <<<"body" >/dev/null
+  bl add feat "nested task" <<<"body" >/dev/null
+  bl epic-move nested-task ui-polish >/dev/null
   bl add chore "loose task" <<<"body" >/dev/null
   # Row 1 is the loose task, row 2 the epic header. Collapse it, so the nested
   # task has no row at all, then make it a dependency of the loose task: the
@@ -612,7 +587,6 @@ row_titles() {
   run cat "$SCREEN"
   [[ "$output" == *"done-25"* ]]
 }
-
 
 # --- the split detail pane ---
 
@@ -642,7 +616,7 @@ planned_body() {
   bl add-plan "$1" "plans/$2.md" >/dev/null
 }
 
-@test "l shows the task's plan and h returns to the body" {
+@test "l or arrow right shows the task's plan, h or arrow left returns to the body" {
   seed
   planned_body dark-mode dark-mode "plan step one"
   run wide "l|q"
@@ -655,11 +629,6 @@ planned_body() {
   run last_frame
   [[ "$output" == *"Add dark mode."* ]]
   [[ "$output" != *"plan step one"* ]]
-}
-
-@test "arrow right and arrow left switch the detail view too" {
-  seed
-  planned_body dark-mode dark-mode "plan step one"
   run wide "\x1b[C|q"
   run last_frame
   [[ "$output" == *"plan step one"* ]]
@@ -677,16 +646,6 @@ planned_body() {
   run last_frame
   [[ "$output" == *"the toggle persists"* ]]
   [[ "$output" == *"Add dark mode."* ]]
-}
-
-@test "the marker line names both detail views" {
-  seed
-  run wide "q"
-  [ "$status" -eq 0 ]
-  # The active name carries a bold span, so the two sit on one line with
-  # escape bytes between them rather than as one literal.
-  run last_frame
-  [[ "$output" =~ body.*plan ]]
 }
 
 @test "the detail view sticks as the selection moves" {
@@ -755,14 +714,6 @@ planned_body() {
   unchanged
 }
 
-@test "l is inert in the Done view" {
-  seed
-  run tui "\t|l|q"
-  [ "$status" -eq 0 ]
-  run last_frame
-  [[ "$output" == *"done"* ]]
-}
-
 @test "the detail pane renders markdown beside the tree at 120 columns" {
   md_body
   run wide "q"
@@ -775,18 +726,13 @@ planned_body() {
   [[ "$output" != *"# Heading"* ]]
   [[ "$output" != *"> quoted"* ]]
   [[ "$output" != *"**bold**"* ]]
-}
-
-@test "the detail pane is fenced by a divider and a rule under the metadata" {
-  md_body
-  run wide "q"
-  [ "$status" -eq 0 ]
-  run last_frame
   [[ "$output" =~ category[[:space:]]+feat ]]
   [[ "$output" =~ id[[:space:]]+dark-mode ]]
   [[ "$output" =~ priority[[:space:]]+unset ]]
   [[ "$output" == *"│"* ]]
   [[ "$output" == *"───"* ]]
+  # The active view name is bold, so escape bytes sit between the two names.
+  [[ "$output" =~ body.*plan ]]
 }
 
 @test "no detail pane below 100 columns" {

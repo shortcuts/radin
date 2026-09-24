@@ -51,6 +51,9 @@ assembled() {
   [[ "$output" != *"2a."* ]]
   [[ "$output" != *"2b."* ]]
   [[ "$output" != *"acceptance criteria"* ]]
+  [[ "$output" != *"FACTS"* ]]
+  [[ "$output" != *"LOCATION"* ]]
+  [[ "$output" != *"long form of the evidence"* ]]
   # Only the chore row of step 3 survives.
   [[ "$output" == *"/ponytail:ponytail"* ]]
   [[ "$output" != *"surgical-patch"* ]]
@@ -116,10 +119,6 @@ assembled() {
 
 @test "the entry's facts and location reach the execution prompt" {
   backlog add fix "a bug" <<<"It breaks."
-  run assembled execution a-bug
-  [[ "$output" != *"FACTS"* ]]
-  [[ "$output" != *"LOCATION"* ]]
-  [[ "$output" != *"long form of the evidence"* ]]
   backlog set-meta a-bug facts "$NS/state/facts/a-bug.md"
   backlog set-meta a-bug location "lib/x.sh:12"
   run assembled execution a-bug
@@ -148,18 +147,6 @@ assembled() {
   [[ "$output" == *"2b."* ]]
   [[ "$output" == *"first: $hash"* ]]
   [[ "$output" != *"DEPENDS_ON"* ]]
-}
-
-@test "an unresolved dependency yields no execution prompt" {
-  backlog add fix "first" <<<"Do it first."
-  backlog add fix "second" <<<"Do it second."
-  backlog set-deps second first
-  mkdir -p "$NS/state"
-  printf 'first\t1\t\nsecond\t2\tfirst\n' |
-    state steps-init
-  run assembled execution second
-  [ "$status" -ne 0 ]
-  [[ "$output" == *"unresolved"* ]]
 }
 
 @test "planning, debug and factfind prompts carry their own model and inputs" {

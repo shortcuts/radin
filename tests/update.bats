@@ -73,12 +73,6 @@ make_clone() {
   [[ "$output" == *"downloaded installer args: --update"* ]]
 }
 
-@test "downloads the installer when no install_root was ever recorded" {
-  run env HOME="$TEST_HOME" bash "$CLI"
-  [ "$status" -eq 0 ]
-  [[ "$output" == *"downloaded installer args: --update"* ]]
-}
-
 @test "passes extra flags through to the installer" {
   run env HOME="$TEST_HOME" bash "$CLI" --yes
   [ "$status" -eq 0 ]

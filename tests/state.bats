@@ -34,12 +34,6 @@ cli() {
   [[ "${lines[1]}" == '{"id":"c","order":2,"status":"pending","depends_on":[],"attempts":0,"note":""}' ]]
 }
 
-@test "steps-init seeds attempts at 0" {
-  printf 'a\t1\t\nb\t2\ta\n' | cli steps-init
-  run cat "$STEPS"
-  [[ "${lines[0]}" == *'"status":"pending"'*'"attempts":0'* ]]
-}
-
 @test "stuck lists in_progress entries only, exit 1 when none" {
   printf '{"id":"a","order":1,"status":"pending","depends_on":[],"attempts":0,"note":""}\n' > "$STEPS"
   run cli stuck
@@ -264,85 +258,51 @@ EOF
   [[ "$output" == *"pending"* ]]
 }
 
-@test "task-done records the commit and removes backlog + steps entries, idempotently" {
-  git init -q "$WORK/repo"
-  ( cd "$WORK/repo"
-    git config user.email t@t && git config user.name t
-    printf 'a\n' > f.txt && git add f.txt && git commit -qm init
-    bash "$REPO_ROOT/lib/radin-backlog.sh" add fix "my task" <<<"body" )
+@test "task-done records the commit and removes backlog + steps entries, idempotently, and trace reads it back" {
+  fixture_repo
   hash="$(git -C "$WORK/repo" rev-parse HEAD)"
-  REPO="$WORK/repo"
-  NS="$REPO/.claude/.radin"
-  ( cd "$WORK/repo" && bash "$REPO_ROOT/lib/radin-backlog.sh" add-plan my-task "$NS/plans/my-task.md" ) > /dev/null
-  printf '{"id":"my-task","order":1,"status":"pending","depends_on":[],"note":""}\n' > "$NS/state/BACKLOG_STEPS.json"
+  ( cd "$WORK/repo" && bash "$REPO_ROOT/lib/radin-backlog.sh" add-plan aa-task "$NS/plans/aa-task.md" ) > /dev/null
+  printf '{"id":"aa-task","order":1,"status":"pending","depends_on":[],"note":""}\n' > "$NS/state/BACKLOG_STEPS.json"
   cli session-set no no
-  cli prepare my-task > /dev/null
-  run cli task-done my-task "$hash"
+  cli prepare aa-task > /dev/null
+  run cli task-done aa-task "$hash"
   [ "$status" -eq 0 ]
-  [[ "$(cat "$NS/state/completed.json")" == *"\"id\":\"my-task\",\"commit\":\"$hash\""* ]]
-  [ ! -f "$NS/backlog/tasks/my-task.md" ]
-  run grep my-task "$NS/state/BACKLOG_STEPS.json"
+  [[ "$(cat "$NS/state/completed.json")" == *"\"id\":\"aa-task\",\"commit\":\"$hash\""* ]]
+  [ ! -f "$NS/backlog/tasks/aa-task.md" ]
+  run grep aa-task "$NS/state/BACKLOG_STEPS.json"
   [ "$status" -ne 0 ]
   # The title is captured before the backlog entry goes away: nothing else
   # can name the task in the final report.
-  [[ "$(cat "$NS/state/completed.json")" == *'"title":"my task"'* ]]
+  [[ "$(cat "$NS/state/completed.json")" == *'"title":"aa task"'* ]]
   # So is the provenance: the branch prepare recorded, the entry's plan
   # pointer, and the completion instant.
   line="$(cat "$NS/state/completed.json")"
-  [[ "$line" == *"\"plan\":\"$NS/plans/my-task.md\""* ]]
+  [[ "$line" == *"\"plan\":\"$NS/plans/aa-task.md\""* ]]
   [[ "$line" != *'"branch":""'* ]]
   [[ "$line" == *'"ts":"20'*'Z"'* ]]
-  run cli completed-show my-task
+  run cli completed-show aa-task
   [ "$status" -eq 0 ]
-  [ "${lines[0]}" = "$(printf 'id\tmy-task')" ]
-  [[ "$output" == *"$(printf 'plan\t%s' "$NS/plans/my-task.md")"* ]]
+  [ "${lines[0]}" = "$(printf 'id\taa-task')" ]
+  [[ "$output" == *"$(printf 'plan\t%s' "$NS/plans/aa-task.md")"* ]]
   run cli completed-show nope
   [ "$status" -eq 1 ]
-  # A line written before provenance existed reads as unknown, not as itself.
-  printf '{"id":"old-task","commit":"cafe","title":"old"}\n' >> "$NS/state/completed.json"
-  run cli completed-show old-task
-  [ "$status" -eq 0 ]
-  [ "${lines[3]}" = "$(printf 'branch\t')" ]
-  # completed-list stays two TAB-separated fields: radin tui parses it.
-  run cli completed-list
-  [ "${lines[0]}" = "$(printf 'my-task\t%s' "$hash")" ]
-  # A retry after a partial run must not duplicate or fail.
-  run cli task-done my-task "$hash"
-  [ "$status" -eq 0 ]
-  [ "$(grep -c my-task "$NS/state/completed.json")" -eq 1 ]
-}
-
-@test "trace answers from a task id, a commit hash and a branch name" {
-  git init -q "$WORK/repo"
-  ( cd "$WORK/repo"
-    git config user.email t@t && git config user.name t
-    printf 'a\n' > f.txt && git add f.txt && git commit -qm init
-    bash "$REPO_ROOT/lib/radin-backlog.sh" add fix "my task" <<<"body" )
-  hash="$(git -C "$WORK/repo" rev-parse HEAD)"
   branch="$(git -C "$WORK/repo" rev-parse --abbrev-ref HEAD)"
-  REPO="$WORK/repo"
-  NS="$REPO/.claude/.radin"
-  ( cd "$WORK/repo" && bash "$REPO_ROOT/lib/radin-backlog.sh" add-plan my-task "$NS/plans/my-task.md" ) > /dev/null
-  printf '{"id":"my-task","order":1,"status":"pending","depends_on":[],"note":""}\n' > "$NS/state/BACKLOG_STEPS.json"
-  cli session-set no no
-  cli prepare my-task > /dev/null
-  cli task-done my-task "$hash"
-  run cli trace my-task
+  run cli trace aa-task
   [ "$status" -eq 0 ]
-  [ "${lines[0]}" = "$(printf 'task\tmy-task')" ]
+  [ "${lines[0]}" = "$(printf 'task\taa-task')" ]
   [[ "$output" == *"$(printf 'commit\t%s' "$hash")"* ]]
   [[ "$output" == *"$(printf 'branch\t%s' "$branch")"* ]]
-  [[ "$output" == *"$(printf 'plan\t%s' "$NS/plans/my-task.md")"* ]]
+  [[ "$output" == *"$(printf 'plan\t%s' "$NS/plans/aa-task.md")"* ]]
   [[ "$output" == *"$(printf 'status\tdone')"* ]]
   # A reviewer pastes git log's full 40 while the store may hold a short hash:
   # either side may be the prefix, with a seven-character floor.
   run cli trace "${hash:0:7}"
   [ "$status" -eq 0 ]
-  [ "${lines[0]}" = "$(printf 'task\tmy-task')" ]
+  [ "${lines[0]}" = "$(printf 'task\taa-task')" ]
   # `session-set no no` makes the user's own checkout the recorded branch.
   run cli trace "$branch"
   [ "$status" -eq 0 ]
-  [ "${lines[0]}" = "$(printf 'task\tmy-task')" ]
+  [ "${lines[0]}" = "$(printf 'task\taa-task')" ]
   run cli trace not-a-thing
   [ "$status" -eq 1 ]
   # One token really can read two ways: a task whose id is that branch name.
@@ -350,24 +310,30 @@ EOF
   run cli trace "$branch"
   [ "$status" -eq 2 ]
   [[ "$output" == *"ambiguous, 2 candidate readings"* ]]
+  # A line written before provenance existed reads as unknown, not as itself.
+  printf '{"id":"old-task","commit":"cafe","title":"old"}\n' >> "$NS/state/completed.json"
+  run cli completed-show old-task
+  [ "$status" -eq 0 ]
+  [ "${lines[3]}" = "$(printf 'branch\t')" ]
+  # completed-list stays two TAB-separated fields: radin tui parses it.
+  run cli completed-list
+  [ "${lines[0]}" = "$(printf 'aa-task\t%s' "$hash")" ]
+  # A retry after a partial run must not duplicate or fail.
+  run cli task-done aa-task "$hash"
+  [ "$status" -eq 0 ]
+  [ "$(grep -c aa-task "$NS/state/completed.json")" -eq 1 ]
 }
 
 @test "trace falls back to the journal for a failed task" {
-  git init -q "$WORK/repo"
-  ( cd "$WORK/repo"
-    git config user.email t@t && git config user.name t
-    printf 'a\n' > f.txt && git add f.txt && git commit -qm init
-    bash "$REPO_ROOT/lib/radin-backlog.sh" add fix "my task" <<<"body" )
+  fixture_repo
   branch="$(git -C "$WORK/repo" rev-parse --abbrev-ref HEAD)"
-  REPO="$WORK/repo"
-  NS="$REPO/.claude/.radin"
-  printf 'my-task\t1\t\n' | cli steps-init
+  printf 'aa-task\t1\t\n' | cli steps-init
   cli session-set no no
-  cli prepare my-task > /dev/null
-  cli set-status my-task failed "boom"
-  run cli trace my-task
+  cli prepare aa-task > /dev/null
+  cli set-status aa-task failed "boom"
+  run cli trace aa-task
   [ "$status" -eq 0 ]
-  [ "${lines[0]}" = "$(printf 'task\tmy-task')" ]
+  [ "${lines[0]}" = "$(printf 'task\taa-task')" ]
   [[ "$output" == *"$(printf 'status\tfailed')"* ]]
   [ "${lines[1]}" = "$(printf 'commit\t')" ]
   [[ "$output" == *"$(printf 'branch\t%s' "$branch")"* ]]
@@ -375,7 +341,7 @@ EOF
   # branch, so `prepare`'s record is what answers.
   run cli trace "$branch"
   [ "$status" -eq 0 ]
-  [ "${lines[0]}" = "$(printf 'task\tmy-task')" ]
+  [ "${lines[0]}" = "$(printf 'task\taa-task')" ]
   [[ "$output" == *"$(printf 'status\tfailed')"* ]]
 }
 
@@ -568,7 +534,6 @@ EOF
 @test "task-report routes a SUCCESS line to task-done and says continue" {
   fixture_repo
   printf 'aa-task\t1\t\n' | cli steps-init > /dev/null
-  cli task-next > /dev/null
   hash="$(git -C "$REPO" rev-parse HEAD)"
   run cli task-report aa-task "STATUS: SUCCESS — $hash"
   [ "$status" -eq 0 ]

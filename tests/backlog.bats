@@ -19,7 +19,6 @@ cli() {
   (cd "$WORK/proj" && bash "$CLI" "$@")
 }
 
-
 @test "add creates an index line and a task file" {
   run cli add fix "broken auth" <<<"Auth times out after 5s."
   [ "$status" -eq 0 ]
@@ -56,7 +55,6 @@ cli() {
   [[ "${lines[1]}" == "b-thing"$'\037'"fix"$'\037'"b thing"$'\037'"tasks/b-thing.md"$'\037'$'\037' ]]
 }
 
-
 @test "find falls back to exact title, then case-insensitive substring" {
   cli add feat "Add OAuth support" <<<"body"
   run cli find "Add OAuth support"
@@ -91,7 +89,6 @@ cli() {
   [[ "$output" == *"keep-me"* ]]
 }
 
-
 @test "show renders grouped-by-category markdown from the index and task files" {
   cli add feat "f thing" <<<"body f"
   cli add fix "b thing" <<<"body b"
@@ -105,7 +102,6 @@ cli() {
   [[ "$output" == *"## fix"* ]]
   [[ "$output" == *"### b thing"* ]]
 }
-
 
 @test "reconcile drops entries whose id is in completed.json, keeps the rest" {
   cli add fix "done task" <<<"body done"
@@ -122,8 +118,6 @@ cli() {
   [[ "$output" == *"still-open"* ]]
 }
 
-
-
 @test "add --skill writes the canonical instruction onto the entry, not the body" {
   run cli add feat "styled thing" --skill /frontend-design <<<"the body"
   [ "$status" -eq 0 ]
@@ -132,7 +126,6 @@ cli() {
   run cat "$TASKS/styled-thing.md"
   [ "$output" = "the body" ]
 }
-
 
 @test "meta prints every entry field in key order, nothing for a bare task" {
   cli add feat "rich task" --skill /frontend-design <<<"body"
@@ -221,7 +214,6 @@ EOF
   [ "$output" = "lib/x.sh:12" ]
 }
 
-
 @test "append adds stdin text to the task's file only" {
   cli add feat "target" <<<"original body"
   cli add feat "other" <<<"other body"
@@ -232,15 +224,6 @@ EOF
   [[ "$output" == *"**Decision:** keep both."* ]]
   run cat "$TASKS/other.md"
   [[ "$output" != *"Decision"* ]]
-}
-
-
-
-@test "path prints the task file's absolute path" {
-  cli add feat "pathy thing" <<<"body"
-  run cli path pathy-thing
-  [ "$status" -eq 0 ]
-  [ "$output" = "$TASKS/pathy-thing.md" ]
 }
 
 # Epic support will nest a task under tasks/<epic-id>/, so the index's `file`
@@ -281,7 +264,6 @@ nest_task() {
   [[ "$output" == *"body text"* ]]
 }
 
-
 @test "retitle changes the title but never the id or file" {
   cli add fix "old name" <<<"body"
   run cli retitle old-name "new name"
@@ -293,7 +275,6 @@ nest_task() {
   [ -f "$TASKS/old-name.md" ]
 }
 
-
 @test "add rejects a tab or newline in the title" {
   run cli add feat "$(printf 'a\tb')" <<<"body"
   [ "$status" -ne 0 ]
@@ -302,31 +283,16 @@ nest_task() {
   [ ! -f "$INDEX" ]
 }
 
-
-@test "epic-add creates the directory and DESCRIPTION.md, epics lists it" {
+@test "epic-add creates the directory and DESCRIPTION.md, epics and epic-show read it" {
   run cli epic-add auth-overhaul <<<"Shared auth context."
   [ "$status" -eq 0 ]
   run cat "$TASKS/auth-overhaul/DESCRIPTION.md"
   [[ "$output" == *"Shared auth context."* ]]
   run cli epics
   [ "$output" = "auth-overhaul" ]
-}
-
-@test "epic-show prints the epic description" {
-  cli epic-add auth-overhaul <<<"Shared auth context."
   run cli epic-show auth-overhaul
   [ "$status" -eq 0 ]
   [[ "$output" == *"Shared auth context."* ]]
-}
-
-
-@test "planned lists only tasks with a plan pointer" {
-  cli add feat "with plan" <<<"b1"
-  cli add feat "without plan" <<<"b2"
-  cli add-plan with-plan "plans/with-plan.md"
-  run cli planned
-  [ "$status" -eq 0 ]
-  [ "$output" = "with-plan" ]
 }
 
 @test "epic-add rejects a non-slug id and an existing epic" {
@@ -336,19 +302,6 @@ nest_task() {
   run cli epic-add "Not A Slug" <<<"d"
   [ "$status" -ne 0 ]
 }
-
-@test "add --epic nests the task file and path resolves it" {
-  cli epic-add auth <<<"ctx"
-  run cli add feat "login form" --epic auth <<<"body"
-  [ "$status" -eq 0 ]
-  run cat "$INDEX"
-  [[ "$output" == *'"file":"tasks/auth/login-form.md"'* ]]
-  [ -f "$TASKS/auth/login-form.md" ]
-  run cli path login-form
-  [ "$output" = "$TASKS/auth/login-form.md" ]
-}
-
-
 
 @test "epic-move moves a task in and back out, rewriting the file field" {
   cli epic-add auth <<<"ctx"
@@ -367,7 +320,8 @@ nest_task() {
 
 @test "epic-remove refuses a non-empty epic and deletes nothing" {
   cli epic-add auth <<<"ctx"
-  cli add feat "child" --epic auth <<<"body"
+  cli add feat "child" <<<"body"
+  cli epic-move child auth >/dev/null
   run cli epic-remove auth
   [ "$status" -ne 0 ]
   [ -f "$TASKS/auth/child.md" ]
@@ -383,23 +337,25 @@ nest_task() {
 
 @test "remove does not leave an empty epic directory behind" {
   cli epic-add auth <<<"ctx"
-  cli add feat "only child" --epic auth <<<"body"
+  cli add feat "only child" <<<"body"
+  cli epic-move only-child auth >/dev/null
   cli remove only-child
   [ ! -d "$TASKS/auth" ]
   run cli epics
   [ -z "$output" ]
 }
 
-
-
 @test "show prints flat tasks first, then each epic group in name order" {
   cli epic-add beta <<<"Beta context."
   cli epic-add alpha </dev/null
   cli add feat "flat one" <<<"flat body"
-  cli add feat "beta child" --epic beta <<<"beta body"
-  cli add fix "alpha child" --epic alpha <<<"alpha body"
+  cli add feat "beta child" <<<"beta body"
+  cli epic-move beta-child beta >/dev/null
+  cli add fix "alpha child" <<<"alpha body"
+  cli epic-move alpha-child alpha >/dev/null
   cli add feat "flat two" <<<"flat two body"
-  cli add feat "alpha extra" --epic alpha <<<"alpha extra body"
+  cli add feat "alpha extra" <<<"alpha extra body"
+  cli epic-move alpha-extra alpha >/dev/null
   run cli show
   [ "$status" -eq 0 ]
   [ "$output" = "$(cat <<'EOF'
@@ -432,28 +388,6 @@ beta body
 alpha body
 EOF
   )" ]
-}
-
-@test "add --priority and --depends-on round-trip through list" {
-  cli add feat "first" <<<"b1"
-  run cli add fix "second" --priority 13 --depends-on first <<<"b2"
-  [ "$status" -eq 0 ]
-  run cat "$INDEX"
-  [[ "$output" == *'"priority":13'* ]]
-  [[ "$output" == *'"depends_on":["first"]'* ]]
-  run cli find second
-  [ "$output" = "second	fix	second	tasks/second.md	13	first" ]
-}
-
-@test "add rejects an off-scale priority and an unknown dependency" {
-  run cli add feat "bad prio" --priority high <<<"b"
-  [ "$status" -ne 0 ]
-  run cli add feat "x" --priority 4 <<<"b"
-  [ "$status" -ne 0 ]
-  run cli add feat "bad dep" --depends-on ghost <<<"b"
-  [ "$status" -ne 0 ]
-  [ ! -f "$TASKS/bad-dep.md" ]
-  [ ! -s "$INDEX" ]
 }
 
 @test "set-priority sets, changes and clears the priority" {
@@ -518,7 +452,6 @@ EOF
   [ "$(cat "$INDEX")" = "$before" ]
 }
 
-
 @test "remove prunes the removed id from other entries' depends_on" {
   cli add feat "keeper" <<<"b"
   cli add feat "doomed" <<<"b"
@@ -529,22 +462,24 @@ EOF
   [ "$output" = "keeper	feat	keeper	tasks/keeper.md		" ]
 }
 
-
-
 @test "list orders by priority descending with unset entries last" {
-  cli add feat "low" --priority 3 <<<"b"
+  cli add feat "low" <<<"b"
+  cli set-priority low 3 >/dev/null
   cli add feat "none at all" <<<"b"
-  cli add feat "high" --priority 21 <<<"b"
-  cli add feat "mid" --priority 8 <<<"b"
+  cli add feat "high" <<<"b"
+  cli set-priority high 21 >/dev/null
+  cli add feat "mid" <<<"b"
+  cli set-priority mid 8 >/dev/null
   run cli list
   [ "$status" -eq 0 ]
   [ "$(printf '%s\n' "$output" | cut -d$'\037' -f1 | tr '\n' ' ')" = "high mid low none-at-all " ]
 }
 
-
 @test "set-category and epic-move preserve priority and depends_on" {
   cli add feat "anchor" <<<"b"
-  cli add feat "mover" --priority 8 --depends-on anchor <<<"b"
+  cli add feat "mover" <<<"b"
+  cli set-priority mover 8 >/dev/null
+  cli set-deps mover anchor >/dev/null
   cli epic-add grouped <<<"ctx"
   cli set-category mover fix
   cli epic-move mover grouped
@@ -580,36 +515,11 @@ EOF
   done < <(grep -oE '^[a-z][a-z-]*\)$' "$CLI")
 }
 
-
-
-@test "list --category filters and rejects an unknown category" {
-  cli add feat "a feat" <<<"b1"
-  cli add fix "a fix" <<<"b2"
-  run cli list --category fix
-  [ "$status" -eq 0 ]
-  [ "$(printf '%s\n' "$output" | grep -c .)" -eq 1 ]
-  [[ "$output" == *"a fix"* ]]
-  run cli list --category bogus
-  [ "$status" -ne 0 ]
-  [[ "$output" == *"list "* ]]
-}
-
-@test "list --priority-min and --priority-max bound and drop unset priorities" {
-  cli add feat "lowest" --priority 1 <<<"b"
-  cli add feat "middle" --priority 5 <<<"b"
-  cli add feat "highest" --priority 13 <<<"b"
-  cli add feat "unset one" <<<"b"
-  run cli list --priority-min 5
-  [ "$(printf '%s\n' "$output" | cut -d$'\037' -f1 | tr '\n' ' ')" = "highest middle " ]
-  run cli list --priority-max 5
-  [ "$(printf '%s\n' "$output" | cut -d$'\037' -f1 | tr '\n' ' ')" = "middle lowest " ]
-  run cli list --priority-min notanint
-  [ "$status" -ne 0 ]
-}
-
 @test "list --order created gives index order, the default stays priority" {
-  cli add feat "added first" --priority 1 <<<"b"
-  cli add feat "added second" --priority 13 <<<"b"
+  cli add feat "added first" <<<"b"
+  cli set-priority added-first 1 >/dev/null
+  cli add feat "added second" <<<"b"
+  cli set-priority added-second 13 >/dev/null
   run cli list
   [ "$(printf '%s\n' "$output" | cut -d$'\037' -f1 | tr '\n' ' ')" = "added-second added-first " ]
   run cli list --order priority
@@ -621,20 +531,6 @@ EOF
   [[ "$output" == *"list "* ]]
 }
 
-@test "list --epic keeps only that epic's children and rejects an unknown epic" {
-  cli epic-add shipping <<<"epic ctx"
-  cli add feat "inside" --epic shipping <<<"b"
-  cli add feat "outside" <<<"b"
-  run cli list --epic shipping
-  [ "$status" -eq 0 ]
-  [ "$(printf '%s\n' "$output" | grep -c .)" -eq 1 ]
-  [[ "$output" == *"inside"* ]]
-  run cli list --epic nosuchepic
-  [ "$status" -ne 0 ]
-}
-
-
-
 @test "a title carrying a JSON-looking key and a backslash round-trips" {
   local evil='evil "file":"tasks/hack.md" and back\slash'
   cli add chore "$evil" <<<"escaping fixture"
@@ -643,8 +539,6 @@ EOF
   [[ "$output" == *"$evil"* ]]
   # The real file field, not the one smuggled into the title.
   [[ "$output" == *"tasks/evil-file-tasks-hack-md-and-back-slash.md"* ]]
-  run cli list --json
-  [[ "$output" == *'"file":"tasks/evil-file-tasks-hack-md-and-back-slash.md"'* ]]
   run cli find "$evil"
   [ "$status" -eq 0 ]
   [[ "$output" == *"$evil"* ]]
@@ -653,8 +547,6 @@ EOF
   [[ "$output" == *"$evil"* ]]
   [[ "$output" != *"innocent"* ]]
 }
-
-
 
 # --- order -------------------------------------------------------------------
 
