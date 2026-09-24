@@ -12,7 +12,6 @@
  *   MOCK_FAIL       space-separated names that exit 1
  *   MOCK_NPX        "fail" exits 1, "eat-stdin" reads fd 0 to EOF
  *   MOCK_CBM        "fail-install" prints an editor inventory and exits 1 for `install`
- *   MOCK_PLUGINS    what `claude plugin list` prints
  *
  * cc -O1 -o mock mock.c
  */
@@ -119,13 +118,6 @@ int main(int argc, char **argv) {
 				fclose(f);
 				chmod(argv[i + 1], 0755);
 			}
-		}
-		return 0;
-	}
-	if (named("claude")) {
-		if (argc > 2 && !strcmp(argv[1], "plugin") && !strcmp(argv[2], "list")) {
-			const char *p = getenv("MOCK_PLUGINS");
-			if (p && *p) printf("%s\n", p);
 		}
 		return 0;
 	}

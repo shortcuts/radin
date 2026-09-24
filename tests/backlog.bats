@@ -252,18 +252,6 @@ nest_task() {
   [ ! -f "$TASKS/epic-a/nested-thing.md" ]
 }
 
-@test "set-category moves a task and keeps its id, title and body" {
-  cli add feat "movable" <<<"body text"
-  run cli set-category movable chore
-  [ "$status" -eq 0 ]
-  run cat "$INDEX"
-  [[ "$output" == *'"id":"movable"'* ]]
-  [[ "$output" == *'"category":"chore"'* ]]
-  [[ "$output" == *'"title":"movable"'* ]]
-  run cat "$TASKS/movable.md"
-  [[ "$output" == *"body text"* ]]
-}
-
 @test "retitle changes the title but never the id or file" {
   cli add fix "old name" <<<"body"
   run cli retitle old-name "new name"

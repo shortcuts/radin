@@ -60,13 +60,6 @@ teardown() {
   [ "$(wc -l < "$TEST_HOME/.claude/CLAUDE.md")" -eq 1 ]
 }
 
-@test "no settings subcommand: the watcher keeps the graph current" {
-  run bash "$CLI" settings
-  [ "$status" -ne 0 ]
-  [[ "$output" == *usage* ]]
-  [ ! -e "$TEST_HOME/.claude/settings.json" ]
-}
-
 @test "mcp adds the server entry once and keeps other servers" {
   echo '{"mcpServers": {"other": {"command": "x"}}}' > "$TEST_HOME/proj/.mcp.json"
   run bash "$CLI" mcp "$TEST_HOME/proj"

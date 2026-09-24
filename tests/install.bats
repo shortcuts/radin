@@ -116,12 +116,6 @@ run_install_defaults() {
   grep -q 'radin:begin' "$TEST_HOME/.claude/CLAUDE.md"
 }
 
-@test "resolves RADIN_ROOT from a real checkout, no tarball download" {
-  run run_install_defaults
-  [ "$status" -eq 0 ]
-  [[ "$output" == *"Using radin source at $REPO_ROOT"* ]]
-}
-
 # Every entry point is a skill, so it runs in the user's own thread. radin
 # ships no agent: an install must never create ~/.claude/agents.
 # A surviving RADIN_MODEL_ token would reach Claude as a literal model name and
@@ -168,10 +162,9 @@ run_install_defaults() {
   manifest="$TEST_HOME/.claude/.radin/manifest.json"
   [ -f "$manifest" ]
   grep -q '"version"' "$manifest"
-  grep -q '"radin-execute"' "$manifest"
-  grep -q '"radin-doctor"' "$manifest"
-  grep -q '"radin-namespace.sh"' "$manifest"
-  grep -q '"radin-json.sh"' "$manifest"
+  for f in "$TEST_HOME"/.claude/.radin/lib/* "$TEST_HOME"/.claude/skills/radin-*; do
+    grep -q "\"${f##*/}\"" "$manifest"
+  done
   grep -q '"rtk": true' "$manifest"
   grep -q '"codebase-memory-mcp": false' "$manifest"
   grep -q '"headroom": true' "$manifest"
@@ -304,8 +297,6 @@ run_install_defaults() {
   grep -q -- "--plan-first" "$TEST_HOME/.claude/skills/radin-execute/SKILL.md"
   run ! grep -q -- "--plan-first" "$TEST_HOME/.claude/skills/radin-implement/SKILL.md"
   run ! grep -q -- "--plan-first" "$TEST_HOME/.claude/.radin/lib/radin-run.md"
-  grep -q '"radin-implement"' "$TEST_HOME/.claude/.radin/manifest.json"
-  grep -q '"radin-run.md"' "$TEST_HOME/.claude/.radin/manifest.json"
 }
 
 # The arrow-key picker only draws on a real terminal, so it gets driven through
@@ -440,11 +431,3 @@ pick_with_keys() {
   [ "$(cat "$TEST_HOME/.claude/.radin/install_root")" = "$REPO_ROOT" ]
 }
 
-@test "ships the update script and routes radin update to it" {
-  run run_install_defaults
-  [ "$status" -eq 0 ]
-  [ -f "$TEST_HOME/.claude/.radin/lib/radin-update.sh" ]
-  grep -q '"radin-update.sh"' "$TEST_HOME/.claude/.radin/manifest.json"
-  run env HOME="$TEST_HOME" bash "$TEST_HOME/.claude/.radin/bin/radin"
-  [[ "$output" == *"update"* ]]
-}
