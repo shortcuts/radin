@@ -26,6 +26,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- `install.sh` finishes radin's own stack before it installs any vendored
+  tool: the CLI symlink, every `RADIN_CLI`/`RADIN_LIB`/`RADIN_MODEL_` token,
+  and the `~/.claude/CLAUDE.md` block. thermo-nuclear now installs with the
+  companion tools. A vendored install that aborts the run no longer leaves
+  skills holding raw tokens.
+
 - Sub-agent prompts and review briefs drop their numeric report limits ("at
   most ten lines", "~15 lines", "one or two lines each"). Each one now says
   what the report carries instead: the router still holds every report, but

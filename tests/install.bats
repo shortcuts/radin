@@ -109,12 +109,16 @@ run_install_defaults() {
 }
 
 # Exiting before "Done" leaves a partial ~/.claude, so the run must say so
-# instead of returning success-looking silence.
+# instead of returning success-looking silence. radin's own stack is already
+# complete by then: a vendored tool dies after every token is written.
 @test "an install that dies mid-run says the install is partial" {
   export MOCK_NPX=fail
   cd "$REPO_ROOT" && run bash -c "printf '2\n2\n' | bash ./install.sh"
   [ "$status" -ne 0 ]
   [[ "$output" == *"partial install"* ]]
+  [ -L "$TEST_HOME/.local/bin/radin" ]
+  [ -z "$(grep -rl --include='*.md' 'RADIN_CLI\|RADIN_LIB\|RADIN_MODEL_' "$TEST_HOME/.claude/skills" "$TEST_HOME/.claude/.radin/lib")" ]
+  grep -q 'radin:begin' "$TEST_HOME/.claude/CLAUDE.md"
 }
 
 @test "resolves RADIN_ROOT from a real checkout, no tarball download" {

@@ -210,45 +210,6 @@ if [ -n "$TUI_CC" ]; then
 else
 	warn "no C compiler found -- skipping the TUI. Use \`radin backlog show\`."
 fi
-# thermo-nuclear is vendored via the vercel-labs/skills CLI (agentskills.io
-# spec), not a Claude Code plugin -- cursor/plugins isn't a plugin marketplace
-# repo, just a SKILL.md at this subpath. Falls back to a raw curl of the file
-# if npx isn't available.
-if command -v npx >/dev/null 2>&1; then
-	NPX_LOG="$(mktemp)"
-	# </dev/null everywhere below: under `curl | bash` fd0 is the script itself,
-	# and a child that reads stdin eats the rest of it -- the install then just
-	# stops, silently, before the questions.
-	if ! npx -y skills add "https://github.com/cursor/plugins/tree/main/cursor-team-kit/skills/thermo-nuclear-code-quality-review" -g -a claude-code -y >"$NPX_LOG" 2>&1 </dev/null; then
-		cat "$NPX_LOG" >&2
-		rm -f "$NPX_LOG"
-		exit 1
-	fi
-	rm -f "$NPX_LOG"
-	# Renamed back to "thermo-nuclear" -- every radin agent/skill invokes it
-	# under that name, and skills CLI installs use the source folder's name.
-	# A rerun where the CLI kept an existing install writes no source folder,
-	# so guard the move instead of letting set -e abort the install there.
-	if [ -d "$HOME/.claude/skills/thermo-nuclear-code-quality-review" ]; then
-		rm -rf "$HOME/.claude/skills/thermo-nuclear"
-		mv "$HOME/.claude/skills/thermo-nuclear-code-quality-review" "$HOME/.claude/skills/thermo-nuclear"
-	fi
-else
-	warn "npx not found -- falling back to a direct SKILL.md download for thermo-nuclear."
-	mkdir -p "$HOME/.claude/skills/thermo-nuclear"
-	curl -fsSL "https://raw.githubusercontent.com/cursor/plugins/refs/heads/main/cursor-team-kit/skills/thermo-nuclear-code-quality-review/SKILL.md" \
-		-o "$HOME/.claude/skills/thermo-nuclear/SKILL.md"
-fi
-# Strip disable-model-invocation so radin-review can invoke thermo-nuclear as
-# a sub-skill; upstream sets it to block direct end-user invocation, which
-# also blocks our own agent-to-skill call. sed -i differs BSD/GNU -- write to
-# temp then mv, portable across both.
-THERMO_SKILL="$HOME/.claude/skills/thermo-nuclear/SKILL.md"
-if [ -f "$THERMO_SKILL" ]; then
-	THERMO_TMP="$(mktemp)"
-	grep -v '^disable-model-invocation:' "$THERMO_SKILL" >"$THERMO_TMP"
-	mv "$THERMO_TMP" "$THERMO_SKILL"
-fi
 ok "skills installed"
 
 _pick_nth() {
@@ -593,6 +554,89 @@ for k in planning execution debug factfind; do
 	set_role_models "$HOME/.claude/.radin/lib/radin-prompt-$k.md"
 done
 
+step "radin CLI on PATH"
+# One `radin <backlog|state|scope|hooks|repair|doctor|uninstall>`
+# command instead of long lib paths in every Bash call. The dispatcher always
+# lands in ~/.claude/.radin/bin; this only symlinks it into ~/.local/bin.
+# Never overwrites: an existing non-radin `radin` there is named and left
+# alone, and skills then fall back to the full dispatcher path.
+CLI_ON_PATH="false"
+# Skills get whichever invocation actually works here: bare `radin` only when
+# the symlink exists AND ~/.local/bin is on PATH; the full dispatcher path
+# otherwise. Written into the RADIN_CLI token by set_cli below.
+# shellcheck disable=SC2016  # $HOME must stay literal in the installed file
+RADIN_CLI_VALUE='"$HOME/.claude/.radin/bin/radin"'
+CLI_TARGET="$HOME/.claude/.radin/bin/radin"
+CLI_LINK="$HOME/.local/bin/radin"
+if [ -e "$CLI_LINK" ] && [ "$(readlink "$CLI_LINK" 2>/dev/null)" != "$CLI_TARGET" ]; then
+	warn "$CLI_LINK exists and isn't radin's -- leaving it alone; skills use the full path."
+else
+	mkdir -p "$HOME/.local/bin"
+	ln -sf "$CLI_TARGET" "$CLI_LINK"
+	CLI_ON_PATH="true"
+	ok "radin CLI linked at ${BOLD}$CLI_LINK${RESET}"
+	case ":$PATH:" in
+	*":$HOME/.local/bin:"*)
+		RADIN_CLI_VALUE='radin'
+		;;
+	*)
+		warn "\$HOME/.local/bin is not on your PATH -- skills use the full path until it is."
+		;;
+	esac
+fi
+for f in radin-execute radin-implement radin-plan radin-record radin-review radin-show \
+	radin-doctor radin-uninstall radin-setup-hooks radin-stats; do
+	set_cli "$HOME/.claude/skills/$f/SKILL.md" "$RADIN_CLI_VALUE"
+done
+for k in planning execution debug factfind; do
+	set_cli "$HOME/.claude/.radin/lib/radin-prompt-$k.md" "$RADIN_CLI_VALUE"
+done
+set_cli "$HOME/.claude/.radin/lib/radin-execute-recovery.md" "$RADIN_CLI_VALUE"
+set_cli "$HOME/.claude/.radin/lib/radin-prioritization.md" "$RADIN_CLI_VALUE"
+set_cli "$HOME/.claude/.radin/lib/radin-execute-clarify.md" "$RADIN_CLI_VALUE"
+set_cli "$HOME/.claude/.radin/lib/radin-execute-session.md" "$RADIN_CLI_VALUE"
+set_cli "$HOME/.claude/.radin/lib/radin-execute-reporting.md" "$RADIN_CLI_VALUE"
+set_cli "$HOME/.claude/.radin/lib/radin-run.md" "$RADIN_CLI_VALUE"
+set_lib "$HOME/.claude/skills/radin-execute/SKILL.md"
+set_lib "$HOME/.claude/skills/radin-implement/SKILL.md"
+set_lib "$HOME/.claude/.radin/lib/radin-run.md"
+
+step "Agent guidance"
+# A short section in ~/.claude/CLAUDE.md telling Claude when to reach for
+# radin's skills (same pattern codebase-memory-mcp uses). Kept between
+# radin:begin/end markers: a re-run rewrites only that block, everything
+# outside them passes through untouched -- which is what makes writing it
+# unconditionally safe on a file radin doesn't own.
+CLAUDE_MD_GUIDANCE="true"
+# shellcheck disable=SC2016  # backticks here are markdown code spans, not command substitution
+RADIN_GUIDANCE='<!-- radin:begin -->
+## radin
+
+radin keeps a per-repo backlog in `<repo-root>/.claude/.radin/` so tasks
+survive past one conversation. Reach for it instead of ad-hoc task tracking:
+
+- A bug, idea, or follow-up comes up mid-session: record it with `/radin-record`.
+- The user asks what is pending: `/radin-show`. One entry needs a plan first: `/radin-plan`.
+- The user wants the backlog worked through: `/radin-execute`, or `/radin-implement` to skip the planning pass. A code review whose findings should become tasks: `/radin-review`.
+- Never hand-edit files under `.claude/.radin/` -- every backlog operation goes through the `'"$RADIN_CLI_VALUE"' backlog` CLI.
+- Never guess on a broad or ambiguous ask: invoke `/mattpocock-skills:grilling` and let the user settle it before radin writes anything.
+<!-- radin:end -->'
+CLAUDE_MD="$HOME/.claude/CLAUDE.md"
+touch "$CLAUDE_MD"
+GUIDANCE_TMP="$(mktemp)"
+# Strip any previous radin block, then append the current one -- idempotent
+# across re-runs. The second awk drops the blank lines the strip leaves at the
+# end (interior ones are held and reprinted), so a re-run stops growing the
+# file by one newline each time.
+awk '/^<!-- radin:begin -->$/ { skip = 1 } !skip { print } /^<!-- radin:end -->$/ { skip = 0 }' \
+	"$CLAUDE_MD" |
+	awk 'NF { while (pending-- > 0) print ""; pending = 0; print; next } { pending++ }' \
+		>"$GUIDANCE_TMP"
+[ ! -s "$GUIDANCE_TMP" ] || printf '\n' >>"$GUIDANCE_TMP"
+printf '%s\n' "$RADIN_GUIDANCE" >>"$GUIDANCE_TMP"
+mv "$GUIDANCE_TMP" "$CLAUDE_MD"
+ok "radin section written to ${BOLD}$CLAUDE_MD${RESET} (between radin:begin/end markers)"
+
 # Preflight for the pipx/pip-based tools below. A broken Homebrew python bottle
 # (pyexpat linked against Apple's system libexpat, which lacks the symbols brew's
 # expat exports) makes every pip/pipx call die with an opaque dlopen traceback.
@@ -610,6 +654,47 @@ python_ok() {
 }
 
 step "Companion tools"
+# thermo-nuclear is vendored via the vercel-labs/skills CLI (agentskills.io
+# spec), not a Claude Code plugin -- cursor/plugins isn't a plugin marketplace
+# repo, just a SKILL.md at this subpath. Falls back to a raw curl of the file
+# if npx isn't available.
+if command -v npx >/dev/null 2>&1; then
+	NPX_LOG="$(mktemp)"
+	# </dev/null everywhere below: under `curl | bash` fd0 is the script itself,
+	# and a child that reads stdin eats the rest of it -- the install then just
+	# stops, silently, before the questions.
+	if ! npx -y skills add "https://github.com/cursor/plugins/tree/main/cursor-team-kit/skills/thermo-nuclear-code-quality-review" -g -a claude-code -y >"$NPX_LOG" 2>&1 </dev/null; then
+		cat "$NPX_LOG" >&2
+		rm -f "$NPX_LOG"
+		exit 1
+	fi
+	rm -f "$NPX_LOG"
+	# Renamed back to "thermo-nuclear" -- every radin agent/skill invokes it
+	# under that name, and skills CLI installs use the source folder's name.
+	# A rerun where the CLI kept an existing install writes no source folder,
+	# so guard the move instead of letting set -e abort the install there.
+	if [ -d "$HOME/.claude/skills/thermo-nuclear-code-quality-review" ]; then
+		rm -rf "$HOME/.claude/skills/thermo-nuclear"
+		mv "$HOME/.claude/skills/thermo-nuclear-code-quality-review" "$HOME/.claude/skills/thermo-nuclear"
+	fi
+else
+	warn "npx not found -- falling back to a direct SKILL.md download for thermo-nuclear."
+	mkdir -p "$HOME/.claude/skills/thermo-nuclear"
+	curl -fsSL "https://raw.githubusercontent.com/cursor/plugins/refs/heads/main/cursor-team-kit/skills/thermo-nuclear-code-quality-review/SKILL.md" \
+		-o "$HOME/.claude/skills/thermo-nuclear/SKILL.md"
+fi
+# Strip disable-model-invocation so radin-review can invoke thermo-nuclear as
+# a sub-skill; upstream sets it to block direct end-user invocation, which
+# also blocks our own agent-to-skill call. sed -i differs BSD/GNU -- write to
+# temp then mv, portable across both.
+THERMO_SKILL="$HOME/.claude/skills/thermo-nuclear/SKILL.md"
+if [ -f "$THERMO_SKILL" ]; then
+	THERMO_TMP="$(mktemp)"
+	grep -v '^disable-model-invocation:' "$THERMO_SKILL" >"$THERMO_TMP"
+	mv "$THERMO_TMP" "$THERMO_SKILL"
+fi
+ok "thermo-nuclear installed."
+
 # rtk and headroom ship in more than one package manager. Installing them with
 # brew on a mise-managed machine leaves behind a manager the user never chose,
 # so the one question here is which manager to install through. `curl` keeps
@@ -741,89 +826,6 @@ if CBM_BIN="$(cbm_bin)"; then
 		info "Then run /radin-setup-hooks in each repo for its .mcp.json entry."
 	fi
 fi
-
-step "radin CLI on PATH"
-# One `radin <backlog|state|scope|hooks|repair|doctor|uninstall>`
-# command instead of long lib paths in every Bash call. The dispatcher always
-# lands in ~/.claude/.radin/bin; this only symlinks it into ~/.local/bin.
-# Never overwrites: an existing non-radin `radin` there is named and left
-# alone, and skills then fall back to the full dispatcher path.
-CLI_ON_PATH="false"
-# Skills get whichever invocation actually works here: bare `radin` only when
-# the symlink exists AND ~/.local/bin is on PATH; the full dispatcher path
-# otherwise. Written into the RADIN_CLI token by set_cli below.
-# shellcheck disable=SC2016  # $HOME must stay literal in the installed file
-RADIN_CLI_VALUE='"$HOME/.claude/.radin/bin/radin"'
-CLI_TARGET="$HOME/.claude/.radin/bin/radin"
-CLI_LINK="$HOME/.local/bin/radin"
-if [ -e "$CLI_LINK" ] && [ "$(readlink "$CLI_LINK" 2>/dev/null)" != "$CLI_TARGET" ]; then
-	warn "$CLI_LINK exists and isn't radin's -- leaving it alone; skills use the full path."
-else
-	mkdir -p "$HOME/.local/bin"
-	ln -sf "$CLI_TARGET" "$CLI_LINK"
-	CLI_ON_PATH="true"
-	ok "radin CLI linked at ${BOLD}$CLI_LINK${RESET}"
-	case ":$PATH:" in
-	*":$HOME/.local/bin:"*)
-		RADIN_CLI_VALUE='radin'
-		;;
-	*)
-		warn "\$HOME/.local/bin is not on your PATH -- skills use the full path until it is."
-		;;
-	esac
-fi
-for f in radin-execute radin-implement radin-plan radin-record radin-review radin-show \
-	radin-doctor radin-uninstall radin-setup-hooks radin-stats; do
-	set_cli "$HOME/.claude/skills/$f/SKILL.md" "$RADIN_CLI_VALUE"
-done
-for k in planning execution debug factfind; do
-	set_cli "$HOME/.claude/.radin/lib/radin-prompt-$k.md" "$RADIN_CLI_VALUE"
-done
-set_cli "$HOME/.claude/.radin/lib/radin-execute-recovery.md" "$RADIN_CLI_VALUE"
-set_cli "$HOME/.claude/.radin/lib/radin-prioritization.md" "$RADIN_CLI_VALUE"
-set_cli "$HOME/.claude/.radin/lib/radin-execute-clarify.md" "$RADIN_CLI_VALUE"
-set_cli "$HOME/.claude/.radin/lib/radin-execute-session.md" "$RADIN_CLI_VALUE"
-set_cli "$HOME/.claude/.radin/lib/radin-execute-reporting.md" "$RADIN_CLI_VALUE"
-set_cli "$HOME/.claude/.radin/lib/radin-run.md" "$RADIN_CLI_VALUE"
-set_lib "$HOME/.claude/skills/radin-execute/SKILL.md"
-set_lib "$HOME/.claude/skills/radin-implement/SKILL.md"
-set_lib "$HOME/.claude/.radin/lib/radin-run.md"
-
-step "Agent guidance"
-# A short section in ~/.claude/CLAUDE.md telling Claude when to reach for
-# radin's skills (same pattern codebase-memory-mcp uses). Kept between
-# radin:begin/end markers: a re-run rewrites only that block, everything
-# outside them passes through untouched -- which is what makes writing it
-# unconditionally safe on a file radin doesn't own.
-CLAUDE_MD_GUIDANCE="true"
-# shellcheck disable=SC2016  # backticks here are markdown code spans, not command substitution
-RADIN_GUIDANCE='<!-- radin:begin -->
-## radin
-
-radin keeps a per-repo backlog in `<repo-root>/.claude/.radin/` so tasks
-survive past one conversation. Reach for it instead of ad-hoc task tracking:
-
-- A bug, idea, or follow-up comes up mid-session: record it with `/radin-record`.
-- The user asks what is pending: `/radin-show`. One entry needs a plan first: `/radin-plan`.
-- The user wants the backlog worked through: `/radin-execute`, or `/radin-implement` to skip the planning pass. A code review whose findings should become tasks: `/radin-review`.
-- Never hand-edit files under `.claude/.radin/` -- every backlog operation goes through the `'"$RADIN_CLI_VALUE"' backlog` CLI.
-- Never guess on a broad or ambiguous ask: invoke `/mattpocock-skills:grilling` and let the user settle it before radin writes anything.
-<!-- radin:end -->'
-CLAUDE_MD="$HOME/.claude/CLAUDE.md"
-touch "$CLAUDE_MD"
-GUIDANCE_TMP="$(mktemp)"
-# Strip any previous radin block, then append the current one -- idempotent
-# across re-runs. The second awk drops the blank lines the strip leaves at the
-# end (interior ones are held and reprinted), so a re-run stops growing the
-# file by one newline each time.
-awk '/^<!-- radin:begin -->$/ { skip = 1 } !skip { print } /^<!-- radin:end -->$/ { skip = 0 }' \
-	"$CLAUDE_MD" |
-	awk 'NF { while (pending-- > 0) print ""; pending = 0; print; next } { pending++ }' \
-		>"$GUIDANCE_TMP"
-[ ! -s "$GUIDANCE_TMP" ] || printf '\n' >>"$GUIDANCE_TMP"
-printf '%s\n' "$RADIN_GUIDANCE" >>"$GUIDANCE_TMP"
-mv "$GUIDANCE_TMP" "$CLAUDE_MD"
-ok "radin section written to ${BOLD}$CLAUDE_MD${RESET} (between radin:begin/end markers)"
 
 step "Writing install manifest"
 # ponytail: three independent copies of this file list already exist
