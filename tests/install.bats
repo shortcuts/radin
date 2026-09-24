@@ -146,25 +146,20 @@ run_install_defaults() {
   ! grep -q 'model: "haiku"' "$TEST_HOME/.claude/.radin/lib/radin-prompt-factfind.md"
 }
 
-@test "installs radin's own skills and shared lib, not unrelated skill dirs" {
+# install.sh, radin-doctor.sh and radin-uninstall.sh each keep their own list
+# of shipped files. Checking all three against one real install tree is what
+# catches a file added to one list and forgotten in another.
+@test "doctor finds and uninstall removes exactly what install ships" {
   run_install_defaults
-  [ -f "$TEST_HOME/.claude/.radin/lib/radin-namespace.sh" ]
-  [ -f "$TEST_HOME/.claude/.radin/lib/radin-json.sh" ]
-  [ -f "$TEST_HOME/.claude/.radin/lib/radin-uninstall.sh" ]
-  [ -f "$TEST_HOME/.claude/.radin/lib/radin-execute-recovery.md" ]
-  [ -f "$TEST_HOME/.claude/.radin/lib/radin-execute-reporting.md" ]
-  [ -f "$TEST_HOME/.claude/.radin/lib/radin-execute-clarify.md" ]
-  [ -f "$TEST_HOME/.claude/.radin/lib/radin-execute-session.md" ]
-  [ -f "$TEST_HOME/.claude/.radin/lib/radin-execute-resume.md" ]
-  [ -f "$TEST_HOME/.claude/.radin/lib/radin-run.md" ]
+  run bash "$TEST_HOME/.claude/.radin/lib/radin-doctor.sh"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"All expected files present."* ]]
+  [[ "$output" == *"no unsubstituted token left"* ]]
+  run bash "$TEST_HOME/.claude/.radin/lib/radin-uninstall.sh"
+  [ "$status" -eq 0 ]
+  [ -z "$(find "$TEST_HOME/.claude/.radin/lib" "$TEST_HOME/.claude/.radin/bin" -type f)" ]
+  [ -z "$(ls "$TEST_HOME/.claude/skills" | grep '^radin-')" ]
   [ -f "$TEST_HOME/.claude/skills/thermo-nuclear/SKILL.md" ]
-  [ -d "$TEST_HOME/.claude/skills/radin-execute" ]
-  [ -d "$TEST_HOME/.claude/skills/radin-implement" ]
-  [ -d "$TEST_HOME/.claude/skills/radin-review" ]
-  [ -d "$TEST_HOME/.claude/skills/radin-record" ]
-  [ -d "$TEST_HOME/.claude/skills/radin-setup-hooks" ]
-  [ -d "$TEST_HOME/.claude/skills/radin-doctor" ]
-  [ -d "$TEST_HOME/.claude/skills/radin-uninstall" ]
 }
 
 @test "writes an install manifest listing installed files and companion tools" {

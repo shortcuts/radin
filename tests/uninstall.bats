@@ -42,33 +42,6 @@ printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-cbm-
   cp "$CLI" "$TEST_HOME/.claude/.radin/lib/radin-uninstall.sh"
 }
 
-@test "removes every expected skill and lib file" {
-  install_all_expected
-  run env HOME="$TEST_HOME" bash "$TEST_HOME/.claude/.radin/lib/radin-uninstall.sh"
-  [ "$status" -eq 0 ]
-  for name in radin-execute radin-implement radin-plan radin-record radin-review radin-setup-hooks radin-show radin-stats radin-doctor radin-uninstall; do
-    [ ! -e "$TEST_HOME/.claude/skills/$name" ]
-  done
-  [ ! -e "$TEST_HOME/.claude/.radin/bin/radin" ]
-  [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-namespace.sh" ]
-  [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-json.sh" ]
-  [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-backlog.sh" ]
-  [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-state.sh" ]
-  [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-scope.sh" ]
-  [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-prompt.sh" ]
-  [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-cbm-hooks.sh" ]
-  [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-prioritization.md" ]
-  [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-prompt-execution.md" ]
-  [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-execute-recovery.md" ]
-  [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-execute-reporting.md" ]
-  [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-execute-clarify.md" ]
-  [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-execute-session.md" ]
-  [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-execute-resume.md" ]
-  [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-run.md" ]
-  [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-doctor.sh" ]
-  [ ! -e "$TEST_HOME/.claude/.radin/lib/radin-uninstall.sh" ]
-}
-
 @test "leaves thermo-nuclear untouched" {
   install_all_expected
   run env HOME="$TEST_HOME" bash "$TEST_HOME/.claude/.radin/lib/radin-uninstall.sh"

@@ -47,15 +47,6 @@ printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-cbm-
   printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-uninstall.sh"
 }
 
-@test "exits 0 and reports OK for every file when a full install is present" {
-  install_all_expected
-  run env HOME="$TEST_HOME" bash "$CLI"
-  [ "$status" -eq 0 ]
-  [[ "$output" != *"MISSING"* ]]
-  [[ "$output" == *"All expected files present."* ]]
-  [[ "$output" == *"no unsubstituted token left"* ]]
-}
-
 @test "exits 1 and reports MISSING for an absent on-demand lib file" {
   install_all_expected
   rm "$TEST_HOME/.claude/.radin/lib/radin-execute-recovery.md"
