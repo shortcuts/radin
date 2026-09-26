@@ -62,6 +62,8 @@ that ask human anything — sub-agent drop it, never wait on it.
 
 - **No-op test.** Sentence that not change what model do versus its default
   pay load and say nothing. Delete whole sentence, never trim word out of it.
+  Test disputed: measure it
+  ([how](CONTRIBUTING.md#measure-a-prose-edit)), not debate it.
 - **Positive over prohibition.** Ban drag banned behaviour into context and
   half-read as instruction to do it. State target behaviour. Keep prohibition
   only as hard guardrail with no positive phrasing, then pair it with target.
