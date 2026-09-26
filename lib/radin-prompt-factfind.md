@@ -34,7 +34,7 @@ You are a leaf: no user, no `AskUserQuestion`, no `Workflow`, no sub-agent of
 your own, so invoke no skill that asks a human anything or spawns and waits.
 
 Report the answer with the file path, command output, or version that
-establishes it. When the evidence is longer than a summary can carry, write
+establishes it, in at most three lines. When the evidence is longer than a summary can carry, write
 the long form to `NAMESPACE_DIR/state/facts/TASK_ID.md` (create the directory
 if needed; that file is the one thing you may write) and report the summary
 plus that path. Then the LAST line exactly one of:

@@ -15,6 +15,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Execution sub-agents apply the ponytail ladder that ponytail's
   SubagentStart hook already injected, and invoke `/ponytail:ponytail` only
   when the hook did not run. This saves about 1.4k tokens per dispatch.
+- The debug sub-agent's `DIAGNOSED` line names every sibling `path:line`
+  that shares the root cause, so the retry fixes the pattern once.
+- Planning, debug and fact-finding sub-agents report at most three lines above
+  `STATUS:`, so the router holds less text per task.
 - `install.sh` (`make install`) always reinstalls or upgrades every companion
   tool, including the ones already installed. `radin update` (`make update`)
   runs only radin's own steps: no companion installer runs. It asks the

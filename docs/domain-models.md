@@ -54,7 +54,7 @@ Two stores, split by whether a parser reads the value. A path, id, hash or enum 
 | --- | --- | --- |
 | `**Decision:** <answer>` | user settled a `BLOCKED (DECISION)` | `radin-execute` |
 | `**Fact:** <answer>` | fact-finder returned `STATUS: FOUND` | `radin-execute` |
-| `**Root cause:** <cause + fix direction>` | debug sub-agent returned `STATUS: DIAGNOSED` | `radin state task-diagnosis` |
+| `**Root cause:** <cause + fix direction + sibling sites>` | debug sub-agent returned `STATUS: DIAGNOSED` | `radin state task-diagnosis` |
 | `**Raised as:** <verbatim ask>` | the triggering text, quoted | `radin-record` |
 | `**Scope:** <what was reviewed>` | the review surface | `radin-review` |
 | `**Finding:**` | the problem, as the review stated it | `radin-review` |
