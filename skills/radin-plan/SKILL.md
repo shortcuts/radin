@@ -203,8 +203,10 @@ Non-interactive: run both briefs inline, Standards first. A non-interactive
 `radin-plan` is itself a sub-agent and cannot rely on getting a spawned agent's
 result.
 
-**Standards brief.** Invoke `/thermo-nuclear` against the plan's content, then
-`/ponytail:ponytail-review` against the same content. Report every structural
+**Standards brief.** Invoke `/ponytail:ponytail-review` against the plan's
+content. An interactive run invokes `/thermo-nuclear` against the same content
+first; a non-interactive run leaves it to `/radin-review`, which runs it over
+the code. Report every structural
 issue the rubric flags in the approach, and every place the plan breaks its own
 template contract — a speculative abstraction in `## Changes`, a `## Decisions`
 claim carrying no source. Report findings only, each as its claim and citation.

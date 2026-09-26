@@ -469,7 +469,10 @@ The pass that moved earlier instead is `radin-plan`'s Step 4, which reviews the
 plan on the same two axes `radin-review` runs over code: Standards against the
 repo's rubrics, Spec against the entry the plan came from. It costs two
 sub-agents per plan and catches a missing acceptance criterion or a contradicted
-`**Decision:**` line while the fix is still one edit to a Markdown file. Its
+`**Decision:**` line while the fix is still one edit to a Markdown file. A
+planning sub-agent's Standards pass runs `/ponytail:ponytail-review` alone:
+`/thermo-nuclear`'s body was about a third of each planning dispatch, and
+`/radin-review` still runs it over the resulting code. Its
 findings stay in the plan file — a backlog entry about code nobody has written
 yet would come back to `radin-execute` as work.
 

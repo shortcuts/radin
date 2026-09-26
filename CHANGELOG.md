@@ -27,6 +27,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   a broken suite or toolchain stops the run instead of failing every task.
   A sub-agent that died on an API or network error goes back to `pending` and
   gets retried, up to `MAX_ATTEMPTS`.
+- A planning sub-agent reviews its plan with `/ponytail:ponytail-review`
+  only. `/thermo-nuclear` still runs on interactive `/radin-plan` and in
+  `/radin-review`. This saves about 2.6k tokens per planned task.
 - New `radin state steps-list` verb. A resumed or compacted run reads it
   instead of parsing `BACKLOG_STEPS.json` and re-reading every task file.
 - `install.sh` (`make install`) always reinstalls or upgrades every companion
