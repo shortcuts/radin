@@ -19,6 +19,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   that shares the root cause, so the retry fixes the pattern once.
 - Planning, debug and fact-finding sub-agents report at most three lines above
   `STATUS:`, so the router holds less text per task.
+- `/radin-review` gives each finding a severity and its evidence, including
+  how far the proof went (`cited`, `traced`, `ran`). Both land in the backlog
+  entry. A finding about an input no caller produces is dismissed before
+  triage, and the report lists each dismissal.
 - `install.sh` (`make install`) always reinstalls or upgrades every companion
   tool, including the ones already installed. `radin update` (`make update`)
   runs only radin's own steps: no companion installer runs. It asks the

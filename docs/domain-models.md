@@ -58,6 +58,8 @@ Two stores, split by whether a parser reads the value. A path, id, hash or enum 
 | `**Raised as:** <verbatim ask>` | the triggering text, quoted | `radin-record` |
 | `**Scope:** <what was reviewed>` | the review surface | `radin-review` |
 | `**Finding:**` | the problem, as the review stated it | `radin-review` |
+| `**Severity:**` | `critical`, `warning` or `nit` | `radin-review` |
+| `**Evidence:**` | the proof rung (`cited`, `traced`, `ran`), then the reasoning or output | `radin-review` |
 | `**Preferred remedy:**` | the restructuring suggested | `radin-review` |
 
 Every one of them is binding on the next sub-agent that reads the task, not commentary on it.
