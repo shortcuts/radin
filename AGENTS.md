@@ -125,7 +125,7 @@ wrong one cost failed call in every sub-agent
 
 ## Before committing
 
-- `make lint` and `make test` clean, and `make test` stay under 40s. Keep it
+- `make lint` and `make test` clean, and `make test` stay under 60s. Keep it
   there: one recorded `install.sh` run every tree-only test replay, live run
   only for install-time behaviour, mock command be `tests/helpers/mock.c` (one
   compiled binary, not a shell stub per command — `/bin/sh` startup cost 20ms
