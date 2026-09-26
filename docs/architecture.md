@@ -146,7 +146,7 @@ radin-execute was an agent (`agents/radin-execute.md`) until it became a skill. 
 - `AskUserQuestion` removed from **every** sub-agent, foreground and background alike. Agent's Phase 2 gate asks user to confirm execution order, so as agent it could never actually ask — every run fell back to ending its turn with question and waiting to be re-invoked.
 - Sub-agent's prose reaches only calling session, never user. So agent's own report needed re-summarizing by main thread, and every question had to be encoded as `blocked` backlog state instead of asked.
 
-`/radin-doctor`, `/radin-uninstall` and `/radin-stats` carry `disable-model-invocation: true`: only a human types them, and a model-invoked skill's description loads into every session and every sub-agent. `/radin-show` stays model-invoked, because the `~/.claude/CLAUDE.md` block tells the model to reach for it. `tests/skill-names.bats` caps every model-invoked description at 40 words.
+`/radin-doctor`, `/radin-uninstall`, `/radin-stats` and `/radin-show` carry `disable-model-invocation: true`: only a human types them, and a model-invoked skill's description loads into every session and every sub-agent. An agent that needs the backlog runs `radin backlog show` itself; the `~/.claude/CLAUDE.md` block says so. `tests/skill-names.bats` caps every model-invoked description at 40 words.
 
 As skill, radin-execute runs in user's own thread: asks directly, gets interrupted, resumes from disk. Sub-agents stay, one layer down, as leaf workers — that's where context isolation earns its keep (planning's codebase exploration, execution's edits, review's diff read), each returning single `STATUS:` line. Same split SOTA skill collections use: orchestrate in main thread, isolate leaf work.
 
@@ -515,6 +515,13 @@ typo fails the suite instead of costing a failed call in every sub-agent. A
 new companion needs its plugin prefix in that test's list. Not pinned by it:
 the MCP graph tool names, and the README row and `docs/architecture.md`
 mention a new skill needs (AGENTS.md) — those are checked by review.
+
+The execution prompt names `/ponytail:ponytail` but never invokes it: ponytail's
+SubagentStart hook injects the ladder into every sub-agent, and invoking the
+skill loaded the same text twice. That makes the hook load-bearing, so
+`install.sh` enables any companion plugin it finds disabled at user scope and
+warns when the enable fails, and `radin-doctor` reports such a plugin as
+`disabled`, not `found`.
 `tests/links.bats` pins every relative link, `#anchor` and `RADIN_LIB/<doc>.md`
 path in the repo's markdown, so a renamed heading or doc fails the suite.
 

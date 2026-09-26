@@ -97,7 +97,7 @@ skill_tokens() {
     [ "$words" -le 40 ] || long="$long $(basename "$(dirname "$f")")=$words"
   done
   [ -z "$long" ] || { echo "descriptions over 40 words:$long"; false; }
-  for s in radin-doctor radin-uninstall radin-stats; do
+  for s in radin-doctor radin-uninstall radin-stats radin-show; do
     grep -q '^disable-model-invocation: true$' "$REPO_ROOT/skills/$s/SKILL.md" || { echo "$s is model-invoked"; false; }
   done
 }

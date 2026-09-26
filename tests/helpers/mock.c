@@ -12,6 +12,7 @@
  *   MOCK_FAIL       space-separated names that exit 1
  *   MOCK_NPX        "fail" exits 1, "eat-stdin" reads fd 0 to EOF
  *   MOCK_CBM        "fail-install" prints an editor inventory and exits 1 for `install`
+ *   MOCK_CLAUDE_LIST file whose contents `claude plugin list` prints
  *
  * cc -O1 -o mock mock.c
  */
@@ -145,6 +146,16 @@ int main(int argc, char **argv) {
 				fclose(f);
 			}
 		}
+		return 0;
+	}
+	if (named("claude") && has_arg(argc, argv, "plugin") && has_arg(argc, argv, "list")) {
+		const char *list = getenv("MOCK_CLAUDE_LIST");
+		FILE *f = list ? fopen(list, "r") : NULL;
+		if (!f) return 0;
+		char buf[4096];
+		size_t n;
+		while ((n = fread(buf, 1, sizeof buf, f)) > 0) fwrite(buf, 1, n, stdout);
+		fclose(f);
 		return 0;
 	}
 	if (named("codebase-memory-mcp")) {

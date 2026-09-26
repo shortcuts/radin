@@ -48,13 +48,24 @@ check_path_tool() {
 	fi
 }
 
+# Found means enabled at user scope: a disabled or project-only plugin's hooks
+# do not run in the user's other repos. ponytail: second copy of install.sh's
+# plugin_state.
 check_plugin() {
-	local label="$1" plugin_id="$2"
-	if command -v claude >/dev/null 2>&1 && claude plugin list 2>/dev/null | grep -q "$plugin_id"; then
-		printf '  %-20s found\n' "$label"
-	else
-		printf '  %-20s not found\n' "$label"
+	local label="$1" plugin_id="$2" state=""
+	if command -v claude >/dev/null 2>&1; then
+		state="$(claude plugin list 2>/dev/null | awk -v id="$plugin_id" '
+			/❯ / { cur = ($2 == id); scope = ""; next }
+			cur && /Scope:/ { scope = $2 }
+			cur && scope == "user" && /Status:/ { state = /disabled/ ? "disabled" : "enabled" }
+			END { if (state) print state }
+		')"
 	fi
+	case "$state" in
+	enabled) printf '  %-20s found\n' "$label" ;;
+	disabled) printf '  %-20s disabled (its hooks do not run: claude plugin enable --scope user %s)\n' "$label" "$plugin_id" ;;
+	*) printf '  %-20s not found\n' "$label" ;;
+	esac
 }
 
 printf 'radin doctor\n============\n'

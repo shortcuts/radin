@@ -360,15 +360,38 @@ install_tool() {
 	rm -f "$log"
 }
 
+# Prints `enabled` or `disabled` for plugin $1's user-scope install, nothing
+# when it has none. A project-scope install does not count: its hooks run in
+# that one project only. ponytail: second copy in lib/radin-doctor.sh.
+plugin_state() {
+	claude plugin list 2>/dev/null | awk -v id="$1" '
+		/❯ / { cur = ($2 == id); scope = ""; next }
+		cur && /Scope:/ { scope = $2 }
+		cur && scope == "user" && /Status:/ { state = /disabled/ ? "disabled" : "enabled" }
+		END { if (state) print state }
+	'
+}
+
 install_plugin() {
-	local name="$1" plugin_id="$2" marketplace_source="$3"
+	local name="$1" plugin_id="$2"
 	# Plugins install through the `claude` CLI and nothing else, so on a machine
 	# without it say so once per plugin instead of asking and then failing.
 	if ! command -v claude >/dev/null 2>&1; then
 		warn "$name skipped: the 'claude' CLI is not on PATH. Install Claude Code, then re-run install.sh."
 		return 0
 	fi
-	if claude plugin list 2>/dev/null | grep -q "$plugin_id"; then
+	install_plugin_files "$@"
+	# A plugin's hooks run only while it is enabled, and radin's execution
+	# prompt relies on ponytail's SubagentStart hook.
+	[ "$(plugin_state "$plugin_id")" = disabled ] || return 0
+	claude plugin enable --scope user "$plugin_id" >/dev/null 2>&1 </dev/null || true
+	[ "$(plugin_state "$plugin_id")" = enabled ] ||
+		warn "$name is installed but disabled, so its hooks do not run. Run: claude plugin enable --scope user $plugin_id"
+}
+
+install_plugin_files() {
+	local name="$1" plugin_id="$2" marketplace_source="$3"
+	if [ -n "$(plugin_state "$plugin_id")" ]; then
 		if [ -n "$VERBOSE" ]; then
 			if {
 				claude plugin marketplace update
@@ -589,7 +612,7 @@ radin keeps a per-repo backlog in `<repo-root>/.claude/.radin/` so tasks
 survive past one conversation. Reach for it instead of ad-hoc task tracking:
 
 - A bug, idea, or follow-up comes up mid-session: record it with `/radin-record`.
-- The user asks what is pending: `/radin-show`. One entry needs a plan first: `/radin-plan`.
+- The user asks what is pending: run `'"$RADIN_CLI_VALUE"' backlog show` and print its output. One entry needs a plan first: `/radin-plan`.
 - The user wants the backlog worked through: `/radin-execute`, or `/radin-implement` to skip the planning pass. A code review whose findings should become tasks: `/radin-review`.
 - Never hand-edit files under `.claude/.radin/` -- every backlog operation goes through the `'"$RADIN_CLI_VALUE"' backlog` CLI.
 - Never guess on a broad or ambiguous ask: invoke `/mattpocock-skills:grilling` and let the user settle it before radin writes anything.
@@ -817,7 +840,7 @@ json_bool_cmd() {
 	fi
 }
 json_bool_plugin() {
-	if command -v claude >/dev/null 2>&1 && claude plugin list 2>/dev/null | grep -q "$1"; then
+	if command -v claude >/dev/null 2>&1 && [ "$(plugin_state "$1")" = enabled ]; then
 		printf 'true'
 	else
 		printf 'false'

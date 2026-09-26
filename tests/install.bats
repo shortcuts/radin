@@ -101,6 +101,9 @@ run_install_defaults() {
   [ -f "$TEMPLATE/home/.claude/.radin/manifest.json" ]
   [ -x "$TEMPLATE/home/.claude/.radin/bin/radin-tui" ]
   [ -x "$TEMPLATE/home/.claude/.radin/bin/radin-cbm-json" ]
+  # Agents read the backlog through the CLI; /radin-show is a human's command.
+  grep -q 'what is pending: run `.* backlog show`' "$TEMPLATE/home/.claude/CLAUDE.md"
+  ! grep -q '/radin-show' "$TEMPLATE/home/.claude/CLAUDE.md"
 }
 
 # Exiting before "Done" leaves a partial ~/.claude, so the run must say so
@@ -382,6 +385,18 @@ pick_with_keys() {
   [[ "$(cat "$TEST_HOME/mise.log")" == *"pipx:headroom-ai"* ]]
   [ ! -s "$TEST_HOME/brew.log" ] || [[ "$(cat "$TEST_HOME/brew.log")" != *"install rtk"* ]]
   grep -q '"package_manager": "mise"' "$TEST_HOME/.claude/.radin/manifest.json"
+}
+
+# ponytail's SubagentStart hook is what puts its ladder in every execution
+# sub-agent, and a plugin's hooks run only while it is enabled at user scope.
+@test "a plugin installed but disabled gets enabled, and a failed enable warns" {
+  printf '  ❯ ponytail@ponytail\n    Version: 4.10.0\n    Scope: user\n    Status: ✘ disabled\n' > "$TEST_HOME/plugins.txt"
+  export MOCK_CLAUDE_LIST="$TEST_HOME/plugins.txt"
+  cd "$REPO_ROOT" && run bash ./install.sh --yes
+  [ "$status" -eq 0 ]
+  [[ "$(cat "$TEST_HOME/claude.log")" == *"plugin enable --scope user ponytail@ponytail"* ]]
+  [[ "$output" == *"ponytail is installed but disabled"* ]]
+  [[ "$(cat "$TEST_HOME/claude.log")" != *"plugin enable --scope user caveman@caveman"* ]]
 }
 
 # A companion tool that fails must not abort radin's own install -- set -e used

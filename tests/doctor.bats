@@ -84,6 +84,37 @@ EOF
   [[ "$output" == *"codebase-memory-mcp"*"not found"* ]]
 }
 
+# A plugin's hooks run only when it is enabled at user scope, so a disabled or
+# project-only install is not "found".
+@test "reports a plugin found only when it is enabled at user scope" {
+  install_all_expected
+  cat > "$MOCK_BIN/claude" <<'EOF'
+#!/bin/sh
+cat <<'LIST'
+  ❯ caveman@caveman
+    Version: 2.7.0
+    Scope: project
+    Status: ✔ enabled
+
+  ❯ ponytail@ponytail
+    Version: 4.10.0
+    Scope: user
+    Status: ✘ disabled
+
+  ❯ mattpocock-skills@claude-plugins-official
+    Version: 1.2.3
+    Scope: user
+    Status: ✔ enabled
+LIST
+EOF
+  chmod +x "$MOCK_BIN/claude"
+  run env HOME="$TEST_HOME" bash "$CLI"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"caveman"*"not found"* ]]
+  [[ "$output" == *"ponytail"*"disabled"* ]]
+  [[ "$output" == *"mattpocock-skills    found"* ]]
+}
+
 @test "writes nothing, in HOME or in the working directory" {
   install_all_expected
   WORK="$(mktemp -d)"

@@ -13,8 +13,11 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   mechanical deviation and names it. A deviation that changes a plan decision
   now returns `BLOCKED (DECISION)`.
 - Execution sub-agents apply the ponytail ladder that ponytail's
-  SubagentStart hook already injected, and invoke `/ponytail:ponytail` only
-  when the hook did not run. This saves about 1.4k tokens per dispatch.
+  SubagentStart hook already injected, instead of invoking
+  `/ponytail:ponytail` again. This saves about 1.4k tokens per dispatch.
+- `install.sh` enables a companion plugin that is installed but disabled, and
+  warns when it cannot. `/radin-doctor` and the manifest count a plugin only
+  when it is enabled at user scope, because only then do its hooks run.
 - The debug sub-agent's `DIAGNOSED` line names every sibling `path:line`
   that shares the root cause, so the retry fixes the pattern once.
 - Planning, debug and fact-finding sub-agents report at most three lines above
@@ -30,8 +33,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - A planning sub-agent reviews its plan with `/ponytail:ponytail-review`
   only. `/thermo-nuclear` still runs on interactive `/radin-plan` and in
   `/radin-review`. This saves about 2.6k tokens per planned task.
-- `/radin-doctor`, `/radin-uninstall` and `/radin-stats` run only when you
-  type them: asking in plain words no longer triggers them. Their descriptions
+- `/radin-doctor`, `/radin-uninstall`, `/radin-stats` and `/radin-show` run
+  only when you type them: asking in plain words no longer triggers them. An
+  agent asked what is pending runs `radin backlog show` instead. Their descriptions
   no longer load into every session, and the other skill descriptions are
   shorter.
 - `chore` tasks run on their own sub-agent model, haiku by default. The

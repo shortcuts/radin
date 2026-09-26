@@ -139,8 +139,7 @@ ACCEPTANCE
 <!-- end -->
    Apply the `/ponytail:ponytail` ladder in every case: the minimum code that
    satisfies the task, reusing what the repo already has. Its SubagentStart
-   hook has usually put the ladder in your context already; invoke the skill
-   only when your context holds no ponytail ruleset. Use
+   hook already put the ladder in your context, so invoke no skill for it. Use
    `headroom sg` (ast-grep) for mechanical multi-site renames and signature
    changes; hand-edit each site otherwise.
 4. Where the task changes behavior (not a pure deletion/rename), add or update a unit
