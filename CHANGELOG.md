@@ -30,6 +30,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - A planning sub-agent reviews its plan with `/ponytail:ponytail-review`
   only. `/thermo-nuclear` still runs on interactive `/radin-plan` and in
   `/radin-review`. This saves about 2.6k tokens per planned task.
+- `/radin-doctor`, `/radin-uninstall` and `/radin-stats` run only when you
+  type them: asking in plain words no longer triggers them. Their descriptions
+  no longer load into every session, and the other skill descriptions are
+  shorter.
 - New `radin state steps-list` verb. A resumed or compacted run reads it
   instead of parsing `BACKLOG_STEPS.json` and re-reading every task file.
 - `install.sh` (`make install`) always reinstalls or upgrades every companion

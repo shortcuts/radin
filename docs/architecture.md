@@ -146,6 +146,8 @@ radin-execute was an agent (`agents/radin-execute.md`) until it became a skill. 
 - `AskUserQuestion` removed from **every** sub-agent, foreground and background alike. Agent's Phase 2 gate asks user to confirm execution order, so as agent it could never actually ask — every run fell back to ending its turn with question and waiting to be re-invoked.
 - Sub-agent's prose reaches only calling session, never user. So agent's own report needed re-summarizing by main thread, and every question had to be encoded as `blocked` backlog state instead of asked.
 
+`/radin-doctor`, `/radin-uninstall` and `/radin-stats` carry `disable-model-invocation: true`: only a human types them, and a model-invoked skill's description loads into every session and every sub-agent. `/radin-show` stays model-invoked, because the `~/.claude/CLAUDE.md` block tells the model to reach for it. `tests/skill-names.bats` caps every model-invoked description at 40 words.
+
 As skill, radin-execute runs in user's own thread: asks directly, gets interrupted, resumes from disk. Sub-agents stay, one layer down, as leaf workers — that's where context isolation earns its keep (planning's codebase exploration, execution's edits, review's diff read), each returning single `STATUS:` line. Same split SOTA skill collections use: orchestrate in main thread, isolate leaf work.
 
 ### Running the backlog in the background

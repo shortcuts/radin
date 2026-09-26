@@ -1,12 +1,10 @@
 ---
 name: radin-review
 description: |
-  Review a scope (commit, PR, directory, or a range like "since yesterday") on
-  two axes — Standards (does the code follow this repo's rubrics?) and Spec
-  (does it do what the originating backlog entry asked for?) — triage the
-  findings with the user, and log the ones they keep as backlog entries.
-  Use for /radin-review, "review and log to backlog", "audit this
-  commit/PR/directory and file backlog entries".
+  Review a commit, PR, directory or range on two axes, Standards (repo
+  rubrics) and Spec (the originating backlog entry), triage findings with
+  the user, and log the kept ones as backlog entries. Use for /radin-review,
+  "review and log to backlog".
 ---
 # Review to Backlog
 

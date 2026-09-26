@@ -1,11 +1,9 @@
 ---
 name: radin-plan
 description: |
-  Write a step-by-step implementation plan for one backlog entry, without
-  touching code. Scope is one task (a title/keyword), not the whole backlog.
-  Use for /radin-plan, "plan this backlog entry", "write a plan for X before
-  we execute it". radin-execute delegates here for any entry too complex to
-  implement directly.
+  Write an implementation plan for one backlog entry, touching no code. Use
+  for /radin-plan, "plan this backlog entry", "write a plan for X before we
+  execute it". Scope is one task, not the whole backlog.
 ---
 # Plan a Backlog Entry
 
