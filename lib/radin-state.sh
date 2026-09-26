@@ -22,6 +22,7 @@
 #   radin-state.sh task-done <id> <commit-hash> # record completion, remove backlog and steps entries, in crash-safe order; exit 3 when the hash does not validate
 #   radin-state.sh set-status <id> <pending|in_progress|failed|blocked> [note]
 #   radin-state.sh stuck                        # print "id<TAB>attempts<TAB>note" per in_progress entry, exit 1 if none
+#   radin-state.sh steps-list                   # print "id<TAB>order<TAB>status<TAB>attempts<TAB>note" per entry, exit 1 if none
 #   radin-state.sh recover <id>                 # recover a task a dead session left in_progress; exit 3 prints commits only the model can judge
 #   radin-state.sh recover-reject <id>          # those commits do not satisfy the task: block the entry naming them
 #   radin-state.sh report                       # print the finished end-of-session report
@@ -430,6 +431,17 @@ set-status)
 	entry="$(entry_line "$file" "$id")"
 	[ -n "$entry" ] || die "no entry with id: $id"
 	write_entry "$file" "$id" "$status" "$(num_field "$entry" attempts)" "$note"
+	;;
+
+steps-list)
+	# The resume view: one line per entry, so a router rebuilding context after
+	# a compaction reads this instead of parsing the file.
+	[ -s "$steps" ] || exit 1
+	while IFS= read -r line || [ -n "$line" ]; do
+		[ -n "$line" ] || continue
+		printf '%s\t%s\t%s\t%s\t%s\n' "$(json_get id "$line")" "$(num_field "$line" order)" \
+			"$(json_get status "$line")" "$(num_field "$line" attempts)" "$(json_get note "$line")"
+	done <"$steps"
 	;;
 
 stuck)

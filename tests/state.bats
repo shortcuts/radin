@@ -46,6 +46,17 @@ cli() {
   [ "$output" = "$(printf 'a\t0\t')" ]
 }
 
+@test "steps-list prints every entry's order, status, attempts and note, exit 1 when none" {
+  run cli steps-list
+  [ "$status" -eq 1 ]
+  printf 'a\t1\t\nb\t2\t\n' | cli steps-init
+  cli set-status b blocked "needs a call"
+  run cli steps-list
+  [ "$status" -eq 0 ]
+  [ "${lines[0]}" = "$(printf 'a\t1\tpending\t0\t')" ]
+  [ "${lines[1]}" = "$(printf 'b\t2\tblocked\t0\tneeds a call')" ]
+}
+
 @test "every mutation appends a journal event, journal-tail reads them back" {
   printf 'a\t1\t\n' | cli steps-init
   cli set-status a in_progress ""

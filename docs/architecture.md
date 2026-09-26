@@ -100,7 +100,7 @@ Creates `state/`, `plans/`, `reviews/`, `backlog/tasks/` under `$NAMESPACE_DIR`,
 Every verb resolves the namespace from the current directory through `lib/radin-namespace.sh`, a linked worktree resolving to its main checkout, so no caller passes a path. A router that had to carry `$NAMESPACE_DIR` into every Bash call re-sourced the env each time, and one run wrote its own script to do it.
 
 ```bash
-radin state <steps-init|task-next|task-report|task-diagnosis|task-done|set-status|stuck|recover|recover-reject|report|session-set|session-get|prepare|dirty-check|trace|completed-show|completed-list|deps-check|task-dir|journal-tail>
+radin state <steps-init|task-next|task-report|task-diagnosis|task-done|set-status|stuck|steps-list|recover|recover-reject|report|session-set|session-get|prepare|dirty-check|trace|completed-show|completed-list|deps-check|task-dir|journal-tail>
 ```
 
 Each verb answers one step a caller takes. Claiming, stashing, the debug-pass flag and the completion write are functions inside the script, not verbs: no caller needs them on their own, and a verb nobody calls is one more thing a model can reach for.
@@ -112,6 +112,7 @@ Each verb answers one step a caller takes. Claiming, stashing, the debug-pass fl
 - `task-done <id> <hash>` — record success, drop backlog and steps entries, crash-safe order. Validates hash first: must be commit reachable from the branch `prepare` recorded (or `HEAD` when nothing recorded it) in the task's tree, else exit 3 and nothing written. Hash comes off a sub-agent's free-text `STATUS:` line, so nothing else checks it. The completion line stores the title, because completion deletes the backlog entry, and the branch, worktree and plan for provenance; `ts` is generated, never passed
 - `set-status <id> <pending|in_progress|failed|blocked> [note]` — rewrite one entry's `status`/`note` in place, `order`/`depends_on`/`attempts`/`debugged` untouched
 - `stuck` — list `in_progress` entries: tasks dispatched by a run that died before terminal status. Recovery entry point
+- `steps-list` — one `id`/`order`/`status`/`attempts`/`note` TAB line per entry: the resume view after a compaction, so no router parses `BACKLOG_STEPS.json`
 - `recover <id>` — finish the bookkeeping when a hash is already recorded, return a clean tree to `pending`, stash a dirty one first. Exit 3 prints the `worktree`, `branch` and `branch_commit` lines a dead sub-agent left on its branch — the one case no verb can settle, because only the model can say whether they satisfy the task. It answers with `task-done` or `recover-reject`. The branch comes from `prepare`'s record: a `branch: no` run lands on the user's own checkout, which no derivation from the id can see
 - `recover-reject <id>` — those commits do not satisfy the task: entry `blocked`, note naming branch and worktree to inspect
 - `report` — the finished Phase 5 report text: residual-changes check (stash, never commit), this session's commits with their landing lines per `session.json`, every `failed`/`blocked`/`deferred` entry with its note, the session's stashes and `skill-dropped` journal events

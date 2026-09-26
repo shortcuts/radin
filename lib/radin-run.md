@@ -85,8 +85,7 @@ sentences it holds.
 ## Phase 0: Resolve Project Namespace
 
 `RADIN_CLI backlog` and `RADIN_CLI state` own every radin state file. Never
-hand-edit one, and never parse one to decide what to do next;
-`radin-execute-resume.md`'s read-only resume triage is the one exception.
+hand-edit one, and never parse one to decide what to do next.
 Every `RADIN_CLI` call resolves the namespace from the current directory, so
 no call takes a path. Verify a backlog exists:
 

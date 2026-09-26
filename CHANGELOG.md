@@ -27,6 +27,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   a broken suite or toolchain stops the run instead of failing every task.
   A sub-agent that died on an API or network error goes back to `pending` and
   gets retried, up to `MAX_ATTEMPTS`.
+- New `radin state steps-list` verb. A resumed or compacted run reads it
+  instead of parsing `BACKLOG_STEPS.json` and re-reading every task file.
 - `install.sh` (`make install`) always reinstalls or upgrades every companion
   tool, including the ones already installed. `radin update` (`make update`)
   runs only radin's own steps: no companion installer runs. It asks the
