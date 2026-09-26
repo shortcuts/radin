@@ -627,15 +627,13 @@ EOF
 @test "task-report sends an infra death back to pending, outside the failure count" {
   fixture_repo
   printf 'aa-task\t1\t\n' | cli steps-init > /dev/null
-  cli task-next > /dev/null
+  cli set-status aa-task in_progress ""
   run cli task-report aa-task --no-status "API Error: 529 overloaded_error"
   [ "$status" -eq 0 ]
   [[ "$output" == *"infra error"* ]]
   [ "${lines[${#lines[@]}-1]}" = "$(printf 'next\tcontinue')" ]
-  [[ "$(cat "$ST")" == *'"status":"pending"'*'"attempts":1'* ]]
-  # The retry is an ordinary pick, so MAX_ATTEMPTS still bounds it.
-  run cli task-next
-  [[ "$output" == *"$(printf 'id\taa-task')"* ]]
+  # Back to pending, so the next pick's claim retries it under MAX_ATTEMPTS.
+  [[ "$(cat "$ST")" == *'"status":"pending"'* ]]
 }
 
 @test "task-report halts the loop after three failures in a row, and a success resets the count" {

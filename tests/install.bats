@@ -125,6 +125,7 @@ run_install_defaults() {
   run ! grep -rq --exclude=radin-doctor.sh 'RADIN_MODEL_' "$TEST_HOME/.claude/skills" "$TEST_HOME/.claude/.radin/lib"
   grep -q 'model: "sonnet"' "$TEST_HOME/.claude/.radin/lib/radin-run.md"
   grep -q 'model: "haiku"' "$TEST_HOME/.claude/.radin/lib/radin-prompt-factfind.md"
+  grep -q 'model-chore: "haiku"' "$TEST_HOME/.claude/.radin/lib/radin-prompt-execution.md"
 }
 
 # "Same model for every role?" defaults to yes: one pick sets all five tokens,
@@ -138,6 +139,7 @@ run_install_defaults() {
   grep -q 'model: "opus"' "$TEST_HOME/.claude/.radin/lib/radin-run.md"
   grep -q 'model: "opus"' "$TEST_HOME/.claude/.radin/lib/radin-prompt-factfind.md"
   ! grep -q 'model: "haiku"' "$TEST_HOME/.claude/.radin/lib/radin-prompt-factfind.md"
+  grep -q 'model-chore: "opus"' "$TEST_HOME/.claude/.radin/lib/radin-prompt-execution.md"
 }
 
 # install.sh, radin-doctor.sh and radin-uninstall.sh each keep their own list

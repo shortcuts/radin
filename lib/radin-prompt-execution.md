@@ -13,6 +13,9 @@ that guard is active for the task, and `<!-- if:!NAME -->` is its inverse.
 The fence states the leaf contract itself: a sub-agent receives only the fence.
 
 `model: "RADIN_MODEL_EXECUTION"`
+`model-chore: "RADIN_MODEL_CHORE"`
+
+A `chore` task runs on the `model-chore:` line instead.
 
 ```
 Execute the task below.

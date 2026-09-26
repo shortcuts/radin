@@ -209,7 +209,7 @@ it, never conclude something is absent from an empty result.
 
 ## Install manifest
 
-`install.sh` writes `~/.claude/.radin/manifest.json` every run: generated snapshot of what installed. Records `version` (release tag, or `dev` for local git clone), `installed_at` (UTC timestamp), `skills`/`lib` file lists copied, `install_root` and the five `model_<role>` keys (both read back by `install.sh --update`), `claude_md_guidance` (whether the radin section in `~/.claude/CLAUDE.md` was written), `cbm_agent_config` (whether upstream's own `codebase-memory-mcp install` ran), `cli_on_path` (whether the symlink landed), `companion_tools` object recording which of rtk, codebase-memory-mcp, headroom, caveman, ponytail, mattpocock-skills came out reachable — a companion install is advisory, so `false` means its own installer failed or its CLI is missing.
+`install.sh` writes `~/.claude/.radin/manifest.json` every run: generated snapshot of what installed. Records `version` (release tag, or `dev` for local git clone), `installed_at` (UTC timestamp), `skills`/`lib` file lists copied, `install_root` and the six `model_<role>` keys (both read back by `install.sh --update`), `claude_md_guidance` (whether the radin section in `~/.claude/CLAUDE.md` was written), `cbm_agent_config` (whether upstream's own `codebase-memory-mcp install` ran), `cli_on_path` (whether the symlink landed), `companion_tools` object recording which of rtk, codebase-memory-mcp, headroom, caveman, ponytail, mattpocock-skills came out reachable — a companion install is advisory, so `false` means its own installer failed or its CLI is missing.
 
 Snapshot for external tooling to read, not live source of truth. `radin-doctor.sh` and `radin-uninstall.sh` each keep own independent file list, check filesystem direct, rather than trust manifest. Corrupted or stale manifest must never make either report false "OK" or delete wrong thing.
 
@@ -432,7 +432,7 @@ ships with the token intact invents its own answer.
 | Written as | Resolved to |
 | --- | --- |
 | `RADIN_CLI <subcommand>` in every `skills/*/SKILL.md` and shipped `lib/*.md` | bare `radin` when the `~/.local/bin` symlink is on PATH, else `"$HOME/.claude/.radin/bin/radin"` (`set_cli`) |
-| `RADIN_MODEL_<ROLE>` — `PLANNING`, `EXECUTION`, `DEBUG`, `FACTFIND` each in its own `lib/radin-prompt-<kind>.md`, `REVIEW` in `skills/radin-execute/SKILL.md` | the install-time pick (`set_role_models`). Defaults sonnet, except fact-finding: haiku, since its prompt demands the evidence and the router can reject a wrong answer |
+| `RADIN_MODEL_<ROLE>` — `PLANNING`, `EXECUTION`, `DEBUG`, `FACTFIND` each in its own `lib/radin-prompt-<kind>.md`, `CHORE` on the execution template's `model-chore:` line, `REVIEW` in `lib/radin-run.md` | the install-time pick (`set_role_models`). Defaults sonnet, except two roles on haiku: fact-finding, since its prompt demands the evidence and the router can reject a wrong answer; and a `chore` task's execution, since it needs no design judgement and still meets the dirty-tree check and Phase 6's review |
 | `RADIN_LIB/<doc>.md` in `skills/radin-execute/SKILL.md` | `$HOME/.claude/.radin/lib` (`set_lib`). The Read tool takes no `$HOME`, so the literal would leave the model expanding it before every on-demand doc read |
 
 A new sub-agent role needs a token, a `MODEL_<ROLE>` default, a picker, and a `-e`

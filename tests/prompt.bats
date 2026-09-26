@@ -42,7 +42,8 @@ assembled() {
   backlog add chore "tidy up" <<<"Remove the dead flag."
   run assembled execution tidy-up
   [ "$status" -eq 0 ]
-  [ "${lines[0]}" = "$(printf 'model\tRADIN_MODEL_EXECUTION')" ]
+  # A chore runs on its own, cheaper model role.
+  [ "${lines[0]}" = "$(printf 'model\tRADIN_MODEL_CHORE')" ]
   [ "${lines[1]}" = "$(printf 'prompt\t%s' "$NS/state/prompts/tidy-up-execution.md")" ]
   # No plan, no skills, no deps, no acceptance: their blocks are gone, and the
   # no-plan inverse block is what survives.
@@ -90,6 +91,7 @@ assembled() {
 @test "each category gets its own step 3 row" {
   backlog add fix "a bug" <<<"It breaks."
   run assembled execution a-bug
+  [ "${lines[0]}" = "$(printf 'model\tRADIN_MODEL_EXECUTION')" ]
   [[ "$output" == *"/caveman:surgical-patch"* ]]
   [[ "$output" != *"lean-build"* ]]
   backlog add feat "a feature" <<<"Add it."

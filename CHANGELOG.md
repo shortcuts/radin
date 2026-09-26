@@ -34,6 +34,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   type them: asking in plain words no longer triggers them. Their descriptions
   no longer load into every session, and the other skill descriptions are
   shorter.
+- `chore` tasks run on their own sub-agent model, haiku by default. The
+  installer's per-role walk asks for it, and the same-model answer covers it.
 - New `radin state steps-list` verb. A resumed or compacted run reads it
   instead of parsing `BACKLOG_STEPS.json` and re-reading every task file.
 - `install.sh` (`make install`) always reinstalls or upgrades every companion

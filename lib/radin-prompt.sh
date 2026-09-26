@@ -74,6 +74,12 @@ task_id="$(field TASK_ID)" || die "no backlog task matches: $id"
 [ -n "$task_id" ] || die "no backlog task matches: $id"
 task_file="$(field TASK_FILE)"
 category="$(field CATEGORY)"
+if [ "$kind" = execution ] && [ "$category" = chore ]; then
+	# shellcheck disable=SC2016
+	chore_model="$(sed -n 's/^`model-chore: "\([^"]*\)"`$/\1/p' "$TEMPLATE" | head -1)"
+	[ -n "$chore_model" ] || die "no model-chore line in $TEMPLATE"
+	model="$chore_model"
+fi
 
 plan_paths=""
 if plan_paths="$(field PLAN_PATHS)"; then :; else plan_paths=""; fi

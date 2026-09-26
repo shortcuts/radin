@@ -429,6 +429,9 @@ MODEL_DEBUG="sonnet"
 # that establishes it, so the cheapest tier is the default: the router reads
 # that evidence and can reject a wrong answer.
 MODEL_FACTFIND="haiku"
+# A chore (cleanup, rename, docs) needs no design judgement, and a wrong one
+# still meets the dirty-tree check and Phase 6's review.
+MODEL_CHORE="haiku"
 
 set_role_models() {
 	# No `sed -i`: BSD sed (macOS) and GNU sed (Linux) take incompatible forms
@@ -440,6 +443,7 @@ set_role_models() {
 		-e "s/RADIN_MODEL_REVIEW/${MODEL_REVIEW}/g" \
 		-e "s/RADIN_MODEL_DEBUG/${MODEL_DEBUG}/g" \
 		-e "s/RADIN_MODEL_FACTFIND/${MODEL_FACTFIND}/g" \
+		-e "s/RADIN_MODEL_CHORE/${MODEL_CHORE}/g" \
 		"$file" >"$tmp" && mv "$tmp" "$file"
 	# A surviving token reaches the model as a literal model name and every
 	# dispatch fails -- louder to stop here than to debug that.
@@ -488,8 +492,8 @@ step "Sub-agent models"
 MODELS="fable opus sonnet haiku"
 SONNET_INDEX=3
 HAIKU_INDEX=4
-if prompt_yn "Choose radin-execute's sub-agent models? (defaults: sonnet, haiku for fact-finding)"; then
-	# One pick covers the common case; the per-role walk is 5-6 pickers deep.
+if prompt_yn "Choose radin-execute's sub-agent models? (defaults: sonnet, haiku for fact-finding and chores)"; then
+	# One pick covers the common case; the per-role walk is 6 pickers deep.
 	if [ "$(prompt_pick "Same model for every role? (default: yes)" 1 "yes" "no")" = "yes" ]; then
 		# shellcheck disable=SC2086  # word splitting is the point -- one arg per model
 		MODEL_ALL="$(prompt_pick "model for every sub-agent role" "$SONNET_INDEX" $MODELS)"
@@ -498,6 +502,7 @@ if prompt_yn "Choose radin-execute's sub-agent models? (defaults: sonnet, haiku 
 		MODEL_REVIEW="$MODEL_ALL"
 		MODEL_DEBUG="$MODEL_ALL"
 		MODEL_FACTFIND="$MODEL_ALL"
+		MODEL_CHORE="$MODEL_ALL"
 	else
 		# shellcheck disable=SC2086
 		MODEL_PLANNING="$(prompt_pick "planning sub-agent (writes the plan for one task)" "$SONNET_INDEX" $MODELS)"
@@ -509,10 +514,12 @@ if prompt_yn "Choose radin-execute's sub-agent models? (defaults: sonnet, haiku 
 		MODEL_DEBUG="$(prompt_pick "debug sub-agent (diagnoses one failed task)" "$SONNET_INDEX" $MODELS)"
 		# shellcheck disable=SC2086
 		MODEL_FACTFIND="$(prompt_pick "fact-finding sub-agent (answers one checkable question)" "$HAIKU_INDEX" $MODELS)"
+		# shellcheck disable=SC2086
+		MODEL_CHORE="$(prompt_pick "chore sub-agent (implements and commits one chore task)" "$HAIKU_INDEX" $MODELS)"
 	fi
-	ok "sub-agent models: plan $MODEL_PLANNING, exec $MODEL_EXECUTION, review $MODEL_REVIEW, debug $MODEL_DEBUG, facts $MODEL_FACTFIND"
+	ok "sub-agent models: plan $MODEL_PLANNING, exec $MODEL_EXECUTION, review $MODEL_REVIEW, debug $MODEL_DEBUG, facts $MODEL_FACTFIND, chore $MODEL_CHORE"
 else
-	ok "keeping default sub-agent models (sonnet; haiku for fact-finding)"
+	ok "keeping default sub-agent models (sonnet; haiku for fact-finding and chores)"
 fi
 set_role_models "$HOME/.claude/.radin/lib/radin-run.md"
 for k in planning execution debug factfind; do
@@ -833,6 +840,7 @@ cat >"$MANIFEST_FILE" <<EOF
   "model_review": "$MODEL_REVIEW",
   "model_debug": "$MODEL_DEBUG",
   "model_factfind": "$MODEL_FACTFIND",
+  "model_chore": "$MODEL_CHORE",
   "claude_md_guidance": $CLAUDE_MD_GUIDANCE,
   "cbm_agent_config": $CBM_AGENT_CONFIG,
   "cli_on_path": $CLI_ON_PATH,

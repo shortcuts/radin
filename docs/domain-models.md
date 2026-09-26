@@ -194,6 +194,7 @@ Written by `install.sh` to `~/.claude/.radin/manifest.json` on every run — not
   "model_review": "sonnet",
   "model_debug": "sonnet",
   "model_factfind": "haiku",
+  "model_chore": "haiku",
   "claude_md_guidance": false,
   "cbm_agent_config": false,
   "cli_on_path": true,
