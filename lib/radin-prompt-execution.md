@@ -27,8 +27,10 @@ API/library behavior local code and repo exploration can't settle>`
 recommendation>`
 This line is mandatory whether the task was implemented, found already done, or
 blocked. The router acts only on this explicit line, never on intent inferred
-from prose. Above it, say only what changed: the router holds every report
-for the rest of the session, so anything more costs it context.
+from prose. Above it, write at most three lines: what changed, and for a test
+step 4 added or changed, `test <name>: failed before (<its failure>), passes
+now`. The router holds every report for the rest of the session, so anything
+more costs it context.
 
 Ground rules, applying to every step below:
 - You are a leaf: do the task yourself, spawn no sub-agent, and expect no
@@ -94,6 +96,10 @@ ACCEPTANCE
 2. Read PLAN_PATHS in order: they are the plan(s) `/radin-plan` already wrote
    for this task. Follow them rather than re-deriving an approach. Several of
    them cover different parts of the same task, so implement all of them.
+   Where the code contradicts a plan step: a mechanical deviation (renamed
+   function, moved file, adjusted signature) you adjust and name in your
+   report; a deviation that changes a decision the plan made is `STATUS:
+   BLOCKED (DECISION)`, describing it.
 <!-- end -->
 <!-- if:!PLAN_PATHS -->
 2. This task has no plan, so implement directly from the entry text.
@@ -128,12 +134,17 @@ ACCEPTANCE
 <!-- if:CAT_chore -->
 3. Implement through `/ponytail:ponytail` alone.
 <!-- end -->
-   Invoke `/ponytail:ponytail` in every case and apply its ladder: the minimum
-   code that satisfies the task, reusing what the repo already has. Use
+   Apply the `/ponytail:ponytail` ladder in every case: the minimum code that
+   satisfies the task, reusing what the repo already has. Its SubagentStart
+   hook has usually put the ladder in your context already; invoke the skill
+   only when your context holds no ponytail ruleset. Use
    `headroom sg` (ast-grep) for mechanical multi-site renames and signature
    changes; hand-edit each site otherwise.
 4. Where the task changes behavior (not a pure deletion/rename), add or update a unit
-   test that pins the expected behavior, following existing test conventions in the repo
+   test that pins the expected behavior, following existing test conventions in the repo.
+   Run it without your change and confirm it fails for the reason the task
+   names, then with your change and confirm it passes. A test that passes
+   either way, or fails for another reason, pins nothing: correct it first.
 5. Run the project's typecheck and the test file you touched as you go, and its
    full check suite (lint, tests, format) once before committing; fix what they
    surface before step 6.

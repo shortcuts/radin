@@ -454,6 +454,11 @@ sub-agent per successful task for findings the Phase 6 pass finds anyway.
 Don't reintroduce one, and don't have the router re-read the diff instead —
 that read is the cost the single end-of-session pass exists to avoid.
 
+The execution sub-agent's report carries one `test <name>: failed before
+(…), passes now` line above its `STATUS:`. That line is evidence for the human
+reading the session, not a gate: the router still routes on the `STATUS:` line
+alone, and it has no verb that reads the evidence line.
+
 The one Debug pass a `FAILED` task gets is enforced by the `debugged` flag on
 its steps entry, flipped by `radin state task-report`, not by a counter the
 router holds — a counter cannot survive a resume or a compaction.

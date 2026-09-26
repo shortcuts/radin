@@ -6,6 +6,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Execution sub-agents prove each new test: it fails without the change for
+  the reason the task names, and passes with it. The report names that test
+  in one line above `STATUS:`, and holds at most three lines in total.
+- An execution sub-agent that finds the code contradicting its plan adjusts a
+  mechanical deviation and names it. A deviation that changes a plan decision
+  now returns `BLOCKED (DECISION)`.
+- Execution sub-agents apply the ponytail ladder that ponytail's
+  SubagentStart hook already injected, and invoke `/ponytail:ponytail` only
+  when the hook did not run. This saves about 1.4k tokens per dispatch.
 - `install.sh` (`make install`) always reinstalls or upgrades every companion
   tool, including the ones already installed. `radin update` (`make update`)
   runs only radin's own steps: no companion installer runs. It asks the
