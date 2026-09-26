@@ -513,8 +513,10 @@ the task wanted.
 and `lib/*.md` to a skill radin ships or `install.sh` installs, so a rename or
 typo fails the suite instead of costing a failed call in every sub-agent. A
 new companion needs its plugin prefix in that test's list. Not pinned by it:
-the MCP graph tool names and the four-file rule above — those are checked by
-review, not by `tests/skill-names.bats`.
+the MCP graph tool names, and the README row and `docs/architecture.md`
+mention a new skill needs (AGENTS.md) — those are checked by review.
+`tests/links.bats` pins every relative link, `#anchor` and `RADIN_LIB/<doc>.md`
+path in the repo's markdown, so a renamed heading or doc fails the suite.
 
 ## One rule, one file
 
