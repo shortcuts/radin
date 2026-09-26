@@ -142,6 +142,10 @@ Single line, written by `radin-state.sh steps-init` each run, so Phase 5 can sco
 
 `radin state report` is the only consumer: completions past `completed_count` are this session's, and `backlog_count` against `backlog count` now gives the net-new entry count. Absent (a file written before this key existed): `report` reports every completion and omits the net-new line.
 
+## Failure streak (`fail-streak`)
+
+One integer: terminal failures in a row this session. `radin state task-report` bumps it on every failure it records, removes it on a `SUCCESS`, and answers `next halt` once it reaches 3. `steps-init` removes it, so each session starts its own count. An infra retry and a `next debug` offer leave it untouched.
+
 ## Session preferences (`session.json`)
 
 Single line, written by `radin-state.sh session-set` when `radin-execute`'s Phase 0.5 resolves worktree/branch questions:

@@ -23,6 +23,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   how far the proof went (`cited`, `traced`, `ran`). Both land in the backlog
   entry. A finding about an input no caller produces is dismissed before
   triage, and the report lists each dismissal.
+- `radin state task-report` answers `next halt` after 3 failures in a row, so
+  a broken suite or toolchain stops the run instead of failing every task.
+  A sub-agent that died on an API or network error goes back to `pending` and
+  gets retried, up to `MAX_ATTEMPTS`.
 - `install.sh` (`make install`) always reinstalls or upgrades every companion
   tool, including the ones already installed. `radin update` (`make update`)
   runs only radin's own steps: no companion installer runs. It asks the

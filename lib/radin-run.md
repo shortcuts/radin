@@ -259,7 +259,8 @@ RADIN_CLI state task-report "<task id>" "<the sub-agent's STATUS: line>"
 
 Two dispatches hand back no such line. A last line that is not a `STATUS:`
 line — it asked something, hit an interactive skill, or died mid-turn — goes
-in as `--no-status "<its final line>"` instead. A sub-agent with no content at
+in as `--no-status "<its final line>"` instead, an API or network error text
+included: the CLI sends that task back for a retry. A sub-agent with no content at
 all is still working, whatever the elapsed time suggests: wait, and if your
 turn ends first, leave the entry `in_progress` for Phase 1's stuck-recovery.
 
@@ -272,6 +273,7 @@ claims it again and bumps `attempts`, so the cap still ends it.
 | `continue` | Recorded on disk. Run `task-next` again for the next task. |
 | `debug` | This task still has its one debug pass. `RADIN_CLI prompt debug "<task id>" "<the reason from the STATUS: line>"` prints a `model` and a `prompt` path: dispatch it the same way. `STATUS: DIAGNOSED`: record it, then re-run the task. `STATUS: NOT DIAGNOSED`: re-run `task-report` with the same line, which routes to `continue` this time. |
 | `clarify FACT` / `clarify DECISION` | Route per Clarifying Ambiguity. Once settled, re-run the task. |
+| `halt` | Several tasks failed in a row, so the cause is likely shared. Dispatch nothing more; go to Phase 5, and tell the user the failure reasons the last reports printed. |
 
 ```bash
 RADIN_CLI state task-diagnosis "<task id>" <<'EOF'

@@ -613,6 +613,44 @@ EOF
   [[ "$output" == *"no SUCCESS/FAILED/BLOCKED"* ]]
 }
 
+@test "task-report sends an infra death back to pending, outside the failure count" {
+  fixture_repo
+  printf 'aa-task\t1\t\n' | cli steps-init > /dev/null
+  cli task-next > /dev/null
+  run cli task-report aa-task --no-status "API Error: 529 overloaded_error"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"infra error"* ]]
+  [ "${lines[${#lines[@]}-1]}" = "$(printf 'next\tcontinue')" ]
+  [[ "$(cat "$ST")" == *'"status":"pending"'*'"attempts":1'* ]]
+  # The retry is an ordinary pick, so MAX_ATTEMPTS still bounds it.
+  run cli task-next
+  [[ "$output" == *"$(printf 'id\taa-task')"* ]]
+}
+
+@test "task-report halts the loop after three failures in a row, and a success resets the count" {
+  fixture_repo
+  printf 'aa-task\t1\t\nbb-task\t2\t\ncc-task\t3\t\ndd-task\t4\t\n' | cli steps-init > /dev/null
+  hash="$(git -C "$REPO" rev-parse HEAD)"
+  run cli task-report aa-task --no-status "no status one"
+  [ "${lines[${#lines[@]}-1]}" = "$(printf 'next\tcontinue')" ]
+  run cli task-report bb-task --no-status "no status two"
+  [ "${lines[${#lines[@]}-1]}" = "$(printf 'next\tcontinue')" ]
+  run cli task-report cc-task "STATUS: SUCCESS — $hash"
+  [ "${lines[${#lines[@]}-1]}" = "$(printf 'next\tcontinue')" ]
+  run cli task-report dd-task --no-status "no status three"
+  [ "${lines[${#lines[@]}-1]}" = "$(printf 'next\tcontinue')" ]
+  run cli task-report aa-task --no-status "no status four"
+  [ "${lines[${#lines[@]}-1]}" = "$(printf 'next\tcontinue')" ]
+  run cli task-report bb-task --no-status "no status five"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"3 tasks failed in a row"* ]]
+  [ "${lines[${#lines[@]}-1]}" = "$(printf 'next\thalt')" ]
+  # A new session starts its own count.
+  printf 'aa-task\t1\t\n' | cli steps-init > /dev/null
+  run cli task-report aa-task --no-status "no status six"
+  [ "${lines[${#lines[@]}-1]}" = "$(printf 'next\tcontinue')" ]
+}
+
 @test "recover finishes what it can, and hands back only the commits case" {
   fixture_repo
   printf 'aa-task\t1\t\nbb-task\t2\t\ncc-task\t3\t\ndd-task\t4\t\n' | cli steps-init > /dev/null

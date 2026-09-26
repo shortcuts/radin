@@ -16,7 +16,7 @@
 #                                               # each entry's depends_on comes from its index line; the stdin csv is used only where the index has none
 #                                               # the fourth field is optional and defaults to pending; also writes state/baseline.json
 #   radin-state.sh task-next [--plan-first] [<id>]  # pick, gate, claim and write the prompt in one call; exit 1 when nothing is left
-#   radin-state.sh task-report <id> <the sub-agent's STATUS: line>  # verify the tree, record the outcome, then a final "next<TAB>continue|debug|clarify FACT|clarify DECISION" line
+#   radin-state.sh task-report <id> <the sub-agent's STATUS: line>  # verify the tree, record the outcome, then a final "next<TAB>continue|debug|halt|clarify FACT|clarify DECISION" line
 #   radin-state.sh task-report <id> --no-status <last line>         # the same, for a sub-agent that ended with no STATUS: line
 #   radin-state.sh task-diagnosis <id>          # stdin becomes a **Root cause:** line on the task file, status untouched
 #   radin-state.sh task-done <id> <commit-hash> # record completion, remove backlog and steps entries, in crash-safe order; exit 3 when the hash does not validate
@@ -69,6 +69,9 @@ deps_csv() {
 # A task dispatched this many times without a terminal status is not
 # crash-looping any further -- it gets blocked for the user instead.
 MAX_ATTEMPTS=3
+# This many failures in a row mean the environment, not the tasks, is broken:
+# a red suite or a dead toolchain fails every remaining task the same way.
+HALT_AFTER=3
 
 # Prints task $2's title from the backlog index under repo root $1, empty when
 # the entry is already gone (a completed task's entry is deleted).
@@ -323,6 +326,22 @@ deps_check() {
 	done
 }
 
+# Prints the `next` line after a terminal failure: `halt` once HALT_AFTER
+# tasks failed in a row this session, `continue` otherwise.
+fail_next() {
+	local file="$ns/state/fail-streak" n=0
+	[ ! -s "$file" ] || n="$(cat "$file")"
+	n=$((n + 1))
+	printf '%s\n' "$n" >"$file"
+	if [ "$n" -ge "$HALT_AFTER" ]; then
+		journal "$ns/state" "halt" "" "$n tasks failed in a row"
+		printf '🛑 %s tasks failed in a row, so the cause is likely shared (a red suite, a broken toolchain). Stopping the loop.\n' "$n"
+		printf 'next\thalt\n'
+	else
+		printf 'next\tcontinue\n'
+	fi
+}
+
 cmd="${1:-}"
 case "$cmd" in
 steps-init)
@@ -376,6 +395,7 @@ steps-init)
 		die "no entries on stdin"
 	}
 	mv "$file.tmp" "$file"
+	rm -f "$ns/state/fail-streak"
 	# The session baseline, so `report` can scope "this session" without the
 	# orchestrator carrying counts across phases.
 	state_dir="$ns/state"
@@ -797,13 +817,23 @@ task-report)
 	entry="$(entry_line "$steps" "$id")"
 	[ -n "$entry" ] || die "no entry with id: $id"
 	if [ "$third" = "--no-status" ]; then
-		# No debug pass ever: there is no failure reason to debug against.
 		ot="$(order_title "$id")"
+		# A sub-agent the API or network killed did nothing wrong: back to
+		# pending, and the next pick retries it. claim's MAX_ATTEMPTS bounds
+		# the retries, and none of them counts toward the halt.
+		if printf '%s' "${4:-}" | grep -qiE 'api error|overloaded|rate.?limit|429|529|timed out|timeout|econnreset|socket hang up|network error|connection (reset|refused|error|closed)'; then
+			write_entry "$steps" "$id" pending "$(num_field "$entry" attempts)" "infra error, retrying: ${4:-}"
+			printf "⚠️ Task %s '%s': sub-agent died on an infra error (%s). Back to pending for a retry (attempt %s of %s so far).\n" \
+				"${ot%%	*}" "${ot#*	}" "${4:-}" "$(num_field "$entry" attempts)" "$MAX_ATTEMPTS"
+			printf 'next\tcontinue\n'
+			exit 0
+		fi
+		# No debug pass ever: there is no failure reason to debug against.
 		write_entry "$steps" "$id" failed "$(num_field "$entry" attempts)" \
 			"sub-agent returned no STATUS line, likely an interactive skill or a spawned background task; last words: ${4:-}"
 		printf "❌ Task %s '%s' failed: %s. Continuing to next task.\n" \
 			"${ot%%	*}" "${ot#*	}" "sub-agent returned no STATUS line"
-		printf 'next\tcontinue\n'
+		fail_next
 		exit 0
 	fi
 	line="$third"
@@ -825,7 +855,7 @@ task-report)
 	# task and nothing else runs.
 	if dirty="$(dirty_recover "$id" "$word")"; then
 		printf '%s\n' "$dirty"
-		printf 'next\tcontinue\n'
+		fail_next
 		exit 0
 	fi
 	# Everything after the em dash (or the ASCII fallback) is the detail the
@@ -845,6 +875,7 @@ task-report)
 		if [ -n "$hash" ]; then
 			if done_out="$(bash "$LIB_DIR/radin-state.sh" task-done "$id" "$hash" 2>&1)"; then
 				printf '%s\n' "$done_out"
+				rm -f "$ns/state/fail-streak"
 				printf 'next\tcontinue\n'
 				exit 0
 			fi
@@ -859,7 +890,7 @@ task-report)
 	fi
 	if fail_out="$(task_fail "$id" "$detail")"; then
 		printf '%s\n' "$fail_out"
-		printf 'next\tcontinue\n'
+		fail_next
 		exit 0
 	fi
 	# Return 3 from task_fail: this task still has its one debug pass.
