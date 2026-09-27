@@ -7,6 +7,16 @@ make lint
 make test
 ```
 
+## Measure a TUI render change
+
+```sh
+make bench-tui
+```
+
+The bench seeds a 42-task backlog, presses `j` 20 times on a 200x50 pty, and
+prints the median and max key-to-frame time. Run it before and after the
+change. It stays out of `make test` because timing depends on the machine.
+
 ## Measure a prose edit
 
 Run a `SKILL.md` or `lib/radin-prompt-*.md` edit before you keep it when the

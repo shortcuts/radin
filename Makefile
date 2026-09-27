@@ -1,4 +1,4 @@
-.PHONY: install update build run test lint clean
+.PHONY: install update build run test bench-tui lint clean
 
 install:
 	./install.sh
@@ -36,7 +36,11 @@ test: build
 		sh -c 'bats -j 4 tests/install.bats & \
 			ls tests/*.bats | grep -v install | xargs -P 6 -n1 bats; wait'
 
-SH_FILES = install.sh bin/radin lib/radin-namespace.sh lib/radin-json.sh lib/radin-backlog.sh lib/radin-state.sh lib/radin-scope.sh lib/radin-prompt.sh lib/radin-cbm-hooks.sh lib/radin-cbm-config.sh lib/radin-update.sh lib/radin-doctor.sh lib/radin-uninstall.sh
+# Key-to-frame latency on a seeded 42-task backlog; see tests/bench-tui.sh.
+bench-tui:
+	@tests/bench-tui.sh
+
+SH_FILES = tests/bench-tui.sh install.sh bin/radin lib/radin-namespace.sh lib/radin-json.sh lib/radin-backlog.sh lib/radin-state.sh lib/radin-scope.sh lib/radin-prompt.sh lib/radin-cbm-hooks.sh lib/radin-cbm-config.sh lib/radin-update.sh lib/radin-doctor.sh lib/radin-uninstall.sh
 
 clean:
 	rm -f lib/radin-tui lib/radin-cbm-json tests/helpers/pty-run tests/helpers/mock

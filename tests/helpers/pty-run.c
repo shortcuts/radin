@@ -35,6 +35,8 @@
 static int fd;
 static char *screen;
 static size_t screen_len, screen_cap;
+static double last_byte;
+static int reads;
 
 static double now(void) {
 	struct timespec ts;
@@ -50,6 +52,8 @@ static void collect(const char *buf, ssize_t n) {
 	}
 	memcpy(screen + screen_len, buf, n);
 	screen_len += n;
+	last_byte = now();
+	reads++;
 }
 
 /* Reads until the pty has been quiet for `quiet` seconds, or `seconds` elapse.
@@ -168,6 +172,14 @@ int main(int argc, char **argv) {
 		tcsetattr(fd, TCSANOW, &tio);
 	}
 
+	/* PTY_TIMING prints one "<ms> <writes> <bytes>" line per key to stderr: ms
+	 * runs from the key's write to the frame's last byte. PTY_QUIET has to
+	 * outlast any stall inside a frame, or the next key lands mid-frame. */
+	int timing = getenv("PTY_TIMING") != NULL;
+	double quiet = 0.02;
+	e = getenv("PTY_QUIET");
+	if (e && atof(e) > 0) quiet = atof(e);
+
 	int alive = 1;
 	char *chunk = malloc(strlen(keys) + 1);
 	if (!chunk) return 70;
@@ -181,8 +193,13 @@ int main(int argc, char **argv) {
 		 * resend it rather than wait out the 10s deadline on a hung child. */
 		for (int try = 0; try < 4; try++) {
 			size_t before = screen_len;
+			int reads_before = reads;
+			double sent = now();
 			if (n && write(fd, chunk, n) < 0) { alive = 0; break; }
-			alive = pump(1.5, 0.02);
+			alive = pump(1.5, quiet);
+			if (timing && screen_len != before)
+				fprintf(stderr, "%.1f %d %zu\n", (last_byte - sent) * 1000,
+					reads - reads_before, screen_len - before);
 			if (!alive || screen_len != before) break;
 		}
 		if (!bar) break;
