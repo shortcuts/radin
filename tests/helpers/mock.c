@@ -169,5 +169,17 @@ int main(int argc, char **argv) {
 		}
 		return 0;
 	}
+	if (named("gh")) {
+		/* gh pr view <n> succeeds; with --json echoes the commit hash from MOCK_GH.
+		 * Every other call exits 1. */
+		if (has_arg(argc, argv, "pr") && has_arg(argc, argv, "view") && has_arg(argc, argv, "123")) {
+			if (has_substr(argc, argv, "--json")) {
+				const char *hash = getenv("MOCK_GH");
+				printf("%s\n", hash ? hash : "pr");
+			}
+			return 0;
+		}
+		return 1;
+	}
 	return 0;
 }

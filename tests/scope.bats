@@ -23,16 +23,12 @@ cli() {
 }
 
 # gh stub: "pr view <n>" succeeds only for 123.
+# Uses compiled mock binary, not shell script (20ms startup time per call).
+# $1 is the optional commit hash to return when --json is present.
 mock_gh() {
-  cat > "$MOCK_BIN/gh" <<EOF
-#!/bin/sh
-if [ "\$1" = "pr" ] && [ "\$2" = "view" ] && [ "\$3" = "123" ]; then
-  case " \$* " in *" --json "*) echo "$1" ;; esac
-  exit 0
-fi
-exit 1
-EOF
-  chmod +x "$MOCK_BIN/gh"
+  MOCK_GH="${1:-pr}"
+  export MOCK_GH
+  ln -f "$REPO_ROOT/tests/helpers/mock" "$MOCK_BIN/gh" 2>/dev/null || true
 }
 
 # Records completion $2 against commit $1 in the repo's own namespace.
