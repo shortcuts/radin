@@ -266,6 +266,8 @@ run_install_defaults() {
   [[ "$output" == *"usage: radin"* ]]
 }
 
+# install is the one path that touches companions, so a tool already on PATH
+# still takes its install/upgrade command instead of being skipped.
 # Three install-time setups that do not interact, sharing one live run.
 @test "real install: foreign ~/.local/bin/radin kept, installed rtk reinstalled, partial cbm config warned" {
   mkdir -p "$TEST_HOME/.local/bin"
@@ -440,8 +442,6 @@ pick_with_keys() {
   run ! grep -qE 'install|update|marketplace' "$TEST_HOME/claude.log"
 }
 
-# install is the one path that touches companions, so a tool already on PATH
-# still takes its install/upgrade command instead of being skipped.
 @test "the install records its source root for radin update" {
   run run_install_defaults
   [ "$status" -eq 0 ]
