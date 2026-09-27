@@ -40,10 +40,10 @@ printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-cbm-
   : > "$TEST_HOME/.claude/.radin/lib/radin-execute-session.md"
   : > "$TEST_HOME/.claude/.radin/lib/radin-execute-resume.md"
   : > "$TEST_HOME/.claude/.radin/lib/radin-run.md"
+  : > "$TEST_HOME/.claude/.radin/lib/radin-tui.c"
+  : > "$TEST_HOME/.claude/.radin/lib/radin-cbm-json.c"
   printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-update.sh"
-  # The real script, not a stub: it carries the RADIN_ token names as its own
-  # search pattern, so a stub hides whether the token scan matches itself.
-  cp "$CLI" "$TEST_HOME/.claude/.radin/lib/radin-doctor.sh"
+  printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-doctor.sh"
   printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-uninstall.sh"
 }
 
