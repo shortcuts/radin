@@ -659,6 +659,24 @@ planned_body() {
   [ "$(last_pos)" = "[2/2]" ]
 }
 
+@test "a motion key runs no CLI in either detail view" {
+  seed
+  planned_body dark-mode dark-mode "plan step one"
+  # A lib dir whose radin-backlog.sh logs each call, then runs the real one.
+  mkdir "$WORK/lib"
+  printf '#!/bin/sh\necho "$*" >>"%s"\nexec bash "%s" "$@"\n' "$WORK/calls" "$BACKLOG" \
+    >"$WORK/lib/radin-backlog.sh"
+  export RADIN_LIB="$WORK/lib"
+  run wide "q"
+  [ "$status" -eq 0 ]
+  local startup
+  startup="$(wc -l <"$WORK/calls")"
+  : >"$WORK/calls"
+  run wide "j|k|G|g|\x04|\x15|l|j|k|h|q"
+  [ "$status" -eq 0 ]
+  [ "$(wc -l <"$WORK/calls")" -eq "$startup" ]
+}
+
 @test "the plan view of an unplanned task says so" {
   seed
   run wide "l|q"

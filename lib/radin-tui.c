@@ -50,7 +50,8 @@ static const char *BODY_HINT =
 struct task {
 	char id[SLOT], cat[32], title[SLOT], file[SLOT], prio[32], deps[SLOT], epic[SLOT];
 	char flag[8];
-	int ord; /* index.jsonl line order, so any sort can be undone */
+	char *meta; /* `backlog meta` lines, read in bulk by load(); never NULL once loaded */
+	int ord;    /* index.jsonl line order, so any sort can be undone */
 };
 
 static struct task T[MAXT];
@@ -80,6 +81,10 @@ static int DET_H = 1;
 static int DET_ROW = -1;
 static int DET_VIEW;
 static int DET_MARK = -1, DET_MARK_AT;
+/* The (row, view, width) DET was last built for; DET_BUILT_W 0 means stale.
+ * Rows only change under load() or a non-motion key, and both clear it, so a
+ * motion repaint of an already-built row reads no file. */
+static int DET_BUILT_ROW, DET_BUILT_VIEW, DET_BUILT_W;
 
 static char *done_rows[MAXT];
 static int DONE_N, DONE_SEL, DONE_TOP;
@@ -578,18 +583,21 @@ static void load(void) {
 	int ok;
 	/* Stamped before the read, so a write racing it is seen on the next poll. */
 	index_stamp(&IDX_MT, &IDX_SZ);
-	char *out = cli(BACKLOG, &ok, 0, NULL, "list", "--order", "created", "--planned", NULL);
+	char *out =
+		cli(BACKLOG, &ok, 0, NULL, "list", "--order", "created", "--planned", "--meta", NULL);
+	for (int i = 0; i < TASK_N; i++) free(T[i].meta);
 	TASK_N = 0;
+	DET_BUILT_W = 0;
 	char *line = out, *nl;
 	while (*line) {
 		nl = strchr(line, '\n');
 		size_t llen = nl ? (size_t)(nl - line) : strlen(line);
 		if (llen) {
-			const char *f[7] = {0};
-			size_t fl[7] = {0};
+			const char *f[8] = {0};
+			size_t fl[8] = {0};
 			int nf = 0;
 			const char *s = line, *end = line + llen;
-			while (nf < 7) {
+			while (nf < 8) {
 				const char *sep = memchr(s, US, end - s);
 				f[nf] = s;
 				fl[nf] = sep ? (size_t)(sep - s) : (size_t)(end - s);
@@ -610,6 +618,13 @@ static void load(void) {
 				char planned[8] = "";
 				copy_field(planned, sizeof planned, f[6] ? f[6] : "", fl[6]);
 				snprintf(t->flag, sizeof t->flag, "%s", *planned ? planned : " ");
+				/* RS joins the meta lines on one row; newline is what the
+				 * readers split on. */
+				t->meta = xmalloc(fl[7] + 1);
+				memcpy(t->meta, f[7] ? f[7] : "", fl[7]);
+				t->meta[fl[7]] = 0;
+				for (char *c = t->meta; *c; c++)
+					if (*c == '\036') *c = '\n';
 				/* tasks/<epic>/<id>.md is the only nesting the index has. */
 				if (!strncmp(t->file, "tasks/", 6)) {
 					const char *rest = t->file + 6;
@@ -633,6 +648,13 @@ static int cur_task(void) {
 
 static void task_path(int ti, char *dst, size_t cap) {
 	snprintf(dst, cap, "%s/%s", BACKLOG_DIR, T[ti].file);
+}
+
+/* The task's `backlog meta` output as of the last load(), as a copy the
+ * caller may split in place and must free. */
+static char *task_meta(int ti) {
+	char *m = xmalloc(strlen(T[ti].meta) + 1);
+	return strcpy(m, T[ti].meta);
 }
 
 /* ---------- drawing ---------- */
@@ -813,15 +835,17 @@ static void plan_abs(const char *p, char *dst, size_t cap) {
 	else snprintf(dst, cap, "%s/%s", NAMESPACE_DIR, p);
 }
 
-/* Fills DET with the selected row's detail document as markdown source. The
- * body view forks one `backlog meta` for the entry's own fields and then reads
- * the task file; the plan view forks the same `backlog meta` per repaint, the
- * same cost class as `c` or `p` -- draw() only runs on a keypress or an index
- * change.
- * ponytail: one meta fork per repaint in either view, cache it keyed by task
- * id if a repaint ever measures slow. The full composed document (epic description,
- * every plan file, dependency titles) lives behind `v`. */
+/* Fills DET with the selected row's detail document as markdown source: the
+ * entry's meta lines load() already read, then the task file (body view) or
+ * every plan file (plan view). The render path forks nothing, and a repaint of
+ * the row DET already holds reads nothing. The full composed document (epic
+ * description, every plan file, dependency titles) lives behind `v`. */
 static void build_detail(int width) {
+	if (width < 1) width = 1;
+	if (DET_BUILT_W == width && DET_BUILT_ROW == SEL && DET_BUILT_VIEW == DET_VIEW) return;
+	DET_BUILT_W = width;
+	DET_BUILT_ROW = SEL;
+	DET_BUILT_VIEW = DET_VIEW;
 	DET_N = 0;
 	DET_MARK = -1;
 	DET_W = width > 0 ? width : 1;
@@ -850,11 +874,10 @@ static void build_detail(int width) {
 		det_push("");
 		if (!DET_VIEW) {
 			/* The index-line fields (plan/skill/acceptance/facts/location)
-			 * live on the entry, not in the file below, so without this fork
-			 * the body view would silently lose the acceptance criteria a
-			 * human wrote. */
-			int ok;
-			char *meta = cli(BACKLOG, &ok, 0, NULL, "meta", T[ti].id, NULL);
+			 * live on the entry, not in the file below, so without them the
+			 * body view would silently lose the acceptance criteria a human
+			 * wrote. */
+			char *meta = task_meta(ti);
 			char *ml = meta;
 			int shown = 0;
 			while (*ml && DET_N < MAXDET) {
@@ -886,8 +909,7 @@ static void build_detail(int width) {
 			/* `backlog meta` owns the entry's plan pointers, and `### <path>`
 			 * is the heading the composed document uses, so pane and pager
 			 * agree. */
-			int ok;
-			char *meta = cli(BACKLOG, &ok, 0, NULL, "meta", T[ti].id, NULL);
+			char *meta = task_meta(ti);
 			char *line = meta;
 			int any = 0;
 			while (*line && DET_N < MAXDET) {
@@ -1635,7 +1657,7 @@ static void compose_detail(FILE *f) {
 		fprintf(f, "(ungrouped)\n");
 	}
 	fprintf(f, "\n## Plans\n\n");
-	char *meta = cli(BACKLOG, &ok, 0, NULL, "meta", T[ti].id, NULL);
+	char *meta = task_meta(ti);
 	int any_plan = 0;
 	char *line = meta;
 	while (*line) {
@@ -1930,6 +1952,7 @@ int main(int argc, char **argv) {
 			coalesce();
 			continue;
 		}
+		DET_BUILT_W = 0; /* any other key may have changed what the detail shows */
 		if (MODE_DONE) {
 			if (k == '\t') MODE_DONE = 0;
 			else if (k == 'R') {

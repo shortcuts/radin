@@ -23,7 +23,7 @@
 #   radin-backlog.sh help [command]              # print every command's usage, or one command's
 #   radin-backlog.sh env [--export]             # print REPO_ROOT/NAMESPACE_DIR/BACKLOG_INDEX/BACKLOG_TASKS_DIR (--export: source-able with export)
 #   radin-backlog.sh show [category]             # print backlog as markdown, or one ## section
-#   radin-backlog.sh list [--order created|priority] [--planned]  # print "id<US>category<US>title<US>file<US>priority<US>depends-on-csv" (US = \037), priority-descending by default, unset priorities last (--order created gives index order; --planned appends a 7th P/empty field)
+#   radin-backlog.sh list [--order created|priority] [--planned] [--meta]  # print "id<US>category<US>title<US>file<US>priority<US>depends-on-csv" (US = \037), priority-descending by default, unset priorities last (--order created gives index order; --planned appends a P/empty field; --meta appends the `meta` lines joined by RS = \036, so one fork reads every entry's fields)
 #   radin-backlog.sh find <id-or-title>          # print matching "id<TAB>category<TAB>title<TAB>file<TAB>priority<TAB>depends-on-csv" line(s)
 #   radin-backlog.sh count                       # print the number of entries (0 without an index)
 #   radin-backlog.sh add <category> <title> [--skill <name>]...  # create task, body read from stdin, prints its id
@@ -197,11 +197,12 @@ function row(line, sep) {
 # so `cut -f3-` can never split a row.
 # shellcheck disable=SC2016  # $0 is awk's record, not a shell expansion
 AWK_LIST='
-BEGIN { plan = ENVIRON["RADIN_PLANNED"] }
+BEGIN { plan = ENVIRON["RADIN_PLANNED"]; meta = ENVIRON["RADIN_META"]; RS_ = sprintf("%c", 30) }
 $0 == "" { next }
 { p = jraw($0, "priority")
   out = row($0, US)
   if (plan != "") out = out US (jhas($0, "plan") ? "P" : "")
+  if (meta != "") out = out US metas($0, RS_)
   if (p == "") print "1" TAB "0" TAB out
   else print "0" TAB p TAB out }
 '
@@ -224,14 +225,21 @@ END { hit = 0
 # `meta`: the five parser-read fields of one index line on stdin, in a fixed
 # key order. One parser, shared by `meta`, `field`, `plan-target` and `show`:
 # a second copy would drift the next time a field is added.
-# shellcheck disable=SC2016  # $0 is awk's record, not a shell expansion
+# `metas` joins them with sep, so `list --meta` carries them on one row.
 AWK_META='
+function metas(line, sep,   a, n, i, s) {
+  s = ""
+  n = jarr(line, "plan", a); for (i = 1; i <= n; i++) s = s sep "plan" TAB a[i]
+  n = jarr(line, "skills", a); for (i = 1; i <= n; i++) s = s sep "skill" TAB a[i]
+  n = jarr(line, "acceptance", a); for (i = 1; i <= n; i++) s = s sep "acceptance" TAB a[i]
+  if (jhas(line, "facts")) s = s sep "facts" TAB jstr(line, "facts")
+  if (jhas(line, "location")) s = s sep "location" TAB jstr(line, "location")
+  return substr(s, length(sep) + 1) }
+'
+# shellcheck disable=SC2016  # $0 is awk's record, not a shell expansion
+AWK_META_PRINT='
 $0 == "" { next }
-{ n = jarr($0, "plan", a); for (i = 1; i <= n; i++) print "plan" TAB a[i]
-  n = jarr($0, "skills", a); for (i = 1; i <= n; i++) print "skill" TAB a[i]
-  n = jarr($0, "acceptance", a); for (i = 1; i <= n; i++) print "acceptance" TAB a[i]
-  if (jhas($0, "facts")) print "facts" TAB jstr($0, "facts")
-  if (jhas($0, "location")) print "location" TAB jstr($0, "location") }
+{ s = metas($0, "\n"); if (s != "") print s }
 '
 
 # `set_index_field`: one key of one entry rewritten, every other line passed
@@ -633,7 +641,7 @@ $(printf '%s\n' "$found" | fmt_lines)"
 # The `meta` lines of one raw index line: the one reader of the five
 # index-line fields, shared by `meta`, `field`, `plan-target` and `show`.
 meta_of_line() {
-	printf '%s\n' "$1" | awk "$AWK_JSON$AWK_META"
+	printf '%s\n' "$1" | awk "$AWK_JSON$AWK_META$AWK_META_PRINT"
 }
 
 # Skills an execution sub-agent cannot run: it has no user to ask, no
@@ -788,6 +796,7 @@ list)
 	require_index
 	shift
 	RADIN_PLANNED=""
+	RADIN_META=""
 	order=priority
 	while [ $# -gt 0 ]; do
 		case "$1" in
@@ -802,6 +811,10 @@ list)
 			RADIN_PLANNED=1
 			shift
 			;;
+		--meta)
+			RADIN_META=1
+			shift
+			;;
 		*) usage_die list "unknown list option: $1" ;;
 		esac
 	done
@@ -811,11 +824,11 @@ list)
 	# is what puts every unset priority after every set one.
 	# --order created is index order, which is creation order because
 	# index.jsonl is append-only: the TUI wants a list no mutation reorders.
-	export RADIN_PLANNED
+	export RADIN_PLANNED RADIN_META
 	if [ "$order" = created ]; then
-		awk "$AWK_JSON$AWK_LIST" "$BACKLOG_INDEX" | cut -f3-
+		awk "$AWK_JSON$AWK_META$AWK_LIST" "$BACKLOG_INDEX" | cut -f3-
 	else
-		awk "$AWK_JSON$AWK_LIST" "$BACKLOG_INDEX" |
+		awk "$AWK_JSON$AWK_META$AWK_LIST" "$BACKLOG_INDEX" |
 			sort -s -t"$TAB" -k1,1n -k2,2nr | cut -f3-
 	fi
 	;;

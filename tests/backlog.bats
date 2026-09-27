@@ -147,6 +147,16 @@ cli() {
   [ -z "$output" ]
 }
 
+@test "list --meta carries each entry's meta lines on its row, joined by RS" {
+  cli add feat "rich task" <<<"body"
+  cli add fix "bare task" <<<"body"
+  cli set-meta "rich task" acceptance "one" "two"
+  run cli list --order created --meta
+  [ "$status" -eq 0 ]
+  [ "${lines[0]##*$'\037'}" = "acceptance"$'\t'"one"$'\036'"acceptance"$'\t'"two" ]
+  [ "${lines[1]##*$'\037'}" = "" ]
+}
+
 @test "set-meta rejects a malformed value on write and --none clears the key" {
   cli add feat "target" <<<"body"
   run cli set-meta target acceptance ""

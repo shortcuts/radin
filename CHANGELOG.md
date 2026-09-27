@@ -6,6 +6,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- The TUI reads every entry's fields once per load, through the new
+  `backlog list --meta`, and caches the built detail pane. Moving the
+  selection runs no CLI: key-to-frame drops from about 95ms to under 1ms on
+  a 42-task backlog.
 - Execution sub-agents prove each new test: it fails without the change for
   the reason the task names, and passes with it. The report names that test
   in one line above `STATUS:`, and holds at most three lines in total.
