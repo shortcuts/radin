@@ -6,6 +6,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- The TUI has a real palette: 256 colours when the terminal reports them,
+  else 16. The selected row is an accent background instead of reverse
+  video. Each pane sits in a rounded border with its title in it. Category
+  badges are coloured, secondary text is dim, and the footer highlights its
+  key letters. Under `NO_COLOR` the selection, the bars and the epic headers
+  still read, through bold and reverse video.
 - The TUI redraws only the rows a key changed, in one write wrapped in
   synchronized output, instead of clearing and repainting the whole screen.
   Moving the selection no longer flickers or shows a half-drawn frame.

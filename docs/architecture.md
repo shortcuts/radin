@@ -352,16 +352,25 @@ too long for the pane wraps onto up to `ROW_MAX_LINES` lines, each indented to
 the title column, rather than truncating. Wrapping is a drawing concern only:
 `SEL` and `TOP` still index rows, and `row_lines()` plus `clamp_top_wrapped()`
 are the only two functions that turn a row count into a screen-line count, so
-no key handler learns that a row can be taller than one line. Priority is the
-only coloured cell of a task row: `21`/`13` red, `8`/`5` yellow, `3`/`2`/`1` green. The map is absolute
-because the scale is bounded, so no unrelated task's number can move this row's
-colour; anything off the scale -- unset, or a legacy value stored before the
-scale was bounded -- renders plain, and `NO_COLOR` drops the escapes entirely.
-Every other colour is structural rather than a value, so nothing can be misread
-as a priority: an epic header row is cyan, and the pane divider and the detail's
-rule are dim. Reverse video is the one cue `NO_COLOR` keeps, on the header and
-footer bars and on the selected row -- without it a bar would not read as chrome.
-The panes are separated by a `â` gutter column drawn after both, and the
+no key handler learns that a row can be taller than one line. Every style
+comes from one palette `struct pal`, picked once at startup: 256 colours when
+`TERM` or `COLORTERM` says so, else the 16 every terminal has (no truecolor,
+which Terminal.app lacks). Priority keeps a value map: `21`/`13` red,
+`8`/`5` yellow, `3`/`2`/`1` green. The map is absolute because the scale is
+bounded, so no unrelated task's number can move this row's colour; anything
+off the scale -- unset, or a legacy value stored before the scale was
+bounded -- renders plain. Every other colour is structural rather than a
+value, so nothing can be misread as a priority: each category has its own
+badge colour, an epic header row is bold cyan, and borders, tree connectors,
+wrapped continuation lines and the detail's field labels are dim. The
+selected row is an accent background plus bold, and the bars carry their own
+background with the header's name and the footer's key letters accented.
+`NO_COLOR` picks a palette with every colour dropped and the attributes kept:
+the selected row is bold reverse video, the bars reverse, the epic headers
+bold -- without them a bar would not read as chrome. A row's styles are byte
+spans over the padded line (`spans_at()`), each ending in a reset that
+re-arms the row's base style. Each pane sits in a rounded box-drawing border
+with its title in the top edge, drawn after the content by `box()`, and the
 detail opens with the title, one `category Â· id Â· priority` line and a
 full-width rule before the body. The rule is the one line the markdown subset
 cannot render, because it needs the pane width: it travels through `DET` as a

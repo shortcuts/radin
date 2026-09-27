@@ -66,6 +66,28 @@ static int MODE_DONE;
 static char COLLAPSED[BIG];
 static int COLOR = 1;
 
+/* Every style the frame paints, picked once at startup. 256 colours where TERM
+ * or COLORTERM says so, else the 16 every terminal has -- no truecolor, which
+ * Terminal.app lacks. NO_COLOR keeps the attributes (bold, dim, reverse) and
+ * drops every colour, so selection, bars and epic headers still read. The
+ * priority map owns red/yellow/green and cyan is structure, so no other style
+ * reuses those hues. */
+struct pal {
+	const char *sel, *bar, *key, *title, *border, *dim, *epic;
+	const char *prio[3];       /* 21/13, 8/5, 3/2/1 */
+	const char *cat[NCAT + 1]; /* CATEGORIES order, then an unknown category */
+};
+static const struct pal P256 = {"\033[1;38;5;231;48;5;25m", "\033[38;5;252;48;5;236m",
+	"\033[1;38;5;214m", "\033[1;38;5;117m", "\033[38;5;240m", "\033[38;5;244m",
+	"\033[1;38;5;117m", {"\033[38;5;203m", "\033[38;5;221m", "\033[38;5;114m"},
+	{"\033[38;5;75m", "\033[38;5;211m", "\033[38;5;246m", "\033[38;5;141m", ""}};
+static const struct pal P16 = {"\033[1;97;44m", "\033[97;100m", "\033[1;93m", "\033[1;96m",
+	"\033[90m", "\033[2m", "\033[1;36m", {"\033[31m", "\033[33m", "\033[32m"},
+	{"\033[34m", "\033[35m", "\033[90m", "\033[94m", ""}};
+static const struct pal PNONE = {"\033[1;7m", "\033[7m", "\033[1m", "\033[1m", "", "\033[2m",
+	"\033[1m", {"", "", ""}, {"", "", "", "", ""}};
+static const struct pal *PAL = &P16;
+
 /* The detail view's own state: DETAIL_FILE below is the `v`/`o` $PAGER temp file
  * and unrelated. DET_ROW is the row DET was built for, so a move resets the
  * scroll from the render path rather than from every key handler. DET holds
@@ -77,6 +99,7 @@ static int COLOR = 1;
  * it, which is how one line gets a style the per-entry DET_S cannot give. */
 static char DET[MAXDET][SLOT];
 static const char *DET_S[MAXDET];
+static int DET_L[MAXDET]; /* leading bytes painted dim: a field line's label */
 static int DET_N, DET_TOP, DET_W = 80;
 static int DET_H = 1;
 static int DET_ROW = -1;
@@ -302,6 +325,8 @@ static void out(const char *fmt, ...) {
 
 static void pos(int r, int c) {
 	FR_ROW = r < 1 ? 1 : r > MAXFR ? MAXFR : r;
+	/* frame_end() opens every row at its column 1 already. */
+	if (c == 1 && !CUR[FR_ROW].n) return;
 	out("\033[%d;%dH", r, c);
 }
 
@@ -463,44 +488,95 @@ static void fit(const char *text, int width, char *buf, size_t cap) {
 	buf[o] = 0;
 }
 
+/* One styled byte span of a row; spans_at() takes them in ascending order. */
+struct span {
+	int at, len;
+	const char *s;
+};
+
 /* Every row is padded to its pane's width in display columns so the selected
- * row's reverse-video block spans it, and truncated there so a long title can
- * never wrap and desync the frame's line count. Colour is applied to one byte span of the already-padded
- * line, so the escape bytes never count against the width -- and the reset it
- * ends with also clears reverse video, which is why that gets re-armed. The
- * width is explicit because a split pane pads and truncates per column; nl is 0
- * for an absolutely-positioned pane, which must print no newline of its own. */
-static void span_at(const char *text, int selected, const char *colour, int at, int len,
+ * row's background spans it, and truncated there so a long title can never
+ * wrap and desync the frame's line count. Styles are applied to byte spans of
+ * the already-padded line, so the escape bytes never count against the width;
+ * each span ends in a reset, which is why the row's base style is re-armed
+ * after it. A span past the cut is clipped or dropped. The width is explicit
+ * because a split pane pads and truncates per column; nl is 0 for an
+ * absolutely-positioned pane, which must print no newline of its own. */
+static void spans_at(const char *text, const char *base, const struct span *sp, int n,
 	int width, int nl) {
 	char buf[LINEBUF];
 	fit(text, width, buf, sizeof buf);
-	if (selected) out("\033[7m");
-	if (colour && *colour && at + len <= (int)strlen(buf)) {
-		out("%.*s%s%.*s\033[0m", at, buf, colour, len, buf + at);
-		if (selected) out("\033[7m");
-		out("%s", buf + at + len);
-	} else
-		out("%s", buf);
-	if (selected) out("\033[0m");
+	int blen = (int)strlen(buf), o = 0;
+	out("%s", base);
+	for (int i = 0; i < n; i++) {
+		int at = sp[i].at, len = sp[i].len;
+		if (!sp[i].s || !*sp[i].s || at < o || at >= blen || len <= 0) continue;
+		if (at + len > blen) len = blen - at;
+		out("%.*s%s%.*s\033[0m%s", at - o, buf + o, sp[i].s, len, buf + at, base);
+		o = at + len;
+	}
+	out("%s", buf + o);
+	if (*base) out("\033[0m");
 	if (nl) out("\n");
 }
 
-/* The full-width wrappers every list outside the split still draws through. */
-static void row_span(const char *text, int selected, const char *colour, int at, int len) {
-	span_at(text, selected, colour, at, len, COLS, 1);
+static void put_rep(const char *glyph, int n) {
+	for (int i = 0; i < n; i++) out("%s", glyph);
 }
 
-static void row(const char *text, int selected) { row_span(text, selected, "", 0, 0); }
+/* A rounded border around the h content rows below `top`, `w` columns wide
+ * from column `col`, its title set into the top edge. Drawn after the
+ * content, so no pane's padding overwrites it. */
+static void box(int top, int col, int h, int w, const char *title) {
+	const char *b = PAL->border, *r = *b ? "\033[0m" : "";
+	int tw = dwidth(title) + 2;
+	if (!*title || tw > w - 3) tw = 0;
+	pos(top, col);
+	out("%s\342\225\255\342\224\200%s", b, r);
+	if (tw) out("%s %s %s", PAL->title, title, *PAL->title ? "\033[0m" : "");
+	out("%s", b);
+	put_rep("\342\224\200", w - 3 - tw);
+	out("\342\225\256%s", r);
+	for (int i = 1; i <= h; i++) {
+		pos(top + i, col);
+		out("%s\342\224\202%s", b, r);
+		pos(top + i, col + w - 1);
+		out("%s\342\224\202%s", b, r);
+	}
+	pos(top + h + 1, col);
+	out("%s\342\225\260", b);
+	put_rep("\342\224\200", w - 2);
+	out("\342\225\257%s", r);
+}
 
-static void bar(const char *text, int at_row) {
-	char buf[LINEBUF];
+/* One row of a full-width boxed list: the Done view and the pickers. */
+static void row(int r, const char *text, int selected) {
+	pos(r, 2);
+	spans_at(text, selected ? PAL->sel : "", NULL, 0, COLS - 2, 0);
+}
+
+enum { BAR_PLAIN, BAR_HEAD, BAR_KEYS };
+
+/* A bar is chrome, so it keeps a background even under NO_COLOR (reverse
+ * video). BAR_HEAD accents the leading name, up to the first double space;
+ * BAR_KEYS accents the key of every "key what" hint, the hints split on
+ * double spaces. */
+static void bar(const char *text, int at_row, int mode) {
+	struct span sp[16];
+	int n = 0;
+	if (mode == BAR_HEAD) {
+		const char *e = strstr(text, "  ");
+		sp[n++] = (struct span){0, e ? (int)(e - text) : (int)strlen(text), PAL->title};
+	} else if (mode == BAR_KEYS) {
+		for (const char *p = text; *p && n < 16;) {
+			sp[n++] = (struct span){(int)(p - text), (int)strcspn(p, " "), PAL->key};
+			const char *e = strstr(p, "  ");
+			if (!e) break;
+			p = e + strspn(e, " ");
+		}
+	}
 	if (at_row) pos(at_row, 1);
-	fit(text, COLS, buf, sizeof buf);
-	/* Reverse video, not bold: a bar has to read as chrome against the rows,
-	 * and reverse is the same structural (never colour) cue the selected row
-	 * uses, so NO_COLOR keeps it. */
-	out("\033[7m%s\033[0m", buf);
-	if (!at_row) out("\n");
+	spans_at(text, PAL->bar, sp, n, COLS, !at_row);
 }
 
 /* ---------- model ---------- */
@@ -549,13 +625,12 @@ static const char *prio_colour(const char *prio) {
 	static const char *const RED[] = {"13", "21", NULL};
 	static const char *const YELLOW[] = {"5", "8", NULL};
 	static const char *const GREEN[] = {"1", "2", "3", NULL};
-	if (!COLOR) return "";
 	for (int i = 0; RED[i]; i++)
-		if (!strcmp(prio, RED[i])) return "\033[31m";
+		if (!strcmp(prio, RED[i])) return PAL->prio[0];
 	for (int i = 0; YELLOW[i]; i++)
-		if (!strcmp(prio, YELLOW[i])) return "\033[33m";
+		if (!strcmp(prio, YELLOW[i])) return PAL->prio[1];
 	for (int i = 0; GREEN[i]; i++)
-		if (!strcmp(prio, GREEN[i])) return "\033[32m";
+		if (!strcmp(prio, GREEN[i])) return PAL->prio[2];
 	return "";
 }
 
@@ -890,6 +965,7 @@ static void det_line(const char *src, int indent_override) {
 	 * which only draw_detail() knows. */
 	if (src[0] == RULE) {
 		DET_S[DET_N] = "";
+		DET_L[DET_N] = 0;
 		snprintf(DET[DET_N++], SLOT, "%s", src);
 		return;
 	}
@@ -903,6 +979,7 @@ static void det_line(const char *src, int indent_override) {
 	for (int ln = 0; DET_N < MAXDET; ln++) {
 		int cut = wrap_at(t, ln == 0 ? DET_W : avail);
 		DET_S[DET_N] = style;
+		DET_L[DET_N] = 0;
 		if (ln == 0) snprintf(DET[DET_N++], SLOT, "%.*s", cut, t);
 		else snprintf(DET[DET_N++], SLOT, "%*s%.*s", indent, "", cut, t);
 		t += cut;
@@ -926,7 +1003,9 @@ static void det_push(const char *fmt, ...) {
 static void det_field(const char *label, const char *val) {
 	char buf[1200];
 	snprintf(buf, sizeof buf, "%-*s %s", DET_LABEL, label, val);
+	int first = DET_N;
 	det_line(buf, DET_LABEL + 1);
+	if (first < DET_N) DET_L[first] = DET_LABEL;
 }
 
 /* A `meta` plan path is absolute or relative to NAMESPACE_DIR. One owner,
@@ -1051,30 +1130,26 @@ static void build_detail(int width) {
 	}
 }
 
-/* Paints DET[DET_TOP..] into a pane. at_col 0 means "here, one row per line,
- * newline-terminated"; non-zero means absolute positioning at that column, and
- * then the pane prints no newline so it cannot scroll the frame. */
+/* Paints DET[DET_TOP..] into a pane at (top_row, at_col), one screen row per
+ * line, absolutely positioned so the pane prints no newline that could scroll
+ * the frame. */
 static void draw_detail(int top_row, int at_col, int width, int h) {
 	for (int i = 0; i < h; i++) {
-		int in_buf = DET_TOP + i < DET_N;
-		const char *src = in_buf ? DET[DET_TOP + i] : "";
-		if (at_col) pos(top_row + i, at_col);
+		int d = DET_TOP + i, in_buf = d < DET_N;
+		const char *src = in_buf ? DET[d] : "";
+		pos(top_row + i, at_col);
 		/* RULE is the one line md_line cannot render: it needs the pane width,
 		 * which only this function knows. */
 		if (src[0] == RULE) {
-			if (COLOR) out("\033[2m");
-			for (int c = 0; c < width; c++) out("\342\224\200");
-			if (COLOR) out("\033[0m");
-			if (!at_col) out("\n");
+			out("%s", PAL->border);
+			put_rep("\342\224\200", width);
+			if (*PAL->border) out("\033[0m");
 			continue;
 		}
-		if (in_buf && DET_TOP + i == DET_MARK) {
-			span_at(src, 0, COLOR ? "\033[1m" : "", DET_MARK_AT, 4, width,
-				at_col ? 0 : 1);
-			continue;
-		}
-		const char *style = in_buf ? DET_S[DET_TOP + i] : "";
-		span_at(src, 0, style, 0, (int)strlen(src), width, at_col ? 0 : 1);
+		struct span sp = {0, (int)strlen(src), in_buf ? DET_S[d] : ""};
+		if (in_buf && d == DET_MARK) sp = (struct span){DET_MARK_AT, 4, PAL->title};
+		else if (in_buf && DET_L[d]) sp = (struct span){0, DET_L[d], PAL->dim};
+		spans_at(src, "", &sp, 1, width, 0);
 	}
 }
 
@@ -1084,11 +1159,13 @@ static int split_on(void) { return COLS >= SPLIT_MIN; }
 
 static void draw(void) {
 	term_size();
-	int list_h = ROWS - 2; /* row 1 is the header bar, ROWS the footer */
+	/* Row 1 the header bar, ROWS the footer, and each pane's border takes the
+	 * row below the one and above the other. */
+	int list_h = ROWS - 4;
 	if (list_h < 1) list_h = 1;
-	int lw = split_on() ? COLS * 2 / 5 : COLS; /* 40% */
-	int rw = split_on() ? COLS - lw - 1 : 0;   /* one blank gutter column */
-	TOP = clamp_top_wrapped(SEL, TOP, list_h, lw);
+	int lw = split_on() ? COLS * 2 / 5 : COLS; /* 40%, border included */
+	int iw = lw - 2;                           /* the list's content width */
+	TOP = clamp_top_wrapped(SEL, TOP, list_h, iw);
 
 	char header[1200], text[1200];
 	snprintf(header, sizeof header, "radin backlog  %d task(s)  sort:%s", TASK_N,
@@ -1101,14 +1178,16 @@ static void draw(void) {
 			SEL + 1, N);
 
 	frame_begin();
-	bar(header, 0);
+	bar(header, 0, BAR_HEAD);
 	int used = 0;
 	if (N == 0) {
-		span_at("  (no tasks) press a to create one", 0, "", 0, 0, lw, 1);
+		pos(3, 2);
+		spans_at("  (no tasks) press a to create one", "", NULL, 0, iw, 0);
 		used = 1;
 	}
 	for (int i = TOP; i < N && used < list_h; i++) {
 		int ti = row_task[i];
+		const char *base = i == SEL ? PAL->sel : "";
 		if (ti < 0) {
 			int kids = 0;
 			for (int k = 0; k < TASK_N; k++)
@@ -1117,8 +1196,9 @@ static void draw(void) {
 				in_set(COLLAPSED, row_epic[i]) ? "+" : "-", row_epic[i], kids);
 			/* Cyan for structure, never for a value: the priority map owns
 			 * red/yellow/green, so an epic header cannot be misread as one. */
-			span_at(text, i == SEL, COLOR ? "\033[36m" : "", 0, (int)strlen(text), lw,
-				1);
+			struct span sp = {0, (int)strlen(text), PAL->epic};
+			pos(3 + used, 2);
+			spans_at(text, base, &sp, 1, iw, 0);
 			used++;
 			continue;
 		}
@@ -1128,56 +1208,63 @@ static void draw(void) {
 		char prefix[128];
 		int at = row_prefix(i, prefix, sizeof prefix);
 		int ind = dwidth(prefix);
-		int avail = lw - ind;
+		int avail = iw - ind;
 		if (avail < 8) avail = 8;
 		const char *t = T[ti].title;
-		int lines = row_lines(i, lw);
+		/* Secondary text is dim, except on the selected row, whose accent
+		 * background already sets it apart. */
+		const char *dim = i == SEL ? "" : PAL->dim;
+		int lines = row_lines(i, iw);
 		for (int ln = 0; ln < lines && used < list_h; ln++) {
 			int cut = wrap_at(t, avail);
-			if (ln == 0)
+			struct span sp[3];
+			int n = 0;
+			if (ln == 0) {
+				/* row_prefix's layout: the 2-byte priority cell, a space, the
+				 * 9-byte category cell, a space, then the tree connector. */
+				int cl = (int)strlen(T[ti].cat);
 				snprintf(text, sizeof text, "%s%.*s", prefix, cut, t);
-			else
+				sp[n++] = (struct span){at, 2, prio_colour(T[ti].prio)};
+				sp[n++] = (struct span){at + 3, cl < 9 ? cl : 9,
+					PAL->cat[cat_index(T[ti].cat)]};
+				sp[n++] = (struct span){at + 13, (int)(strlen(prefix) - at - 13), dim};
+			} else {
 				snprintf(text, sizeof text, "%*s%.*s", ind, "", cut, t);
-			/* Only the priority cell is coloured, and only on the first line:
-			 * a continuation line carries no cell to colour. */
-			span_at(text, i == SEL, ln == 0 ? prio_colour(T[ti].prio) : "", at, 2, lw,
-				1);
+				sp[n++] = (struct span){0, (int)strlen(text), dim};
+			}
+			pos(3 + used, 2);
+			spans_at(text, base, sp, n, iw, 0);
 			t += cut;
 			while (*t == ' ') t++;
 			used++;
 		}
 	}
-	for (; used < list_h; used++) span_at("", 0, "", 0, 0, lw, 1);
 
 	if (N > 0 && split_on()) {
+		int dw = COLS - lw - 2;
 		/* Scroll bookkeeping lives here and in the overlay loop, nowhere else,
 		 * so no future key handler can forget to reset it on a move. */
 		if (SEL != DET_ROW) {
 			DET_ROW = SEL;
 			DET_TOP = 0;
 		}
-		build_detail(rw - 1);
+		build_detail(dw);
 		DET_H = list_h;
 		if (DET_TOP > DET_N - list_h) DET_TOP = DET_N - list_h;
 		if (DET_TOP < 0) DET_TOP = 0;
-		/* One blank column past the divider before the text: a pane whose
-		 * content touches the border reads as one column of the tree. */
-		draw_detail(2, lw + 3, rw - 1, list_h);
-		/* The gutter column, drawn last so neither pane's padding overwrites
-		 * it: the panes need a border, not just whitespace, to read as two. */
-		for (int r = 2; r < ROWS; r++) {
-			pos(r, lw + 1);
-			if (COLOR) out("\033[2m\342\224\202\033[0m");
-			else out("\342\224\202");
-		}
+		draw_detail(3, lw + 2, dw, list_h);
 	}
+	box(2, 1, list_h, lw, "tasks");
+	if (split_on()) box(2, lw + 1, list_h, COLS - lw, "detail");
 
 	/* One line of the keys a first frame has to teach, short enough to survive
 	 * an 80-column terminal: `?` owns the full list, so a footer that spills
 	 * off the edge teaches less than a footer that fits. */
-	bar(*MSG ? MSG : "j/k move  enter open  e edit  v detail  / search  a new  "
-					 "Tab done  ? keys  q quit",
-		ROWS);
+	if (*MSG) bar(MSG, ROWS, BAR_PLAIN);
+	else
+		bar("j/k move  enter open  e edit  v detail  / search  a new  Tab done  ? keys  q "
+			"quit",
+			ROWS, BAR_KEYS);
 	frame_end();
 }
 
@@ -1210,24 +1297,28 @@ static void load_done(void) {
 
 static void draw_done(void) {
 	term_size();
-	int list_h = ROWS - 2;
+	int list_h = ROWS - 4;
 	if (list_h < 1) list_h = 1;
 	DONE_TOP = clamp_top(DONE_SEL, DONE_TOP, list_h);
 	char header[1200];
 	snprintf(header, sizeof header, "radin done  %d completed", DONE_N);
 	frame_begin();
-	bar(header, 0);
-	int end = DONE_TOP + list_h, i;
+	bar(header, 0, BAR_HEAD);
+	int end = DONE_TOP + list_h;
 	if (end > DONE_N) end = DONE_N;
-	if (DONE_N == 0) {
-		row("  (nothing completed yet)", 0);
-		i = 1;
-	} else {
-		for (i = DONE_TOP; i < end; i++) row(done_rows[i], i == DONE_SEL);
-		i = end - DONE_TOP;
+	if (DONE_N == 0) row(3, "  (nothing completed yet)", 0);
+	for (int i = DONE_TOP; i < end; i++) {
+		/* The commit hash is the row's last word, and secondary: dim. */
+		const char *sp = strrchr(done_rows[i], ' ');
+		int at = sp ? (int)(sp - done_rows[i]) + 1 : 0;
+		struct span d = {at, at ? (int)strlen(done_rows[i]) - at : 0,
+			i == DONE_SEL ? "" : PAL->dim};
+		pos(3 + i - DONE_TOP, 2);
+		spans_at(done_rows[i], i == DONE_SEL ? PAL->sel : "", &d, 1, COLS - 2, 0);
 	}
-	for (; i < list_h; i++) row("", 0);
-	bar(*MSG ? MSG : "j/k move  Tab back  R reload  q quit  (read-only)", ROWS);
+	box(2, 1, list_h, COLS, "done");
+	if (*MSG) bar(MSG, ROWS, BAR_PLAIN);
+	else bar("j/k move  Tab back  R reload  q quit  (read-only)", ROWS, BAR_KEYS);
 	frame_end();
 }
 
@@ -1418,11 +1509,11 @@ static char PICK_RESULT[BIG];
 
 static void pick_draw(int multi, const char *title, int sel, int *ptop) {
 	term_size();
-	int list_h = ROWS - 2;
+	int list_h = ROWS - 4;
 	if (list_h < 1) list_h = 1;
 	*ptop = clamp_top(sel, *ptop, list_h);
 	frame_begin();
-	bar(title, 0);
+	bar(title, 0, BAR_HEAD);
 	int end = *ptop + list_h, i;
 	if (end > PN) end = PN;
 	char line[1200];
@@ -1431,10 +1522,11 @@ static void pick_draw(int multi, const char *title, int sel, int *ptop) {
 			snprintf(line, sizeof line, " [%s] %s",
 				in_set(PICK_MARKED, PV[i].val) ? "x" : " ", PV[i].label);
 		else snprintf(line, sizeof line, "  %s", PV[i].label);
-		row(line, i == sel);
+		row(3 + i - *ptop, line, i == sel);
 	}
-	for (i = end - *ptop; i < list_h; i++) row("", 0);
-	bar(multi ? "space mark  enter confirm  q cancel" : "enter select  q cancel", ROWS);
+	box(2, 1, list_h, COLS, ""); /* the header bar already names the choice */
+	bar(multi ? "space mark  enter confirm  q cancel" : "enter select  q cancel", ROWS,
+		BAR_KEYS);
 	frame_end();
 }
 
@@ -1865,16 +1957,17 @@ static void detail_overlay(void) {
 	DET_TOP = 0;
 	for (;;) {
 		term_size();
-		int h = ROWS - 2;
+		int h = ROWS - 4;
 		if (h < 1) h = 1;
-		build_detail(COLS);
+		build_detail(COLS - 2);
 		DET_H = h;
 		if (DET_TOP > DET_N - h) DET_TOP = DET_N - h;
 		if (DET_TOP < 0) DET_TOP = 0;
 		frame_begin();
-		bar("detail", 0);
-		draw_detail(2, 0, COLS, h);
-		bar("^d/^u scroll  q/esc close", ROWS);
+		bar("detail", 0, BAR_HEAD);
+		draw_detail(3, 2, COLS - 2, h);
+		box(2, 1, h, COLS, "detail");
+		bar("^d/^u scroll  q/esc close", ROWS, BAR_KEYS);
 		frame_end();
 		int k = readkey();
 		if (k < 0 || k == 'q' || k > 1000) return; /* EOF, q, bare ESC */
@@ -1925,9 +2018,10 @@ static void help_screen(void) {
 		"  q             quit\n\n"
 		"The priority column is coloured by a fixed map: 21/13 red, 8/5 yellow,\n"
 		"3/2/1 green, nothing when unset or off the scale. Every other colour is\n"
-		"structural, never a value: an epic header row is cyan, the pane divider\n"
-		"and the detail's rule are dim.\n"
-		"Set NO_COLOR to a non-empty value to turn it off.\n"
+		"structural, never a value: each category has its own badge colour, an\n"
+		"epic header row is bold cyan, borders and secondary text are dim.\n"
+		"256 colours when TERM or COLORTERM says so, else 16. Set NO_COLOR to a\n"
+		"non-empty value to drop colour: bold, dim and reverse video remain.\n"
 		"A title too long for the pane wraps onto up to three lines; whether\n"
 		"radin-plan has planned the task, its dependencies and its epic read in\n"
 		"the detail pane.\n"
@@ -2028,7 +2122,12 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 	const char *nc = getenv("NO_COLOR");
-	if (nc && *nc) COLOR = 0;
+	const char *term = getenv("TERM"), *ct = getenv("COLORTERM");
+	if (nc && *nc) {
+		COLOR = 0;
+		PAL = &PNONE;
+	} else if ((term && strstr(term, "256")) || (ct && *ct))
+		PAL = &P256;
 	const char *pm = getenv("RADIN_TUI_POLL_MS");
 	if (pm && atoi(pm) > 0) POLL_MS = atoi(pm);
 	resolve_lib(argv[0]);

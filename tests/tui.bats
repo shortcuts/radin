@@ -17,6 +17,10 @@ setup() {
   TASKS="$WORK/proj/.claude/.radin/backlog/tasks"
   NS="$WORK/proj/.claude/.radin"
   SCREEN="$WORK/screen.txt"
+  # The palette follows TERM/COLORTERM, so pin the 16-colour one: escape
+  # assertions must not depend on the terminal the suite runs in.
+  export TERM=xterm
+  unset COLORTERM
   # An $EDITOR that types for us: writes a fixed body and exits.
   printf '#!/bin/sh\nprintf "typed body\\n" >"$1"\n' >"$WORK/editor.sh"
   chmod +x "$WORK/editor.sh"
@@ -77,6 +81,12 @@ last_frame() {
   }' "$SCREEN"
 }
 
+# Text with its styling stripped, for an assertion on words a style span may
+# split: a coloured badge or a dim label sits between them.
+plain() {
+  sed $'s/\033\\[[0-9;]*m//g'
+}
+
 # The last frame's [sel/total] header, so a wrap back to row 1 is not
 # confused with the frame the TUI opened on.
 last_pos() {
@@ -132,8 +142,9 @@ frame() {
   seed
   run tui "|j|q"
   [ "$status" -eq 0 ]
-  # The header's [n/total] and the two rows the selection left and entered.
-  [ "$(frame 2 | grep -ao $'\033\\[[0-9]*;1H\033\\[K' | tr -dc '0-9;\n' | cut -d';' -f1 | tr '\n' ' ')" = "1 2 3 " ]
+  # The header's [n/total] and the two rows the selection left and entered;
+  # row 2 is the pane's top border.
+  [ "$(frame 2 | grep -ao $'\033\\[[0-9]*;1H\033\\[K' | tr -dc '0-9;\n' | cut -d';' -f1 | tr '\n' ' ')" = "1 3 4 " ]
 }
 
 @test "e opens the task body in EDITOR and keeps the edit" {
@@ -194,7 +205,7 @@ frame() {
   seed
   run tui "/|auth\r|q"
   [ "$status" -eq 0 ]
-  run cat "$SCREEN"
+  output="$(plain <"$SCREEN")"
   [[ "$output" == *"2 task(s)"* ]]
   [[ "$output" == *'search:"auth"'* ]]
   [[ "$output" == *"dark mode"* ]]
@@ -252,7 +263,7 @@ frame() {
   (cd "$WORK/proj" && bash "$BACKLOG" add-plan dark-mode "plans/dark-mode.md" >/dev/null)
   run wide "q"
   [ "$status" -eq 0 ]
-  run last_frame
+  output="$(last_frame | plain)"
   [[ "$output" =~ planned[[:space:]]+yes ]]
   # And the list row carries no planned marker of its own.
   output="$(last_frame | grep 'dark mode' | head -1)"
@@ -524,14 +535,16 @@ row_titles() {
   [ "$output" -eq 1 ]
 }
 
-@test "a task with no priority gets an empty cell and no escape codes" {
+@test "a task with no priority gets an empty cell and no priority colour" {
   bl add feat "high one" <<<"high body" >/dev/null
   bl set-priority high-one 21 >/dev/null
   bl add feat "no prio" <<<"none body" >/dev/null
   run tui "q"
   [ "$status" -eq 0 ]
   output="$(last_frame | cat -v | grep 'no prio')"
-  [[ "$output" != *"^[["* ]]
+  [[ "$output" != *"^[[31m"* ]]
+  [[ "$output" != *"^[[32m"* ]]
+  [[ "$output" != *"^[[33m"* ]]
 }
 
 @test "an off-scale legacy priority renders uncoloured" {
@@ -563,7 +576,7 @@ row_titles() {
   [[ "$output" == *"^[[31m21^[[0m"* ]]
   output="$(last_frame | cat -v | grep 'epic: ui-polish')"
   # Cyan is the structural colour, so a header can never read as a priority.
-  [[ "$output" == *"^[[36m"* ]]
+  [[ "$output" == *"^[[1;36m"* ]]
   [[ "$output" != *"^[[31m"* ]]
 }
 
@@ -580,6 +593,69 @@ row_titles() {
   [[ "$output" != *"^[[32m"* ]]
   [[ "$output" != *"^[[33m"* ]]
   [[ "$output" != *"^[[36m"* ]]
+}
+
+@test "the selected row is an accent background, not reverse video" {
+  seed
+  run tui "q"
+  [ "$status" -eq 0 ]
+  output="$(last_frame | cat -v | grep 'dark mode')"
+  [[ "$output" == *"^[[1;97;44m"* ]]
+  run cat -v "$SCREEN"
+  [[ "$output" != *"^[[7m"* ]]
+}
+
+@test "category badges are coloured and the footer's key letters highlighted" {
+  seed
+  run tui "q"
+  [ "$status" -eq 0 ]
+  run cat -v "$SCREEN"
+  [[ "$output" == *"^[[34mfeat"* ]]
+  [[ "$output" == *"^[[35mfix"* ]]
+  [[ "$output" == *"^[[1;93mj/k^[[0m"* ]]
+}
+
+@test "a 256-colour TERM gets the 256-colour palette" {
+  seed
+  export TERM=xterm-256color
+  run tui "q"
+  [ "$status" -eq 0 ]
+  run cat -v "$SCREEN"
+  [[ "$output" == *"48;5;"* ]]
+  [[ "$output" == *"38;5;"* ]]
+}
+
+@test "each pane gets a rounded border with its title in it" {
+  seed
+  run wide "q"
+  [ "$status" -eq 0 ]
+  run last_frame
+  [[ "$output" == *"╭─"*"tasks"*"╮"* ]]
+  [[ "$output" == *"╭─"*"detail"*"╮"* ]]
+  [ "$(last_frame | grep -o '╰' | wc -l)" -eq 2 ]
+  [ "$(last_frame | grep -o '╯' | wc -l)" -eq 2 ]
+}
+
+@test "a NO_COLOR frame still marks selection, bars and epic headers" {
+  bl epic-add ui-polish <<<"ctx"
+  bl add feat "loose one" <<<"body" >/dev/null
+  bl add feat "nested one" <<<"body" >/dev/null
+  bl epic-move nested-one ui-polish >/dev/null
+  export NO_COLOR=1
+  run tui "q"
+  [ "$status" -eq 0 ]
+  run cat -v "$SCREEN"
+  [[ "$output" != *"38;5;"* ]]
+  [[ "$output" != *"48;5;"* ]]
+  [[ "$output" != *"^[[3"[0-9]"m"* ]]
+  [[ "$output" != *"^[[4"[0-9]"m"* ]]
+  # Selection is bold reverse, the bars reverse, the epic header bold.
+  output="$(last_frame | cat -v | grep 'loose one')"
+  [[ "$output" == *"^[[1;7m"* ]]
+  output="$(last_frame | cat -v | grep 'radin backlog')"
+  [[ "$output" == *"^[[7m"* ]]
+  output="$(last_frame | cat -v | grep 'epic: ui-polish')"
+  [[ "$output" == *"^[[1m"* ]]
 }
 
 @test "D marks two candidates and writes both dependencies" {
@@ -746,7 +822,7 @@ planned_body() {
   planned_body dark-mode dark-mode "plan step one"
   run tui "\r|l|q|q"
   [ "$status" -eq 0 ]
-  run cat "$SCREEN"
+  output="$(plain <"$SCREEN")"
   [[ "$output" == *"plan step one"* ]]
   [[ "$output" == *"q/esc close"* ]]
 }
@@ -769,7 +845,7 @@ planned_body() {
   md_body
   run wide "q"
   [ "$status" -eq 0 ]
-  run last_frame
+  output="$(last_frame | plain)"
   [[ "$output" == *"Heading"* ]]
   [[ "$output" == *"quoted"* ]]
   [[ "$output" == *"item"* ]]
@@ -895,7 +971,7 @@ planned_body() {
   md_body
   run tui "\r|q|q"
   [ "$status" -eq 0 ]
-  run cat "$SCREEN"
+  output="$(plain <"$SCREEN")"
   [[ "$output" == *"q/esc close"* ]]
   [[ "$output" == *"quoted"* ]]
   run last_frame
