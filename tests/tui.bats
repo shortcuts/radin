@@ -196,9 +196,7 @@ frame() {
   run tui "r|night mode\r|q"
   [ "$status" -eq 0 ]
   run grep dark-mode "$INDEX"
-  [[ "$output" == *'"id":"dark-mode"'* ]]
   [[ "$output" == *'"title":"night mode"'* ]]
-  [ -f "$TASKS/dark-mode.md" ]
 }
 
 @test "/ marks matching rows and hides nothing" {

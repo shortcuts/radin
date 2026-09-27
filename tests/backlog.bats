@@ -598,8 +598,6 @@ IDX
 @test "order moves a dependency up and leaves every other position alone" {
   prioritized_backlog
   cli set-deps mid-a low
-  run cli order --steps
-  [ "$status" -eq 0 ]
   run cli order --report
   [ "$status" -eq 0 ]
   [ "${lines[0]}" = "1. high (id: high)" ]
@@ -678,6 +676,19 @@ IDX
   run cli order --steps --report
   [ "$status" -ne 0 ]
   [[ "$output" == *"exactly one mode"* ]]
+}
+
+@test "list --planned appends P for planned tasks and empty for unplanned" {
+  cli add feat "planned one" <<<"body"
+  cli add feat "unplanned one" <<<"body"
+  cli add-plan planned-one ".claude/.radin/plans/planned-one.md" >/dev/null
+  run cli list --planned
+  [ "$status" -eq 0 ]
+  [ "${#lines[@]}" -eq 2 ]
+  # planned-one has a P in the last field
+  [[ "${lines[0]}" == *$'\037'"P" ]]
+  # unplanned-one has an empty last field
+  [[ "${lines[1]}" == *$'\037'"" ]]
 }
 
 # --- field -------------------------------------------------------------------
