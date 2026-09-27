@@ -58,10 +58,23 @@ bl() {
   (cd "$WORK/proj" && bash "$BACKLOG" "$@")
 }
 
-# Everything the TUI drew after its last screen clear, so an assertion about
-# what a keypress removed is not satisfied by an earlier frame.
+# The screen as the TUI left it, one line per row, so an assertion about what
+# a keypress removed is not satisfied by an earlier frame. A frame repaints
+# only the rows that changed, each opened by `ESC[<row>;1H ESC[K`, so the
+# screen is the latest text drawn per row since the last clear.
 last_frame() {
-  awk 'BEGIN{RS="\033[[]H\033[[]2J"}{f=$0}END{print f}' "$SCREEN"
+  awk 'BEGIN{RS="\001"} {
+    s = $0; r = 0; max = 0
+    while (match(s, /\033[[]([0-9]+;1H\033[[]K|H\033[[]2J)/)) {
+      row[r] = row[r] substr(s, 1, RSTART - 1)
+      m = substr(s, RSTART + 2, RLENGTH - 2)
+      s = substr(s, RSTART + RLENGTH)
+      if (m ~ /2J$/) { for (k in row) delete row[k]; r = 0; max = 0 }
+      else { r = m + 0; row[r] = ""; if (r > max) max = r }
+    }
+    row[r] = row[r] s
+    for (k = 0; k <= max; k++) print row[k]
+  }' "$SCREEN"
 }
 
 # The last frame's [sel/total] header, so a wrap back to row 1 is not
@@ -97,6 +110,30 @@ tui() {
   [ "$status" -eq 0 ]
   run cat "$SCREEN"
   [[ "$output" == *"no tasks"* ]]
+}
+
+# The Nth synchronized-output frame (DEC mode 2026) the TUI drew, 1-based.
+frame() {
+  awk -v n="$1" 'BEGIN{RS="\033[[][?]2026h"} NR==n+1{sub(/\033[[][?]2026l.*/, ""); print}' "$SCREEN"
+}
+
+@test "a steady-state frame is one synchronized update with no screen clear" {
+  seed
+  run tui "|j|q"
+  [ "$status" -eq 0 ]
+  run frame 1
+  [[ "$output" == *$'\033[2J'* ]]
+  run frame 2
+  [ -n "$output" ]
+  [[ "$output" != *$'\033[2J'* ]]
+}
+
+@test "j rewrites only the rows that changed" {
+  seed
+  run tui "|j|q"
+  [ "$status" -eq 0 ]
+  # The header's [n/total] and the two rows the selection left and entered.
+  [ "$(frame 2 | grep -ao $'\033\\[[0-9]*;1H\033\\[K' | tr -dc '0-9;\n' | cut -d';' -f1 | tr '\n' ' ')" = "1 2 3 " ]
 }
 
 @test "e opens the task body in EDITOR and keeps the edit" {
@@ -218,7 +255,7 @@ tui() {
   run last_frame
   [[ "$output" =~ planned[[:space:]]+yes ]]
   # And the list row carries no planned marker of its own.
-  run bash -c "grep 'dark mode' '$SCREEN' | head -1"
+  output="$(last_frame | grep 'dark mode' | head -1)"
   [[ "$output" != *"P"* ]]
 }
 
@@ -233,11 +270,11 @@ tui() {
   bl add feat "loose task" <<<"body" >/dev/null
   run tui "q"
   [ "$status" -eq 0 ]
-  run bash -c "grep -c '├── ' '$SCREEN'"
+  output="$(last_frame | grep -c '├── ')"
   [ "$output" = "2" ]
-  run bash -c "grep -c '└── ' '$SCREEN'"
+  output="$(last_frame | grep -c '└── ')"
   [ "$output" = "1" ]
-  run bash -c "grep 'loose task' '$SCREEN'"
+  output="$(last_frame | grep 'loose task')"
   [[ "$output" != *"├"* ]]
   [[ "$output" != *"└"* ]]
   run cat "$SCREEN"
@@ -483,7 +520,7 @@ row_titles() {
   [[ "$output" == *"^[[32m3 ^[[0m"* ]]
   # Only the cell is painted: one red escape on the frame, and the title that
   # follows the reset is not inside it.
-  run bash -c "cat -v '$SCREEN' | grep -c '\\^\\[\\[31m'"
+  output="$(last_frame | cat -v | grep -o '\^\[\[31m' | wc -l)"
   [ "$output" -eq 1 ]
 }
 
@@ -493,8 +530,7 @@ row_titles() {
   bl add feat "no prio" <<<"none body" >/dev/null
   run tui "q"
   [ "$status" -eq 0 ]
-  run bash -c "cat -v '$SCREEN' | grep 'no prio'"
-  [ "$status" -eq 0 ]
+  output="$(last_frame | cat -v | grep 'no prio')"
   [[ "$output" != *"^[["* ]]
 }
 
@@ -509,8 +545,7 @@ row_titles() {
   grep -q '"priority":70' "$INDEX"
   run tui "q"
   [ "$status" -eq 0 ]
-  run bash -c "cat -v '$SCREEN' | grep 'legacy one'"
-  [ "$status" -eq 0 ]
+  output="$(last_frame | cat -v | grep 'legacy one')"
   [[ "$output" == *"70"* ]]
   [[ "$output" != *"^[[31m"* ]]
 }
@@ -526,8 +561,7 @@ row_titles() {
   [ "$status" -eq 0 ]
   run cat -v "$SCREEN"
   [[ "$output" == *"^[[31m21^[[0m"* ]]
-  run bash -c "cat -v '$SCREEN' | grep 'epic: ui-polish'"
-  [ "$status" -eq 0 ]
+  output="$(last_frame | cat -v | grep 'epic: ui-polish')"
   # Cyan is the structural colour, so a header can never read as a priority.
   [[ "$output" == *"^[[36m"* ]]
   [[ "$output" != *"^[[31m"* ]]

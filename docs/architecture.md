@@ -408,6 +408,12 @@ Three rules keep it from becoming a second backlog implementation:
 - **Raw ANSI only — no ncurses, `tput`, `dialog`, `gum` or `fzf`.** Zero
   dependencies is the same promise as the rest of radin: `termios` for raw mode,
   `TIOCGWINSZ` for the terminal size, `\033[` escapes to draw.
+- **A frame is diffed by row, then sent in one `write()`.** Every draw builds
+  its rows in memory and sends only the rows that differ from the frame on
+  screen, each positioned and cleared with `\033[K`, wrapped in DEC mode 2026
+  (synchronized output). `\033[2J` and a full repaint happen only on the first
+  frame, after a resize, and after a prompt, the help screen or
+  `$EDITOR`/`$PAGER` drew outside the frame buffer.
 - **C, not bash — one of the two compiled files radin ships** (`lib/radin-cbm-json.c`, the JSON surgery behind `radin repair` and `radin hooks mcp`, is the other). A bash frame cost a fork
   per row and ~150ms per keypress-to-frame, and the TUI's 43 pty tests were a
   third of the suite's runtime. `install.sh` builds it with `cc` (Command Line

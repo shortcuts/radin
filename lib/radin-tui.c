@@ -41,6 +41,7 @@
 #define RULE '\001'   /* a detail line drawn as a full-width horizontal rule */
 #define ROW_MAX_LINES 3 /* wrapped lines one task row may take */
 #define LINEBUF 4096  /* one row's bytes: multi-byte content plus its padding */
+#define MAXFR 512     /* screen rows a frame holds; a taller terminal draws this many */
 
 static const char *CATEGORIES[] = {"feat", "fix", "chore", "refactor"};
 #define NCAT 4
@@ -96,6 +97,7 @@ static char DETAIL_FILE[PATH_MAX];
 static struct termios TIO_SAVE;
 static int TIO_SAVED;
 static int PENDING = -1;
+static int FULL = 1; /* the next frame repaints every row, not just the changed ones */
 /* The active sort, k9s style: the Shift-<column initial> that set it.
  * 'A' is creation order and the default every start returns to -- a mutation
  * cannot reorder an index-ordered list, so no row moves under the cursor.
@@ -214,6 +216,7 @@ static void term_size(void) {
 	if (ROWS < 10) ROWS = 10;
 	if (COLS < 40) COLS = 40;
 	if (COLS > 1024) COLS = 1024;
+	if (ROWS > MAXFR) ROWS = MAXFR;
 }
 
 static void raw_on(void) {
@@ -230,6 +233,7 @@ static void raw_on(void) {
 	}
 	printf("\033[?1049h\033[?25l");
 	fflush(stdout);
+	FULL = 1; /* a fresh alternate screen, or one $EDITOR/$PAGER drew over */
 }
 
 static void raw_off(void) {
@@ -247,6 +251,103 @@ static void on_signal(int s) {
 	(void)s;
 	cleanup();
 	_exit(130);
+}
+
+/* ---------- frame ---------- */
+
+/* A frame is drawn into rows in memory, then diffed against the frame on
+ * screen: only a changed row is sent, each positioned and cleared, and the
+ * whole update goes out in one write() inside DEC mode 2026, so the terminal
+ * never shows a cleared or half-drawn screen. A row keeps any absolute
+ * positioning drawn into it (the split pane's detail and gutter), so its bytes
+ * replay the same whatever order the frame drew them in. */
+struct frow {
+	char *s;
+	size_t n, cap;
+};
+static struct frow FRA[MAXFR + 1], FRB[MAXFR + 1];
+static struct frow *CUR = FRA, *PREV = FRB;
+static int FR_ROW, FR_ROWS, FR_COLS;
+static char *FROUT;
+static size_t FROUT_N, FROUT_CAP;
+
+static void grow(char **s, size_t *cap, size_t need) {
+	if (need <= *cap) return;
+	*cap = need * 2;
+	*s = realloc(*s, *cap);
+	if (!*s) die("out of memory");
+}
+
+static void add(struct frow *r, const char *p, size_t n) {
+	grow(&r->s, &r->cap, r->n + n);
+	memcpy(r->s + r->n, p, n);
+	r->n += n;
+}
+
+/* printf into the frame: a newline moves to the next row. */
+static void out(const char *fmt, ...) {
+	char tmp[LINEBUF * 2];
+	va_list ap;
+	va_start(ap, fmt);
+	vsnprintf(tmp, sizeof tmp, fmt, ap);
+	va_end(ap);
+	for (char *p = tmp;;) {
+		char *nl = strchr(p, '\n');
+		add(&CUR[FR_ROW], p, nl ? (size_t)(nl - p) : strlen(p));
+		if (!nl) return;
+		if (FR_ROW < MAXFR) FR_ROW++;
+		p = nl + 1;
+	}
+}
+
+static void pos(int r, int c) {
+	FR_ROW = r < 1 ? 1 : r > MAXFR ? MAXFR : r;
+	out("\033[%d;%dH", r, c);
+}
+
+static void frame_begin(void) {
+	for (int r = 0; r <= MAXFR; r++) CUR[r].n = 0;
+	FR_ROW = 1;
+}
+
+static void emit(const char *fmt, ...) {
+	char tmp[64];
+	va_list ap;
+	va_start(ap, fmt);
+	int n = vsnprintf(tmp, sizeof tmp, fmt, ap);
+	va_end(ap);
+	grow(&FROUT, &FROUT_CAP, FROUT_N + n);
+	memcpy(FROUT + FROUT_N, tmp, n);
+	FROUT_N += n;
+}
+
+static void frame_end(void) {
+	if (ROWS != FR_ROWS || COLS != FR_COLS) FULL = 1;
+	FR_ROWS = ROWS;
+	FR_COLS = COLS;
+	FROUT_N = 0;
+	emit("\033[?2026h");
+	if (FULL) emit("\033[H\033[2J");
+	for (int r = 1; r <= ROWS; r++) {
+		struct frow *c = &CUR[r], *p = &PREV[r];
+		if (!FULL && c->n == p->n && !memcmp(c->s, p->s, c->n)) continue;
+		emit("\033[%d;1H\033[K", r);
+		grow(&FROUT, &FROUT_CAP, FROUT_N + c->n);
+		if (c->n) memcpy(FROUT + FROUT_N, c->s, c->n);
+		FROUT_N += c->n;
+	}
+	emit("\033[?2026l");
+	FULL = 0;
+	fflush(stdout);
+	for (size_t o = 0; o < FROUT_N;) {
+		ssize_t w = write(1, FROUT + o, FROUT_N - o);
+		if (w < 0 && errno == EINTR) continue;
+		if (w <= 0) break;
+		o += (size_t)w;
+	}
+	struct frow *t = CUR;
+	CUR = PREV;
+	PREV = t;
 }
 
 /* Display width of one codepoint, for fit() below. Not wcwidth(): that
@@ -373,15 +474,15 @@ static void span_at(const char *text, int selected, const char *colour, int at, 
 	int width, int nl) {
 	char buf[LINEBUF];
 	fit(text, width, buf, sizeof buf);
-	if (selected) printf("\033[7m");
+	if (selected) out("\033[7m");
 	if (colour && *colour && at + len <= (int)strlen(buf)) {
-		printf("%.*s%s%.*s\033[0m", at, buf, colour, len, buf + at);
-		if (selected) printf("\033[7m");
-		printf("%s", buf + at + len);
+		out("%.*s%s%.*s\033[0m", at, buf, colour, len, buf + at);
+		if (selected) out("\033[7m");
+		out("%s", buf + at + len);
 	} else
-		printf("%s", buf);
-	if (selected) printf("\033[0m");
-	if (nl) printf("\n");
+		out("%s", buf);
+	if (selected) out("\033[0m");
+	if (nl) out("\n");
 }
 
 /* The full-width wrappers every list outside the split still draws through. */
@@ -393,13 +494,13 @@ static void row(const char *text, int selected) { row_span(text, selected, "", 0
 
 static void bar(const char *text, int at_row) {
 	char buf[LINEBUF];
-	if (at_row) printf("\033[%d;1H", at_row);
+	if (at_row) pos(at_row, 1);
 	fit(text, COLS, buf, sizeof buf);
 	/* Reverse video, not bold: a bar has to read as chrome against the rows,
 	 * and reverse is the same structural (never colour) cue the selected row
 	 * uses, so NO_COLOR keeps it. */
-	printf("\033[7m%s\033[0m", buf);
-	if (!at_row) printf("\n");
+	out("\033[7m%s\033[0m", buf);
+	if (!at_row) out("\n");
 }
 
 /* ---------- model ---------- */
@@ -957,14 +1058,14 @@ static void draw_detail(int top_row, int at_col, int width, int h) {
 	for (int i = 0; i < h; i++) {
 		int in_buf = DET_TOP + i < DET_N;
 		const char *src = in_buf ? DET[DET_TOP + i] : "";
-		if (at_col) printf("\033[%d;%dH", top_row + i, at_col);
+		if (at_col) pos(top_row + i, at_col);
 		/* RULE is the one line md_line cannot render: it needs the pane width,
 		 * which only this function knows. */
 		if (src[0] == RULE) {
-			if (COLOR) printf("\033[2m");
-			for (int c = 0; c < width; c++) printf("\342\224\200");
-			if (COLOR) printf("\033[0m");
-			if (!at_col) printf("\n");
+			if (COLOR) out("\033[2m");
+			for (int c = 0; c < width; c++) out("\342\224\200");
+			if (COLOR) out("\033[0m");
+			if (!at_col) out("\n");
 			continue;
 		}
 		if (in_buf && DET_TOP + i == DET_MARK) {
@@ -999,7 +1100,7 @@ static void draw(void) {
 		snprintf(header + strlen(header), sizeof header - strlen(header), "  [%d/%d]",
 			SEL + 1, N);
 
-	printf("\033[H\033[2J");
+	frame_begin();
 	bar(header, 0);
 	int used = 0;
 	if (N == 0) {
@@ -1065,9 +1166,9 @@ static void draw(void) {
 		/* The gutter column, drawn last so neither pane's padding overwrites
 		 * it: the panes need a border, not just whitespace, to read as two. */
 		for (int r = 2; r < ROWS; r++) {
-			printf("\033[%d;%dH", r, lw + 1);
-			if (COLOR) printf("\033[2m\342\224\202\033[0m");
-			else printf("\342\224\202");
+			pos(r, lw + 1);
+			if (COLOR) out("\033[2m\342\224\202\033[0m");
+			else out("\342\224\202");
 		}
 	}
 
@@ -1077,7 +1178,7 @@ static void draw(void) {
 	bar(*MSG ? MSG : "j/k move  enter open  e edit  v detail  / search  a new  "
 					 "Tab done  ? keys  q quit",
 		ROWS);
-	fflush(stdout);
+	frame_end();
 }
 
 static void load_done(void) {
@@ -1114,7 +1215,7 @@ static void draw_done(void) {
 	DONE_TOP = clamp_top(DONE_SEL, DONE_TOP, list_h);
 	char header[1200];
 	snprintf(header, sizeof header, "radin done  %d completed", DONE_N);
-	printf("\033[H\033[2J");
+	frame_begin();
 	bar(header, 0);
 	int end = DONE_TOP + list_h, i;
 	if (end > DONE_N) end = DONE_N;
@@ -1127,7 +1228,7 @@ static void draw_done(void) {
 	}
 	for (; i < list_h; i++) row("", 0);
 	bar(*MSG ? MSG : "j/k move  Tab back  R reload  q quit  (read-only)", ROWS);
-	fflush(stdout);
+	frame_end();
 }
 
 /* ---------- input ---------- */
@@ -1270,6 +1371,7 @@ static void prompt(const char *label, char *out, size_t cap) {
 	if (changed) tcsetattr(0, TCSANOW, &t);
 	printf("\033[?25l");
 	fflush(stdout);
+	FULL = 1; /* the typed line sits on the footer row, outside any frame */
 }
 
 static int confirm(const char *question) {
@@ -1319,7 +1421,7 @@ static void pick_draw(int multi, const char *title, int sel, int *ptop) {
 	int list_h = ROWS - 2;
 	if (list_h < 1) list_h = 1;
 	*ptop = clamp_top(sel, *ptop, list_h);
-	printf("\033[H\033[2J");
+	frame_begin();
 	bar(title, 0);
 	int end = *ptop + list_h, i;
 	if (end > PN) end = PN;
@@ -1333,7 +1435,7 @@ static void pick_draw(int multi, const char *title, int sel, int *ptop) {
 	}
 	for (i = end - *ptop; i < list_h; i++) row("", 0);
 	bar(multi ? "space mark  enter confirm  q cancel" : "enter select  q cancel", ROWS);
-	fflush(stdout);
+	frame_end();
 }
 
 /* One chooser for every key that needs one. Returns 0 when the user cancels or
@@ -1414,6 +1516,7 @@ static const char *pick_category(void) {
 		   "(any other key cancels)\033[0m",
 		ROWS);
 	fflush(stdout);
+	FULL = 1;
 	switch (readkey()) {
 	case 'f': return "feat";
 	case 'x': return "fix";
@@ -1768,11 +1871,11 @@ static void detail_overlay(void) {
 		DET_H = h;
 		if (DET_TOP > DET_N - h) DET_TOP = DET_N - h;
 		if (DET_TOP < 0) DET_TOP = 0;
-		printf("\033[H\033[2J");
+		frame_begin();
 		bar("detail", 0);
 		draw_detail(2, 0, COLS, h);
 		bar("^d/^u scroll  q/esc close", ROWS);
-		fflush(stdout);
+		frame_end();
 		int k = readkey();
 		if (k < 0 || k == 'q' || k > 1000) return; /* EOF, q, bare ESC */
 		if (k == 4 || k == 21) DET_TOP += (k == 4 ? 1 : -1) * (h / 2 > 0 ? h / 2 : 1);
@@ -1835,6 +1938,7 @@ static void help_screen(void) {
 		"Tasks live in .claude/.radin/backlog/ in this repo.\n\n"
 		"press any key\n");
 	fflush(stdout);
+	FULL = 1;
 	readkey();
 }
 
