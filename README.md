@@ -45,8 +45,8 @@ one naming the package manager for companion tools. Add `-s -- --yes` to take th
 trace every command, for an install that hangs or fails.
 
 Update radin itself with `radin update`. It asks the sub-agent model question
-again and runs no companion installer. Re-run `install.sh` to update the
-companions too.
+again, reapplies every companion's configuration, and installs only the
+companions that are missing. Re-run `install.sh` to update the companions too.
 
 ## Use it
 

@@ -166,7 +166,7 @@ radin ships no agent for this. `claude agents` (agent view) dispatches full Clau
 `install.sh` has two paths:
 
 - plain run (`make install`): every step, and every companion tool takes its install or upgrade path, installed or not.
-- `--update` (`make update`, `radin update`): radin's own steps only. It asks the sub-agent model question again and skips the whole "Companion tools" step, so no companion installer runs. The package-manager answer and `cbm_agent_config` only come from that step, so `install.sh` reads them back from its previous `manifest.json` (`manifest_value`, a `sed` lookup — no JSON parser).
+- `--update` (`make update`, `radin update`): every step, but a companion already installed is not reinstalled. Its configuration still runs: the thermo-nuclear frontmatter strip, `auto_index`, and the `codebase-memory-mcp` wiring into `settings.json`. A missing companion still installs. It asks the sub-agent model question again. The package-manager answer comes back from the previous `manifest.json` (`manifest_value`, a `sed` lookup — no JSON parser), and the question runs only when that key is missing.
 
 Non-destructive by construction: the installer only `cp`s radin's own files, plugins go through `claude plugin update`, brew/pipx installs re-run as upgrades, and the `radin-cbm-config.sh install` step re-brackets upstream's `settings.json` write with a fresh snapshot.
 

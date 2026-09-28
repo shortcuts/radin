@@ -422,14 +422,25 @@ pick_with_keys() {
 # branch. The failure still has to reach the user, and the per-item trace plus
 # upstream's own per-client inventory still has to stay off the terminal.
 
-# `radin update` runs install.sh --update: radin's own steps and questions
-# only. No companion installer runs, and the package-manager answer, which
-# only companions use, comes from the manifest the previous install wrote.
-@test "--update asks the questions again and installs no companion tool" {
+# `radin update` runs install.sh --update: every step and question, except
+# that a companion already installed is not reinstalled. Its configuration
+# (thermo-nuclear's frontmatter, codebase-memory-mcp's settings.json wiring)
+# still runs, and a missing companion still installs. The package-manager
+# answer comes from the manifest the previous install wrote.
+@test "--update reconfigures every companion and installs only the missing ones" {
   replay_install >/dev/null
   manifest="$TEST_HOME/.claude/.radin/manifest.json"
   grep -q '"package_manager": "brew"' "$manifest"
   rm -f "$TEST_HOME"/*.log
+  for t in rtk codebase-memory-mcp; do
+    ln "$MOCK_BIN/mock" "$MOCK_BIN/$t" 2>/dev/null || ln -s "$MOCK_BIN/mock" "$MOCK_BIN/$t"
+  done
+  mkdir -p "$TEST_HOME/.claude/skills/thermo-nuclear"
+  printf -- '---\ndisable-model-invocation: true\n---\n' >"$TEST_HOME/.claude/skills/thermo-nuclear/SKILL.md"
+  for p in caveman@caveman ponytail@ponytail mattpocock-skills@claude-plugins-official; do
+    printf '  ❯ %s\n    Scope: user\n    Status: ✔ enabled\n' "$p"
+  done >"$TEST_HOME/plugins.txt"
+  export MOCK_CLAUDE_LIST="$TEST_HOME/plugins.txt"
 
   run bash -c "printf '1\n1\n1\n' | bash ./install.sh --update"
   [ "$status" -eq 0 ]
@@ -438,9 +449,11 @@ pick_with_keys() {
   grep -q '"package_manager": "brew"' "$manifest"
   [ ! -e "$TEST_HOME/brew.log" ]
   [ ! -e "$TEST_HOME/npx.log" ]
-  [ ! -e "$TEST_HOME/pipx.log" ]
   [ ! -e "$TEST_HOME/curl.log" ]
-  [[ "$output" == *"radin updated"* ]]
+  run ! grep -q 'disable-model-invocation' "$TEST_HOME/.claude/skills/thermo-nuclear/SKILL.md"
+  grep -q 'headroom-ai' "$TEST_HOME/pipx.log"
+  grep -q 'config set auto_index true' "$TEST_HOME/codebase-memory-mcp.log"
+  grep -q '"cbm_agent_config": true' "$manifest"
   run ! grep -qE 'install|update|marketplace' "$TEST_HOME/claude.log"
 }
 

@@ -6,6 +6,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- `radin update` (`make update`) runs every install step again, including
+  the `codebase-memory-mcp` wiring into `settings.json`. It reinstalls no
+  companion that is already installed, and installs the missing ones.
 - `install.sh` asks two sub-agent model questions instead of up to seven:
   one for planning, execution, review and debug, one for fact-finding and
   chores.
