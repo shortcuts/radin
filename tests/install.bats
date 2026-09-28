@@ -131,18 +131,18 @@ run_install_defaults() {
   grep -q 'model-chore: "haiku"' "$TEST_HOME/.claude/.radin/lib/radin-prompt-execution.md"
 }
 
-# "Same model for every role?" defaults to yes: one pick sets all five tokens,
-# fact-finding's haiku default included.
-@test "one same-model pick covers every role, even when a companion reads stdin" {
+# Two picks, one per model group: the major roles take the first, fact-finding
+# and chores the second.
+@test "two picks set the major and minor roles, even when a companion reads stdin" {
   export MOCK_NPX=eat-stdin
-  cd "$REPO_ROOT" && run bash -c "printf '1\n1\n2\n' | bash ./install.sh"
+  cd "$REPO_ROOT" && run bash -c "printf '1\\n2\\n1\\n2\\n' | bash ./install.sh"
   [ "$status" -eq 0 ]
   grep -q '"model_planning": "opus"' "$TEST_HOME/.claude/.radin/manifest.json"
+  grep -q '"model_chore": "fable"' "$TEST_HOME/.claude/.radin/manifest.json"
   run ! grep -rq --exclude=radin-doctor.sh 'RADIN_MODEL_' "$TEST_HOME/.claude/skills" "$TEST_HOME/.claude/.radin/lib"
   grep -q 'model: "opus"' "$TEST_HOME/.claude/.radin/lib/radin-run.md"
-  grep -q 'model: "opus"' "$TEST_HOME/.claude/.radin/lib/radin-prompt-factfind.md"
-  ! grep -q 'model: "haiku"' "$TEST_HOME/.claude/.radin/lib/radin-prompt-factfind.md"
-  grep -q 'model-chore: "opus"' "$TEST_HOME/.claude/.radin/lib/radin-prompt-execution.md"
+  grep -q 'model: "fable"' "$TEST_HOME/.claude/.radin/lib/radin-prompt-factfind.md"
+  grep -q 'model-chore: "fable"' "$TEST_HOME/.claude/.radin/lib/radin-prompt-execution.md"
 }
 
 # install.sh, radin-doctor.sh and radin-uninstall.sh each keep their own list
@@ -433,7 +433,7 @@ pick_with_keys() {
 
   run bash -c "printf '1\n1\n1\n' | bash ./install.sh --update"
   [ "$status" -eq 0 ]
-  [[ "$output" == *"sub-agent models: plan fable"* ]]
+  [[ "$output" == *"sub-agent models: fable, fable for fact-finding and chores"* ]]
   grep -q 'fable' "$TEST_HOME/.claude/.radin/lib/radin-prompt-planning.md"
   grep -q '"package_manager": "brew"' "$manifest"
   [ ! -e "$TEST_HOME/brew.log" ]

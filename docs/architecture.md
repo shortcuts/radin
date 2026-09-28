@@ -449,11 +449,11 @@ ships with the token intact invents its own answer.
 | Written as | Resolved to |
 | --- | --- |
 | `RADIN_CLI <subcommand>` in every `skills/*/SKILL.md` and shipped `lib/*.md` | bare `radin` when the `~/.local/bin` symlink is on PATH, else `"$HOME/.claude/.radin/bin/radin"` (`set_cli`) |
-| `RADIN_MODEL_<ROLE>` — `PLANNING`, `EXECUTION`, `DEBUG`, `FACTFIND` each in its own `lib/radin-prompt-<kind>.md`, `CHORE` on the execution template's `model-chore:` line, `REVIEW` in `lib/radin-run.md` | the install-time pick (`set_role_models`). Defaults sonnet, except two roles on haiku: fact-finding, since its prompt demands the evidence and the router can reject a wrong answer; and a `chore` task's execution, since it needs no design judgement and still meets the dirty-tree check and Phase 6's review |
+| `RADIN_MODEL_<ROLE>` — `PLANNING`, `EXECUTION`, `DEBUG`, `FACTFIND` each in its own `lib/radin-prompt-<kind>.md`, `CHORE` on the execution template's `model-chore:` line, `REVIEW` in `lib/radin-run.md` | the install-time pick (`set_role_models`), one per group: major (planning, execution, review, debug) defaults to sonnet, minor defaults to haiku. Minor holds two roles: fact-finding, since its prompt demands the evidence and the router can reject a wrong answer; and a `chore` task's execution, since it needs no design judgement and still meets the dirty-tree check and Phase 6's review |
 | `RADIN_LIB/<doc>.md` in `skills/radin-execute/SKILL.md` | `$HOME/.claude/.radin/lib` (`set_lib`). The Read tool takes no `$HOME`, so the literal would leave the model expanding it before every on-demand doc read |
 
-A new sub-agent role needs a token, a `MODEL_<ROLE>` default, a picker, and a `-e`
-clause in `set_role_models`.
+A new sub-agent role needs a token and a `-e` clause in `set_role_models` that maps
+it to `MODEL_MAJOR` or `MODEL_MINOR`.
 
 Execution concurrency is no install-time answer. `radin-execute` derives it
 from Phase 0.5's worktree answer: parallel agents are safe only in separate

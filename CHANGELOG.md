@@ -6,6 +6,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- `install.sh` asks two sub-agent model questions instead of up to seven:
+  one for planning, execution, review and debug, one for fact-finding and
+  chores.
 - `install.sh` installs the latest release of every companion. rtk through
   brew lets brew refresh its formula index first, and thermo-nuclear runs
   `skills@latest` instead of whatever `skills` CLI npx had cached.

@@ -443,30 +443,26 @@ install_plugin_files() {
 }
 
 # Every sub-agent role ships a distinct RADIN_MODEL_<ROLE> token instead of a
-# model name, so no model is forced and each role is set independently below.
-MODEL_PLANNING="sonnet"
-MODEL_EXECUTION="sonnet"
-MODEL_REVIEW="sonnet"
-MODEL_DEBUG="sonnet"
+# model name, so no model is forced. Roles share a model by group: major for
+# planning, execution, review and debug; minor for fact-finding and chores.
+MODEL_MAJOR="sonnet"
 # Fact-finding retrieves a checkable fact and its prompt requires the evidence
-# that establishes it, so the cheapest tier is the default: the router reads
-# that evidence and can reject a wrong answer.
-MODEL_FACTFIND="haiku"
-# A chore (cleanup, rename, docs) needs no design judgement, and a wrong one
-# still meets the dirty-tree check and Phase 6's review.
-MODEL_CHORE="haiku"
+# that establishes it, so the router can reject a wrong answer. A chore
+# (cleanup, rename, docs) needs no design judgement, and a wrong one still
+# meets the dirty-tree check and Phase 6's review. Both take the cheapest tier.
+MODEL_MINOR="haiku"
 
 set_role_models() {
 	# No `sed -i`: BSD sed (macOS) and GNU sed (Linux) take incompatible forms
 	# of it. Temp-file-plus-mv avoids the divergence entirely.
 	local file="$1" tmp
 	tmp="$(mktemp)"
-	sed -e "s/RADIN_MODEL_PLANNING/${MODEL_PLANNING}/g" \
-		-e "s/RADIN_MODEL_EXECUTION/${MODEL_EXECUTION}/g" \
-		-e "s/RADIN_MODEL_REVIEW/${MODEL_REVIEW}/g" \
-		-e "s/RADIN_MODEL_DEBUG/${MODEL_DEBUG}/g" \
-		-e "s/RADIN_MODEL_FACTFIND/${MODEL_FACTFIND}/g" \
-		-e "s/RADIN_MODEL_CHORE/${MODEL_CHORE}/g" \
+	sed -e "s/RADIN_MODEL_PLANNING/${MODEL_MAJOR}/g" \
+		-e "s/RADIN_MODEL_EXECUTION/${MODEL_MAJOR}/g" \
+		-e "s/RADIN_MODEL_REVIEW/${MODEL_MAJOR}/g" \
+		-e "s/RADIN_MODEL_DEBUG/${MODEL_MAJOR}/g" \
+		-e "s/RADIN_MODEL_FACTFIND/${MODEL_MINOR}/g" \
+		-e "s/RADIN_MODEL_CHORE/${MODEL_MINOR}/g" \
 		"$file" >"$tmp" && mv "$tmp" "$file"
 	# A surviving token reaches the model as a literal model name and every
 	# dispatch fails -- louder to stop here than to debug that.
@@ -510,37 +506,18 @@ set_lib() {
 
 step "Sub-agent models"
 # radin-execute is a skill running in the user's own thread, so its own model
-# is whatever they picked with /model. Only its leaf sub-agents get a choice,
-# and each role gets its own: they don't cost the same work.
+# is whatever they picked with /model. Only its leaf sub-agents get a choice.
+# The Agent tool takes a family alias, never a version: Claude Code resolves
+# it to that family's current model.
 MODELS="fable opus sonnet haiku"
 SONNET_INDEX=3
 HAIKU_INDEX=4
 if prompt_yn "Choose radin-execute's sub-agent models? (defaults: sonnet, haiku for fact-finding and chores)"; then
-	# One pick covers the common case; the per-role walk is 6 pickers deep.
-	if [ "$(prompt_pick "Same model for every role? (default: yes)" 1 "yes" "no")" = "yes" ]; then
-		# shellcheck disable=SC2086  # word splitting is the point -- one arg per model
-		MODEL_ALL="$(prompt_pick "model for every sub-agent role" "$SONNET_INDEX" $MODELS)"
-		MODEL_PLANNING="$MODEL_ALL"
-		MODEL_EXECUTION="$MODEL_ALL"
-		MODEL_REVIEW="$MODEL_ALL"
-		MODEL_DEBUG="$MODEL_ALL"
-		MODEL_FACTFIND="$MODEL_ALL"
-		MODEL_CHORE="$MODEL_ALL"
-	else
-		# shellcheck disable=SC2086
-		MODEL_PLANNING="$(prompt_pick "planning sub-agent (writes the plan for one task)" "$SONNET_INDEX" $MODELS)"
-		# shellcheck disable=SC2086
-		MODEL_EXECUTION="$(prompt_pick "execution sub-agent (implements and commits one task)" "$SONNET_INDEX" $MODELS)"
-		# shellcheck disable=SC2086
-		MODEL_REVIEW="$(prompt_pick "review sub-agent (reviews the session's commits)" "$SONNET_INDEX" $MODELS)"
-		# shellcheck disable=SC2086
-		MODEL_DEBUG="$(prompt_pick "debug sub-agent (diagnoses one failed task)" "$SONNET_INDEX" $MODELS)"
-		# shellcheck disable=SC2086
-		MODEL_FACTFIND="$(prompt_pick "fact-finding sub-agent (answers one checkable question)" "$HAIKU_INDEX" $MODELS)"
-		# shellcheck disable=SC2086
-		MODEL_CHORE="$(prompt_pick "chore sub-agent (implements and commits one chore task)" "$HAIKU_INDEX" $MODELS)"
-	fi
-	ok "sub-agent models: plan $MODEL_PLANNING, exec $MODEL_EXECUTION, review $MODEL_REVIEW, debug $MODEL_DEBUG, facts $MODEL_FACTFIND, chore $MODEL_CHORE"
+	# shellcheck disable=SC2086  # word splitting is the point -- one arg per model
+	MODEL_MAJOR="$(prompt_pick "planning, execution, review and debug sub-agents" "$SONNET_INDEX" $MODELS)"
+	# shellcheck disable=SC2086
+	MODEL_MINOR="$(prompt_pick "fact-finding and chore sub-agents" "$HAIKU_INDEX" $MODELS)"
+	ok "sub-agent models: $MODEL_MAJOR, $MODEL_MINOR for fact-finding and chores"
 else
 	ok "keeping default sub-agent models (sonnet; haiku for fact-finding and chores)"
 fi
@@ -861,12 +838,12 @@ cat >"$MANIFEST_FILE" <<EOF
   "installed_at": "$INSTALLED_AT",
   "package_manager": "$PKG_MGR",
   "install_root": "$RADIN_ROOT",
-  "model_planning": "$MODEL_PLANNING",
-  "model_execution": "$MODEL_EXECUTION",
-  "model_review": "$MODEL_REVIEW",
-  "model_debug": "$MODEL_DEBUG",
-  "model_factfind": "$MODEL_FACTFIND",
-  "model_chore": "$MODEL_CHORE",
+  "model_planning": "$MODEL_MAJOR",
+  "model_execution": "$MODEL_MAJOR",
+  "model_review": "$MODEL_MAJOR",
+  "model_debug": "$MODEL_MAJOR",
+  "model_factfind": "$MODEL_MINOR",
+  "model_chore": "$MODEL_MINOR",
   "claude_md_guidance": $CLAUDE_MD_GUIDANCE,
   "cbm_agent_config": $CBM_AGENT_CONFIG,
   "cli_on_path": $CLI_ON_PATH,
