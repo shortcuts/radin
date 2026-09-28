@@ -176,7 +176,7 @@ Non-destructive by construction: the installer only `cp`s radin's own files, plu
 
 `install.sh` installs the binary with **`--skip-config`**, sets `auto_index true`, then runs `radin-cbm-config.sh install`, which is upstream's own `codebase-memory-mcp install -y`: its skill, three tiered graph agents (Scout/Verify/Auditor), the user-scope MCP entry in `~/.claude.json`, and the `SessionStart`/`SubagentStart`/`PreToolUse` hooks that route Grep/Glob toward the graph. User-scope MCP is why no per-project step is needed afterwards, and `--skip-config` on the binary install only defers that write so radin can bracket it.
 
-`lib/radin-cbm-config.sh` is the bracket. Upstream [#1200](https://github.com/DeusData/codebase-memory-mcp/issues/1200) — open, maintainer-confirmed, unfixed through v0.10.8 — replaces the whole `SessionStart` array in `~/.claude/settings.json` rather than merging into it, dropping any hook another tool owns. So the script:
+`lib/radin-cbm-config.sh` is the bracket. Upstream [#1200](https://github.com/DeusData/codebase-memory-mcp/issues/1200) — open, maintainer-confirmed, unfixed through v0.11.0 — replaces the whole `SessionStart` array in `~/.claude/settings.json` rather than merging into it, dropping any hook another tool owns. So the script:
 
 1. copies `settings.json` and `~/.claude.json` into `~/.claude/.radin/backups/<name>.<timestamp>.bak` (copies only; radin never deletes one),
 2. runs `codebase-memory-mcp install -y`,
@@ -203,9 +203,11 @@ server and not its verbs — the companion's own skill and its hooks route
 Grep/Glob toward the graph wherever it is installed — and each carries the same
 pointer clause: a graph hit is a pointer, read the file before you cite or edit
 it, never conclude something is absent from an empty result.
-`lib/radin-cbm-hooks.sh` names `index_repository`, `list_projects`,
-`search_graph`, `search_code`, `trace_path`, `detect_changes`, `query_graph`,
-`get_graph_schema`, `get_code_snippet` and `get_architecture`.
+`lib/radin-cbm-hooks.sh` names `index_repository`, `index_status`,
+`list_projects`, `check_index_coverage`, `search_graph` (and its
+`semantic_query` parameter), `search_code`, `get_file_outline`, `trace_path`,
+`detect_changes`, `query_graph`, `get_graph_schema`, `get_code_snippet` and
+`get_architecture`.
 
 ## Install manifest
 

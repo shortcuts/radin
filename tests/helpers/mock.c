@@ -81,6 +81,11 @@ int main(int argc, char **argv) {
 	if (in_env_list("MOCK_FAIL", me)) return 1;
 
 	if (named("brew")) {
+		/* A stale formula index installs a stale version: record the opt-out. */
+		if (getenv("HOMEBREW_NO_AUTO_UPDATE")) {
+			char *a[] = {argv[0], "no-auto-update"};
+			log_call(2, a);
+		}
 		if (argc > 2 && !strcmp(argv[1], "install") && !strcmp(argv[2], "rtk"))
 			install_tool("rtk");
 		return 0;

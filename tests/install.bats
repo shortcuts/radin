@@ -281,6 +281,8 @@ run_install_defaults() {
   [ "$(cat "$TEST_HOME/.local/bin/radin")" = "someone else's" ]
   [[ "$output" == *"isn't radin's"* ]]
   grep -q 'install rtk' "$TEST_HOME/brew.log"
+  [ -z "$(grep no-auto-update "$TEST_HOME/brew.log")" ]
+  grep -q 'skills@latest add' "$TEST_HOME/npx.log"
   [[ "$output" == *"reported a failure while configuring Claude Code"* ]]
   [[ "$output" == *"cbm-config.log"* ]]
   [[ "$output" != *"OpenCode:"* ]]

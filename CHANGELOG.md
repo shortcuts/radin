@@ -6,6 +6,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- `install.sh` installs the latest release of every companion. rtk through
+  brew lets brew refresh its formula index first, and thermo-nuclear runs
+  `skills@latest` instead of whatever `skills` CLI npx had cached.
+- `/radin-review` traces callers through `codebase-memory-mcp`, and confirms
+  with Grep before it dismisses a finding for want of a caller.
+- The fallback `codebase-memory-mcp` CLAUDE.md section names
+  `semantic_query`, `get_file_outline`, `check_index_coverage` and
+  `index_status`.
 - The TUI has a real palette: 256 colours when the terminal reports them,
   else 16. The selected row is an accent background instead of reverse
   video. Each pane sits in a rounded border with its title in it. Category

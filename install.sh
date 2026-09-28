@@ -672,11 +672,12 @@ else
 	# repo, just a SKILL.md at this subpath. Falls back to a raw curl of the file
 	# if npx isn't available.
 	if command -v npx >/dev/null 2>&1; then
+		# `skills@latest`: a bare `skills` reuses whatever CLI version npx cached.
 		NPX_LOG="$(mktemp)"
 		# </dev/null everywhere below: under `curl | bash` fd0 is the script itself,
 		# and a child that reads stdin eats the rest of it -- the install then just
 		# stops, silently, before the questions.
-		if ! npx -y skills add "https://github.com/cursor/plugins/tree/main/cursor-team-kit/skills/thermo-nuclear-code-quality-review" -g -a claude-code -y >"$NPX_LOG" 2>&1 </dev/null; then
+		if ! npx -y skills@latest add "https://github.com/cursor/plugins/tree/main/cursor-team-kit/skills/thermo-nuclear-code-quality-review" -g -a claude-code -y >"$NPX_LOG" 2>&1 </dev/null; then
 			cat "$NPX_LOG" >&2
 			rm -f "$NPX_LOG"
 			exit 1
@@ -726,7 +727,9 @@ else
 	# neither manager is asked for codebase-memory-mcp -- its own installer
 	# resolves OS/arch and verifies checksums, which radin doesn't reimplement.
 	case "$PKG_MGR" in
-	brew) RTK_INSTALL_CMD="HOMEBREW_NO_AUTO_UPDATE=1 $BREW install rtk || HOMEBREW_NO_AUTO_UPDATE=1 $BREW upgrade rtk" ;;
+	# brew refreshes its formula index before installing: with that refresh
+	# off, it installs whatever version the last `brew update` saw.
+	brew) RTK_INSTALL_CMD="$BREW install rtk || $BREW upgrade rtk" ;;
 	mise) RTK_INSTALL_CMD="$MISE use -g aqua:rtk-ai/rtk@latest" ;;
 	*) RTK_INSTALL_CMD="curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh | sh" ;;
 	esac
@@ -777,7 +780,7 @@ else
 		# The whole tool: binary, then upstream's own Claude Code configuration (its
 		# skill, three graph agents, user-scope MCP entry, and the hooks that route
 		# Grep/Glob to the graph).
-		# This step wraps that write because upstream #1200 (open through v0.10.8)
+		# This step wraps that write because upstream #1200 (open through v0.11.0)
 		# replaces the whole SessionStart array in settings.json instead of
 		# merging: it snapshots first, runs their installer, then puts back every
 		# pre-existing hook and MCP entry the write dropped. Their entries stay,

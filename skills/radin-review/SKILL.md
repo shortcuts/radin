@@ -112,6 +112,9 @@ sub-agent's `Read` is the access that paste-in-full rule exists to provide.
 > evidence: the rung it reached — `cited` (you pointed at the line), `traced`
 > (you followed a caller or data path and showed the bad case happens) or
 > `ran` (you executed it and saw it fail) — then the reasoning or output.
+> Trace callers and data paths through `codebase-memory-mcp`'s MCP tools
+> before Grep: a graph hit is a pointer, so read the file before you cite it,
+> and never conclude a caller is absent from an empty result.
 
 **Standards brief.** Invoke `/thermo-nuclear` against the scope, then every
 skill Step 1's `passes` line names. Report — per file/hunk where relevant —
@@ -150,8 +153,9 @@ in Step 3's relay, and Step 6 names it as unlogged.
 
 Then test each `cited` finding that depends on an input or a state ("what if
 this is null"): it survives only when you find a call site or data path that
-produces that input. Read the callers to settle it, and dismiss the finding
-when none does. A `traced` or `ran` finding already carries that proof.
+produces that input. Find the callers through `codebase-memory-mcp`'s MCP
+tools, read them to settle it, and dismiss the finding when none does — an
+empty graph result is not proof, so confirm with Grep before dismissing. A `traced` or `ran` finding already carries that proof.
 
 Then classify each survivor. This is a rule, not a judgment: **fix** for
 incorrect behavior — on the Spec axis, a missing, partial or wrongly

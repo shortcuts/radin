@@ -64,7 +64,7 @@ The reason is one specific defect, not a general distrust:
 [#1200](https://github.com/DeusData/codebase-memory-mcp/issues/1200) replaces
 the whole `SessionStart` array in `~/.claude/settings.json` instead of merging
 into it, silently dropping other tools' hooks — open and unfixed through
-v0.10.8, on a machine where caveman and ponytail both own entries in that
+v0.11.0, on a machine where caveman and ponytail both own entries in that
 array. The restore puts back only what was there before and is now missing, so
 it stays correct when #1200 closes: it reports `INTACT` and changes nothing.
 
@@ -108,7 +108,7 @@ covered.
   that fails open — the hook runs and does nothing. `install` moves
   `<config-dir>/hooks/cbm-*` into `~/.claude/.radin/backups/hooks.<stamp>/`
   so upstream has to write them again for this machine. Moved, never deleted.
-  Still true of v0.10.8, which writes a literal
+  Still true of v0.11.0, which writes a literal
   `BIN='/Users/<you>/.local/bin/codebase-memory-mcp'` and not `$HOME`; radin
   cannot fix those scripts in place (they are upstream's files), so the stash
   stays.
@@ -147,9 +147,8 @@ covered.
 - **`radin hooks mcp` writes a machine-specific path.** The `.mcp.json`
   entry carries the resolved binary path, so it is wrong in a shared repo on
   someone else's machine. Say so when a user asks about committing it.
-- **Only names from upstream's MCP Tools table exist.** `semantic_query` and
-  `check_index_coverage` appear in upstream prose but not in that table; they
-  are not safe to name in a prompt. `detect_changes` reads the working tree,
+- **Only names from upstream's MCP Tools table exist.** `semantic_query` is a
+  `search_graph` parameter, not a tool. `detect_changes` reads the working tree,
   not an arbitrary commit.
 - **A symlinked `~/.claude` is handled, not covered.** Upstream refuses
   writes under a symlinked config directory and exits 0 having configured

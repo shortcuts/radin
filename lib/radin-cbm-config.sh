@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Runs codebase-memory-mcp's own Claude Code configuration -- its skill, three
 # graph agents, MCP entries and lifecycle hooks -- and puts back what that
-# write drops. Upstream #1200 (open through v0.10.8) replaces the whole
+# write drops. Upstream #1200 (open through v0.11.0) replaces the whole
 # SessionStart array in ~/.claude/settings.json instead of merging into it, so
 # any hook another tool owns disappears silently. `codebase-memory-mcp update`
 # reruns the same write, which is why this is a shipped command and not a

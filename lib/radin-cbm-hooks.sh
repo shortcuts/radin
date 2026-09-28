@@ -48,12 +48,14 @@ for it (an `mcpServers.codebase-memory-mcp` entry in `.mcp.json`), use its MCP
 tools before Grep/Glob/Read -- they answer structural questions in fewer
 tokens than file scanning:
 
-- `search_graph` to find a symbol (structural, BM25 and semantic), `search_code` for text inside indexed files
+- `search_graph` to find a symbol: `query` for BM25, `semantic_query` when you know the idea but not the name; `search_code` for text inside indexed files
+- `get_file_outline` for the symbols in one file, before reading all of it
+- `check_index_coverage` before trusting an empty result for a path
 - `trace_path` for callers and callees, before changing anything shared
 - `detect_changes` to map the working-tree diff to affected symbols and blast radius
 - `get_code_snippet` to read one function, `get_architecture` for an unfamiliar area
 - `query_graph` for Cypher-shaped questions, after `get_graph_schema`
-- `index_repository` when `list_projects` does not list this repo yet; the background watcher keeps it current after that
+- `index_repository` when `list_projects` does not list this repo yet, `index_status` while it runs; the background watcher keeps it current after that
 
 A graph hit is a pointer: read the file before editing it, and never conclude
 something does not exist from an empty result. Fall back to file scanning when
