@@ -269,7 +269,7 @@ included: the CLI sends that task back for a retry. A sub-agent with no content 
 all is still working, whatever the elapsed time suggests: wait, and if your
 turn ends first, leave the entry `in_progress` for Phase 1's stuck-recovery.
 
-Print what the call printed, then route on its `next` line. A re-run names the task: `task-next <flag> "<task id>"`
+Your whole message to the user about this task is the call's report: every line above its `next` line, copied verbatim. Then route on that `next` line. A re-run names the task: `task-next <flag> "<task id>"`
 claims it again and bumps `attempts`, so the cap still ends it.
 
 | `next` | Do |

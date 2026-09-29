@@ -66,6 +66,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   a broken suite or toolchain stops the run instead of failing every task.
   A sub-agent that died on an API or network error goes back to `pending` and
   gets retried, up to `MAX_ATTEMPTS`.
+- `/radin-execute` and `/radin-implement` print only the CLI's report line
+  after each task, with no summary of their own, so a long run grows the
+  main thread's context more slowly.
 - A planning sub-agent reviews its plan with `/ponytail:ponytail-review`
   only. `/thermo-nuclear` still runs on interactive `/radin-plan` and in
   `/radin-review`. This saves about 2.6k tokens per planned task.
