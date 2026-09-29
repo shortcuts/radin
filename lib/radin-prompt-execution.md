@@ -29,19 +29,22 @@ API/library behavior local code and repo exploration can't settle>`
 `STATUS: BLOCKED (DECISION) — <the decision question, the candidate options, and your
 recommendation>`
 This line is mandatory whether the task was implemented, found already done, or
-blocked. The router acts only on this explicit line, never on intent inferred
-from prose. Above it, write at most three lines: what changed, and for a test
-step 4 added or changed, `test <name>: failed before (<its failure>), passes
-now`. The router holds every report for the rest of the session, so anything
-more costs it context.
+blocked. The router acts only on this explicit line alone, never on intent
+inferred from prose, and your final message is exactly this one line with
+nothing before it.
+
+Before you report, append each item below to the task, one line each, with
+`RADIN_CLI backlog append "TASK_ID"` and a `**Fact:** <the line>` line on
+stdin. On SUCCESS, `task-done` keeps these lines in the task's facts file for
+`/radin-review`.
 
 Ground rules, applying to every step below:
 - You are a leaf: do the task yourself, spawn no sub-agent, and expect no
   `Workflow` tool (`/deep-research` and any saved workflow command fail).
 - You cannot reach the user and have no `AskUserQuestion`. A skill that starts
   asking, spawning or launching a workflow: stop invoking it, take the
-  non-destructive path, and name it in your report as skipped. Waiting on one
-  is a hang the router cannot break.
+  non-destructive path, and record it as a `**Fact:**` line (see above).
+  Waiting on one is a hang the router cannot break.
 - Before reporting BLOCKED, ask whether this is a fact you could go find
   yourself (read more of the repo, check a config, run a read-only command,
   check how an existing similar case was handled) or a judgment call only the
@@ -49,7 +52,8 @@ Ground rules, applying to every step below:
   (DECISION), reverting anything you touched so the tree is clean, and the
   unverifiable fact BLOCKED (FACT).
 - Never commit, revert, or otherwise touch anything under `.claude/.radin/` —
-  it is the router's state, not task work.
+  it is the router's state, not task work, except the `RADIN_CLI backlog
+  append` call above.
 - Explore through `codebase-memory-mcp`'s MCP tools before Grep/Glob/Read: a
   graph hit is a pointer, so read the file before you cite or edit it, and
   never conclude something is absent from an empty result. Wrap commands in
@@ -100,9 +104,9 @@ ACCEPTANCE
    for this task. Follow them rather than re-deriving an approach. Several of
    them cover different parts of the same task, so implement all of them.
    Where the code contradicts a plan step: a mechanical deviation (renamed
-   function, moved file, adjusted signature) you adjust and name in your
-   report; a deviation that changes a decision the plan made is `STATUS:
-   BLOCKED (DECISION)`, describing it.
+   function, moved file, adjusted signature) you adjust and record as a
+   `**Fact:**` line; a deviation that changes a decision the plan made is
+   `STATUS: BLOCKED (DECISION)`, describing it.
 <!-- end -->
 <!-- if:!PLAN_PATHS -->
 2. This task has no plan, so implement directly from the entry text.
@@ -118,9 +122,10 @@ ACCEPTANCE
    Run `git show --stat <hash>` for each and skim the diff for any
    file/function this task also touches. Nothing overlaps, or the assumptions
    still hold: proceed. A mechanical divergence (renamed function, moved file,
-   adjusted signature): implement against the current code and say what you
-   adjusted. A divergence that changes a design decision the plan made: report
-   `STATUS: BLOCKED (DECISION)` describing it, and guess nothing.
+   adjusted signature): implement against the current code and record what
+   you adjusted as a `**Fact:**` line. A divergence that changes a design
+   decision the plan made: report `STATUS: BLOCKED (DECISION)` describing it,
+   and guess nothing.
 <!-- end -->
 <!-- if:CAT_fix -->
 3. Invoke `/caveman:surgical-patch` and implement through it: the narrowest
@@ -147,6 +152,8 @@ ACCEPTANCE
    Run it without your change and confirm it fails for the reason the task
    names, then with your change and confirm it passes. A test that passes
    either way, or fails for another reason, pins nothing: correct it first.
+   For each such test, record a `**Fact:**` line: `test <name>: failed before
+   (<its failure>), passes now`.
 5. Choose the checks from what your diff reaches: ask `codebase-memory-mcp`
    for the symbols your working-tree diff changes and their callers. Run the
    typecheck and the tests that exercise those callers as you go, widening to

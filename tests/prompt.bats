@@ -192,6 +192,26 @@ assembled() {
   [[ "$output" != *"QUESTION"* ]]
 }
 
+@test "every leaf prompt's final message is exactly its STATUS line" {
+  backlog add fix "a bug" <<<"It breaks."
+  for kind in execution planning debug factfind; do
+    case "$kind" in
+    debug) run assembled debug a-bug "the suite fails" ;;
+    factfind) run assembled factfind a-bug "does it retry" ;;
+    *) run assembled "$kind" a-bug ;;
+    esac
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"final message is exactly"* ]]
+    [[ "$output" != *"at most three lines"* ]]
+    [[ "$output" != *"in your report"* ]]
+  done
+
+  run assembled execution a-bug
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"**Fact:**"* ]]
+  [[ "$output" == *"backlog append"* ]]
+}
+
 @test "prompt assembly refuses bad input" {
   backlog add fix "a bug" <<<"It breaks."
   run assembled debug a-bug

@@ -53,7 +53,7 @@ Two stores, split by whether a parser reads the value. A path, id, hash or enum 
 | Body label | Written when | Written by |
 | --- | --- | --- |
 | `**Decision:** <answer>` | user settled a `BLOCKED (DECISION)` | `radin-execute` |
-| `**Fact:** <answer>` | fact-finder returned `STATUS: FOUND` | `radin-execute` |
+| `**Fact:** <answer>` | a fact-finder returned `STATUS: FOUND`, or an execution sub-agent recorded a plan deviation, a skipped skill or a test's red-green proof | `radin-execute`, execution sub-agent |
 | `**Root cause:** <cause + fix direction + sibling sites>` | debug sub-agent returned `STATUS: DIAGNOSED` | `radin state task-diagnosis` |
 | `**Raised as:** <verbatim ask>` | the triggering text, quoted | `radin-record` |
 | `**Scope:** <what was reviewed>` | the review surface | `radin-review` |
@@ -66,7 +66,7 @@ Every one of them is binding on the next sub-agent that reads the task, not comm
 
 ## Per-task facts file (`state/facts/<task-id>.md`)
 
-Free-form markdown, one file per task, written when a fact-finding or debug sub-agent's evidence is longer than its summary can carry, and by a `/mattpocock-skills:research` invocation, which always writes its findings there. Holds command output, file excerpts, and the reasoning that establishes one `**Fact:**` or `**Root cause:**` line. The task body keeps the summary, and the entry's `facts` key points here. There is deliberately no shared, cross-task notes file: a sub-agent gets its own task's material and nothing more.
+Free-form markdown, one file per task, written when a fact-finding or debug sub-agent's evidence is longer than its summary can carry, and by a `/mattpocock-skills:research` invocation, which always writes its findings there. Holds command output, file excerpts, and the reasoning that establishes one `**Fact:**` or `**Root cause:**` line. The task body keeps the summary, and the entry's `facts` key points here. There is deliberately no shared, cross-task notes file: a sub-agent gets its own task's material and nothing more. When a task succeeds, `task-done` appends the entry's `**Fact:**` lines to this file, because deleting the entry would otherwise lose them.
 
 ## Migration note
 

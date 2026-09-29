@@ -83,7 +83,11 @@ these rungs in order and stop at the first that yields a spec:
    names the plan the task ran against and the branch it ran on: its `plan`
    line carries the recorded paths, comma-separated, and those files are the
    spec. Several matched ids: every one of their
-   plan files is the spec, and the axis covers all of them.
+   plan files is the spec, and the axis covers all of them. Also run
+   `RADIN_CLI state trace "<id>"` for each matched id: when its `facts` line
+   names a file, the Spec axis reads that file with the plans, because it
+   records where the implementation departed from the plan on purpose and
+   why.
 3. **Ask.** One `AskUserQuestion` offering the top entries from
    `RADIN_CLI backlog list` as options, with the tool's free-text field
    carrying a path the user types instead. "There isn't one" falls to rung 4.

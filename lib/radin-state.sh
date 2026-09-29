@@ -21,7 +21,7 @@
 #   radin-state.sh task-report <id> --no-status <last line> [--next [--plan-first]]  # the same, for a sub-agent that ended with no STATUS: line
 #                                               # --next: when the final line is "next<TAB>continue", also run task-next (with --plan-first) and print its output after; exit is task-next's
 #   radin-state.sh task-diagnosis <id>          # stdin becomes a **Root cause:** line on the task file, status untouched
-#   radin-state.sh task-done <id> <commit-hash> # record completion, remove backlog and steps entries, in crash-safe order; exit 3 when the hash does not validate
+#   radin-state.sh task-done <id> <commit-hash> # record completion, copy the entry's **Fact:** lines to state/facts/<id>.md, remove backlog and steps entries, in crash-safe order; exit 3 when the hash does not validate
 #   radin-state.sh set-status <id> <pending|in_progress|failed|blocked> [note]
 #   radin-state.sh stuck                        # print "id<TAB>attempts<TAB>note" per in_progress entry, exit 1 if none
 #   radin-state.sh steps-list                   # print "id<TAB>order<TAB>status<TAB>attempts<TAB>note" per entry, exit 1 if none
@@ -648,6 +648,19 @@ task-done)
 			"$(json_escape "$plans")" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >>"$completed"
 	fi
 	if grep -qF "\"id\":\"$id\"" "$ns/backlog/index.jsonl" 2>/dev/null; then
+		# Copy before remove: `remove_by_id` deletes the task file, and that
+		# file is the only place a sub-agent's **Fact:** lines live. A crash
+		# between the copy and the remove replays the copy on retry, which
+		# duplicates lines rather than losing them.
+		# ponytail: duplicate Fact lines on a crash-mid-task-done retry, dedupe if it bites
+		task_file="$(cd "$repo_root" && bash "$LIB_DIR/radin-backlog.sh" field "$id" TASK_FILE 2>/dev/null)"
+		if [ -n "$task_file" ] && [ -f "$task_file" ]; then
+			facts_line="$(grep '^\*\*Fact:\*\*' "$task_file" || true)"
+			if [ -n "$facts_line" ]; then
+				mkdir -p "$ns/state/facts"
+				printf '%s\n' "$facts_line" >>"$ns/state/facts/$id.md"
+			fi
+		fi
 		(cd "$repo_root" && bash "$LIB_DIR/radin-backlog.sh" remove "$id" >/dev/null)
 	fi
 	if [ -f "$steps" ]; then

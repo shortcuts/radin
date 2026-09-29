@@ -353,6 +353,29 @@ EOF
   [ "$(grep -c aa-task "$NS/state/completed.json")" -eq 1 ]
 }
 
+@test "task-done keeps the entry's Fact lines in the task's facts file" {
+  fixture_repo
+  hash="$(git -C "$WORK/repo" rev-parse HEAD)"
+  printf '**Fact:** renamed foo to bar\n**Decision:** x\n' |
+    ( cd "$WORK/repo" && bash "$REPO_ROOT/lib/radin-backlog.sh" append aa-task ) > /dev/null
+  cli session-set no no
+  cli prepare aa-task > /dev/null
+  run cli task-done aa-task "$hash"
+  [ "$status" -eq 0 ]
+  [[ "$(cat "$NS/state/facts/aa-task.md")" == *'**Fact:** renamed foo to bar'* ]]
+  [[ "$(cat "$NS/state/facts/aa-task.md")" != *'**Decision:** x'* ]]
+  run cli trace aa-task
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"$(printf 'facts\t%s' "$NS/state/facts/aa-task.md")"* ]]
+
+  # No Fact line, no facts file.
+  hash_b="$hash"
+  cli prepare bb-task > /dev/null
+  run cli task-done bb-task "$hash_b"
+  [ "$status" -eq 0 ]
+  [ ! -f "$NS/state/facts/bb-task.md" ]
+}
+
 @test "trace falls back to the journal for a failed task" {
   fixture_repo
   branch="$(git -C "$WORK/repo" rev-parse --abbrev-ref HEAD)"

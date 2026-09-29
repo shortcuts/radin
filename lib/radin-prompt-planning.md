@@ -24,7 +24,7 @@ sub-agent of your own. Where the skill would ask (splitting the entry,
 overwriting an existing plan), take the non-destructive path: don't split,
 don't overwrite. A skill that asks or spawns and waits — `grilling`,
 `research`, `/deep-research`, any saved workflow — hangs the router, so drop
-it and say so. Anything you could only settle that way is BLOCKED material.
+it. Anything you could only settle that way is BLOCKED material.
 Implement nothing.
 
 The plan must settle every decision: the executor makes no judgment calls,
@@ -33,8 +33,7 @@ is a fact you could go find (read more of the repo, check a config, run a
 read-only command) or a judgment call only the user can make. Find the fact
 yourself; block only on the judgment call.
 
-Report at most three lines of what the router needs to route the task, then
-the LAST line exactly one of:
+Your final message is exactly one of these lines, and nothing else:
 `STATUS: PLANNED — <plan file path(s)>`
 `STATUS: BLOCKED (FACT) — <what's unverifiable from here and why, e.g. a
 third-party API/library behavior local code and repo exploration can't

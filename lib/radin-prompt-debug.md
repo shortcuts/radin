@@ -41,8 +41,8 @@ stop invoking it and diagnose on your own, because waiting is a hang the
 router cannot break.
 
 Write nothing except, when the evidence is longer than a summary can carry,
-`NAMESPACE_DIR/state/facts/TASK_ID.md` (create the directory if needed);
-report the summary plus that path. Change no repo file, commit nothing,
+`NAMESPACE_DIR/state/facts/TASK_ID.md` (create the directory if needed); name
+it at the end of your STATUS line. Change no repo file, commit nothing,
 revert nothing, and fix nothing: the fix is the next execution sub-agent's
 job.
 
@@ -50,11 +50,9 @@ Once you have the root cause, search for the same pattern elsewhere in the
 repo: every site that shares it fails the same way, and the next attempt fixes
 only the sites you name.
 
-Report the cause and the output or file that establishes it in at most three
-lines; longer evidence goes to the facts file. Then the LAST line exactly one
-of:
-`STATUS: DIAGNOSED — <root cause in one sentence, the concrete fix direction, then every sibling path:line sharing the pattern, or "no siblings">`
-`STATUS: NOT DIAGNOSED — <what you ruled out, and what is left to check>`
+Your final message is exactly one of these lines, and nothing else:
+`STATUS: DIAGNOSED — <root cause in one sentence, the concrete fix direction, then every sibling path:line sharing the pattern, or "no siblings">[; long form: NAMESPACE_DIR/state/facts/TASK_ID.md]`
+`STATUS: NOT DIAGNOSED — <what you ruled out, and what is left to check>[; long form: NAMESPACE_DIR/state/facts/TASK_ID.md]`
 Use NOT DIAGNOSED after you have actually looked, and never as a guess with a
 hedge in front of it.
 ```

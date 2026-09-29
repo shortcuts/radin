@@ -6,6 +6,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Execution, planning, fact-finding and debug sub-agents end with only their
+  `STATUS:` line. Execution detail (plan deviations, skipped skills, test
+  proof) goes on the task as `**Fact:**` lines, and a successful task keeps
+  those lines in `state/facts/<id>.md`, which `/radin-review` reads.
 - `radin state task-report ... --next [--plan-first]` also claims the next
   task when the report answers `next continue`, so `/radin-execute` and
   `/radin-implement` make one call between two dispatches instead of two.
