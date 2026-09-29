@@ -147,16 +147,19 @@ ACCEPTANCE
    Run it without your change and confirm it fails for the reason the task
    names, then with your change and confirm it passes. A test that passes
    either way, or fails for another reason, pins nothing: correct it first.
-<!-- if:SHARED_BRANCH -->
-5. Run the project's typecheck and the test file you touched as you go, and
-   its lint, tests and format scoped to the packages or directories you
-   touched once before committing; fix what they surface before step 6. The
-   router's session gate runs the whole suite once after the last task.
+5. Choose the checks from what your diff reaches: ask `codebase-memory-mcp`
+   for the symbols your working-tree diff changes and their callers. Run the
+   typecheck and the tests that exercise those callers as you go, widening to
+   the whole suite only when the blast radius covers most of the repo. Once
+   before committing, run lint and format scoped to the packages or
+   directories you touched.
+<!-- if:TESTS_AT_END -->
+   Fix what they surface before step 6. The router's session gate runs the
+   whole suite once after the last task.
 <!-- end -->
-<!-- if:!SHARED_BRANCH -->
-5. Run the project's typecheck and the test file you touched as you go, and its
-   full check suite (lint, tests, format) once before committing; fix what they
-   surface before step 6.
+<!-- if:!TESTS_AT_END -->
+   Then run the project's full check suite, as its own docs or CI config
+   define it, once. Fix what they surface before step 6.
 <!-- end -->
 6. Invoke the `/caveman:caveman-commit` skill to draft the commit message, then commit.
 7. Run `RADIN_CLI state dirty-check` from the tree

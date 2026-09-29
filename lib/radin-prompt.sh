@@ -134,12 +134,7 @@ active=" CAT_$category "
 [ -z "$location" ] || active="$active LOCATION "
 [ -z "$epic_context" ] || active="$active EPIC_CONTEXT "
 [ -z "$depends_on" ] || active="$active DEPENDS_ON "
-# Every task lands on one branch only when both answers are no, so one
-# end-of-session suite run covers them all; a radin/<id> branch merges alone.
-session="$(bash "$LIB_DIR/radin-state.sh" session-get 2>/dev/null)" || session=""
-case "$session" in
-"worktree${TAB}no"*"branch${TAB}no"*) active="$active SHARED_BRANCH " ;;
-esac
+[ "$(bash "$LIB_DIR/radin-state.sh" test-mode 2>/dev/null)" != end ] || active="$active TESTS_AT_END "
 
 body="$(printf '%s\n' "$body" | awk -v active="$active" '
 	/^<!-- if:/ {

@@ -12,9 +12,10 @@
 # worktree included (lib/radin-namespace.sh), so no caller passes a path.
 #
 # Usage:
-#   radin-state.sh steps-init                   # write BACKLOG_STEPS.json from "id<TAB>order<TAB>depends-on-csv<TAB>pending|deferred" lines on stdin
+#   radin-state.sh steps-init [--tests task|end]  # write BACKLOG_STEPS.json from "id<TAB>order<TAB>depends-on-csv<TAB>pending|deferred" lines on stdin
 #                                               # each entry's depends_on comes from its index line; the stdin csv is used only where the index has none
 #                                               # the fourth field is optional and defaults to pending; also writes state/baseline.json
+#                                               # --tests: when this session runs the full suite, per task (default) or once at the end
 #   radin-state.sh task-next [--plan-first] [<id>]  # pick, gate, claim and write the prompt in one call; exit 1 when nothing is left
 #   radin-state.sh task-report <id> <the sub-agent's STATUS: line>  # verify the tree, record the outcome, then a final "next<TAB>continue|debug|halt|clarify FACT|clarify DECISION" line
 #   radin-state.sh task-report <id> --no-status <last line>         # the same, for a sub-agent that ended with no STATUS: line
@@ -28,6 +29,7 @@
 #   radin-state.sh report                       # print the finished end-of-session report
 #   radin-state.sh session-set <yes|no> <yes|no>  # persist the worktree and branch answers
 #   radin-state.sh session-get                  # print "worktree<TAB>yes" / "branch<TAB>no", exit 1 if unanswered
+#   radin-state.sh test-mode                    # print this session's --tests answer: task or end
 #   radin-state.sh prepare <id>                 # create/reuse the task's tree and branch per session.json, print the dir to work in
 #                                               # also records the branch and tree it chose in state/prepared/<id>.json
 #   radin-state.sh dirty-check                  # git status --porcelain of the current directory, excluding .claude/.radin
@@ -346,6 +348,14 @@ fail_next() {
 cmd="${1:-}"
 case "$cmd" in
 steps-init)
+	tests=task
+	if [ "${2:-}" = "--tests" ]; then
+		tests="${3:-}"
+		case "$tests" in
+		task | end) ;;
+		*) die "--tests must be task|end, got: ${tests:-<empty>}" ;;
+		esac
+	fi
 	file="$steps"
 	index="$BACKLOG_INDEX"
 	[ -f "$index" ] || index=""
@@ -403,8 +413,8 @@ steps-init)
 	if [ -d "$state_dir" ]; then
 		backlog_count="$( (cd "$repo_root" 2>/dev/null && bash "$LIB_DIR/radin-backlog.sh" count 2>/dev/null) || printf '0')"
 		completed_count="$(grep -c . "$state_dir/completed.json" 2>/dev/null || true)"
-		printf '{"backlog_count":%s,"completed_count":%s}\n' \
-			"${backlog_count:-0}" "${completed_count:-0}" >"$state_dir/baseline.json"
+		printf '{"backlog_count":%s,"completed_count":%s,"tests":"%s"}\n' \
+			"${backlog_count:-0}" "${completed_count:-0}" "$tests" >"$state_dir/baseline.json"
 	fi
 	journal "$state_dir" "steps-init" "" "$n entries"
 	printf 'steps-init: wrote %d entries to %s\n' "$n" "$file"
@@ -718,6 +728,14 @@ session-set)
 	done
 	printf '{"worktree":"%s","branch":"%s"}\n' "$worktree" "$branch" >"$ns/state/session.json"
 	journal "$ns/state" "session" "" "worktree=$worktree branch=$branch"
+	;;
+
+test-mode)
+	# Lives in baseline.json, not session.json: steps-init rewrites it every
+	# session, so the answer never outlives the run that gave it.
+	mode=""
+	[ ! -s "$ns/state/baseline.json" ] || mode="$(json_get tests "$(cat "$ns/state/baseline.json")")"
+	printf '%s\n' "${mode:-task}"
 	;;
 
 session-get)
@@ -1069,6 +1087,6 @@ report)
 	;;
 
 *)
-	die "unknown command: ${cmd:-<none>} (steps-init|task-next|task-report|task-diagnosis|task-done|set-status|stuck|recover|recover-reject|report|session-set|session-get|prepare|dirty-check|trace|completed-show|completed-list|deps-check|task-dir|journal-tail)"
+	die "unknown command: ${cmd:-<none>} (steps-init|task-next|task-report|task-diagnosis|task-done|set-status|stuck|recover|recover-reject|report|session-set|session-get|test-mode|prepare|dirty-check|trace|completed-show|completed-list|deps-check|task-dir|journal-tail)"
 	;;
 esac

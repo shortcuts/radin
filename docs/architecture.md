@@ -100,12 +100,12 @@ Creates `state/`, `plans/`, `reviews/`, `backlog/tasks/` under `$NAMESPACE_DIR`,
 Every verb resolves the namespace from the current directory through `lib/radin-namespace.sh`, a linked worktree resolving to its main checkout, so no caller passes a path. A router that had to carry `$NAMESPACE_DIR` into every Bash call re-sourced the env each time, and one run wrote its own script to do it.
 
 ```bash
-radin state <steps-init|task-next|task-report|task-diagnosis|task-done|set-status|stuck|steps-list|recover|recover-reject|report|session-set|session-get|prepare|dirty-check|trace|completed-show|completed-list|deps-check|task-dir|journal-tail>
+radin state <steps-init [--tests task|end]|task-next|task-report|task-diagnosis|task-done|set-status|stuck|steps-list|recover|recover-reject|report|session-set|session-get|test-mode|prepare|dirty-check|trace|completed-show|completed-list|deps-check|task-dir|journal-tail>
 ```
 
 Each verb answers one step a caller takes. Claiming, stashing, the debug-pass flag and the completion write are functions inside the script, not verbs: no caller needs them on their own, and a verb nobody calls is one more thing a model can reach for.
 
-- `steps-init` — write `BACKLOG_STEPS.json` from `order --steps` lines on stdin, each entry's `depends_on` taken from its index line. Also writes `state/baseline.json`, which scopes `report` to this session
+- `steps-init` — write `BACKLOG_STEPS.json` from `order --steps` lines on stdin, each entry's `depends_on` taken from its index line. Also writes `state/baseline.json`, which scopes `report` to this session and holds the `--tests` answer
 - `task-next [--plan-first] [<id>]` — everything between two dispatches in one call: lowest-order `pending` entry (or the named id, for a debug or clarify re-run), dependency gate, drift check against the backlog, claim, and the prompt file. The claim sets `in_progress` and bumps `attempts`; past `MAX_ATTEMPTS` (3) the entry goes `blocked` instead, so a crash loop can't burn tokens forever. Each skip — unresolved dependency, lost entry, `MAX_ATTEMPTS` — is marked `blocked` and printed as a `blocked` line; then `id`/`order`/`kind`/`model`/`prompt` for the task to run. `--plan-first` (`radin-execute`) hands out an unclaimed `kind planning` prompt for a task with no plan. Skills the leaf cannot run are journaled as `skill-dropped` for `report`. Exit 1 when nothing is left
 - `task-report <id> <STATUS line>` — everything after a dispatch reports, ending in one `next` line. A dirty tree fails the task first, whatever the line claimed: stashed, `failed`, recovery commands in the note. `SUCCESS` goes to `task-done`. A task's first `FAILED` flips its `debugged` flag and answers `next debug`; the second marks it `failed`. `--no-status <last line>` fails it with no debug pass, unless the last line reads as an API or network death: that entry goes back to `pending`, and `MAX_ATTEMPTS` bounds the retries. After `HALT_AFTER` (3) terminal failures in a row, with no `SUCCESS` between them, it answers `next halt` instead of `next continue`: a red suite or broken toolchain would fail every remaining task the same way
 - `task-diagnosis <id>` — stdin becomes a `**Root cause:**` line on the task file (only place that label is written). Changes no status: the re-run's claim bumps `attempts`, so `MAX_ATTEMPTS` still ends the loop
@@ -116,6 +116,7 @@ Each verb answers one step a caller takes. Claiming, stashing, the debug-pass fl
 - `recover <id>` — finish the bookkeeping when a hash is already recorded, return a clean tree to `pending`, stash a dirty one first. Exit 3 prints the `worktree`, `branch` and `branch_commit` lines a dead sub-agent left on its branch — the one case no verb can settle, because only the model can say whether they satisfy the task. It answers with `task-done` or `recover-reject`. The branch comes from `prepare`'s record: a `branch: no` run lands on the user's own checkout, which no derivation from the id can see
 - `recover-reject <id>` — those commits do not satisfy the task: entry `blocked`, note naming branch and worktree to inspect
 - `report` — the finished Phase 5 report text: residual-changes check (stash, never commit), this session's commits with their landing lines per `session.json`, every `failed`/`blocked`/`deferred` entry with its note, the session's stashes and `skill-dropped` journal events
+- `test-mode` — print this session's `--tests` answer, `task` when none was recorded. `radin prompt` and Phase 4.5 read it
 - `session-set <yes|no> <yes|no>` / `session-get` — persist and read Phase 0.5's worktree/branch answers, so resumed run reuses them instead of asking again and splitting session between worktrees and checkout
 - `prepare <id>` — read `session.json`, create or reuse `<repo-root>-<id>` worktree and `radin/<id>` branch exactly as recorded answers require, print single directory execution sub-agent works in. Only place those two answers turn into git commands, so a model can't reinterpret `no` into a worktree it prefers. Also the only place a task's branch is read from git — recorded to `state/prepared/<id>.json` for `task-done`, `recover` and the completion line to read back. Fails when nothing recorded yet
 - `dirty-check` — `git status --porcelain` of the current directory, `.claude/.radin` excluded so radin's own state writes never read as dirty tree. The execution sub-agent's last step
@@ -480,13 +481,15 @@ The execution sub-agent's report carries one `test <name>: failed before
 reading the session, not a gate: the router still routes on the `STATUS:` line
 alone, and it has no verb that reads the evidence line.
 
-The execution sub-agent's own checks are a separate cost. Under `worktree: no`
-and `branch: no`, every task lands on one branch, so `radin prompt` activates
-the `SHARED_BRANCH` guard: the leaf runs lint and tests scoped to what it
-touched, and Phase 4.5 of `lib/radin-run.md` runs the full suite once. On a
-large repo the full suite was most of each task's time: 16 of 21 minutes in
-one measured task. Under any other answer each `radin/<id>` branch merges on
-its own, so the leaf keeps the full suite.
+The execution sub-agent's own checks are a separate cost. On a large repo the
+full suite was most of each task's time: 16 of 21 minutes in one measured
+task. So the leaf always picks its tests from what its diff reaches in the
+code graph, and Phase 2 asks when the full suite runs. `end` activates the
+`TESTS_AT_END` guard in `radin prompt`, and Phase 4.5 of `lib/radin-run.md`
+runs the full suite once at the tip of each branch the session touched.
+The answer lives in `baseline.json`, which `steps-init` rewrites, so it
+lasts one session: a slow repo and a fast one want different answers, and a
+per-repo default would hide the choice.
 
 The one Debug pass a `FAILED` task gets is enforced by the `debugged` flag on
 its steps entry, flipped by `radin state task-report`, not by a counter the

@@ -6,12 +6,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
-- Under `worktree: no` and `branch: no`, `/radin-execute` and
-  `/radin-implement` run the full check suite once after the last task
-  instead of once per task. Each task runs only the checks scoped to what it
-  touched. The session gate bisects a red suite to the culprit commit and
-  fixes forward. Other worktree/branch answers keep the per-task full suite,
-  because each `radin/<id>` branch merges on its own.
+- `/radin-execute` and `/radin-implement` ask, after the order confirmation,
+  whether the full check suite runs after each task or once at the end of
+  the backlog. The answer lasts one session. Each task picks its own checks
+  from what its diff reaches in the code graph. At the end, the session gate
+  runs the full suite on each branch, bisects a red check to the culprit
+  commit, and fixes forward.
 - `radin update` (`make update`) runs every install step again, including
   the `codebase-memory-mcp` wiring into `settings.json`. It reinstalls no
   companion that is already installed, and installs the missing ones.

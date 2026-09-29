@@ -88,20 +88,23 @@ assembled() {
   [[ "$output" != *"Shared context for the epic"* ]]
 }
 
-@test "only a shared-branch session defers the full suite to the session gate" {
+@test "only an end-of-backlog test mode defers the full suite to the session gate" {
   backlog add chore "a check" <<<"Check it."
-  # No recorded answer yet reads as per-task delivery: full suite per task.
+  # No recorded mode reads as per-task: full suite per task.
   run assembled execution a-check
   [[ "$output" == *"full check suite"* ]]
   [[ "$output" != *"session gate"* ]]
-  # A radin/<id> branch is merged on its own, so it must be green on its own.
+  printf 'a-check\t1\t\n' | state steps-init --tests end > /dev/null
+  # Branch answers no longer decide it: a radin/<id> branch still defers.
   state session-set no yes
-  run assembled execution a-check
-  [[ "$output" == *"full check suite"* ]]
-  state session-set no no
   run assembled execution a-check
   [[ "$output" == *"session gate"* ]]
   [[ "$output" != *"full check suite"* ]]
+  printf 'a-check\t1\t\n' | state steps-init --tests task > /dev/null
+  state session-set no no
+  run assembled execution a-check
+  [[ "$output" == *"full check suite"* ]]
+  [[ "$output" != *"session gate"* ]]
 }
 
 @test "each category gets its own step 3 row" {

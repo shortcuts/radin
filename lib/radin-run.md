@@ -158,8 +158,8 @@ persist them.
 
 ## Phase 2: Confirm Execution Order
 
-The gate is unconditional (Core Constraints). Phase 0.5's preferences are the
-only questions a prompt may pre-answer.
+The gate is unconditional (Core Constraints). Phase 0.5's preferences and the
+test mode are the only questions a prompt may pre-answer.
 
 1. Print this verbatim, and compose nothing of your own:
 
@@ -177,6 +177,10 @@ only questions a prompt may pre-answer.
      `Only the ones I name` / `Just the first one`. `Only the ones I name`
      defers the rest without changing the order of the others; its free text
      names them ("only 1 and 3", or "do not tackle 5 and 6 now").
+   - **Test mode** (always): "When does the full test suite run?" Options:
+     `Once at the end of the backlog` / `After each task`. Say in the question
+     that each task still runs the checks its diff reaches, and that the
+     answer lasts this session only.
    - **Worktree** (if Phase 0.5 unanswered): "Own git worktree per task?"
      Options: `Yes` / `No`.
    - **Branch** (if Phase 0.5 unanswered): "Own branch per task?" Options:
@@ -184,7 +188,9 @@ only questions a prompt may pre-answer.
      branch, so this answer applies only under `worktree: no`.
    Write nothing to `BACKLOG_STEPS.json` and launch no sub-agent before the
    answer arrives.
-3. The two answers are routed independently, and each is routed once.
+3. The answers are routed independently, and each is routed once.
+   - **Test mode** decides Phase 3's `--tests` value, and nothing else:
+     `end` for `Once at the end of the backlog`, `task` for `After each task`.
    - **Task selection** decides Phase 3's `--defer` value, and nothing else:
      - **All of them**: no `--defer` flag.
      - **Just the first one**: `--defer` every id but `order` 1's.
@@ -208,7 +214,7 @@ The confirmed order is persisted by exactly this pipe:
 
 ```bash
 RADIN_CLI backlog order --steps <Phase 1's flags> --defer "<ids Phase 2 excluded>" |
-  RADIN_CLI state steps-init
+  RADIN_CLI state steps-init --tests <task|end>
 ```
 
 `--defer` takes the ids Phase 2 excluded; omit the flag entirely when nothing
@@ -291,28 +297,31 @@ loop from reaching Phase 4.5.
 
 ## Phase 4.5: Session Gate
 
-Under `worktree: no` and `branch: no`, execution sub-agents run only the
-checks scoped to what they touched, so the whole suite runs here once. Skip
-this phase under any other answer, when the session recorded no commit, and
-after a `halt`.
+Run this phase only when `RADIN_CLI state test-mode` prints `end`: execution
+sub-agents then ran only the checks their diffs reached, so the whole suite
+runs here once. Skip it when the session recorded no commit, and after a
+`halt`.
 
 Dispatch one gate sub-agent (`model: "RADIN_MODEL_EXECUTION"`) with exactly:
 
 ```
-Run this repo's full check suite (lint, tests, format) once in the current
-checkout, `rtk`-wrapped. Check out nothing and touch nothing under
-`.claude/.radin/`. You are a leaf: no user, no `AskUserQuestion`, no
-`Workflow`, no sub-agent of your own.
+Run this repo's full check suite (lint, tests, format), as its own docs or CI
+config define it, `rtk`-wrapped. Run it once at the tip of each branch that
+holds one of the commits below (`git branch --contains`). A branch checked out
+in a linked worktree runs in that worktree (`git worktree list`). Touch nothing
+under `.claude/.radin/`, and leave each checkout on the branch it started on.
+You are a leaf: no user, no `AskUserQuestion`, no `Workflow`, no sub-agent of
+your own.
 
 The session's commits, oldest first: <commit hashes recorded in Phase 4>.
 
-Green: report `STATUS: SUCCESS — suite green at <HEAD hash>`.
+Green: report `STATUS: SUCCESS — suite green at <tip hash(es)>`.
 
 Red: for each failing check, find the commit that broke it with
-`git bisect run` over `<oldest hash>^..HEAD`, running only that check, then
-`git bisect reset`. Fix forward through `/caveman:surgical-patch`, commit
-through `/caveman:caveman-commit` naming the culprit commit, and re-run the
-full suite. Leave the tree clean.
+`git bisect run` over `<that branch's oldest session commit>^..<its tip>`,
+running only that check, then `git bisect reset`. Fix forward on that branch
+through `/caveman:surgical-patch`, commit through `/caveman:caveman-commit`
+naming the culprit commit, and re-run the full suite. Leave the tree clean.
 
 The LAST line is exactly one of:
 `STATUS: SUCCESS — <"suite green at <hash>", or "fixed in <hash(es)>, culprit <hash(es)>">`

@@ -211,6 +211,21 @@ EOF
   [[ "${lines[1]}" == '{"id":"task-b","order":2,"status":"pending","depends_on":["task-a","task-c"],"attempts":0,"debugged":0,"note":""}' ]]
 }
 
+@test "steps-init records this session's test mode, and a new session forgets it" {
+  mkdir -p "$NS/state"
+  run cli test-mode
+  [ "$output" = "task" ]
+  printf 'a\t1\t\n' | cli steps-init --tests end > /dev/null
+  run cli test-mode
+  [ "$output" = "end" ]
+  printf 'a\t1\t\n' | cli steps-init > /dev/null
+  run cli test-mode
+  [ "$output" = "task" ]
+  run cli steps-init --tests sometimes <<<"$(printf 'a\t1\t')"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"task|end"* ]]
+}
+
 @test "steps-init takes depends_on from the index line, ignoring stdin" {
   mkdir -p "$NS/backlog"
   printf '{"id":"a","title":"A","depends_on":[]}\n' > "$NS/backlog/index.jsonl"
@@ -411,7 +426,7 @@ EOF
   fixture_repo
   printf 'aa-task\t1\t\nbb-task\t2\taa-task\ncc-task\t3\t\ndd-task\t4\t\tdeferred\n' | cli steps-init > /dev/null
   run cat "$NS/state/baseline.json"
-  [ "$output" = '{"backlog_count":4,"completed_count":0}' ]
+  [ "$output" = '{"backlog_count":4,"completed_count":0,"tests":"task"}' ]
 
   run cli task-next
   [ "$status" -eq 0 ]
