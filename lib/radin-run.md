@@ -227,7 +227,7 @@ never yours:
 RADIN_CLI state task-next <no-plan rule flag>
 ```
 
-Exit 1 means nothing is left to run, so go to Phase 5. Exit 0 prints, in
+Exit 1 means nothing is left to run, so go to Phase 4.5. Exit 0 prints, in
 order:
 
 - zero or more `blocked<TAB><id><TAB><why>` lines — tasks it skipped (an
@@ -280,14 +280,48 @@ RADIN_CLI state task-diagnosis "<task id>" <<'EOF'
 EOF
 ```
 
-Never verify a `SUCCESS` yourself: no verification sub-agent, and no
+Never verify a `SUCCESS` yourself: no per-task verification sub-agent, and no
 re-reading the diff — that read is the cost Phase 6's `/radin-review` pass
 exists to avoid. A task is finished when `task-report` has recorded it,
 whatever the sub-agent's prose said.
 
 Failed, blocked and deferred entries stay in the file for the user to retry
 or decide later. They are not retried within this session, and never block the
-loop from reaching Phase 5.
+loop from reaching Phase 4.5.
+
+## Phase 4.5: Session Gate
+
+Under `worktree: no` and `branch: no`, execution sub-agents run only the
+checks scoped to what they touched, so the whole suite runs here once. Skip
+this phase under any other answer, when the session recorded no commit, and
+after a `halt`.
+
+Dispatch one gate sub-agent (`model: "RADIN_MODEL_EXECUTION"`) with exactly:
+
+```
+Run this repo's full check suite (lint, tests, format) once in the current
+checkout, `rtk`-wrapped. Check out nothing and touch nothing under
+`.claude/.radin/`. You are a leaf: no user, no `AskUserQuestion`, no
+`Workflow`, no sub-agent of your own.
+
+The session's commits, oldest first: <commit hashes recorded in Phase 4>.
+
+Green: report `STATUS: SUCCESS — suite green at <HEAD hash>`.
+
+Red: for each failing check, find the commit that broke it with
+`git bisect run` over `<oldest hash>^..HEAD`, running only that check, then
+`git bisect reset`. Fix forward through `/caveman:surgical-patch`, commit
+through `/caveman:caveman-commit` naming the culprit commit, and re-run the
+full suite. Leave the tree clean.
+
+The LAST line is exactly one of:
+`STATUS: SUCCESS — <"suite green at <hash>", or "fixed in <hash(es)>, culprit <hash(es)>">`
+`STATUS: FAILED — <failing check>, culprit <hash>, <why no fix landed>`
+```
+
+Carry each fix hash into Phase 6's commit list. A `FAILED` line, or a last
+line that is not a `STATUS:` line, goes to the user after the Phase 5 summary,
+verbatim.
 
 ## Phase 5: Final Summary
 

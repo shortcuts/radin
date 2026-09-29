@@ -480,6 +480,14 @@ The execution sub-agent's report carries one `test <name>: failed before
 reading the session, not a gate: the router still routes on the `STATUS:` line
 alone, and it has no verb that reads the evidence line.
 
+The execution sub-agent's own checks are a separate cost. Under `worktree: no`
+and `branch: no`, every task lands on one branch, so `radin prompt` activates
+the `SHARED_BRANCH` guard: the leaf runs lint and tests scoped to what it
+touched, and Phase 4.5 of `lib/radin-run.md` runs the full suite once. On a
+large repo the full suite was most of each task's time: 16 of 21 minutes in
+one measured task. Under any other answer each `radin/<id>` branch merges on
+its own, so the leaf keeps the full suite.
+
 The one Debug pass a `FAILED` task gets is enforced by the `debugged` flag on
 its steps entry, flipped by `radin state task-report`, not by a counter the
 router holds — a counter cannot survive a resume or a compaction.

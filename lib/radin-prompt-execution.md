@@ -147,9 +147,17 @@ ACCEPTANCE
    Run it without your change and confirm it fails for the reason the task
    names, then with your change and confirm it passes. A test that passes
    either way, or fails for another reason, pins nothing: correct it first.
+<!-- if:SHARED_BRANCH -->
+5. Run the project's typecheck and the test file you touched as you go, and
+   its lint, tests and format scoped to the packages or directories you
+   touched once before committing; fix what they surface before step 6. The
+   router's session gate runs the whole suite once after the last task.
+<!-- end -->
+<!-- if:!SHARED_BRANCH -->
 5. Run the project's typecheck and the test file you touched as you go, and its
    full check suite (lint, tests, format) once before committing; fix what they
    surface before step 6.
+<!-- end -->
 6. Invoke the `/caveman:caveman-commit` skill to draft the commit message, then commit.
 7. Run `RADIN_CLI state dirty-check` from the tree
    step 1a handed you, so the check covers the files you actually touched.
