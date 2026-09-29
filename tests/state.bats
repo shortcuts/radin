@@ -571,6 +571,26 @@ EOF
   [[ "$(cat "$NS/state/completed.json")" == *'"id":"aa-task"'* ]]
 }
 
+@test "task-report --next claims the next task only after a continue" {
+  fixture_repo
+  printf 'aa-task\t1\t\nbb-task\t2\t\n' | cli steps-init > /dev/null
+  hash="$(git -C "$REPO" rev-parse HEAD)"
+  run cli task-report aa-task "STATUS: SUCCESS — $hash" --next --plan-first
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"$(printf 'next\tcontinue\nid\tbb-task')"* ]]
+  [[ "$output" == *"$(printf 'kind\tplanning')"* ]]
+  [[ "$(cat "$ST")" == *'"id":"bb-task"'*'"status":"pending"'* ]]
+  run cli task-report bb-task "STATUS: BLOCKED (FACT) — x" --next
+  [ "$status" -eq 0 ]
+  [ "$output" = "$(printf 'next\tclarify FACT')" ]
+  run cli task-report bb-task "STATUS: SUCCESS — $hash" --next
+  [ "$status" -eq 1 ]
+  [ "${lines[${#lines[@]}-1]}" = "$(printf 'next\tcontinue')" ]
+  run cli task-report aa-task "STATUS: FAILED — x" --plan-first
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"--plan-first needs --next"* ]]
+}
+
 @test "task-report fails an unsupported SUCCESS and a hashless one" {
   fixture_repo
   printf 'aa-task\t1\t\nbb-task\t2\t\n' | cli steps-init > /dev/null

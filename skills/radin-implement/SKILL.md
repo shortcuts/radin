@@ -13,6 +13,6 @@ Re-read it after any compaction.
 
 ## No-plan rule
 
-Call `task-next` with no flag. Every task then comes back as `kind execution`,
+Call `task-next` and `task-report --next` with no other flag. Every task then comes back as `kind execution`,
 whatever its size or shape, and a task with no plan implements from the entry
 text alone.

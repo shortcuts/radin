@@ -13,7 +13,7 @@ Re-read it after any compaction.
 
 ## No-plan rule
 
-Pass `--plan-first` to every `task-next` call. A task with no plan then comes
+Pass `--plan-first` to every `task-next` call and every `task-report --next` call. A task with no plan then comes
 back as `kind planning`: delegate planning —
 unconditionally, with no judgment of the task's size or shape. Planning
 happens here, one task before its own execution dispatch, so the plan is

@@ -6,6 +6,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- `radin state task-report ... --next [--plan-first]` also claims the next
+  task when the report answers `next continue`, so `/radin-execute` and
+  `/radin-implement` make one call between two dispatches instead of two.
 - `/radin-execute` and `/radin-implement` ask, after the order confirmation,
   whether the full check suite runs after each task or once at the end of
   the backlog. The answer lasts one session. Each task picks its own checks

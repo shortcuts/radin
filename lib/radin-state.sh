@@ -17,8 +17,9 @@
 #                                               # the fourth field is optional and defaults to pending; also writes state/baseline.json
 #                                               # --tests: when this session runs the full suite, per task (default) or once at the end
 #   radin-state.sh task-next [--plan-first] [<id>]  # pick, gate, claim and write the prompt in one call; exit 1 when nothing is left
-#   radin-state.sh task-report <id> <the sub-agent's STATUS: line>  # verify the tree, record the outcome, then a final "next<TAB>continue|debug|halt|clarify FACT|clarify DECISION" line
-#   radin-state.sh task-report <id> --no-status <last line>         # the same, for a sub-agent that ended with no STATUS: line
+#   radin-state.sh task-report <id> <the sub-agent's STATUS: line> [--next [--plan-first]]  # verify the tree, record the outcome, then a final "next<TAB>continue|debug|halt|clarify FACT|clarify DECISION" line
+#   radin-state.sh task-report <id> --no-status <last line> [--next [--plan-first]]  # the same, for a sub-agent that ended with no STATUS: line
+#                                               # --next: when the final line is "next<TAB>continue", also run task-next (with --plan-first) and print its output after; exit is task-next's
 #   radin-state.sh task-diagnosis <id>          # stdin becomes a **Root cause:** line on the task file, status untouched
 #   radin-state.sh task-done <id> <commit-hash> # record completion, remove backlog and steps entries, in crash-safe order; exit 3 when the hash does not validate
 #   radin-state.sh set-status <id> <pending|in_progress|failed|blocked> [note]
@@ -840,6 +841,33 @@ task-report)
 	# the router picking between the dirty-tree stash, task-done and the failure route by
 	# hand was four exit-code routes in its prose and one chance to write the
 	# wrong file. Every outcome ends in one `next` line.
+	# --next: on `next continue`, also run task-next, so the router makes one
+	# call between two dispatches. The report itself runs as a child, which
+	# leaves every exit point below untouched.
+	fuse=0
+	plan_first=0
+	args=()
+	for arg in "${@:2}"; do
+		case "$arg" in
+		--next) fuse=1 ;;
+		--plan-first) plan_first=1 ;;
+		*) args+=("$arg") ;;
+		esac
+	done
+	[ "$plan_first" -eq 0 ] || [ "$fuse" -eq 1 ] || die "--plan-first needs --next"
+	if [ "$fuse" -eq 1 ]; then
+		out="$(bash "$LIB_DIR/radin-state.sh" task-report ${args[@]+"${args[@]}"})" || {
+			rc=$?
+			printf '%s\n' "$out"
+			exit "$rc"
+		}
+		printf '%s\n' "$out"
+		[ "$(printf '%s\n' "$out" | tail -n 1)" = "$(printf 'next\tcontinue')" ] || exit 0
+		if [ "$plan_first" -eq 1 ]; then
+			exec bash "$LIB_DIR/radin-state.sh" task-next --plan-first
+		fi
+		exec bash "$LIB_DIR/radin-state.sh" task-next
+	fi
 	id="${2:-}"
 	third="${3:-}"
 	[ -n "$id" ] && [ -n "$third" ] ||

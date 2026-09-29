@@ -259,24 +259,23 @@ tree first (a dirty tree fails the task, whatever the `STATUS:` claimed), then
 records the terminal state and prints the report line:
 
 ```bash
-RADIN_CLI state task-report "<task id>" "<the sub-agent's STATUS: line>"
+RADIN_CLI state task-report "<task id>" "<the sub-agent's STATUS: line>" --next <no-plan rule flag>
 ```
 
 Two dispatches hand back no such line. A last line that is not a `STATUS:`
 line — it asked something, hit an interactive skill, or died mid-turn — goes
-in as `--no-status "<its final line>"` instead, an API or network error text
+in as `--no-status "<its final line>" --next <no-plan rule flag>` instead, an API or network error text
 included: the CLI sends that task back for a retry. A sub-agent with no content at
 all is still working, whatever the elapsed time suggests: wait, and if your
 turn ends first, leave the entry `in_progress` for Phase 1's stuck-recovery.
 
-Print what the call printed, then route on its final `next` line and nothing
-else. A re-run names the task: `task-next <flag> "<task id>"`
+Print what the call printed, then route on its `next` line. A re-run names the task: `task-next <flag> "<task id>"`
 claims it again and bumps `attempts`, so the cap still ends it.
 
 | `next` | Do |
 | --- | --- |
-| `continue` | Recorded on disk. Run `task-next` again for the next task. |
-| `debug` | This task still has its one debug pass. `RADIN_CLI prompt debug "<task id>" "<the reason from the STATUS: line>"` prints a `model` and a `prompt` path: dispatch it the same way. `STATUS: DIAGNOSED`: record it, then re-run the task. `STATUS: NOT DIAGNOSED`: re-run `task-report` with the same line, which routes to `continue` this time. |
+| `continue` | Recorded on disk, and the lines after it are `task-next`'s output for the next task: report any `blocked` lines, then dispatch it as above. Exit 1 after `next continue` means nothing is left, so go to Phase 4.5. |
+| `debug` | This task still has its one debug pass. `RADIN_CLI prompt debug "<task id>" "<the reason from the STATUS: line>"` prints a `model` and a `prompt` path: dispatch it the same way. `STATUS: DIAGNOSED`: record it, then re-run the task. `STATUS: NOT DIAGNOSED`: re-run `task-report` with the same line and `--next <no-plan rule flag>`, which routes to `continue` this time. |
 | `clarify FACT` / `clarify DECISION` | Route per Clarifying Ambiguity. Once settled, re-run the task. |
 | `halt` | Several tasks failed in a row, so the cause is likely shared. Dispatch nothing more; go to Phase 5, and tell the user the failure reasons the last reports printed. |
 
