@@ -97,7 +97,7 @@ Creates `state/`, `plans/`, `reviews/`, `backlog/tasks/` under `$NAMESPACE_DIR`,
 
 `radin-execute`'s own state files (`BACKLOG_STEPS.json`, `completed.json`) get same treatment as backlog. Sibling CLI, `lib/radin-state.sh`, only way agent mutates either file — never hand-written JSON edit in agent's own prose.
 
-Every verb resolves the namespace from the current directory through `lib/radin-namespace.sh`, a linked worktree resolving to its main checkout, so no caller passes a path. A router that had to carry `$NAMESPACE_DIR` into every Bash call re-sourced the env each time, and one run wrote its own script to do it.
+Every verb resolves the namespace from the current directory through `lib/radin-namespace.sh`, so no caller passes a path. A task worktree that `prepare` made (`<checkout>-<id>` on `radin/<id>`) resolves to the checkout that made it; any other linked worktree keeps its own backlog. A router that had to carry `$NAMESPACE_DIR` into every Bash call re-sourced the env each time, and one run wrote its own script to do it.
 
 ```bash
 radin state <steps-init [--tests task|end]|task-next|task-report|task-diagnosis|task-done|set-status|stuck|steps-list|recover|recover-reject|report|session-set|session-get|test-mode|prepare|dirty-check|trace|completed-show|completed-list|deps-check|task-dir|journal-tail>

@@ -11,12 +11,19 @@ set -euo pipefail
 
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || true)
 [ -n "$REPO_ROOT" ] || REPO_ROOT="$PWD"
-# A linked worktree resolves to its main checkout: a sub-agent working in
-# <repo>-<id> must read and write the one backlog, not an empty copy. Only a
-# linked worktree has a git dir apart from the common dir, so only it pays the
-# extra fork.
+# Only a task worktree `radin state prepare` made (<checkout>-<id> on
+# radin/<id>) resolves to the checkout that made it. A worktree the user made
+# keeps its own backlog: collapsing it to the main checkout sent sub-agents to
+# a tree without the user's uncommitted edits. Only a linked worktree has a
+# git dir apart from the common dir, so only it pays the extra forks.
 if [ "$(git rev-parse --git-dir 2>/dev/null)" != "$(git rev-parse --git-common-dir 2>/dev/null)" ]; then
-	REPO_ROOT="$(git worktree list --porcelain | sed -n '1s/^worktree //p')"
+	task_branch="$(git symbolic-ref --short -q HEAD 2>/dev/null || true)"
+	case "$task_branch" in
+	radin/?*)
+		parent="${REPO_ROOT%-"${task_branch#radin/}"}"
+		[ "$parent" = "$REPO_ROOT" ] || [ ! -d "$parent/.claude/.radin" ] || REPO_ROOT="$parent"
+		;;
+	esac
 fi
 NAMESPACE_DIR="$REPO_ROOT/.claude/.radin"
 BACKLOG_TASKS_DIR="$NAMESPACE_DIR/backlog/tasks"

@@ -119,6 +119,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- A linked worktree the user made keeps its own backlog. It no longer
+  resolves to the main checkout, which sent sub-agents to a tree without the
+  user's uncommitted edits. Only a `<checkout>-<id>` task worktree on
+  `radin/<id>` resolves to the checkout that prepared it.
 - Skills resolve the namespace with `eval "$(radin backlog env --export)"`.
   `source <(…)` read nothing under macOS `/bin/bash` 3.2.
 

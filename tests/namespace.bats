@@ -27,15 +27,31 @@ teardown() {
   [ -d "$WORK/proj/.claude/.radin/backlog/tasks" ]
 }
 
-# A worktree-mode sub-agent runs in <repo>-<id> and must reach the one backlog.
-@test "a linked worktree resolves to its main checkout" {
+# Each checkout the user works in owns its backlog: their uncommitted edits
+# live only there, so a sub-agent sent to another checkout cannot see them.
+@test "a user's linked worktree keeps its own namespace" {
   git init -q "$WORK/proj"
   git -C "$WORK/proj" -c user.email=t@t -c user.name=t commit -q --allow-empty -m init
-  git -C "$WORK/proj" worktree add -q "$WORK/proj-a"
-  run bash -c "cd '$WORK/proj-a' && bash '$NS_SCRIPT'"
+  mkdir -p "$WORK/proj/.claude/.radin"
+  git -C "$WORK/proj" worktree add -q "$WORK/proj-wt" -b feature
+  run bash -c "cd '$WORK/proj-wt' && bash '$NS_SCRIPT'"
   [ "$status" -eq 0 ]
-  [[ "$output" == *"BACKLOG_INDEX=$WORK/proj/.claude/.radin/backlog/index.jsonl"* ]]
-  [ ! -e "$WORK/proj-a/.claude" ]
+  [[ "$output" == *"REPO_ROOT=$WORK/proj-wt"$'\n'* ]]
+  [[ "$output" == *"BACKLOG_INDEX=$WORK/proj-wt/.claude/.radin/backlog/index.jsonl"* ]]
+}
+
+# A worktree-mode sub-agent runs in <checkout>-<id> on radin/<id> and must
+# reach the backlog of the checkout that prepared it, itself maybe a worktree.
+@test "a radin task worktree resolves to the checkout that prepared it" {
+  git init -q "$WORK/proj"
+  git -C "$WORK/proj" -c user.email=t@t -c user.name=t commit -q --allow-empty -m init
+  git -C "$WORK/proj" worktree add -q "$WORK/proj-wt" -b feature
+  mkdir -p "$WORK/proj-wt/.claude/.radin"
+  git -C "$WORK/proj-wt" worktree add -q "$WORK/proj-wt-fix-a" -b radin/fix-a
+  run bash -c "cd '$WORK/proj-wt-fix-a' && bash '$NS_SCRIPT'"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"BACKLOG_INDEX=$WORK/proj-wt/.claude/.radin/backlog/index.jsonl"* ]]
+  [ ! -e "$WORK/proj-wt-fix-a/.claude" ]
 }
 
 @test "falls back to \$PWD outside any git repo" {
