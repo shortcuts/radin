@@ -140,7 +140,7 @@ ACCEPTANCE
    explicit stop condition.
 <!-- end -->
 <!-- if:CAT_chore -->
-3. Implement through `/ponytail:ponytail` alone.
+3. No category skill applies: the ladder below is the whole discipline.
 <!-- end -->
    Apply the `/ponytail:ponytail` ladder in every case: the minimum code that
    satisfies the task, reusing what the repo already has. Its SubagentStart

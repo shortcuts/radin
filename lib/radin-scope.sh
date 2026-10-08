@@ -5,6 +5,7 @@
 #
 # Usage: radin-scope.sh [arg]
 #        radin-scope.sh --in-scope [arg]   # classify "path:line" lines on stdin
+#        radin-scope.sh --commits [arg]    # the scope's commits, "<hash> <subject>"
 #        radin-scope.sh --tasks [arg]      # completed task ids the scope covers
 #
 # No arg: the current branch's diff against its merge-base with main/master.
@@ -21,11 +22,14 @@
 # `out<TAB>path:line` line per stdin citation in input order, then one final
 # `dropped<TAB><n>`. A citation is `in` when the scope introduced that line:
 # under the directory for a dir scope, inside a diff hunk otherwise.
+# --commits resolves the same scope, then prints one "<hash> <subject>" line
+# per commit it covers: newest first for git scopes, gh's order for a PR, and
+# nothing for a `dir` scope.
 # --tasks resolves the same scope, then prints one completed task id per line
 # for the commits it covers: deduplicated, in commit order, joined through
 # `radin state trace` against `state/completed.json`. A `dir` scope has no
 # commit list, so it prints nothing.
-# Exit: 0 resolved (--in-scope and --tasks too, even when they print nothing);
+# Exit: 0 resolved (--in-scope, --commits and --tasks too, even when they print nothing);
 # 1 unrecognized; 2 ambiguous (each candidate reading printed to stderr).
 # Must stay bash-3.2-compatible (macOS /bin/bash).
 set -euo pipefail
@@ -106,21 +110,21 @@ if [ "${1:-}" = "--in-scope" ]; then
 	exit 0
 fi
 
-# --tasks re-resolves through this same script for the same reason --in-scope
-# does: one resolution path. The scope-type branching below is the whole point
-# of the flag -- it is what the review skill used to do itself.
-if [ "${1:-}" = "--tasks" ]; then
+# --commits and --tasks re-resolve through this same script for the same
+# reason --in-scope does: one resolution path. The scope-type branching below
+# is the whole point of the flags -- it is what the review skill used to do
+# itself.
+if [ "${1:-}" = "--commits" ]; then
 	shift
 	resolved="$(bash "$0" "${1:-}")" || exit $?
 	stype="$(printf '%s\n' "$resolved" | sed -n "s/^type$TAB//p")"
 	sscope="$(printf '%s\n' "$resolved" | sed -n "s/^scope$TAB//p")"
-	hashes=""
 	case "$stype" in
-	commit) hashes="$(git log -1 --format=%H "$sscope")" ;;
+	commit) git log -1 --format='%H %s' "$sscope" ;;
 	# A `since <date>` window reaching the root commit has the empty tree as
 	# its left side; `git log <empty-tree>..HEAD` lists the whole history, so
 	# that case needs no fallback of its own.
-	range | branch-diff) hashes="$(git log --format=%H "$sscope")" ;;
+	range | branch-diff) git log --format='%H %s' "$sscope" ;;
 	pr)
 		# "#123" or "#123 (owner/repo)"
 		num="${sscope#\#}"
@@ -132,11 +136,18 @@ if [ "${1:-}" = "--tasks" ]; then
 			;;
 		esac
 		# shellcheck disable=SC2086
-		hashes="$(gh pr view "$num" $repo --json commits --jq '.commits[].oid')"
+		gh pr view "$num" $repo --json commits --jq '.commits[] | .oid + " " + .messageHeadline'
 		;;
-	# A dir scope reviews the files as they stand: no commit list, no ids.
-	dir) exit 0 ;;
+	# A dir scope reviews the files as they stand: no commit list.
+	dir) ;;
 	esac
+	exit 0
+fi
+
+if [ "${1:-}" = "--tasks" ]; then
+	shift
+	commits="$(bash "$0" --commits "${1:-}")" || exit $?
+	hashes="$(printf '%s\n' "$commits" | cut -d' ' -f1)"
 	LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 	# shellcheck disable=SC1091
 	. "$LIB_DIR/radin-namespace.sh"

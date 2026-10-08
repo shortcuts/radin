@@ -29,7 +29,7 @@
 #   radin-backlog.sh add <category> <title> [--skill <name>]...  # create task, body read from stdin, prints its id
 #   radin-backlog.sh add-plan <id-or-title> <path>  # add one plan pointer to the task's entry
 #   radin-backlog.sh append <id-or-title>        # append text from stdin to the task's file
-#   radin-backlog.sh plan-target <id-or-title> [<sub-slug>]  # resolve one task for planning: "id"/"title"/"task_file"/"plan_file" TAB lines plus a "facts<TAB><path>" line when set and one "plan<TAB><path>" per existing pointer; exit 1 no match, 2 several (candidates on stderr), 3 already planned
+#   radin-backlog.sh plan-target <id-or-title> [<sub-task title>]  # resolve one task for planning: "id"/"title"/"task_file"/"plan_file" TAB lines plus a "facts<TAB><path>" line when set and one "plan<TAB><path>" per existing pointer; exit 1 no match, 2 several (candidates on stderr), 3 already planned
 #   radin-backlog.sh set-category <id-or-title> <category>  # move a task to another category
 #   radin-backlog.sh retitle <id-or-title> <title>  # change a task's title (its id never changes)
 #   radin-backlog.sh set-priority <id-or-title> <1|2|3|5|8|13|21|--none>  # set/clear the priority (higher wins)
@@ -1078,7 +1078,7 @@ add-plan)
 
 plan-target)
 	[ -n "${2:-}" ] || usage_die plan-target "plan-target needs an id or title"
-	[ $# -le 3 ] || usage_die plan-target "plan-target takes an id or title and at most one sub-slug, got: $4"
+	[ $# -le 3 ] || usage_die plan-target "plan-target takes an id or title and at most one sub-task title, got: $4"
 	require_index
 	# `single_match` dies the same way on zero and on several, so the four
 	# routes are resolved here instead of by a caller counting `find` lines.
@@ -1093,9 +1093,12 @@ plan-target)
 		exit 2
 	fi
 	tid="$(json_get id "$found")"
+	# The caller passes the sub-task's title as written; the slug is ours to
+	# derive, so two callers never spell one sub-task's plan file two ways.
+	sub="$(printf '%s' "${3:-}" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | sed 's/^-//; s/-$//')"
 	printf 'id\t%s\ntitle\t%s\ntask_file\t%s\nplan_file\t%s\n' \
 		"$tid" "$(json_get title "$found")" \
-		"$(entry_path "$found")" "$(plan_path "$tid" "${3:-}")"
+		"$(entry_path "$found")" "$(plan_path "$tid" "$sub")"
 	meta="$(meta_of_line "$found")"
 	facts="$(printf '%s\n' "$meta" | grep "^facts$TAB" || true)"
 	[ -z "$facts" ] || printf '%s\n' "$facts"

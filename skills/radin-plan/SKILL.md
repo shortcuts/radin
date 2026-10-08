@@ -25,7 +25,8 @@ It prints `id`/`title`/`task_file`/`plan_file` lines, plus a
 
 - **0**: resolved and unplanned. Use it.
 - **1**: nothing matches. The task isn't in the backlog yet: classify it into
-  `feat`/`fix`/`chore`/`refactor` (rubric in `skills/radin-record/SKILL.md`),
+  `feat` (new capability), `fix` (broken behavior), `chore` (maintenance:
+  docs, tooling, cleanup) or `refactor` (structure only, no behavior change),
   create it without asking, then re-run `plan-target` on the printed id.
 
   ```bash
@@ -107,8 +108,8 @@ neither is re-resolved between sub-tasks. For each sub-task, in order:
    conversation already holds. A question none of those three answers is the
    report line that ends the run, not a decision to leave open in the plan.
 5. Save the plan at the `plan_file` path Step 1 printed. For a sub-task from a
-   split, re-run `plan-target "<id>" "<sub-slug>"` with the sub-task's short
-   title in lowercase-hyphen form and use the `plan_file` it prints.
+   split, re-run `plan-target "<id>" "<sub-task short title>"` and use the
+   `plan_file` it prints: the CLI derives the file name from the title.
 6. Insert the pointer via the CLI (adds the path to the entry, after any
    earlier plan pointer):
 
@@ -188,7 +189,7 @@ above.">
 ## Step 4: Review each plan on both axes
 
 The plan is the cheapest place to correct the work. Review it on the two axes
-`skills/radin-review/SKILL.md` runs over code — Standards against this repo's
+`radin-review` runs over code — Standards against this repo's
 rubrics, Spec against the entry — kept separate for the same reason.
 
 Per plan file, dispatch both axes in one message as two parallel sub-agents.

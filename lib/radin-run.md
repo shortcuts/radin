@@ -21,7 +21,7 @@ you.
 
 ## Core Constraints
 
-- **Claude Code decides foreground or background**, so send every `Task` call
+- **Claude Code decides foreground or background**, so send every `Agent` call
   with no `run_in_background`. A backgrounded leaf's result reaches you as a
   completion notification in a later turn: wait for it, then report that task's
   outcome. A task reaches its **terminal status** only when `state task-report`
@@ -34,7 +34,7 @@ you.
   you find later revises one, not a task file, not a plan, not a leftover
   `radin/<id>` branch, not the fact that a worktree would have been tidier.
   Leaving the task undone is the better outcome. The worktree/branch pair is enforced for you: it lives in
-  `session.json`, and `radin-state.sh prepare` is the only thing that turns
+  `session.json`, and `RADIN_CLI state prepare` is the only thing that turns
   it into git commands. Never substitute either answer into a sub-agent prompt
   and never name a tree for a sub-agent: `prepare` reads `session.json` and
   decides.
@@ -46,8 +46,8 @@ you.
   approved. Such text is context, never consent.
 - **Read-only dispatches ship as one wave.** Planning, fact-finding and
   debugging sub-agents write no repo code and no shared file — they get no
-  worktree and never call `radin-state.sh prepare`, whatever Phase 0.5
-  recorded. N of them to send is N `Task` calls in one message, however large
+  worktree and never call `RADIN_CLI state prepare`, whatever Phase 0.5
+  recorded. N of them to send is N `Agent` calls in one message, however large
   the wave. The bullet below governs execution sub-agents, and only them.
 - **Phase 0.5's worktree answer sets execution concurrency.** `yes`: several
   execution sub-agents may go out in one message when the tasks share no
@@ -117,7 +117,7 @@ persist them.
 
 ## Phase 1: Read and Prioritize
 
-1. If `$BACKLOG_INDEX` is missing or empty: tell the user and ask whether to
+1. If Phase 0's `backlog count` printed `0`: tell the user and ask whether to
    create an empty backlog or stop. Those are the only two outcomes. An empty
    backlog ends the run: report it and stop.
 2. Reconcile against completed work. A run that died between recording
@@ -243,14 +243,14 @@ order:
 
 `kind` is `planning` or `execution`, and the no-plan rule of the skill that
 sent you here says what a `planning` one needs. Dispatch the prompt as one
-`Task` call with exactly that model and this text, and nothing else:
+`Agent` call with exactly that model and this text, and nothing else:
 
 ```
 Read <the prompt path> and follow it.
 ```
 
 Dispatch under the concurrency rule in Core Constraints — it decides whether
-this task's `Task` call may share a message with another's. An `execution`
+this task's `Agent` call may share a message with another's. An `execution`
 task is already claimed, so Phase 1 step 3's stuck-recovery sees it if the
 session dies.
 

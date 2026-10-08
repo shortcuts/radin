@@ -8,7 +8,7 @@ set -euo pipefail
 LIB="$HOME/.claude/.radin/lib"
 
 usage() {
-	printf 'usage: radin <backlog|state|scope|prompt|hooks|repair|update|doctor|uninstall> [args]\n'
+	printf 'usage: radin <backlog|state|scope|prompt|hooks|wire|repair|update|doctor|uninstall> [args]\n'
 	printf 'With no subcommand on a terminal, radin opens the TUI; "radin help" prints this text.\n'
 	printf 'Each subcommand prints its own usage when run with no arguments.\n'
 }
@@ -36,6 +36,11 @@ hooks)
 	# Merge-only wiring, one repo or the user scope: codebase-memory-mcp's
 	# skill/agents/hooks/MCP entry today, so the caller names no companion.
 	exec bash "$LIB/radin-cbm-hooks.sh" "$@"
+	;;
+wire)
+	# Fixed verb, no passthrough: the full codebase-memory-mcp wiring, upstream's
+	# own config bracketed by a snapshot and a restore.
+	exec bash "$LIB/radin-cbm-config.sh" install
 	;;
 repair)
 	# Fixed verb, no passthrough: repair always restores hooks and the MCP

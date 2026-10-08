@@ -833,6 +833,13 @@ IDX
   [ "${lines[5]}" = "plan"$'\t'"/tmp/two.md" ]
 }
 
+@test "plan-target slugifies a sub-task title into the plan file" {
+  cli add feat "cache layer" <<<"body"
+  run cli plan-target cache-layer "Evict Policy (LRU)"
+  [ "$status" -eq 0 ]
+  [ "${lines[3]}" = "plan_file"$'\t'"$WORK/proj/.claude/.radin/plans/cache-layer-evict-policy-lru.md" ]
+}
+
 @test "plan-target's sub-slug suffixes the plan file, and a third argument is a usage error" {
   cli add feat "cache layer" <<<"body"
   run cli plan-target cache-layer evict-policy

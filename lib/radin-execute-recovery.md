@@ -1,6 +1,6 @@
 # Shared: radin-execute Crash Recovery
 
-`radin-execute` reads this file only when `radin-state.sh stuck` exits 0 —
+`radin-execute` reads this file only when `RADIN_CLI state stuck` exits 0 —
 a previous run dispatched a task and never got a terminal status for it.
 
 A stuck task's sub-agent died with the session, so what it left on disk is

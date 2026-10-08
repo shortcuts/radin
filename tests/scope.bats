@@ -224,6 +224,35 @@ record_done() {
   [ "$status" -eq 1 ]
 }
 
+@test "--commits prints the scope's commit list, hash then subject" {
+  ( cd "$WORK/repo"
+    printf 'b\n' > f.txt && git commit -qam second )
+  head="$(cd "$WORK/repo" && git rev-parse HEAD)"
+
+  run cli --commits "$head"
+  [ "$status" -eq 0 ]
+  [ "$output" = "$head second" ]
+
+  run cli --commits "HEAD~1..HEAD"
+  [ "$status" -eq 0 ]
+  [ "$output" = "$head second" ]
+
+  mkdir -p "$WORK/repo/src"
+  run cli --commits src
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+
+  run cli --commits "blorp zonk"
+  [ "$status" -eq 1 ]
+}
+
+@test "--commits reads a PR's commits through gh" {
+  mock_gh cafe1234
+  run cli --commits "#123"
+  [ "$status" -eq 0 ]
+  [ "${output%% *}" = cafe1234 ]
+}
+
 @test "--tasks with no argument covers the branch diff's commits" {
   ( cd "$WORK/repo"
     git checkout -qb feature

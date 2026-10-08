@@ -49,10 +49,9 @@ and once:
 - **The diff command.** The `command` line is the scope's one diff command.
   Record it verbatim and paste that same string into every later Bash call and
   both briefs.
-- **The commit list.** `git log <the scope's range> --format='%H %s'` for a
-  `commit`, `range` or `branch-diff` type;
-  `gh pr view <n> --json commits --jq '.commits[].oid'` for a `pr`. A `dir`
-  scope has no commit list, and both briefs say so.
+- **The commit list.** `RADIN_CLI scope --commits [<the same scope arg>]`
+  prints one `<hash> <subject>` line per commit. A `dir` scope prints nothing:
+  it has no commit list, and both briefs say so.
 
 Run the `command` before either axis starts. No output — for a `dir` scope, no
 file under the path — means report "nothing to review in `<scope>`" and stop.

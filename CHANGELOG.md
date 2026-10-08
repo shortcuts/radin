@@ -4,7 +4,26 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Unreleased
 
+### Added
+
+- `radin scope --commits [<scope>]` prints the scope's commits as
+  `<hash> <subject>` lines. `/radin-review` uses it instead of composing
+  `git log` or `gh pr view` itself.
+- `radin wire` runs the full `codebase-memory-mcp` wiring (snapshot, upstream
+  config, restore). `/radin-setup-hooks` calls it instead of a lib path.
+
 ### Changed
+
+- `radin backlog plan-target <id> <sub-task title>` derives the plan file's
+  slug from the title, so `/radin-plan` passes the title as written.
+
+### Fixed
+
+- Skill and router prose that no longer matched the install: `/radin-show`
+  used a bare `radin` where the installer can write the full path,
+  `/radin-plan` read a repo-relative skill path that does not exist after
+  install, the router checked an internal `$BACKLOG_INDEX` variable, and a
+  chore task's prompt both invoked and skipped `/ponytail:ponytail`.
 
 - Execution, planning, fact-finding and debug sub-agents end with only their
   `STATUS:` line. Execution detail (plan deviations, skipped skills, test

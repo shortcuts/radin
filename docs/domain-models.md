@@ -74,7 +74,7 @@ Earlier revisions described single monolithic `<repo-root>/.claude/.radin/BACKLO
 
 ## Plan-file format (`radin-plan` output)
 
-Free-form markdown at `<NAMESPACE_DIR>/plans/<task-id>.md`, or `<NAMESPACE_DIR>/plans/<task-id>-<sub-slug>.md` for one sub-task of a split, where `<sub-slug>` is the sub-task's short title in lowercase-hyphen form. `backlog plan-target` prints that path as its `plan_file` line and is the only place the convention lives; nothing composes it by hand. Fixed six-section shape: Outcome, Decisions, Changes, Order, Testing, Out of scope. Template with each section's authoring rule lives in `skills/radin-plan/SKILL.md`, only place shape defined; sub-agents write it, `radin-execute` (or human) reads it.
+Free-form markdown at `<NAMESPACE_DIR>/plans/<task-id>.md`, or `<NAMESPACE_DIR>/plans/<task-id>-<sub-slug>.md` for one sub-task of a split, where `backlog plan-target` derives `<sub-slug>` from the sub-task's short title: lowercase, each run of other characters one hyphen. `backlog plan-target` prints that path as its `plan_file` line and is the only place the convention lives; nothing composes it by hand. Fixed six-section shape: Outcome, Decisions, Changes, Order, Testing, Out of scope. Template with each section's authoring rule lives in `skills/radin-plan/SKILL.md`, only place shape defined; sub-agents write it, `radin-execute` (or human) reads it.
 
 ## Review-scope output (`radin scope`)
 
@@ -91,7 +91,9 @@ Exit 0 resolved, 1 unrecognized, 2 ambiguous (each candidate reading on stderr).
 
 `radin scope --in-scope [<arg>]` resolves the same scope, then reads `path:line` citations on stdin and prints, in input order, `in<TAB><citation>` when the scope introduced that line and `out<TAB><citation>` otherwise, then one `dropped<TAB><n>`. `in` means under the directory for a `dir` scope, and inside a diff hunk of that path for every other type; paths compare repo-relative exactly as the diff spells them, a leading `./` aside. Exit 0 once resolved, even when every citation is dropped; resolution failures keep exits 1 and 2. The citation filter and the `location` index key are not two spellings of one thing: the filter screens fresh review citations that have no backlog entry yet, while `location` records where an existing entry's finding sits, for the trace lookup.
 
-`radin scope --tasks [<arg>]` resolves the same scope, then prints one completed task id per line for the commits it covers — deduplicated, in the commit order `git log` yields (newest first). The commit list per type is the branching this flag owns: `git log -1` for a `commit`, `git log <range>` for a `range` or `branch-diff`, `gh pr view <n> --json commits` for a `pr`, and none for a `dir`, which reviews files as they stand and so yields no ids. Each commit joins to an id through `radin state trace`, the owner of the short/long hash match against `completed.json`, so no second copy of that rule lives here. Exits match `--in-scope`: 0 once the scope resolves, even when no commit came from a task; 1 unrecognized and 2 ambiguous.
+`radin scope --commits [<arg>]` resolves the same scope, then prints one `<hash> <subject>` line per commit it covers. The commit list per type is the branching this flag owns: `git log -1` for a `commit`, `git log <range>` for a `range` or `branch-diff` (newest first), `gh pr view <n> --json commits` for a `pr` (gh's order), and nothing for a `dir`, which reviews files as they stand.
+
+`radin scope --tasks [<arg>]` takes `--commits`'s hashes and prints one completed task id per line for them — deduplicated, in that commit order. A `dir` scope yields no ids. Each commit joins to an id through `radin state trace`, the owner of the short/long hash match against `completed.json`, so no second copy of that rule lives here. Exits for both match `--in-scope`: 0 once the scope resolves, even when no commit came from a task; 1 unrecognized and 2 ambiguous.
 
 ## Execution-order output (`backlog order`)
 

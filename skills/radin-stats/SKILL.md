@@ -19,8 +19,8 @@ visibly, and that failure is the skip -- never an error, never worth retrying.
 
 - **`/caveman:caveman-stats`** -- measured: real per-session token usage and
   savings, read from the session log itself.
-- **`/ponytail:ponytail-gain`** -- benchmark: ponytail's published scoreboard
-  (medians across 5 tasks, 3 models). Not this session, and not this repo.
+- **`/ponytail:ponytail-gain`** -- benchmark: ponytail's published scoreboard.
+  Not this session, and not this repo.
 - **`/ponytail:ponytail-debt`** -- measured: ponytail's per-repo ledger of
   deferred shortcuts, if the repo has one.
 - **`rtk gain`** -- measured: rtk's token-savings ledger (pass `-p` to scope it
