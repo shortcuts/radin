@@ -181,7 +181,7 @@ assembled() {
   run assembled debug a-bug "the suite fails on auth_test"
   [ "$status" -eq 0 ]
   [ "${lines[0]}" = "$(printf 'model\tRADIN_MODEL_DEBUG')" ]
-  [[ "$output" == *"Reported failure: the suite fails on auth_test"* ]]
+  [[ "$output" == *"<failure>"$'\n'"the suite fails on auth_test"* ]]
   [[ "$output" == *"Tree: $WORK/proj"* ]]
   [[ "$output" != *"FAILURE"* ]]
 

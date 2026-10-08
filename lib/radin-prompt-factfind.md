@@ -18,7 +18,10 @@ Answers one checkable question in one turn.
 
 ```
 Answer one factual question about this codebase or its dependencies, and
-change nothing: QUESTION
+change nothing:
+<question>
+QUESTION
+</question>
 
 Context: the task at TASK_FILE was blocked on it.
 

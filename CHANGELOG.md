@@ -14,6 +14,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- `radin state prepare` stashes uncommitted changes it finds in the task's
+  tree before any checkout, and prints how to recover them. Execution
+  sub-agents no longer commit or revert leftovers they did not write, which
+  could discard the user's own work under `worktree: no`.
+- Prompts follow the current Claude prompting guides: the router keeps the
+  loop going after each task report, execution sub-agents keep working until
+  done, count only checks that actually ran, delete their scratch files, and
+  block on a test they believe is wrong instead of coding around it. The
+  debug and fact-finding prompts wrap their variable input in XML tags.
 - `radin backlog plan-target <id> <sub-task title>` derives the plan file's
   slug from the title, so `/radin-plan` passes the title as written.
 

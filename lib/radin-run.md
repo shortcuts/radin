@@ -285,6 +285,10 @@ RADIN_CLI state task-diagnosis "<task id>" <<'EOF'
 EOF
 ```
 
+A task report is not a stopping point: send it in the same message as the
+next task's dispatch and carry on. The loop stops only at a `halt`, a
+`clarify DECISION` waiting on the user, Phase 4.5, or Phase 5.
+
 Never verify a `SUCCESS` yourself: no per-task verification sub-agent, and no
 re-reading the diff — that read is the cost Phase 6's `/radin-review` pass
 exists to avoid. A task is finished when `task-report` has recorded it,

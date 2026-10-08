@@ -58,6 +58,9 @@ Ground rules, applying to every step below:
   graph hit is a pointer, so read the file before you cite or edit it, and
   never conclude something is absent from an empty result. Wrap commands in
   `rtk`, for the token savings.
+- Keep working until the task is done and checked: your only stops are the
+  `STATUS:` lines above. Work beyond the task that you think would help goes
+  in a `**Fact:**` line, not in the diff.
 
 <!-- if:EPIC_CONTEXT -->
 Shared context for the epic this task belongs to, inherited by every task in
@@ -93,9 +96,8 @@ TASK_BODY
    add`, no `git checkout -b`, no `git switch -c`, and no switching onto a
    `radin/<task-id>` branch you happen to notice. Non-zero exit: stop and
    report `STATUS: FAILED` with its message.
-   Anything uncommitted in the tree it hands you is a dead attempt's
-   leftovers. Commit it as part of this task if it belongs there, otherwise
-   revert it before you start.
+   The tree starts clean: `prepare` stashes anything it found uncommitted and
+   says where, so no work you did not write is yours to commit or revert.
 <!-- if:ACCEPTANCE -->
 ACCEPTANCE
 <!-- end -->
@@ -152,6 +154,9 @@ ACCEPTANCE
    Run it without your change and confirm it fails for the reason the task
    names, then with your change and confirm it passes. A test that passes
    either way, or fails for another reason, pins nothing: correct it first.
+   Make the code correct for every valid input, not only the tested ones. A
+   test you believe is wrong is `STATUS: BLOCKED (DECISION)`, never code to
+   work around.
    For each such test, record a `**Fact:**` line: `test <name>: failed before
    (<its failure>), passes now`.
 5. Choose the checks from what your diff reaches: ask `codebase-memory-mcp`
@@ -160,8 +165,14 @@ ACCEPTANCE
    the whole suite only when the blast radius covers most of the repo. Once
    before committing, run lint and format scoped to the packages or
    directories you touched.
+   A check counts only when it ran and exercised the change: a syntax-only
+   check, or one that failed to start, does not. If all that is missing is
+   the project's declared dependencies, install them with its own package
+   manager and lockfile, never with sudo or the system package manager. If
+   no real check can run here, record which one and why as a `**Fact:**`
+   line.
 <!-- if:TESTS_AT_END -->
-   Fix what they surface before step 6. The router's session gate runs the
+   Fix what the checks surface before step 6. The router's session gate runs the
    whole suite once after the last task.
 <!-- end -->
 <!-- if:!TESTS_AT_END -->
@@ -171,7 +182,8 @@ ACCEPTANCE
 6. Invoke the `/caveman:caveman-commit` skill to draft the commit message, then commit.
 7. Run `RADIN_CLI state dirty-check` from the tree
    step 1a handed you, so the check covers the files you actually touched.
-   If anything is still uncommitted (including changes made incidentally while
+   Delete any scratch file or script you created only to iterate. If anything
+   else is still uncommitted (including changes made incidentally while
    investigating, e.g. formatter/linter auto-fixes), either commit it as part of this
    task's commit or a separate scoped commit. Never leave the working tree dirty when
    you report back.

@@ -95,6 +95,40 @@ cli() {
   [ "$status" -ne 0 ]
 }
 
+@test "prepare stashes a dirty tree before handing it out, so no leaf reverts it" {
+  REPO="$WORK/repo"
+  ns="$REPO/.claude/.radin"
+  mkdir -p "$ns/state"
+  git init -q "$REPO"
+  git -C "$REPO" config user.email t@t
+  git -C "$REPO" config user.name t
+  echo base > "$REPO/f.txt"
+  git -C "$REPO" add f.txt
+  git -C "$REPO" commit -qm init
+  cli session-set no yes
+  echo "user work" > "$REPO/f.txt"
+  echo new > "$REPO/untracked.txt"
+
+  run cli prepare a
+  [ "$status" -eq 0 ]
+  [ "${lines[${#lines[@]}-1]}" = "$REPO" ]
+  [ -z "$(git -C "$REPO" status --porcelain -- . ':(exclude).claude/.radin')" ]
+  [ "$(git -C "$REPO" rev-parse --abbrev-ref HEAD)" = "radin/a" ]
+  [[ "$output" == *"stash@{0}"* ]]
+  grep -q '"event":"stash","id":"a"' "$ns/state/journal.jsonl"
+  git -C "$REPO" stash pop -q
+  [ "$(cat "$REPO/f.txt")" = "user work" ]
+  [ -f "$REPO/untracked.txt" ]
+
+  # a clean tree stashes nothing
+  git -C "$REPO" checkout -q -- f.txt
+  rm "$REPO/untracked.txt"
+  run cli prepare a
+  [ "$status" -eq 0 ]
+  [ "${lines[${#lines[@]}-1]}" = "$REPO" ]
+  [[ "$output" != *"stash@"* ]]
+}
+
 @test "prepare applies the recorded answers instead of trusting a caller" {
   REPO="$WORK/repo"
   ns="$REPO/.claude/.radin"

@@ -31,7 +31,7 @@
 #   radin-state.sh session-set <yes|no> <yes|no>  # persist the worktree and branch answers
 #   radin-state.sh session-get                  # print "worktree<TAB>yes" / "branch<TAB>no", exit 1 if unanswered
 #   radin-state.sh test-mode                    # print this session's --tests answer: task or end
-#   radin-state.sh prepare <id>                 # create/reuse the task's tree and branch per session.json, print the dir to work in
+#   radin-state.sh prepare <id>                 # stash a dirty tree, create/reuse the task's tree and branch per session.json, print the dir to work in
 #                                               # also records the branch and tree it chose in state/prepared/<id>.json
 #   radin-state.sh dirty-check                  # git status --porcelain of the current directory, excluding .claude/.radin
 #   radin-state.sh trace <id|commit|branch>     # print "task|commit|branch|worktree|plan|facts|status<TAB>value" per matching task; exit 1 no match, 2 ambiguous
@@ -247,6 +247,20 @@ stash_tree() {
 	after="$(git -C "$1" stash list | grep -c . || true)"
 	[ "$after" -gt "$before" ] || die "nothing to stash"
 	printf 'stash@{0}\n'
+}
+
+# Stashes tree $1 when dirty, before task $2 starts in it. Uncommitted work
+# there may be the user's own, so it is never left for a leaf to commit or
+# revert. `prepare` calls it before any checkout, so the work stays on the
+# branch it was made on.
+prepare_stash() {
+	local ref
+	[ -n "$(dirty_files "$1")" ] || return 0
+	ref="$(stash_tree "$1" "radin-execute: uncommitted changes found before task $2")"
+	journal "$ns/state" "stash" "$2" \
+		"$ref in $1 -- uncommitted before task $2 started. Recover: git -C $1 stash pop"
+	printf 'radin: stashed uncommitted changes in %s as %s before task %s. Recover: git -C %s stash pop\n' \
+		"$1" "$ref" "$2" "$1" >&2
 }
 
 # Prints task $1's order and title, TAB-separated, the id standing in for a
@@ -686,7 +700,8 @@ prepare)
 	wt_record=""
 	if [ "$worktree" = "yes" ]; then
 		if [ -d "$wt" ]; then
-			: # a dead attempt's tree -- reuse it rather than fail on `worktree add`
+			# a dead attempt's tree -- reuse it rather than fail on `worktree add`
+			prepare_stash "$wt" "$id"
 		elif git -C "$repo_root" rev-parse --verify --quiet "$branch" >/dev/null 2>&1; then
 			git -C "$repo_root" worktree add "$wt" "$branch" >&2
 		else
@@ -696,6 +711,7 @@ prepare)
 		dir="$wt"
 		wt_record="$wt"
 	else
+		prepare_stash "$repo_root" "$id"
 		if [ "$branch_mode" = "yes" ]; then
 			if git -C "$repo_root" rev-parse --verify --quiet "$branch" >/dev/null 2>&1; then
 				git -C "$repo_root" checkout "$branch" >&2
