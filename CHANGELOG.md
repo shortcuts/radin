@@ -6,6 +6,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- `radin backlog files <id>` prints the paths a task's plans list under
+  `## Changes`, one per line, deduplicated.
 - `radin scope --commits [<scope>]` prints the scope's commits as
   `<hash> <subject>` lines. `/radin-review` uses it instead of composing
   `git log` or `gh pr view` itself.

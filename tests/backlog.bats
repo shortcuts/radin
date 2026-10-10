@@ -849,3 +849,67 @@ IDX
   [ "$status" -ne 0 ]
   [[ "$output" == *"plan-target"* ]]
 }
+
+# --- files -------------------------------------------------------------------
+
+mkplan() {
+  printf '%s\n' "## Outcome" "- \`not/a/change.sh\` — outcome bullet" "" "## Changes" "" \
+    "- \`$2\` — first" "- \`$3\` — second" "  - \`nested/x\` — ignored" "" \
+    '```' "- \`in/fence.sh\` — snippet" '```' "" "## Order" "- \`order/item\` — x" >"$1"
+}
+
+@test "files prints only the Changes bullets' paths, skipping fences and other sections" {
+  cli add feat "cache layer" <<<"body"
+  mkplan "$WORK/p1.md" lib/a.sh docs/b.md
+  cli add-plan cache-layer "$WORK/p1.md"
+  run cli files cache-layer
+  [ "$status" -eq 0 ]
+  [ "${#lines[@]}" -eq 2 ]
+  [ "${lines[0]}" = "lib/a.sh" ]
+  [ "${lines[1]}" = "docs/b.md" ]
+}
+
+@test "files unions several pointers, deduplicated in first-seen order" {
+  cli add feat "cache layer" <<<"body"
+  mkplan "$WORK/p1.md" lib/a.sh docs/b.md
+  mkplan "$WORK/p2.md" docs/b.md tests/c.bats
+  cli add-plan cache-layer "$WORK/p1.md"
+  cli add-plan cache-layer "$WORK/p2.md"
+  run cli files cache-layer
+  [ "$status" -eq 0 ]
+  [ "${#lines[@]}" -eq 3 ]
+  [ "${lines[2]}" = "tests/c.bats" ]
+}
+
+@test "files exits 1 with nothing on stdout when the task has no plan" {
+  cli add feat "cache layer" <<<"body"
+  run bash -c "(cd '$WORK/proj' && bash '$CLI' files cache-layer 2>/dev/null)"
+  [ "$status" -eq 1 ]
+  [ -z "$output" ]
+}
+
+@test "files warns on a missing plan file and still prints the others" {
+  cli add feat "cache layer" <<<"body"
+  mkplan "$WORK/p1.md" lib/a.sh docs/b.md
+  cli add-plan cache-layer "$WORK/gone.md"
+  cli add-plan cache-layer "$WORK/p1.md"
+  run bash -c "(cd '$WORK/proj' && bash '$CLI' files cache-layer 2>'$WORK/err')"
+  [ "$status" -eq 0 ]
+  [ "$output" = "lib/a.sh"$'\n'"docs/b.md" ]
+  grep -q "plan file not found: $WORK/gone.md" "$WORK/err"
+}
+
+@test "files exits 1 when the plan has no Changes bullets" {
+  cli add feat "cache layer" <<<"body"
+  printf '## Outcome\n\n## Changes\n\nnone\n' >"$WORK/p1.md"
+  cli add-plan cache-layer "$WORK/p1.md"
+  run cli files cache-layer
+  [ "$status" -eq 1 ]
+  [ -z "$output" ]
+}
+
+@test "files without an argument is a usage error naming files" {
+  run cli files
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"files"* ]]
+}

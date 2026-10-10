@@ -30,6 +30,7 @@
 #   radin-backlog.sh add-plan <id-or-title> <path>  # add one plan pointer to the task's entry
 #   radin-backlog.sh append <id-or-title>        # append text from stdin to the task's file
 #   radin-backlog.sh plan-target <id-or-title> [<sub-task title>]  # resolve one task for planning: "id"/"title"/"task_file"/"plan_file" TAB lines plus a "facts<TAB><path>" line when set and one "plan<TAB><path>" per existing pointer; exit 1 no match, 2 several (candidates on stderr), 3 already planned
+#   radin-backlog.sh files <id-or-title>  # print the paths in the `## Changes` section of every plan the task points at, one per line, deduplicated; exit 1 with nothing when there is no plan or no path
 #   radin-backlog.sh set-category <id-or-title> <category>  # move a task to another category
 #   radin-backlog.sh retitle <id-or-title> <title>  # change a task's title (its id never changes)
 #   radin-backlog.sh set-priority <id-or-title> <1|2|3|5|8|13|21|--none>  # set/clear the priority (higher wins)
@@ -1107,6 +1108,36 @@ plan-target)
 		printf '%s\n' "$plans"
 		exit 3
 	}
+	;;
+
+files)
+	[ -n "${2:-}" ] || usage_die files "files needs an id or title"
+	[ $# -le 2 ] || usage_die files "files takes one id or title, got: $3"
+	require_index
+	entry="$(single_match "$2")"
+	# Union over every pointer of a split plan, first-seen order. Only the
+	# `- `path` — ...` bullets of `## Changes` count; fenced lines never do.
+	paths="$(
+		meta_of_line "$entry" | while IFS= read -r line || [ -n "$line" ]; do
+			case "$line" in
+			"plan$TAB"*)
+				pf="${line#plan"$TAB"}"
+				if [ -f "$pf" ]; then
+					awk '
+						/^```/ { fence = !fence; next }
+						fence { next }
+						/^## / { inchg = ($0 ~ /^## Changes[ \t]*$/); next }
+						inchg && /^- `[^`]+`/ { s = $0; sub(/^- `/, "", s); sub(/`.*/, "", s); print s }
+					' "$pf"
+				else
+					printf 'radin-backlog: plan file not found: %s\n' "$pf" >&2
+				fi
+				;;
+			esac
+		done | awk 'NF && !seen[$0]++'
+	)"
+	[ -n "$paths" ] || exit 1
+	printf '%s\n' "$paths"
 	;;
 
 set-category)
