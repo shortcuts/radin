@@ -181,6 +181,24 @@ the sibling implementation the change must match in naming and structure:>
 - `<symbol>` — reuse: <`path:line` | none — searched <query>>; sibling:
   <`path:line`>
 
+## Rubrics triggered
+
+<Sources: the repo's root `AGENTS.md` or `CLAUDE.md` (follow its `@AGENTS.md`
+import) and the docs index or `CONTRIBUTING.md` they point at. Omit the section
+when `## Changes` trips no documented rubric.>
+
+<One bullet per rubric `## Changes` trips (doc-sync list, line budget,
+convention doc), each either a file added to `## Changes` or excluded with a
+one-line reason:>
+
+- <rubric> (`<file>:<line or heading>`) → <file added to Changes | not needed:
+  reason>
+
+<Where a rubric states a line budget, print the current `wc -l` of each Changes
+file it covers under that bullet:>
+
+  - `<path>` — <n> lines (budget <b>)
+
 ## Order
 
 <The steps that must happen in a given order, numbered, each with the one line
@@ -226,7 +244,9 @@ first; a non-interactive run leaves it to `/radin-review`, which runs it over
 the code. Report every structural
 issue the rubric flags in the approach, and every place the plan breaks its own
 template contract — a speculative abstraction in `## Changes`, a `## Decisions`
-claim carrying no source. Report findings only, each as its claim and citation.
+claim carrying no source. Also report every documented repo rubric the plan's `## Changes` trips
+that `## Rubrics triggered` omits, and every budgeted Changes file with no
+printed line count. Report findings only, each as its claim and citation.
 
 **Spec brief.** The entry is the spec. Report (a) every acceptance criterion no
 `## Changes` entry implements and no `## Testing` box checks; (b) every
