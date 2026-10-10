@@ -119,6 +119,33 @@ if [ "$kind" = execution ] && [ -f "$NAMESPACE_DIR/state/BACKLOG_STEPS.json" ]; 
 	DEPS
 fi
 
+# Commits landed since the plan was written that touched its `## Changes`
+# paths. The sidecar is written by `add-plan`; no sidecar or an unknown hash
+# (history rewrite) means no block.
+stale_plan=""
+head_file="$NAMESPACE_DIR/plans/$task_id.head"
+if [ "$kind" = execution ] && [ -f "$head_file" ]; then
+	base="$(cat "$head_file")"
+	if git -C "$REPO_ROOT" cat-file -e "$base^{commit}" 2>/dev/null; then
+		plan_files="$(cd "$REPO_ROOT" && bash "$LIB_DIR/radin-backlog.sh" files "$task_id" 2>/dev/null)" || plan_files=""
+		hit=""
+		if [ -n "$plan_files" ]; then
+			hit="$(git -C "$REPO_ROOT" diff --name-only "$base" HEAD 2>/dev/null |
+				grep -Fx -f <(printf '%s\n' "$plan_files") || true)"
+		fi
+		if [ -n "$hit" ]; then
+			hit_args=()
+			while IFS= read -r hit_path; do hit_args[${#hit_args[@]}]="$hit_path"; done <<-HIT
+				$hit
+			HIT
+			commits="$(git -C "$REPO_ROOT" log --format='%h %s' "$base..HEAD" -- "${hit_args[@]}" |
+				awk 'NF { printf "%s%s", sep, $0; sep = "; " }')"
+			files="$(printf '%s\n' "$hit" | awk 'NF { printf "%s%s", sep, $0; sep = ", " }')"
+			[ -z "$commits" ] || stale_plan="$commits | files: $files"
+		fi
+	fi
+fi
+
 task_dir=""
 if [ "$kind" = debug ]; then
 	task_dir="$(bash "$LIB_DIR/radin-state.sh" task-dir "$task_id")"
@@ -134,6 +161,7 @@ active=" CAT_$category "
 [ -z "$location" ] || active="$active LOCATION "
 [ -z "$epic_context" ] || active="$active EPIC_CONTEXT "
 [ -z "$depends_on" ] || active="$active DEPENDS_ON "
+[ -z "$stale_plan" ] || active="$active STALE_PLAN "
 [ "$(bash "$LIB_DIR/radin-state.sh" test-mode 2>/dev/null)" != end ] || active="$active TESTS_AT_END "
 
 body="$(printf '%s\n' "$body" | awk -v active="$active" '
@@ -163,6 +191,7 @@ sub_token TASK_DIR "$task_dir"
 sub_token TASK_ID "$task_id"
 sub_token PLAN_PATHS "${plan_paths:-none}"
 sub_token DEPENDS_ON "${depends_on:-none}"
+sub_token STALE_PLAN "${stale_plan:-none}"
 sub_token SKILLS "${skills:-none}"
 sub_token CATEGORY "$category"
 sub_token ACCEPTANCE "$acceptance"

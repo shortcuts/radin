@@ -6,6 +6,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Execution prompts warn (block `2c.`) when commits landed since the plan was
+  written touched its `## Changes` paths; `add-plan` records `HEAD` in
+  `plans/<id>.head`.
 - `radin state task-next` prints an `overlap` line for execution tasks, and
   `radin-execute` parallelizes only tasks whose line reads `none`.
 - `radin scope --attribute [<scope>]` maps `path:line` citations on stdin to

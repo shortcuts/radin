@@ -27,7 +27,7 @@
 #   radin-backlog.sh find <id-or-title>          # print matching "id<TAB>category<TAB>title<TAB>file<TAB>priority<TAB>depends-on-csv" line(s)
 #   radin-backlog.sh count                       # print the number of entries (0 without an index)
 #   radin-backlog.sh add <category> <title> [--skill <name>]...  # create task, body read from stdin, prints its id
-#   radin-backlog.sh add-plan <id-or-title> <path>  # add one plan pointer to the task's entry
+#   radin-backlog.sh add-plan <id-or-title> <path>  # add one plan pointer to the task's entry, and record HEAD in plans/<id>.head
 #   radin-backlog.sh append <id-or-title>        # append text from stdin to the task's file
 #   radin-backlog.sh plan-target <id-or-title> [<sub-task title>]  # resolve one task for planning: "id"/"title"/"task_file"/"plan_file" TAB lines plus a "facts<TAB><path>" line when set and one "plan<TAB><path>" per existing pointer; exit 1 no match, 2 several (candidates on stderr), 3 already planned
 #   radin-backlog.sh files <id-or-title>  # print the paths in the `## Changes` section of every plan the task points at, one per line, deduplicated; exit 1 with nothing when there is no plan or no path
@@ -1074,6 +1074,11 @@ add-plan)
 	PLANS
 	plan_list[${#plan_list[@]}]="$plan_path"
 	set_index_field "$(json_get id "$entry")" plan "$(json_array "${plan_list[@]}")"
+	# Baseline for radin-prompt.sh's stale-plan guard; no commit yet, no file.
+	if head_hash="$(git -C "$REPO_ROOT" rev-parse --verify -q HEAD 2>/dev/null)"; then
+		mkdir -p "$NAMESPACE_DIR/plans"
+		printf '%s\n' "$head_hash" >"$NAMESPACE_DIR/plans/$(json_get id "$entry").head"
+	fi
 	printf 'plan pointer added to "%s"\n' "$(json_get title "$entry")"
 	;;
 

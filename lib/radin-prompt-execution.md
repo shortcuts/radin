@@ -129,6 +129,17 @@ ACCEPTANCE
    decision the plan made: report `STATUS: BLOCKED (DECISION)` describing it,
    and guess nothing.
 <!-- end -->
+<!-- if:STALE_PLAN -->
+2c. Commits landed after this task's plan was written and touched the files
+   it names: STALE_PLAN
+   Run `git show --stat <hash>` for each and skim the diff against the plan's
+   steps. Nothing overlaps, or the assumptions still hold: proceed. A
+   mechanical divergence (renamed function, moved file, adjusted signature):
+   implement against the current code and record what you adjusted as a
+   `**Fact:**` line. A divergence that changes a design decision the plan
+   made: report `STATUS: BLOCKED (DECISION)` describing it, and guess
+   nothing.
+<!-- end -->
 <!-- if:CAT_fix -->
 3. Invoke `/caveman:surgical-patch` and implement through it: the narrowest
    layer that fixes it, with regression proof.

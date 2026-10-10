@@ -913,3 +913,17 @@ mkplan() {
   [ "$status" -ne 0 ]
   [[ "$output" == *"files"* ]]
 }
+
+# --- add-plan sidecar ---------------------------------------------------------
+
+@test "add-plan records HEAD in plans/<id>.head, and writes nothing before a first commit" {
+  cli add feat "cache layer" <<<"body"
+  mkplan "$WORK/p1.md" lib/a.sh docs/b.md
+  cli add-plan cache-layer "$WORK/p1.md"
+  [ ! -e "$WORK/proj/.claude/.radin/plans/cache-layer.head" ]
+  ( cd "$WORK/proj" && git config user.email t@t && git config user.name t &&
+    git commit -q --allow-empty -m init )
+  run cli add-plan cache-layer "$WORK/p1.md"
+  [ "$status" -eq 0 ]
+  [ "$(cat "$WORK/proj/.claude/.radin/plans/cache-layer.head")" = "$(cd "$WORK/proj" && git rev-parse HEAD)" ]
+}

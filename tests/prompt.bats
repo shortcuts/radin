@@ -227,3 +227,44 @@ assembled() {
   [ "$status" -ne 0 ]
   [[ "$output" == *"unknown prompt kind"* ]]
 }
+
+stale_setup() {
+  ( cd "$WORK/proj"
+    git init -q .
+    git config user.email t@t && git config user.name t
+    printf 'a\n' > f.txt && printf 'a\n' > other.txt && git add -A && git commit -qm init )
+  backlog add fix "aging" <<<"Do it."
+  printf '%s\n' "## Changes" "" "- \`f.txt\` — edit" > "$WORK/plan.md"
+}
+
+@test "a plan whose Changes paths moved since add-plan gets the stale-plan block" {
+  stale_setup
+  backlog add-plan aging "$WORK/plan.md"
+  ( cd "$WORK/proj" && printf 'b\n' > f.txt && git commit -qam "touch f" )
+  short="$(cd "$WORK/proj" && git rev-parse --short HEAD)"
+  run assembled execution aging
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"2c."* ]]
+  [[ "$output" == *"$short touch f | files: f.txt"* ]]
+  [[ "$output" != *"STALE_PLAN"* ]]
+}
+
+@test "commits touching only other files leave the stale-plan block out" {
+  stale_setup
+  backlog add-plan aging "$WORK/plan.md"
+  ( cd "$WORK/proj" && printf 'b\n' > other.txt && git commit -qam "touch other" )
+  run assembled execution aging
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"2c."* ]]
+  [[ "$output" != *"STALE_PLAN"* ]]
+}
+
+@test "a plan with no recorded HEAD assembles without the stale-plan block" {
+  stale_setup
+  backlog add-plan aging "$WORK/plan.md"
+  rm -f "$NS/plans/aging.head"
+  ( cd "$WORK/proj" && printf 'b\n' > f.txt && git commit -qam "touch f" )
+  run assembled execution aging
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"2c."* ]]
+}
