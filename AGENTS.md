@@ -122,6 +122,19 @@ wrong one cost failed call in every sub-agent
   row stay put. `Shift-A`/`Shift-P`/`Shift-C`/`Shift-T` be only reorder,
   session-only, active one in header. CLI default stay `priority` — that be
   ordering contract `radin-prioritization.md` read.
+- **No batching several tasks into one sub-agent.** One sub-agent take one
+  task, so each task return one `STATUS` line and a failure stay in its own
+  task. Leaf be cold, so file-locality ordering save no token.
+- **No planning every task upfront as one wave.** A wave plan against a tree
+  earlier commit then change. Plan-first JIT planning be deliberate
+  anti-drift ([why](docs/architecture.md#verification-in-radin-execute)).
+- **No arena/judge at execution level.** N worktree, N full implementation,
+  judge read N diff; break router low-resolution rule. At planning it stay
+  open opt-in idea, tracked in own backlog entry and gated on review origin
+  rollup.
+- **No model escalation on retry.** All four major role (planning, execution,
+  review, debug) default sonnet, so escalate on retry change nothing by
+  default.
 
 ## Before committing
 
