@@ -199,6 +199,20 @@ file it covers under that bullet:>
 
   - `<path>` — <n> lines (budget <b>)
 
+## Modes and states
+
+<For each changed or new symbol, read its entry points and the callers
+`## Reach and reuse` lists, and collect every enum, flag, state field or guard
+clause they branch on: `codebase-memory-mcp` (`search_graph` for the type,
+`trace_path` for the callers), Grep for a literal flag. Omit the section when
+the change adds or alters no behavior an input, event or command can trigger,
+or the code it touches has no mode or state to branch on.>
+
+<One bullet per mode or state the behavior is reachable in:>
+
+- <mode or state> (`<path:line>` of its definition or guard) → <gated here:
+  decision | ungated: reason | not reachable: reason>
+
 ## Order
 
 <The steps that must happen in a given order, numbered, each with the one line
@@ -245,8 +259,9 @@ the code. Report every structural
 issue the rubric flags in the approach, and every place the plan breaks its own
 template contract — a speculative abstraction in `## Changes`, a `## Decisions`
 claim carrying no source. Also report every documented repo rubric the plan's `## Changes` trips
-that `## Rubrics triggered` omits, and every budgeted Changes file with no
-printed line count. Report findings only, each as its claim and citation.
+that `## Rubrics triggered` omits, every budgeted Changes file with no
+printed line count, and every mode or state the changed symbols' callers branch
+on that `## Modes and states` omits. Report findings only, each as its claim and citation.
 
 **Spec brief.** The entry is the spec. Report (a) every acceptance criterion no
 `## Changes` entry implements and no `## Testing` box checks; (b) every

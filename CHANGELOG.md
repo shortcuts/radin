@@ -11,6 +11,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - The plan template gains a `## Rubrics triggered` section: doc-sync lists,
   line budgets and convention docs the repo documents, checked against
   `## Changes`; the Standards review reports a rubric the section misses.
+- The plan template gains a `## Modes and states` section: each mode or state the
+  change's behavior is reachable in, with a gating decision per row; the
+  Standards review reports a mode the section misses.
 - The plan template gains a `## Reach and reuse` section: callers,
   implementers and test doubles of each changed symbol, and reuse evidence
   for each new one.
