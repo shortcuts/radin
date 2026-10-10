@@ -17,6 +17,7 @@
 #                                               # the fourth field is optional and defaults to pending; also writes state/baseline.json
 #                                               # --tests: when this session runs the full suite, per task (default) or once at the end
 #   radin-state.sh task-next [--plan-first] [<id>]  # pick, gate, claim and write the prompt in one call; exit 1 when nothing is left
+# an execution task also prints "overlap<TAB>none|unclear|<id>[,<id>...]": other live tasks sharing plan files
 #   radin-state.sh task-report <id> <the sub-agent's STATUS: line> [--next [--plan-first]]  # verify the tree, record the outcome, then a final "next<TAB>continue|debug|halt|clarify FACT|clarify DECISION" line
 #   radin-state.sh task-report <id> --no-status <last line> [--next [--plan-first]]  # the same, for a sub-agent that ended with no STATUS: line
 #                                               # --next: when the final line is "next<TAB>continue", also run task-next (with --plan-first) and print its output after; exit is task-next's
@@ -193,6 +194,33 @@ next_pending() {
 	done <"$steps"
 	[ -n "$best_line" ] || return 1
 	printf '%s\t%s\n' "$(json_get id "$best_line")" "$best_order"
+}
+
+# Prints task $1's overlap hint: "unclear" (no plan paths), "none", or the
+# comma-joined ids of live tasks that share a plan path, have no plan paths, or
+# sit on a depends_on edge with it.
+# ponytail: one fork per live task per call, cache if backlogs reach hundreds
+overlap_hint() {
+	local mine theirs line oid mydeps odeps hits=""
+	mine="$(cd "$repo_root" && bash "$LIB_DIR/radin-backlog.sh" files "$1" 2>/dev/null)" || mine=""
+	[ -n "$mine" ] || {
+		printf 'unclear'
+		return 0
+	}
+	mydeps=",$(deps_csv "$(entry_line "$steps" "$1")"),"
+	while IFS= read -r line || [ -n "$line" ]; do
+		[ -n "$line" ] || continue
+		oid="$(json_get id "$line")"
+		[ "$oid" != "$1" ] || continue
+		case "$(json_get status "$line")" in pending | in_progress) ;; *) continue ;; esac
+		odeps=",$(deps_csv "$line"),"
+		theirs="$(cd "$repo_root" && bash "$LIB_DIR/radin-backlog.sh" files "$oid" 2>/dev/null)" || theirs=""
+		if [ -z "$theirs" ] || [[ "$mydeps" == *",$oid,"* ]] || [[ "$odeps" == *",$1,"* ]] ||
+			printf '%s\n' "$theirs" | grep -Fxqf <(printf '%s\n' "$mine"); then
+			hits="${hits:+$hits,}$oid"
+		fi
+	done <"$steps"
+	printf '%s' "${hits:-none}"
 }
 
 # Claims task $1: in_progress, attempts bumped. Returns 2, with the entry
@@ -846,6 +874,7 @@ task-next)
 		fi
 		prompt="$(cd "$repo_root" && bash "$LIB_DIR/radin-prompt.sh" "$kind" "$pid")"
 		printf 'id\t%s\norder\t%s\nkind\t%s\n%s\n' "$pid" "$order" "$kind" "$prompt"
+		[ "$kind" != execution ] || printf 'overlap\t%s\n' "$(overlap_hint "$pid")"
 		exit 0
 		# Every skipped iteration moves one entry out of pending, so this terminates.
 	done

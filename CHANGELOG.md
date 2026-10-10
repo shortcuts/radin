@@ -6,6 +6,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- `radin state task-next` prints an `overlap` line for execution tasks, and
+  `radin-execute` parallelizes only tasks whose line reads `none`.
 - `radin scope --attribute [<scope>]` maps `path:line` citations on stdin to
   the task and plan that wrote each line, as `<citation> <task> <plan|none>`.
 - `radin backlog files <id>` prints the paths a task's plans list under

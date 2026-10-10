@@ -515,7 +515,8 @@ EOF
   [ "${lines[2]}" = "$(printf 'kind\texecution')" ]
   [ "${lines[3]}" = "$(printf 'model\tRADIN_MODEL_EXECUTION')" ]
   [ "${lines[4]}" = "$(printf 'prompt\t%s' "$NS/state/prompts/aa-task-execution.md")" ]
-  [ "${#lines[@]}" -eq 5 ]
+  [ "${lines[5]}" = "$(printf 'overlap\tunclear')" ]
+  [ "${#lines[@]}" -eq 6 ]
   [[ "$(cat "$NS/state/prompts/aa-task-execution.md")" == *"body"* ]]
   [[ "$(cat "$ST")" == *'"status":"in_progress","depends_on":[],"attempts":1'* ]]
 
@@ -543,6 +544,43 @@ EOF
   run cli task-next --plan-first
   [ "${lines[2]}" = "$(printf 'kind\texecution')" ]
   [[ "$(cat "$ST")" == *'"status":"in_progress"'* ]]
+}
+
+# Gives backlog task $1 a plan whose ## Changes lists the paths in $2...
+overlap_plan() {
+  local id="$1"; shift
+  { printf '# Plan\n\n## Changes\n\n'; for p in "$@"; do printf -- '- `%s` — x\n' "$p"; done; } > "$REPO/plan-$id.md"
+  (cd "$REPO" && bash "$REPO_ROOT/lib/radin-backlog.sh" add-plan "$id" "$REPO/plan-$id.md")
+}
+
+@test "task-next overlap line is none for disjoint plans and names a shared-path task" {
+  fixture_repo
+  (cd "$REPO" && bash "$REPO_ROOT/lib/radin-backlog.sh" add fix "bb task" <<<"body") > /dev/null
+  printf 'aa-task\t1\t\nbb-task\t2\t\n' | cli steps-init > /dev/null
+  overlap_plan aa-task lib/a.sh
+  overlap_plan bb-task lib/b.sh
+  run cli task-next
+  [ "${lines[5]}" = "$(printf 'overlap\tnone')" ]
+  overlap_plan bb-task lib/a.sh lib/b.sh
+  run cli task-next
+  [ "${lines[1]}" = "$(printf 'order\t2')" ]
+  [ "${lines[5]}" = "$(printf 'overlap\taa-task')" ]
+}
+
+@test "task-next overlap line names a pending task with no plan, and a dependent" {
+  fixture_repo
+  (cd "$REPO" && bash "$REPO_ROOT/lib/radin-backlog.sh" add fix "bb task" <<<"body") > /dev/null
+  printf 'aa-task\t1\t\nbb-task\t2\taa-task\n' | cli steps-init > /dev/null
+  overlap_plan aa-task lib/a.sh
+  run cli task-next
+  [ "${lines[5]}" = "$(printf 'overlap\tbb-task')" ]
+}
+
+@test "task-next --plan-first planning prompt prints no overlap line" {
+  fixture_repo
+  printf 'aa-task\t1\t\n' | cli steps-init > /dev/null
+  run cli task-next --plan-first
+  [[ "$output" != *overlap* ]]
 }
 
 @test "task-next blocks an entry the backlog lost and moves on" {

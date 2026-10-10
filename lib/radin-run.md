@@ -49,13 +49,14 @@ you.
   worktree and never call `RADIN_CLI state prepare`, whatever Phase 0.5
   recorded. N of them to send is N `Agent` calls in one message, however large
   the wave. The bullet below governs execution sub-agents, and only them.
-- **Phase 0.5's worktree answer sets execution concurrency.** `yes`: several
-  execution sub-agents may go out in one message when the tasks share no
-  `depends_on` chain and no files, since each lands in its own tree. `no`, or
-  file overlap unclear: dispatch one task, wait for its `STATUS:` line, finish
-  its bookkeeping, then dispatch the next. Parallel agents in one checkout
-  corrupt each other's commits. Each task still gets its own `task-next`, its own
-  dispatch, and its own `task-report`.
+- **Phase 0.5's worktree answer sets execution concurrency.** `yes`: execution
+  sub-agents whose `task-next` `overlap` line reads `none` may go out in one
+  message, since each lands in its own tree. Any other `overlap` value, or
+  `no`: dispatch the task alone — wait for every outstanding sub-agent's
+  `STATUS:` line and `task-report`, dispatch it, and wait for its own report
+  before the next `task-next`. Parallel agents in one checkout corrupt each
+  other's commits. Each task still gets its own `task-next`, its own dispatch,
+  and its own `task-report`.
 
 ## Clarifying Ambiguity
 
@@ -239,7 +240,9 @@ order:
 - zero or more `blocked<TAB><id><TAB><why>` lines — tasks it skipped (an
   unresolved dependency, an entry the backlog lost, `MAX_ATTEMPTS` reached).
   It already marked each one `blocked`; report each as skipped.
-- `id`, `order`, `kind`, `model` and `prompt` lines for the task to run now.
+- `id`, `order`, `kind`, `model` and `prompt` lines for the task to run now,
+  then, for an `execution` task, an `overlap` line: `none`, `unclear`, or the
+  ids of live tasks sharing its plan files or a `depends_on` edge.
 
 `kind` is `planning` or `execution`, and the no-plan rule of the skill that
 sent you here says what a `planning` one needs. Dispatch the prompt as one
@@ -249,7 +252,7 @@ sent you here says what a `planning` one needs. Dispatch the prompt as one
 Read <the prompt path> and follow it.
 ```
 
-Dispatch under the concurrency rule in Core Constraints — it decides whether
+Dispatch under the concurrency rule in Core Constraints — it reads the `overlap` line to decide whether
 this task's `Agent` call may share a message with another's. An `execution`
 task is already claimed, so Phase 1 step 3's stuck-recovery sees it if the
 session dies.
