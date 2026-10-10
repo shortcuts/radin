@@ -308,35 +308,7 @@ sub-agents then ran only the checks their diffs reached, so the whole suite
 runs here once. Skip it when the session recorded no commit, and after a
 `halt`.
 
-Dispatch one gate sub-agent (`model: "RADIN_MODEL_EXECUTION"`) with exactly:
-
-```
-Run this repo's full check suite (lint, tests, format), as its own docs or CI
-config define it, `rtk`-wrapped. Run it once at the tip of each branch that
-holds one of the commits below (`git branch --contains`). A branch checked out
-in a linked worktree runs in that worktree (`git worktree list`). Touch nothing
-under `.claude/.radin/`, and leave each checkout on the branch it started on.
-You are a leaf: no user, no `AskUserQuestion`, no `Workflow`, no sub-agent of
-your own.
-
-The session's commits, oldest first: <commit hashes recorded in Phase 4>.
-
-Green: report `STATUS: SUCCESS — suite green at <tip hash(es)>`.
-
-Red: for each failing check, find the commit that broke it with
-`git bisect run` over `<that branch's oldest session commit>^..<its tip>`,
-running only that check, then `git bisect reset`. Fix forward on that branch
-through `/caveman:surgical-patch`, commit through `/caveman:caveman-commit`
-naming the culprit commit, and re-run the full suite. Leave the tree clean.
-
-The LAST line is exactly one of:
-`STATUS: SUCCESS — <"suite green at <hash>", or "fixed in <hash(es)>, culprit <hash(es)>">`
-`STATUS: FAILED — <failing check>, culprit <hash>, <why no fix landed>`
-```
-
-Carry each fix hash into Phase 6's commit list. A `FAILED` line, or a last
-line that is not a `STATUS:` line, goes to the user after the Phase 5 summary,
-verbatim.
+Read `RADIN_LIB/radin-execute-gate.md` and follow it to dispatch the gate.
 
 ## Phase 5: Final Summary
 
@@ -353,23 +325,11 @@ cannot do.
 ## Phase 6: Review
 
 - **The user asked for a post-session review** (in the invoking prompt or
-  once the summary is out): dispatch the reviewer sub-agent below and report
-  its outcome.
+  once the summary is out): read `RADIN_LIB/radin-execute-review.md` and follow
+  it to dispatch the reviewer sub-agent, then report its outcome.
 - **They didn't**: no review. Close the summary with `To review this
   session's work, run /radin-review with scope: <commit hashes recorded in
   Phase 4>.`
-
-Reviewer sub-agent (`model: "RADIN_MODEL_REVIEW"`). The
-`radin-review` skill already owns the review-and-log flow, so send exactly:
-
-```
-You run non-interactively: you cannot reach the user and have no
-`AskUserQuestion`, so take each non-destructive branch the skill names.
-
-Invoke the `/radin-review` skill with scope: the commit(s) made this session
-(<list of commit hashes recorded in Phase 4>), plus any review instructions
-from the invoking prompt: <instructions, or "none">.
-```
 
 ## Additional Guardrails
 

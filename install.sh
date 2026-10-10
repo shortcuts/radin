@@ -163,6 +163,7 @@ for f in radin-namespace.sh radin-json.sh radin-backlog.sh radin-tui.c \
 	radin-prompt-debug.md radin-prompt-factfind.md \
 	radin-prioritization.md \
 	radin-execute-recovery.md radin-execute-reporting.md \
+	radin-execute-gate.md radin-execute-review.md \
 	radin-execute-clarify.md radin-execute-session.md \
 	radin-execute-resume.md radin-run.md radin-cbm-hooks.sh \
 	radin-cbm-config.sh radin-update.sh \
@@ -532,6 +533,8 @@ else
 	ok "keeping default sub-agent models (sonnet; haiku for fact-finding and chores)"
 fi
 set_role_models "$HOME/.claude/.radin/lib/radin-run.md"
+set_role_models "$HOME/.claude/.radin/lib/radin-execute-gate.md"
+set_role_models "$HOME/.claude/.radin/lib/radin-execute-review.md"
 for k in planning execution debug factfind; do
 	set_role_models "$HOME/.claude/.radin/lib/radin-prompt-$k.md"
 done
@@ -887,6 +890,8 @@ cat >"$MANIFEST_FILE" <<EOF
     "radin-prioritization.md",
     "radin-execute-recovery.md",
     "radin-execute-reporting.md",
+    "radin-execute-gate.md",
+    "radin-execute-review.md",
     "radin-execute-clarify.md",
     "radin-execute-session.md",
     "radin-execute-resume.md",

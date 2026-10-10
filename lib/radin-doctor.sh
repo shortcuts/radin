@@ -100,6 +100,8 @@ for k in planning execution debug factfind; do
 done
 check_file "radin-execute-recovery.md" "$CLAUDE_DIR/.radin/lib/radin-execute-recovery.md"
 check_file "radin-execute-reporting.md" "$CLAUDE_DIR/.radin/lib/radin-execute-reporting.md"
+check_file "radin-execute-gate.md" "$CLAUDE_DIR/.radin/lib/radin-execute-gate.md"
+check_file "radin-execute-review.md" "$CLAUDE_DIR/.radin/lib/radin-execute-review.md"
 check_file "radin-execute-clarify.md" "$CLAUDE_DIR/.radin/lib/radin-execute-clarify.md"
 check_file "radin-execute-session.md" "$CLAUDE_DIR/.radin/lib/radin-execute-session.md"
 check_file "radin-execute-resume.md" "$CLAUDE_DIR/.radin/lib/radin-execute-resume.md"

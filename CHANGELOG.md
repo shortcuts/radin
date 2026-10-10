@@ -29,6 +29,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- The Phase 4.5 gate and Phase 6 reviewer sub-agent prompts moved out of
+  `lib/radin-run.md` into on-demand `lib/radin-execute-gate.md` and
+  `lib/radin-execute-review.md`. No behaviour change.
 - `radin state prepare` stashes uncommitted changes it finds in the task's
   tree before any checkout, and prints how to recover them. Execution
   sub-agents no longer commit or revert leftovers they did not write, which

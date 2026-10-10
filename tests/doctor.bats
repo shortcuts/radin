@@ -36,6 +36,8 @@ printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-cbm-
   done
   : > "$TEST_HOME/.claude/.radin/lib/radin-execute-recovery.md"
   : > "$TEST_HOME/.claude/.radin/lib/radin-execute-reporting.md"
+  : > "$TEST_HOME/.claude/.radin/lib/radin-execute-gate.md"
+  : > "$TEST_HOME/.claude/.radin/lib/radin-execute-review.md"
   : > "$TEST_HOME/.claude/.radin/lib/radin-execute-clarify.md"
   : > "$TEST_HOME/.claude/.radin/lib/radin-execute-session.md"
   : > "$TEST_HOME/.claude/.radin/lib/radin-execute-resume.md"

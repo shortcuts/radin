@@ -133,13 +133,15 @@ Both `BACKLOG_STEPS.json` and `completed.json` JSONL (one compact object per lin
 
 `radin-execute` alone reads `lib/radin-prioritization.md`, via the `RADIN_LIB` token ([resolved at install](#install-time-substitution)), at Phase 1 step 4 and only when `backlog order --rank-needed` exits 0. It holds two things and nothing else: how to rank the unset-priority group, and the bounded dependency inference. Backlog format is `docs/domain-models.md`'s, verb behaviour is the CLI usage comments', so neither is restated there. `radin-plan` reads it not at all — scoped to one entry, nothing to prioritize.
 
-`radin-execute` alone reads five on-demand files, none of them inline in `SKILL.md`, because the skill body sits in the user's own context for the rest of the session. Each one be cold path — trigger fire, file get read, otherwise never:
+`radin-execute` alone reads seven on-demand files, none of them inline in `SKILL.md`, because the skill body sits in the user's own context for the rest of the session. Each one be cold path — trigger fire, file get read, otherwise never:
 
 - `lib/radin-execute-recovery.md` — `recover` routing for tasks a dead session left `in_progress`, read only when `radin-state.sh stuck` exits 0. Most runs never load it.
 - `lib/radin-execute-reporting.md` — the one thing `state report` cannot do: the duplicate id/title scan. Read at Phase 5.
 - `lib/radin-execute-clarify.md` — `BLOCKED (FACT)`/`(DECISION)` routing, fact-finder handoff, `backlog append` labels, read when a sub-agent block. Run where nothing block never load it.
 - `lib/radin-execute-session.md` — how to ask and persist Phase 0.5's worktree/branch answers, read only when `session-get` exit 1. First run in repo, nothing after.
 - `lib/radin-execute-resume.md` — resume triage, `MAX_ATTEMPTS` exception, state-persistence contract, read only when `BACKLOG_STEPS.json` already exist at startup or compaction ate earlier turns.
+- `lib/radin-execute-gate.md` — the Phase 4.5 gate sub-agent prompt, read only when `state test-mode` prints `end`.
+- `lib/radin-execute-review.md` — the Phase 6 reviewer sub-agent prompt, read only when the user asked for a post-session review.
 
 ## Why every entry point is a skill
 
@@ -261,6 +263,8 @@ radin/
     radin-prompt-factfind.md
     radin-execute-recovery.md
     radin-execute-reporting.md
+    radin-execute-gate.md
+    radin-execute-review.md
     radin-execute-clarify.md
     radin-execute-session.md
     radin-execute-resume.md
@@ -451,7 +455,7 @@ ships with the token intact invents its own answer.
 | Written as | Resolved to |
 | --- | --- |
 | `RADIN_CLI <subcommand>` in every `skills/*/SKILL.md` and shipped `lib/*.md` | bare `radin` when the `~/.local/bin` symlink is on PATH, else `"$HOME/.claude/.radin/bin/radin"` (`set_cli`) |
-| `RADIN_MODEL_<ROLE>` — `PLANNING`, `EXECUTION`, `DEBUG`, `FACTFIND` each in its own `lib/radin-prompt-<kind>.md`, `CHORE` on the execution template's `model-chore:` line, `REVIEW` in `lib/radin-run.md` | the install-time pick (`set_role_models`), one per group: major (planning, execution, review, debug) defaults to sonnet, minor defaults to haiku. Minor holds two roles: fact-finding, since its prompt demands the evidence and the router can reject a wrong answer; and a `chore` task's execution, since it needs no design judgement and still meets the dirty-tree check and Phase 6's review |
+| `RADIN_MODEL_<ROLE>` — `PLANNING`, `EXECUTION`, `DEBUG`, `FACTFIND` each in its own `lib/radin-prompt-<kind>.md`, `CHORE` on the execution template's `model-chore:` line, `REVIEW` in `lib/radin-execute-review.md` | the install-time pick (`set_role_models`), one per group: major (planning, execution, review, debug) defaults to sonnet, minor defaults to haiku. Minor holds two roles: fact-finding, since its prompt demands the evidence and the router can reject a wrong answer; and a `chore` task's execution, since it needs no design judgement and still meets the dirty-tree check and Phase 6's review |
 | `RADIN_LIB/<doc>.md` in `skills/radin-execute/SKILL.md` | `$HOME/.claude/.radin/lib` (`set_lib`). The Read tool takes no `$HOME`, so the literal would leave the model expanding it before every on-demand doc read |
 
 A new sub-agent role needs a token and a `-e` clause in `set_role_models` that maps
@@ -489,7 +493,7 @@ full suite was most of each task's time: 16 of 21 minutes in one measured
 task. So the leaf always picks its tests from what its diff reaches in the
 code graph, and Phase 2 asks when the full suite runs. `end` activates the
 `TESTS_AT_END` guard in `radin prompt`, and Phase 4.5 of `lib/radin-run.md`
-runs the full suite once at the tip of each branch the session touched.
+(which reads `lib/radin-execute-gate.md`) runs the full suite once at the tip of each branch the session touched.
 The answer lives in `baseline.json`, which `steps-init` rewrites, so it
 lasts one session: a slow repo and a fast one want different answers, and a
 per-repo default would hide the choice.

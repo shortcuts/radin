@@ -64,6 +64,8 @@ for k in planning execution debug factfind; do
 done
 remove_path "radin-execute-recovery.md" "$CLAUDE_DIR/.radin/lib/radin-execute-recovery.md"
 remove_path "radin-execute-reporting.md" "$CLAUDE_DIR/.radin/lib/radin-execute-reporting.md"
+remove_path "radin-execute-gate.md" "$CLAUDE_DIR/.radin/lib/radin-execute-gate.md"
+remove_path "radin-execute-review.md" "$CLAUDE_DIR/.radin/lib/radin-execute-review.md"
 remove_path "radin-execute-clarify.md" "$CLAUDE_DIR/.radin/lib/radin-execute-clarify.md"
 remove_path "radin-execute-session.md" "$CLAUDE_DIR/.radin/lib/radin-execute-session.md"
 remove_path "radin-execute-resume.md" "$CLAUDE_DIR/.radin/lib/radin-execute-resume.md"
