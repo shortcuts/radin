@@ -163,6 +163,24 @@ prose can — a schema, a type shape, a state machine, the exact string a test
 asserts on. Inline it in the entry it belongs to, trimmed to the
 decision-rich part.>
 
+## Reach and reuse
+
+<One `codebase-memory-mcp` query pass per changed or new symbol. Omit the
+section when the plan changes no existing symbol and adds no new one.>
+
+<For each changed symbol, one bullet listing its callers and implementers,
+test doubles included. Each one is either a `## Changes` entry or excluded
+with a one-line reason:>
+
+- `<symbol>` — <`path:line` of each caller or implementer> → <in Changes, or
+  excluded: reason>
+
+<For each new function, type or composable, one bullet: the reuse evidence and
+the sibling implementation the change must match in naming and structure:>
+
+- `<symbol>` — reuse: <`path:line` | none — searched <query>>; sibling:
+  <`path:line`>
+
 ## Order
 
 <The steps that must happen in a given order, numbered, each with the one line

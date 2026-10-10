@@ -6,6 +6,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- The plan template gains a `## Reach and reuse` section: callers,
+  implementers and test doubles of each changed symbol, and reuse evidence
+  for each new one.
 - Execution prompts warn (block `2c.`) when commits landed since the plan was
   written touched its `## Changes` paths; `add-plan` records `HEAD` in
   `plans/<id>.head`.
