@@ -7,6 +7,7 @@
 #        radin-scope.sh --in-scope [arg]   # classify "path:line" lines on stdin
 #        radin-scope.sh --commits [arg]    # the scope's commits, "<hash> <subject>"
 #        radin-scope.sh --tasks [arg]      # completed task ids the scope covers
+#        radin-scope.sh --attribute [arg]  # map "path:line" lines on stdin to task + plan
 #
 # No arg: the current branch's diff against its merge-base with main/master.
 # With arg: a commit-ish, a PR reference (#123, 123, GitHub PR URL), a
@@ -29,7 +30,11 @@
 # for the commits it covers: deduplicated, in commit order, joined through
 # `radin state trace` against `state/completed.json`. A `dir` scope has no
 # commit list, so it prints nothing.
-# Exit: 0 resolved (--in-scope, --commits and --tasks too, even when they print nothing);
+# --attribute resolves the same scope, then prints `<citation><TAB><task id>
+# <TAB><plan path|none>` per stdin citation in input order. The cited line is
+# blamed; it maps only when the blamed commit is one of the scope's commits,
+# joined through `radin state trace`. Anything else prints `none` twice.
+# Exit: 0 resolved (--in-scope, --commits, --tasks and --attribute too, even when they print nothing);
 # 1 unrecognized; 2 ambiguous (each candidate reading printed to stderr).
 # Must stay bash-3.2-compatible (macOS /bin/bash).
 set -euo pipefail
@@ -164,6 +169,37 @@ if [ "${1:-}" = "--tasks" ]; then
 			seen="$seen $id"
 			printf '%s\n' "$id"
 		done
+	done
+	exit 0
+fi
+
+if [ "${1:-}" = "--attribute" ]; then
+	shift
+	commits="$(bash "$0" --commits "${1:-}")" || exit $?
+	hashes=" $(printf '%s\n' "$commits" | cut -d' ' -f1 | tr '\n' ' ') "
+	LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+	# ponytail: one `blame` and one `trace` fork per citation; cache per hash
+	# if a wide review ever makes that matter (bash 3.2 has no assoc arrays).
+	while IFS= read -r cite || [ -n "$cite" ]; do
+		[ -n "$cite" ] || continue
+		p="${cite%:*}"
+		p="${p#./}"
+		l="${cite##*:}"
+		l="${l%%-*}"
+		task=""
+		plan=""
+		case "$l" in '' | *[!0-9]*) ;; *)
+			h="$(git blame --porcelain -L "$l,$l" -- "$p" 2>/dev/null | sed -n '1s/ .*//p' || true)"
+			case "$h" in '' | *[!0-9a-f]*) h="" ;; esac
+			[ -n "$h" ] && case "$hashes" in *" $h "*)
+				traced="$(bash "$LIB_DIR/radin-state.sh" trace "$h" 2>/dev/null || true)"
+				task="$(printf '%s\n' "$traced" | sed -n "s/^task$TAB//p" | head -n 1)"
+				plan="$(printf '%s\n' "$traced" | sed -n "s/^plan$TAB//p" | head -n 1)"
+				;;
+			esac
+			;;
+		esac
+		printf '%s\t%s\t%s\n' "$cite" "${task:-none}" "${plan:-none}"
 	done
 	exit 0
 fi

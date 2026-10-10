@@ -95,6 +95,8 @@ Exit 0 resolved, 1 unrecognized, 2 ambiguous (each candidate reading on stderr).
 
 `radin scope --tasks [<arg>]` takes `--commits`'s hashes and prints one completed task id per line for them — deduplicated, in that commit order. A `dir` scope yields no ids. Each commit joins to an id through `radin state trace`, the owner of the short/long hash match against `completed.json`, so no second copy of that rule lives here. Exits for both match `--in-scope`: 0 once the scope resolves, even when no commit came from a task; 1 unrecognized and 2 ambiguous.
 
+`radin scope --attribute [<arg>]` reads `path:line` citations on stdin and prints one `<citation><TAB><task id><TAB><plan path | none>` line per citation, in input order. It runs `git blame` on the cited line (start line of a `<start>-<end>` citation, a leading `./` dropped) and keeps the result only when the blamed commit is one of `--commits`'s hashes; the commit joins to its task and plan through `radin state trace`, and the plan field is printed verbatim. Both fields are `none` when no scope commit wrote the line, the commit is untraced, the scope is `dir` (no commit list), or the citation does not parse. Exits match `--in-scope`: 0 once the scope resolves; 1 unrecognized and 2 ambiguous.
+
 ## Execution-order output (`backlog order`)
 
 `radin backlog order` is the only thing that composes an execution order, and it prints one of three views of the same computation — the priority order `list` defaults to, with the topological dependency fix applied. It stores nothing: the order is re-derived on every call, which is why no phase of `radin-execute` carries it in context.

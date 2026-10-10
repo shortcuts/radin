@@ -6,6 +6,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- `radin scope --attribute [<scope>]` maps `path:line` citations on stdin to
+  the task and plan that wrote each line, as `<citation> <task> <plan|none>`.
 - `radin backlog files <id>` prints the paths a task's plans list under
   `## Changes`, one per line, deduplicated.
 - `radin scope --commits [<scope>]` prints the scope's commits as

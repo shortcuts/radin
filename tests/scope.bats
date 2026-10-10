@@ -224,6 +224,38 @@ record_done() {
   [ "$status" -eq 1 ]
 }
 
+@test "--attribute maps a cited line to the task and plan of the scope commit that wrote it" {
+  ( cd "$WORK/repo"
+    printf 'a\nb\n' > f.txt && git commit -qam second )
+  head="$(cd "$WORK/repo" && git rev-parse HEAD)"
+  mkdir -p "$WORK/repo/.claude/.radin/state"
+  printf '{"id":"my-task","commit":"%s","title":"t","plan":".claude/.radin/plans/my-task.md"}\n' "$head" \
+    >> "$WORK/repo/.claude/.radin/state/completed.json"
+
+  run bash -c "printf 'f.txt:1\nf.txt:2\n' | (cd '$WORK/repo' && bash '$CLI' --attribute 'HEAD~1..HEAD')"
+  [ "$status" -eq 0 ]
+  [ "${lines[0]}" = "f.txt:1"$'\t'"none"$'\t'"none" ]
+  [ "${lines[1]}" = "f.txt:2"$'\t'"my-task"$'\t'".claude/.radin/plans/my-task.md" ]
+}
+
+@test "--attribute prints none for an untraced commit, an unparsable citation and a dir scope" {
+  ( cd "$WORK/repo"
+    printf 'a\nb\n' > f.txt && git commit -qam second )
+  run bash -c "printf 'f.txt:2\nf.txt:x\nnope.c:1\n' | (cd '$WORK/repo' && bash '$CLI' --attribute 'HEAD~1..HEAD')"
+  [ "$status" -eq 0 ]
+  [ "${lines[0]}" = "f.txt:2"$'\t'"none"$'\t'"none" ]
+  [ "${lines[1]}" = "f.txt:x"$'\t'"none"$'\t'"none" ]
+  [ "${lines[2]}" = "nope.c:1"$'\t'"none"$'\t'"none" ]
+
+  mkdir -p "$WORK/repo/src"
+  run bash -c "printf 'f.txt:1\n' | (cd '$WORK/repo' && bash '$CLI' --attribute src)"
+  [ "$status" -eq 0 ]
+  [ "$output" = "f.txt:1"$'\t'"none"$'\t'"none" ]
+
+  run bash -c "printf 'f.txt:1\n' | (cd '$WORK/repo' && bash '$CLI' --attribute 'blorp zonk')"
+  [ "$status" -eq 1 ]
+}
+
 @test "--commits prints the scope's commit list, hash then subject" {
   ( cd "$WORK/repo"
     printf 'b\n' > f.txt && git commit -qam second )
