@@ -18,8 +18,8 @@
 #                                               # --tests: when this session runs the full suite, per task (default) or once at the end
 #   radin-state.sh task-next [--plan-first] [<id>]  # pick, gate, claim and write the prompt in one call; exit 1 when nothing is left
 # an execution task also prints "overlap<TAB>none|unclear|<id>[,<id>...]": other live tasks sharing plan files
-#   radin-state.sh task-report <id> <the sub-agent's STATUS: line> [--next [--plan-first]]  # verify the tree, record the outcome, then a final "next<TAB>continue|debug|halt|clarify FACT|clarify DECISION" line
-#   radin-state.sh task-report <id> --no-status <last line> [--next [--plan-first]]  # the same, for a sub-agent that ended with no STATUS: line
+#   radin-state.sh task-report <id> <the sub-agent's STATUS: line> [--next [--plan-first]] [--usage "<kind> <tokens> <tool_uses> <duration_ms>"]...  # verify the tree, record the outcome, then a final "next<TAB>continue|debug|halt|clarify FACT|clarify DECISION" line
+#   radin-state.sh task-report <id> --no-status <last line> [--next [--plan-first]] [--usage "<kind> <tokens> <tool_uses> <duration_ms>"]...  # the same, for a sub-agent that ended with no STATUS: line
 #                                               # --next: when the final line is "next<TAB>continue", also run task-next (with --plan-first) and print its output after; exit is task-next's
 #   radin-state.sh task-diagnosis <id>          # stdin becomes a **Root cause:** line on the task file, status untouched
 #   radin-state.sh task-done <id> <commit-hash> # record completion, copy the entry's **Fact:** lines to state/facts/<id>.md, remove backlog and steps entries, in crash-safe order; exit 3 when the hash does not validate
@@ -905,15 +905,26 @@ task-report)
 	fuse=0
 	plan_first=0
 	args=()
+	usages=()
+	want_usage=0
 	for arg in "${@:2}"; do
+		if [ "$want_usage" -eq 1 ]; then
+			usages+=("$arg")
+			want_usage=0
+			continue
+		fi
 		case "$arg" in
 		--next) fuse=1 ;;
 		--plan-first) plan_first=1 ;;
+		--usage) want_usage=1 ;;
 		*) args+=("$arg") ;;
 		esac
 	done
+	[ "$want_usage" -eq 0 ] || die "--usage needs a value"
 	[ "$plan_first" -eq 0 ] || [ "$fuse" -eq 1 ] || die "--plan-first needs --next"
 	if [ "$fuse" -eq 1 ]; then
+		# The child records the usage values, once.
+		for u in ${usages[@]+"${usages[@]}"}; do args+=(--usage "$u"); done
 		out="$(bash "$LIB_DIR/radin-state.sh" task-report ${args[@]+"${args[@]}"})" || {
 			rc=$?
 			printf '%s\n' "$out"
@@ -926,12 +937,21 @@ task-report)
 		fi
 		exec bash "$LIB_DIR/radin-state.sh" task-next
 	fi
+	set -- "$1" ${args[@]+"${args[@]}"}
 	id="${2:-}"
 	third="${3:-}"
 	[ -n "$id" ] && [ -n "$third" ] ||
 		die "usage: task-report <id> <STATUS line>  |  task-report <id> --no-status <last line>"
 	entry="$(entry_line "$steps" "$id")"
 	[ -n "$entry" ] || die "no entry with id: $id"
+	# Telemetry only: a malformed value warns and never fails the report.
+	for u in ${usages[@]+"${usages[@]}"}; do
+		if printf '%s' "$u" | grep -qE '^(planning|execution|debug|factfind) [0-9]+ [0-9]+ [0-9]+$'; then
+			journal "$ns/state" "usage" "$id" "$u"
+		else
+			printf 'radin-state: ignoring malformed --usage: %s\n' "$u" >&2
+		fi
+	done
 	if [ "$third" = "--no-status" ]; then
 		ot="$(order_title "$id")"
 		# A sub-agent the API or network killed did nothing wrong: back to
@@ -1086,6 +1106,7 @@ report)
 	# Reporting only -- no control flow reads the journal.
 	stash_block=""
 	dropped_block=""
+	usage_block=""
 	if [ -s "$state_dir/journal.jsonl" ]; then
 		from="$(grep -n '"event":"steps-init"' "$state_dir/journal.jsonl" | tail -n1 | cut -d: -f1)"
 		stash_block="$(tail -n "+${from:-1}" "$state_dir/journal.jsonl" |
@@ -1093,6 +1114,13 @@ report)
 		# A retried task journals its drops again, hence the dedupe.
 		dropped_block="$(tail -n "+${from:-1}" "$state_dir/journal.jsonl" |
 			sed -nE 's/.*"event":"skill-dropped","id":"[^"]+","detail":"(.*)"\}$/- \1/p' | awk '!seen[$0]++')"
+		# One journaled usage event per dispatch, summed per kind.
+		usage_block="$(tail -n "+${from:-1}" "$state_dir/journal.jsonl" |
+			sed -nE 's/.*"event":"usage","id":"[^"]*","detail":"([a-z]+) ([0-9]+) ([0-9]+) ([0-9]+)"\}$/\1 \2 \3 \4/p' |
+			awk '{n[$1]++; t[$1]+=$2; u[$1]+=$3; m[$1]+=$4}
+				END {split("planning execution debug factfind", k, " ")
+					for (i = 1; i <= 4; i++) if (n[k[i]])
+						printf "- %s: %d dispatches, %d tokens, %d tool uses, %ds\n", k[i], n[k[i]], t[k[i]], u[k[i]], int(m[k[i]] / 1000)}')"
 	fi
 
 	# Residual changes: never committed, parked instead. The user's call.
@@ -1170,6 +1198,7 @@ report)
 	[ -z "$deferred" ] || printf '\nDeferred at your request (left in the backlog):%s\n' "$deferred"
 	[ -z "$stash_block" ] || printf '\nStashes created this session:\n%s\n' "$stash_block"
 	[ -z "$dropped_block" ] || printf '\nSkills dropped as unrunnable by a sub-agent (run them yourself):\n%s\n' "$dropped_block"
+	[ -z "$usage_block" ] || printf '\nSub-agent usage this session:\n%s\n' "$usage_block"
 	;;
 
 *)

@@ -272,6 +272,14 @@ included: the CLI sends that task back for a retry. A sub-agent with no content 
 all is still working, whatever the elapsed time suggests: wait, and if your
 turn ends first, leave the entry `in_progress` for Phase 1's stuck-recovery.
 
+When the dispatch's completion notification carries a usage block (total tokens,
+tool uses, duration in ms), add `--usage "<kind> <tokens> <tool_uses> <duration_ms>"`
+to that task's next `task-report` call, `kind` being `planning`, `execution`,
+`debug` or `factfind` for the dispatch that produced it. A debug or fact-finder
+dispatch's usage rides on the re-run's `task-report`, one `--usage` per dispatch.
+No usage block, no flag; a synchronous result's `totalTokens` counts only the
+final request, so it never supplies the number.
+
 Your whole message to the user about this task is the call's report: every line above its `next` line, copied verbatim. Then route on that `next` line. A re-run names the task: `task-next <flag> "<task id>"`
 claims it again and bumps `attempts`, so the cap still ends it.
 

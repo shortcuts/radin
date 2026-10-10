@@ -666,6 +666,35 @@ overlap_plan() {
   [[ "$(cat "$NS/state/completed.json")" == *'"id":"aa-task"'* ]]
 }
 
+@test "task-report journals --usage values and report sums them per kind" {
+  fixture_repo
+  printf 'aa-task\t1\t\n' | cli steps-init > /dev/null
+  hash="$(git -C "$REPO" rev-parse HEAD)"
+  run cli task-report aa-task "STATUS: SUCCESS — $hash" \
+    --usage "planning 1000 4 2000" --usage "execution 5000 10 3500" --usage "execution 700 1 500"
+  [ "$status" -eq 0 ]
+  [ "${lines[${#lines[@]}-1]}" = "$(printf 'next\tcontinue')" ]
+  run cli report
+  [[ "$output" == *"Sub-agent usage this session:"* ]]
+  [[ "$output" == *"- planning: 1 dispatches, 1000 tokens, 4 tool uses, 2s"* ]]
+  [[ "$output" == *"- execution: 2 dispatches, 5700 tokens, 11 tool uses, 4s"* ]]
+}
+
+@test "task-report ignores a malformed --usage and records a fused one once" {
+  fixture_repo
+  printf 'aa-task\t1\t\nbb-task\t2\t\n' | cli steps-init > /dev/null
+  hash="$(git -C "$REPO" rev-parse HEAD)"
+  run cli task-report aa-task "STATUS: SUCCESS — $hash" --usage "bogus"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"ignoring malformed --usage: bogus"* ]]
+  [ "${lines[${#lines[@]}-1]}" = "$(printf 'next\tcontinue')" ]
+  run cli report
+  [[ "$output" != *"Sub-agent usage"* ]]
+  run cli task-report bb-task "STATUS: SUCCESS — $hash" --usage "debug 10 1 1000" --next
+  [ "$status" -eq 1 ]
+  [ "$(grep -c '"event":"usage"' "$NS/state/journal.jsonl")" -eq 1 ]
+}
+
 @test "task-report --next claims the next task only after a continue" {
   fixture_repo
   printf 'aa-task\t1\t\nbb-task\t2\t\n' | cli steps-init > /dev/null
