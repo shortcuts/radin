@@ -6,6 +6,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- `radin state report` prints an `out-of-plan:` line per task whose commit
+  changed files its plan's `## Changes` does not list; test paths are exempt
+  and no status changes.
 - `radin state task-report --usage "<kind> <tokens> <tool_uses> <duration_ms>"`
   journals a sub-agent's usage, and `radin state report` prints per-kind sums.
 - The plan template gains a `## Rubrics triggered` section: doc-sync lists,

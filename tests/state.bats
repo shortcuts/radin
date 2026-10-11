@@ -680,6 +680,42 @@ overlap_plan() {
   [[ "$output" == *"- execution: 2 dispatches, 5700 tokens, 11 tool uses, 4s"* ]]
 }
 
+@test "report names files a task's commit changed outside its plan's Changes" {
+  fixture_repo
+  printf 'aa-task\t1\t\n' | cli steps-init > /dev/null
+  printf '# Plan\n\n## Changes\n\n- `f.txt` — x\n' > "$WORK/plan.md"
+  (cd "$REPO" && bash "$REPO_ROOT/lib/radin-backlog.sh" add-plan aa-task "$WORK/plan.md") > /dev/null
+  mkdir -p "$REPO/tests"
+  echo x > "$REPO/f.txt"; echo x > "$REPO/extra.sh"; echo x > "$REPO/tests/x.bats"
+  git -C "$REPO" add f.txt extra.sh tests/x.bats
+  git -C "$REPO" commit -q -m work
+  hash="$(git -C "$REPO" rev-parse HEAD)"
+  run cli task-report aa-task "STATUS: SUCCESS — $hash"
+  [ "$status" -eq 0 ]
+  run cli report
+  [[ "$output" == *"Out-of-plan files"* ]]
+  [[ "$output" == *"- aa-task — out-of-plan: extra.sh"* ]]
+  line="$(printf '%s\n' "$output" | grep 'out-of-plan:')"
+  [[ "$line" != *"f.txt"* ]]
+  [[ "$line" != *"x.bats"* ]]
+}
+
+@test "report prints no out-of-plan block for a task without a plan or with a covering plan" {
+  fixture_repo
+  printf 'aa-task\t1\t\nbb-task\t2\t\n' | cli steps-init > /dev/null
+  (cd "$REPO" && bash "$REPO_ROOT/lib/radin-backlog.sh" add fix "bb task" <<<"body") > /dev/null
+  printf '# Plan\n\n## Changes\n\n- `g.txt` — x\n' > "$WORK/plan.md"
+  (cd "$REPO" && bash "$REPO_ROOT/lib/radin-backlog.sh" add-plan bb-task "$WORK/plan.md") > /dev/null
+  echo x > "$REPO/g.txt"; git -C "$REPO" add g.txt; git -C "$REPO" commit -q -m g
+  hash="$(git -C "$REPO" rev-parse HEAD)"
+  run cli task-report aa-task "STATUS: SUCCESS — $hash"
+  [ "$status" -eq 0 ]
+  run cli task-report bb-task "STATUS: SUCCESS — $hash"
+  [ "$status" -eq 0 ]
+  run cli report
+  [[ "$output" != *"Out-of-plan"* ]]
+}
+
 @test "task-report ignores a malformed --usage and records a fused one once" {
   fixture_repo
   printf 'aa-task\t1\t\nbb-task\t2\t\n' | cli steps-init > /dev/null

@@ -116,7 +116,7 @@ Each verb answers one step a caller takes. Claiming, stashing, the debug-pass fl
 - `steps-list` — one `id`/`order`/`status`/`attempts`/`note` TAB line per entry: the resume view after a compaction, so no router parses `BACKLOG_STEPS.json`
 - `recover <id>` — finish the bookkeeping when a hash is already recorded, return a clean tree to `pending`, stash a dirty one first. Exit 3 prints the `worktree`, `branch` and `branch_commit` lines a dead sub-agent left on its branch — the one case no verb can settle, because only the model can say whether they satisfy the task. It answers with `task-done` or `recover-reject`. The branch comes from `prepare`'s record: a `branch: no` run lands on the user's own checkout, which no derivation from the id can see
 - `recover-reject <id>` — those commits do not satisfy the task: entry `blocked`, note naming branch and worktree to inspect
-- `report` — the finished Phase 5 report text: residual-changes check (stash, never commit), this session's commits with their landing lines per `session.json`, every `failed`/`blocked`/`deferred` entry with its note, the session's stashes and `skill-dropped` journal events
+- `report` — the finished Phase 5 report text: residual-changes check (stash, never commit), this session's commits with their landing lines per `session.json`, every `failed`/`blocked`/`deferred` entry with its note, the session's stashes, `skill-dropped` journal events and `out-of-plan` journal events (files a task's commit changed that its plan's `## Changes` omits)
 - `test-mode` — print this session's `--tests` answer, `task` when none was recorded. `radin prompt` and Phase 4.5 read it
 - `session-set <yes|no> <yes|no>` / `session-get` — persist and read Phase 0.5's worktree/branch answers, so resumed run reuses them instead of asking again and splitting session between worktrees and checkout
 - `prepare <id>` — read `session.json`, create or reuse `<repo-root>-<id>` worktree and `radin/<id>` branch exactly as recorded answers require, print single directory execution sub-agent works in. A dirty tree is stashed first (journaled `stash` event, listed in `report`), before any checkout: uncommitted work there may be the user's own, so no leaf ever commits or reverts it. Only place those two answers turn into git commands, so a model can't reinterpret `no` into a worktree it prefers. Also the only place a task's branch is read from git — recorded to `state/prepared/<id>.json` for `task-done`, `recover` and the completion line to read back. Fails when nothing recorded yet
@@ -482,6 +482,10 @@ pass. A per-task refuter sub-agent used to run here; it cost an extra
 sub-agent per successful task for findings the Phase 6 pass finds anyway.
 Don't reintroduce one, and don't have the router re-read the diff instead —
 that read is the cost the single end-of-session pass exists to avoid.
+
+The `out-of-plan:` line in the report is not a verification pass: `task-done`
+compares the commit's file list with the plan's `## Changes` paths (test paths
+exempt), costs no tokens, and changes no status.
 
 The execution sub-agent's report carries one `test <name>: failed before
 (…), passes now` line above its `STATUS:`. That line is evidence for the human

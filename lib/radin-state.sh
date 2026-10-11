@@ -23,6 +23,7 @@
 #                                               # --next: when the final line is "next<TAB>continue", also run task-next (with --plan-first) and print its output after; exit is task-next's
 #   radin-state.sh task-diagnosis <id>          # stdin becomes a **Root cause:** line on the task file, status untouched
 #   radin-state.sh task-done <id> <commit-hash> # record completion, copy the entry's **Fact:** lines to state/facts/<id>.md, remove backlog and steps entries, in crash-safe order; exit 3 when the hash does not validate
+#                                               # also journals an out-of-plan event naming commit files its plan's ## Changes omits (test paths exempt), shown by report
 #   radin-state.sh set-status <id> <pending|in_progress|failed|blocked> [note]
 #   radin-state.sh stuck                        # print "id<TAB>attempts<TAB>note" per in_progress entry, exit 1 if none
 #   radin-state.sh steps-list                   # print "id<TAB>order<TAB>status<TAB>attempts<TAB>note" per entry, exit 1 if none
@@ -89,6 +90,15 @@ task_title() {
 task_plans() {
 	(cd "$1" 2>/dev/null && bash "$LIB_DIR/radin-backlog.sh" meta "$2" 2>/dev/null |
 		sed -n 's/^plan	//p' | paste -sd, -) || true
+}
+
+# Succeeds when path $1 is a test file by convention (a plan's ## Testing
+# lists commands, not paths, so test files are exempt from out-of-plan).
+is_test_path() {
+	case "$1" in
+	tests/* | test/* | */tests/* | */test/* | */__tests__/* | *.bats | *_test.* | *.test.* | *_spec.* | *.spec.*) return 0 ;;
+	esac
+	return 1
 }
 
 # Prints key $3 of the record `prepare` wrote for task $2 under namespace dir
@@ -678,6 +688,18 @@ task-done)
 	# Resolved before the backlog entry goes away: nothing else records them.
 	title="$(task_title "$repo_root" "$id")"
 	plans="$(task_plans "$repo_root" "$id")"
+	# Report-only: files the commit touched that the plan's ## Changes does not
+	# list. Every command is guarded so the exit code never changes.
+	out_of_plan=""
+	plan_paths="$(cd "$repo_root" && bash "$LIB_DIR/radin-backlog.sh" files "$id" 2>/dev/null)" || plan_paths=""
+	if [ -n "$plan_paths" ]; then
+		while IFS= read -r f || [ -n "$f" ]; do
+			[ -n "$f" ] || continue
+			is_test_path "$f" && continue
+			printf '%s\n' "$plan_paths" | grep -Fxq -- "$f" && continue
+			out_of_plan="${out_of_plan:+$out_of_plan,}$f"
+		done < <(git -C "$dir" diff-tree --no-commit-id --name-only -r --root "$hash" 2>/dev/null || true)
+	fi
 	# Order matters: record success first, so a crash mid-way leaves a state
 	# radin-backlog.sh reconcile can repair. Each step is skipped when a
 	# retry already did it, so re-running after a crash is safe.
@@ -710,6 +732,7 @@ task-done)
 		mv "$steps.tmp" "$steps"
 	fi
 	journal "$ns/state" "done" "$id" "$hash"
+	[ -z "$out_of_plan" ] || journal "$ns/state" "out-of-plan" "$id" "$out_of_plan"
 	printf 'task-done: %s recorded at %s; backlog and steps entries removed\n' "$id" "$hash"
 	;;
 
@@ -1107,6 +1130,7 @@ report)
 	stash_block=""
 	dropped_block=""
 	usage_block=""
+	outplan_block=""
 	if [ -s "$state_dir/journal.jsonl" ]; then
 		from="$(grep -n '"event":"steps-init"' "$state_dir/journal.jsonl" | tail -n1 | cut -d: -f1)"
 		stash_block="$(tail -n "+${from:-1}" "$state_dir/journal.jsonl" |
@@ -1114,6 +1138,9 @@ report)
 		# A retried task journals its drops again, hence the dedupe.
 		dropped_block="$(tail -n "+${from:-1}" "$state_dir/journal.jsonl" |
 			sed -nE 's/.*"event":"skill-dropped","id":"[^"]+","detail":"(.*)"\}$/- \1/p' | awk '!seen[$0]++')"
+		# Crash-retried task-done journals twice, hence the dedupe.
+		outplan_block="$(tail -n "+${from:-1}" "$state_dir/journal.jsonl" |
+			sed -nE 's/.*"event":"out-of-plan","id":"([^"]+)","detail":"(.*)"\}$/- \1 — out-of-plan: \2/p' | awk '!seen[$0]++')"
 		# One journaled usage event per dispatch, summed per kind.
 		usage_block="$(tail -n "+${from:-1}" "$state_dir/journal.jsonl" |
 			sed -nE 's/.*"event":"usage","id":"[^"]*","detail":"([a-z]+) ([0-9]+) ([0-9]+) ([0-9]+)"\}$/\1 \2 \3 \4/p' |
@@ -1197,6 +1224,7 @@ report)
 	[ -z "$blocked" ] || printf '\nNeeds your decision (left in the backlog, nothing implemented):%s\n' "$blocked"
 	[ -z "$deferred" ] || printf '\nDeferred at your request (left in the backlog):%s\n' "$deferred"
 	[ -z "$stash_block" ] || printf '\nStashes created this session:\n%s\n' "$stash_block"
+	[ -z "$outplan_block" ] || printf '\nOut-of-plan files (commit touched paths its plan'"'"'s Changes does not list):\n%s\n' "$outplan_block"
 	[ -z "$dropped_block" ] || printf '\nSkills dropped as unrunnable by a sub-agent (run them yourself):\n%s\n' "$dropped_block"
 	[ -z "$usage_block" ] || printf '\nSub-agent usage this session:\n%s\n' "$usage_block"
 	;;
