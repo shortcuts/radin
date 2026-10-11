@@ -269,6 +269,17 @@ on that `## Modes and states` omits. Report findings only, each as its claim and
 it; (c) every `**Decision:**` line the plan contradicts. Quote the entry's line
 for each finding. Report findings only, each as its claim and citation.
 
+**Recurring classes.** Run `RADIN_CLI state finding-classes` and read its
+`recurring` line: the plan sections that review findings reached in at least
+`--min` distinct tasks (default 3, the tunable threshold). A listed section
+gets one check added to the Standards brief above, in the brief's own shape:
+`Also report every <what the section's entry omits>`, ending with
+`(recurring: <section>, added <YYYY-MM-DD>)`. A human writes that sentence, or a
+run the human asked for does. Remove the sentence once
+`RADIN_CLI state finding-classes --since <added date>` no longer lists its
+section and its header reports at least `--min` tasks completed since that date.
+`recurring: none` means there is nothing to add or remove.
+
 Relay both reports under `## Standards` and `## Spec` headings before editing
 anything, each axis in its own order and neither reranked against the other.
 

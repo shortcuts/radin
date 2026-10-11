@@ -43,7 +43,8 @@
 #   radin-state.sh task-dir <id>                # print the task's worktree if it exists, else the repo root (radin-prompt.sh)
 #   radin-state.sh journal-tail [n]             # last n journal events (default 20)
 #   radin-state.sh plan-covers <plan-csv> <path>  # print in (a listed plan's Changes names the path), test (a test path, exempt) or out
-#   radin-state.sh review-findings              # stdin "<task><TAB><plan|executor|none><TAB><plan path>" per logged review finding: journal one review-finding event each, print the per-class and per-task rollup
+#   radin-state.sh review-findings              # stdin "<task><TAB><plan|executor|none><TAB><plan path>[<TAB><section>]" per logged review finding (section: plan only, a plan-template label): journal one review-finding event each, print the per-class and per-task rollup
+#   radin-state.sh finding-classes [--since <ts>] [--min <n>]  # print the plan-template sections plan findings land in, by distinct task, and the sections at >= n tasks (default 3); exit 1 when no finding passes
 #
 # Every mutation also appends one event to <state-dir>/journal.jsonl. The
 # journal is append-only forensics: it survives context compaction and a
@@ -80,6 +81,9 @@ MAX_ATTEMPTS=3
 # This many failures in a row mean the environment, not the tasks, is broken:
 # a red suite or a dead toolchain fails every remaining task the same way.
 HALT_AFTER=3
+# The plan template's section labels: the only values a `plan` review finding
+# may carry (review-findings validates against it, finding-classes counts by it).
+FINDING_SECTIONS="outcome decisions changes reach-and-reuse rubrics-triggered modes-and-states order testing out-of-scope"
 
 # Prints task $2's title from the backlog index under repo root $1, empty when
 # the entry is already gone (a completed task's entry is deleted).
@@ -1252,14 +1256,19 @@ review-findings)
 	# Validate every line before the first write: the journal is append-only,
 	# so a half-journaled batch cannot be repaired.
 	input="$(cat)"
-	[ -n "$input" ] || die "usage: review-findings (stdin: <task><TAB><class><TAB><plan path> per finding)"
-	bad="$(printf '%s\n' "$input" | awk -F'\t' 'NF != 3 || $3 == "" || ($2 != "plan" && $2 != "executor" && $2 != "none") { print; exit }')"
-	[ -z "$bad" ] || die "review-findings: bad line (want task<TAB>plan|executor|none<TAB>plan path): $bad"
+	[ -n "$input" ] || die "usage: review-findings (stdin: <task><TAB><class><TAB><plan path>[<TAB><section>] per finding)"
+	bad="$(printf '%s\n' "$input" | awk -F'\t' -v secs=" $FINDING_SECTIONS " '
+		NF != 3 && NF != 4 || $3 == "" || ($2 != "plan" && $2 != "executor" && $2 != "none") { print; exit }
+		$2 == "plan" && $4 != "" && index(secs, " " $4 " ") == 0 { print; exit }
+		$2 != "plan" && NF == 4 && $4 != "" { print; exit }')"
+	[ -z "$bad" ] || die "review-findings: bad line (want task<TAB>plan|executor|none<TAB>plan path[<TAB>section, plan only]): $bad"
 	mkdir -p "$ns/state"
 	# cut, not read: a tab IFS would collapse the empty task id of a `none` line.
 	while IFS= read -r line || [ -n "$line" ]; do
-		journal "$ns/state" "review-finding" "$(printf '%s' "$line" | cut -f1)" \
-			"$(printf '%s' "$line" | cut -f2) $(printf '%s' "$line" | cut -f3)"
+		detail="$(printf '%s' "$line" | cut -f2) $(printf '%s' "$line" | cut -f3)"
+		section="$(printf '%s' "$line" | cut -f4)"
+		[ -z "$section" ] || detail="$detail $section"
+		journal "$ns/state" "review-finding" "$(printf '%s' "$line" | cut -f1)" "$detail"
 	done <<<"$input"
 	printf '%s\n' "$input" | awk -F'\t' '
 		{
@@ -1284,7 +1293,64 @@ review-findings)
 		}'
 	;;
 
+finding-classes)
+	# Which plan-template sections the review's plan findings land in, counted
+	# by distinct task: one task's N findings in one section are one signal.
+	# A section recurs once it reaches --min tasks; `radin-plan` Step 4 reads it.
+	since=""
+	min=3
+	set -- "${@:2}"
+	while [ $# -gt 0 ]; do
+		[ $# -ge 2 ] || die "usage: finding-classes [--since <ts>] [--min <n>]"
+		case "$1" in
+		--since) since="$2" ;;
+		--min) min="$2" ;;
+		*) die "usage: finding-classes [--since <ts>] [--min <n>]" ;;
+		esac
+		shift 2
+	done
+	case "$min" in '' | *[!0-9]*) die "finding-classes: --min takes a whole number" ;; esac
+	file="$ns/state/journal.jsonl"
+	[ -s "$file" ] || exit 1
+	# Every review-finding event after the cutoff, as class, section, task. An
+	# event with no section, or an unknown one, counts as `unlabelled`.
+	rows="$(
+		while IFS= read -r line || [ -n "$line" ]; do
+			[ -n "$line" ] || continue
+			[ "$(json_get event "$line")" = review-finding ] || continue
+			ts="$(json_get ts "$line")"
+			if [ -n "$since" ] && [[ "$ts" < "$since" ]]; then continue; fi
+			detail="$(json_get detail "$line")"
+			section="${detail##* }"
+			case " $FINDING_SECTIONS " in *" $section "*) ;; *) section=unlabelled ;; esac
+			printf '%s\t%s\t%s\n' "${detail%% *}" "$section" "$(json_get id "$line")"
+		done <"$file"
+	)"
+	[ -n "$rows" ] || exit 1
+	done_n=0
+	if [ -s "$completed" ]; then
+		while IFS= read -r line || [ -n "$line" ]; do
+			[ -n "$line" ] || continue
+			ts="$(json_get ts "$line")"
+			if [ -n "$since" ] && [[ "$ts" < "$since" ]]; then continue; fi
+			done_n=$((done_n + 1))
+		done <"$completed"
+	fi
+	plan_n="$(printf '%s\n' "$rows" | awk -F'\t' '$1 == "plan" { n++ } END { print n + 0 }')"
+	tab="$(printf '\t')"
+	table="$(printf '%s\n' "$rows" | awk -F'\t' '
+		$1 == "plan" { f[$2]++ ; if (!(($2, $3) in seen)) { seen[$2, $3] = 1; t[$2]++ } }
+		END { for (s in f) printf "%s\t%d\t%d\n", s, f[s], t[s] }
+	' | sort -t "$tab" -k2,2nr -k1,1)"
+	printf 'since %s: %s tasks completed, %s plan findings\n' "${since:-start}" "$done_n" "$plan_n"
+	[ -z "$table" ] || printf '%s\n' "$table"
+	printf '%s\n' "$table" | awk -F'\t' -v min="$min" '
+		$1 != "unlabelled" && $3 + 0 >= min { r = r (r == "" ? "" : ", ") $1 }
+		END { print (r == "" ? "recurring: none" : "recurring (>= " min " tasks): " r) }
+	'
+	;;
+
 *)
-	die "unknown command: ${cmd:-<none>} (steps-init|task-next|task-report|task-diagnosis|task-done|set-status|stuck|recover|recover-reject|report|session-set|session-get|test-mode|prepare|dirty-check|trace|completed-show|completed-list|deps-check|task-dir|journal-tail|plan-covers|review-findings)"
+	die "unknown command: ${cmd:-<none>} (steps-init|task-next|task-report|task-diagnosis|task-done|set-status|stuck|recover|recover-reject|report|session-set|session-get|test-mode|prepare|dirty-check|trace|completed-show|completed-list|deps-check|task-dir|journal-tail|plan-covers|review-findings|finding-classes)"
 	;;
 esac

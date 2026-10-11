@@ -101,7 +101,7 @@ Creates `state/`, `plans/`, `reviews/`, `backlog/tasks/` under `$NAMESPACE_DIR`,
 Every verb resolves the namespace from the current directory through `lib/radin-namespace.sh`, so no caller passes a path. A task worktree that `prepare` made (`<checkout>-<id>` on `radin/<id>`) resolves to the checkout that made it; any other linked worktree keeps its own backlog. A router that had to carry `$NAMESPACE_DIR` into every Bash call re-sourced the env each time, and one run wrote its own script to do it.
 
 ```bash
-radin state <steps-init [--tests task|end]|task-next|task-report|task-diagnosis|task-done|set-status|stuck|steps-list|recover|recover-reject|report|session-set|session-get|test-mode|prepare|dirty-check|trace|completed-show|completed-list|deps-check|task-dir|journal-tail|plan-covers|review-findings>
+radin state <steps-init [--tests task|end]|task-next|task-report|task-diagnosis|task-done|set-status|stuck|steps-list|recover|recover-reject|report|session-set|session-get|test-mode|prepare|dirty-check|trace|completed-show|completed-list|deps-check|task-dir|journal-tail|plan-covers|review-findings|finding-classes>
 ```
 
 Each verb answers one step a caller takes. Claiming, stashing, the debug-pass flag and the completion write are functions inside the script, not verbs: no caller needs them on their own, and a verb nobody calls is one more thing a model can reach for.
@@ -126,7 +126,8 @@ Each verb answers one step a caller takes. Claiming, stashing, the debug-pass fl
 - `completed-list` — print `id<TAB>commit` per completion in file order (exit 1 when nothing is recorded), for the TUI's Done view
 - `deps-check <id>` / `task-dir <id>` — `radin prompt`'s two reads: dependency commits (exit 1 naming the first unresolved one), and the task's worktree (`<repo-root>-<id>`) when it exists, else repo root. In worktree mode repo root is not the tree the sub-agent worked in, so every dirty check and stash goes through the same lookup
 - `plan-covers <plan-csv> <path>` — `in` when a listed plan's `## Changes` names the path, `test` for a test path (exempt), else `out`. `/radin-review` uses `out` as the deterministic `executor` class
-- `review-findings` — stdin `<task><TAB><plan|executor|none><TAB><plan path>` per logged review finding: validates all lines, journals one `review-finding` event each (creating `state/` if absent), prints the per-class and per-task rollup the review report quotes
+- `review-findings` — stdin `<task><TAB><plan|executor|none><TAB><plan path>[<TAB><section>]` per logged review finding: validates all lines, journals one `review-finding` event each (creating `state/` if absent), prints the per-class and per-task rollup the review report quotes. The fourth column is a plan-template section label, allowed only on class `plan` (empty allowed); the event's `detail` carries it as a third word
+- `finding-classes [--since <ts>] [--min <n>]` — counts `review-finding` events after `--since` by plan-template section, distinct tasks per section, and names the sections at `--min` tasks (default 3) as `recurring`; exit 1 when no finding passes. The loop that turns a recurring section into a plan-review check is in `skills/radin-plan/SKILL.md` Step 4
 - `journal-tail [n]` — last n events from append-only `state/journal.jsonl`, written by every mutation above. Lets agent reconstruct what session already did after context compaction. Forensics only, never control flow
 
 Both `BACKLOG_STEPS.json` and `completed.json` JSONL (one compact object per line), same convention as backlog's `index.jsonl` — single-entry edit never risks another line, model never parses/rewrites bracketed JSON array by hand.

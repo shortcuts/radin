@@ -183,7 +183,10 @@ Each line carries the citation, its task id and its plan paths (comma-joined);
    prescribed the flaw or left the choice open for the executor to guess,
    `executor` when the plan was right and the code deviated. Quote that
    Decisions line, or write `no Decision covers it`, so the label can be
-   audited.
+   audited. For class `plan`, also name the plan-template section whose entry
+   would have caught the flaw (`outcome`, `decisions`, `changes`,
+   `reach-and-reuse`, `rubrics-triggered`, `modes-and-states`, `order`,
+   `testing`, `out-of-scope`), or leave it empty when no section would have.
 
 A sub-agent caller does this inline.
 
@@ -231,10 +234,12 @@ user discarded.
 
 After the last `add`, journal the logged findings in one call (skip it when
 nothing was logged) and keep its output for Step 6. Task files are deleted at
-`task-done`; the journal event keeps the finding-to-plan link:
+`task-done`; the journal event keeps the finding-to-plan link. A class `plan`
+finding carries its Step 4 section as a fourth column, empty when it has none;
+other classes carry no fourth column:
 
 ```bash
-printf '<task id or empty>\t<class>\t<plan path or none>\n...' |
+printf '<task id or empty>\t<class>\t<plan path or none>[\t<section>]\n...' |
   RADIN_CLI state review-findings
 ```
 

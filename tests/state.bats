@@ -961,3 +961,81 @@ overlap_plan() {
   [ "$status" -eq 1 ]
   [ ! -s "$NS/state/journal.jsonl" ]
 }
+
+@test "review-findings journals the plan section as a fourth column and rejects misplaced ones" {
+  rm -rf "$NS/state"
+  run cli review-findings < <(printf 'a\tplan\tp1.md\tdecisions\n')
+  [ "$status" -eq 0 ]
+  grep -q '"event":"review-finding","id":"a","detail":"plan p1.md decisions"' "$NS/state/journal.jsonl"
+  run cli review-findings < <(printf 'a\tplan\tp1.md\tbogus\n')
+  [ "$status" -eq 1 ]
+  run cli review-findings < <(printf 'a\tplan\tp1.md\n')
+  [ "$status" -eq 0 ]
+  run cli review-findings < <(printf 'b\texecutor\tp2.md\tdecisions\n')
+  [ "$status" -eq 1 ]
+  [ "$(grep -c '"event":"review-finding"' "$NS/state/journal.jsonl")" -eq 2 ]
+}
+
+# Seeds three journal findings in `decisions` (tasks a, b, c), one in `testing`
+# (task d), and an executor finding after the cutoff; two completions.
+seed_finding_classes() {
+  printf '%s\n' \
+    '{"ts":"2026-01-01T00:00:00Z","event":"review-finding","id":"a","detail":"plan p1.md decisions"}' \
+    '{"ts":"2026-01-01T00:00:00Z","event":"review-finding","id":"b","detail":"plan p2.md decisions"}' \
+    '{"ts":"2026-01-01T00:00:00Z","event":"review-finding","id":"c","detail":"plan p3.md decisions"}' \
+    '{"ts":"2026-01-01T00:00:00Z","event":"review-finding","id":"d","detail":"plan p4.md testing"}' \
+    '{"ts":"2026-01-05T00:00:00Z","event":"review-finding","id":"e","detail":"executor p5.md"}' \
+    >"$NS/state/journal.jsonl"
+  printf '%s\n' \
+    '{"id":"a","commit":"1111111","ts":"2026-01-02T00:00:00Z"}' \
+    '{"id":"b","commit":"2222222","ts":"2026-01-06T00:00:00Z"}' \
+    >"$NS/state/completed.json"
+}
+
+@test "finding-classes lists sections that recur across tasks" {
+  seed_finding_classes
+  run cli finding-classes
+  [ "$status" -eq 0 ]
+  [ "${lines[0]}" = "since start: 2 tasks completed, 4 plan findings" ]
+  [ "${lines[1]}" = "$(printf 'decisions\t3\t3')" ]
+  [ "${lines[2]}" = "$(printf 'testing\t1\t1')" ]
+  [ "${lines[3]}" = "recurring (>= 3 tasks): decisions" ]
+}
+
+@test "finding-classes --min raises the recurrence threshold" {
+  seed_finding_classes
+  run cli finding-classes --min 4
+  [ "$status" -eq 0 ]
+  [ "${lines[3]}" = "recurring: none" ]
+  run cli finding-classes --min x
+  [ "$status" -eq 1 ]
+}
+
+@test "finding-classes counts a section-less plan finding as unlabelled, never recurring" {
+  rm -rf "$NS/state"
+  mkdir -p "$NS/state"
+  printf '%s\n' \
+    '{"ts":"2026-01-01T00:00:00Z","event":"review-finding","id":"a","detail":"plan p1.md"}' \
+    '{"ts":"2026-01-01T00:00:00Z","event":"review-finding","id":"b","detail":"plan p2.md"}' \
+    '{"ts":"2026-01-01T00:00:00Z","event":"review-finding","id":"c","detail":"plan p3.md"}' \
+    '{"ts":"2026-01-01T00:00:00Z","event":"review-finding","id":"d","detail":"plan p4.md"}' \
+    >"$NS/state/journal.jsonl"
+  run cli finding-classes
+  [ "$status" -eq 0 ]
+  [ "${lines[1]}" = "$(printf 'unlabelled\t4\t4')" ]
+  [ "${lines[2]}" = "recurring: none" ]
+}
+
+@test "finding-classes --since counts only later events and completions" {
+  seed_finding_classes
+  run cli finding-classes --since 2026-01-04T00:00:00Z
+  [ "$status" -eq 0 ]
+  [ "${lines[0]}" = "since 2026-01-04T00:00:00Z: 1 tasks completed, 0 plan findings" ]
+  [ "${lines[1]}" = "recurring: none" ]
+}
+
+@test "finding-classes exits 1 with no output when no finding passes the filter" {
+  run cli finding-classes
+  [ "$status" -eq 1 ]
+  [ -z "$output" ]
+}

@@ -11,6 +11,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   per finding (`radin state review-findings`), and the report rolls them up
   per class and per task. `radin state plan-covers` and `radin backlog files
   <plan-file>` back the executor rule.
+- Review findings of class `plan` carry the plan-template section whose entry
+  would have caught them, and `radin state finding-classes` lists the sections
+  that recur across tasks. `radin-plan` Step 4 holds the add and remove rule.
 - `radin state report` prints an `out-of-plan:` line per task whose commit
   changed files its plan's `## Changes` does not list; test paths are exempt
   and no status changes.
