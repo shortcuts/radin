@@ -42,6 +42,8 @@
 #   radin-state.sh deps-check <id>              # print "dep<TAB>hash" per dependency, exit 1 naming the first unresolved one (radin-prompt.sh)
 #   radin-state.sh task-dir <id>                # print the task's worktree if it exists, else the repo root (radin-prompt.sh)
 #   radin-state.sh journal-tail [n]             # last n journal events (default 20)
+#   radin-state.sh plan-covers <plan-csv> <path>  # print in (a listed plan's Changes names the path), test (a test path, exempt) or out
+#   radin-state.sh review-findings              # stdin "<task><TAB><plan|executor|none><TAB><plan path>" per logged review finding: journal one review-finding event each, print the per-class and per-task rollup
 #
 # Every mutation also appends one event to <state-dir>/journal.jsonl. The
 # journal is append-only forensics: it survives context compaction and a
@@ -1229,7 +1231,60 @@ report)
 	[ -z "$usage_block" ] || printf '\nSub-agent usage this session:\n%s\n' "$usage_block"
 	;;
 
+plan-covers)
+	csv="${2:-}"
+	path="${3:-}"
+	[ -n "$csv" ] && [ -n "$path" ] || die "usage: plan-covers <plan-csv> <path>"
+	if is_test_path "$path"; then
+		echo test
+		exit 0
+	fi
+	for plan in $(printf '%s' "$csv" | tr ',' ' '); do
+		if bash "$LIB_DIR/radin-backlog.sh" files "$plan" 2>/dev/null | grep -Fxq -- "$path"; then
+			echo in
+			exit 0
+		fi
+	done
+	echo out
+	;;
+
+review-findings)
+	# Validate every line before the first write: the journal is append-only,
+	# so a half-journaled batch cannot be repaired.
+	input="$(cat)"
+	[ -n "$input" ] || die "usage: review-findings (stdin: <task><TAB><class><TAB><plan path> per finding)"
+	bad="$(printf '%s\n' "$input" | awk -F'\t' 'NF != 3 || $3 == "" || ($2 != "plan" && $2 != "executor" && $2 != "none") { print; exit }')"
+	[ -z "$bad" ] || die "review-findings: bad line (want task<TAB>plan|executor|none<TAB>plan path): $bad"
+	mkdir -p "$ns/state"
+	# cut, not read: a tab IFS would collapse the empty task id of a `none` line.
+	while IFS= read -r line || [ -n "$line" ]; do
+		journal "$ns/state" "review-finding" "$(printf '%s' "$line" | cut -f1)" \
+			"$(printf '%s' "$line" | cut -f2) $(printf '%s' "$line" | cut -f3)"
+	done <<<"$input"
+	printf '%s\n' "$input" | awk -F'\t' '
+		{
+			n++; c[$2]++
+			if ($2 == "none") next
+			if (!(($1, $2) in seen)) { seen[$1, $2] = 1; t[$2]++ }
+			if (!($1 in ord)) { ord[$1] = ++k; name[k] = $1 }
+			pc[$1, $2]++
+		}
+		END {
+			s = n " findings:"; sep = " "
+			if (c["plan"]) { s = s sep c["plan"] " plan (" t["plan"] " tasks)"; sep = ", " }
+			if (c["executor"]) { s = s sep c["executor"] " executor (" t["executor"] " tasks)"; sep = ", " }
+			if (c["none"]) s = s sep c["none"] " none"
+			print s
+			for (i = 1; i <= k; i++) {
+				id = name[i]; l = "- " id ":"; sep = " "
+				if (pc[id, "plan"]) { l = l sep pc[id, "plan"] " plan"; sep = ", " }
+				if (pc[id, "executor"]) l = l sep pc[id, "executor"] " executor"
+				print l
+			}
+		}'
+	;;
+
 *)
-	die "unknown command: ${cmd:-<none>} (steps-init|task-next|task-report|task-diagnosis|task-done|set-status|stuck|recover|recover-reject|report|session-set|session-get|test-mode|prepare|dirty-check|trace|completed-show|completed-list|deps-check|task-dir|journal-tail)"
+	die "unknown command: ${cmd:-<none>} (steps-init|task-next|task-report|task-diagnosis|task-done|set-status|stuck|recover|recover-reject|report|session-set|session-get|test-mode|prepare|dirty-check|trace|completed-show|completed-list|deps-check|task-dir|journal-tail|plan-covers|review-findings)"
 	;;
 esac

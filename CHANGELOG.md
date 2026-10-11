@@ -6,6 +6,11 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- `/radin-review` logs an `**Origin:**` line (task, plan path, class
+  `plan|executor|none`) on every finding, journals a `review-finding` event
+  per finding (`radin state review-findings`), and the report rolls them up
+  per class and per task. `radin state plan-covers` and `radin backlog files
+  <plan-file>` back the executor rule.
 - `radin state report` prints an `out-of-plan:` line per task whose commit
   changed files its plan's `## Changes` does not list; test paths are exempt
   and no status changes.

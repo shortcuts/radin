@@ -165,6 +165,28 @@ incorrect behavior — on the Spec axis, a missing, partial or wrongly
 implemented requirement — and **refactor** for everything else, scope creep
 included.
 
+Then attribute each survivor's origin, so the review shows whether defects
+trace to plans:
+
+```bash
+printf '%s\n' "<path:line per survivor>" |
+  RADIN_CLI scope --attribute [<the same scope arg as Step 1>]
+```
+
+Each line carries the citation, its task id and its plan paths (comma-joined);
+`none` in either field, a `dir` scope or an untraced commit means class
+`none`. Otherwise settle the class in this order:
+
+1. `RADIN_CLI state plan-covers "<plan csv>" "<cited path>"` prints `out`:
+   class `executor`, the code touched a file outside the plan's Changes.
+2. Otherwise read the plan's `## Decisions`: class `plan` when a Decisions line
+   prescribed the flaw or left the choice open for the executor to guess,
+   `executor` when the plan was right and the code deviated. Quote that
+   Decisions line, or write `no Decision covers it`, so the label can be
+   audited.
+
+A sub-agent caller does this inline.
+
 Print the survivors as a numbered list — number, axis, category, severity,
 location, the finding in a clause — every Standards finding first, then every Spec finding,
 each in its own axis's order. It is the triage handle for what Step 3 already
@@ -192,6 +214,7 @@ RADIN_CLI backlog add <fix|refactor> "<short title>" <<'EOF'
 <the problem as the review stated it: direct, specific. A Spec-axis finding
 opens with the spec line the brief quoted.>
 **Severity:** <critical|warning|nit>
+**Origin:** task <id|none> · plan <path|none> · class <plan|executor|none> — <the quoted ## Decisions line, or the reason>
 **Evidence:** <rung: cited|traced|ran> — <the reasoning or output the brief gave>
 **Preferred remedy:**
 <the concrete restructuring suggested>
@@ -199,13 +222,28 @@ EOF
 RADIN_CLI backlog set-meta <id> location "<the cited path:line>"
 ```
 
+For class `plan` and `executor`, end the `**Origin:**` line with
+`Read <plan path> ## Decisions before changing code.`, so the fix's sub-agent
+reads the original plan's decisions.
+
 Log one entry per agreed finding, in the order presented. Log nothing the
 user discarded.
+
+After the last `add`, journal the logged findings in one call (skip it when
+nothing was logged) and keep its output for Step 6. Task files are deleted at
+`task-done`; the journal event keeps the finding-to-plan link:
+
+```bash
+printf '<task id or empty>\t<class>\t<plan path or none>\n...' |
+  RADIN_CLI state review-findings
+```
 
 ## Step 6: Report back
 
 - The resolved scope reviewed, and the spec path or `no spec available`.
 - The entries logged, one line each — these are the `add` calls you just made.
+- The origin rollup: `review-findings`' output verbatim (for example
+  `12 findings: 9 plan (3 tasks), 2 executor, 1 none`, then one line per task).
 - Findings the user discarded, findings dropped as out of scope, and Spec
   findings dropped for having no in-scope line: three counts, no detail.
 - Findings dismissed by Step 4's call-site test: one line each, the finding

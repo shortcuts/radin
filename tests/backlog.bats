@@ -927,3 +927,14 @@ mkplan() {
   [ "$status" -eq 0 ]
   [ "$(cat "$WORK/proj/.claude/.radin/plans/cache-layer.head")" = "$(cd "$WORK/proj" && git rev-parse HEAD)" ]
 }
+
+@test "files accepts a plan file path directly, exit 1 with no Changes bullets" {
+  mkplan "$WORK/p1.md" lib/a.sh docs/b.md
+  run cli files "$WORK/p1.md"
+  [ "$status" -eq 0 ]
+  [ "${#lines[@]}" -eq 2 ]
+  [ "${lines[0]}" = "lib/a.sh" ]
+  printf '## Outcome\n' >"$WORK/empty.md"
+  run cli files "$WORK/empty.md"
+  [ "$status" -eq 1 ]
+}

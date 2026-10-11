@@ -930,3 +930,34 @@ overlap_plan() {
   [ ! -f "$REPO/stray.txt" ]
   [[ "$output" != *"Skills dropped"* ]]
 }
+
+@test "plan-covers answers in, test or out across a csv of plans" {
+  printf '## Changes\n\n- `lib/a.sh` — x\n' >"$WORK/p1.md"
+  printf '## Changes\n\n- `docs/b.md` — x\n' >"$WORK/p2.md"
+  run cli plan-covers "$WORK/p1.md,$WORK/p2.md" docs/b.md
+  [ "$output" = "in" ]
+  run cli plan-covers "$WORK/p1.md,$WORK/p2.md" tests/x.bats
+  [ "$output" = "test" ]
+  run cli plan-covers "$WORK/p1.md,$WORK/p2.md" lib/other.sh
+  [ "$output" = "out" ]
+  run cli plan-covers "$WORK/p1.md"
+  [ "$status" -eq 1 ]
+}
+
+@test "review-findings journals one event per finding and prints the rollup" {
+  rm -rf "$NS/state"
+  run cli review-findings < <(printf 'a\tplan\tp1.md\nb\texecutor\tp2.md\na\tplan\tp1.md\n\tnone\tnone\nb\tplan\tp2.md\n')
+  [ "$status" -eq 0 ]
+  [ "${lines[0]}" = "5 findings: 3 plan (2 tasks), 1 executor (1 tasks), 1 none" ]
+  [ "${lines[1]}" = "- a: 2 plan" ]
+  [ "${lines[2]}" = "- b: 1 plan, 1 executor" ]
+  [ "$(grep -c '"event":"review-finding"' "$NS/state/journal.jsonl")" -eq 5 ]
+  grep -q '"event":"review-finding","id":"b","detail":"executor p2.md"' "$NS/state/journal.jsonl"
+  grep -q '"event":"review-finding","id":"","detail":"none none"' "$NS/state/journal.jsonl"
+}
+
+@test "review-findings rejects a bad class and journals nothing" {
+  run cli review-findings < <(printf 'a\tplan\tp1.md\na\tbogus\tp1.md\n')
+  [ "$status" -eq 1 ]
+  [ ! -s "$NS/state/journal.jsonl" ]
+}

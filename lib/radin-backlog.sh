@@ -30,7 +30,7 @@
 #   radin-backlog.sh add-plan <id-or-title> <path>  # add one plan pointer to the task's entry, and record HEAD in plans/<id>.head
 #   radin-backlog.sh append <id-or-title>        # append text from stdin to the task's file
 #   radin-backlog.sh plan-target <id-or-title> [<sub-task title>]  # resolve one task for planning: "id"/"title"/"task_file"/"plan_file" TAB lines plus a "facts<TAB><path>" line when set and one "plan<TAB><path>" per existing pointer; exit 1 no match, 2 several (candidates on stderr), 3 already planned
-#   radin-backlog.sh files <id-or-title>  # print the paths in the `## Changes` section of every plan the task points at, one per line, deduplicated; exit 1 with nothing when there is no plan or no path
+#   radin-backlog.sh files <id-or-title|plan-file>  # print the paths in the `## Changes` section of every plan the task points at (or of the one plan file given), one per line, deduplicated; exit 1 with nothing when there is no plan or no path
 #   radin-backlog.sh set-category <id-or-title> <category>  # move a task to another category
 #   radin-backlog.sh retitle <id-or-title> <title>  # change a task's title (its id never changes)
 #   radin-backlog.sh set-priority <id-or-title> <1|2|3|5|8|13|21|--none>  # set/clear the priority (higher wins)
@@ -1116,31 +1116,40 @@ plan-target)
 	;;
 
 files)
-	[ -n "${2:-}" ] || usage_die files "files needs an id or title"
-	[ $# -le 2 ] || usage_die files "files takes one id or title, got: $3"
-	require_index
-	entry="$(single_match "$2")"
-	# Union over every pointer of a split plan, first-seen order. Only the
-	# `- `path` — ...` bullets of `## Changes` count; fenced lines never do.
-	paths="$(
-		meta_of_line "$entry" | while IFS= read -r line || [ -n "$line" ]; do
-			case "$line" in
-			"plan$TAB"*)
-				pf="${line#plan"$TAB"}"
-				if [ -f "$pf" ]; then
-					awk '
-						/^```/ { fence = !fence; next }
-						fence { next }
-						/^## / { inchg = ($0 ~ /^## Changes[ \t]*$/); next }
-						inchg && /^- `[^`]+`/ { s = $0; sub(/^- `/, "", s); sub(/`.*/, "", s); print s }
-					' "$pf"
-				else
-					printf 'radin-backlog: plan file not found: %s\n' "$pf" >&2
-				fi
-				;;
-			esac
-		done | awk 'NF && !seen[$0]++'
-	)"
+	[ -n "${2:-}" ] || usage_die files "files needs an id, title or plan file"
+	[ $# -le 2 ] || usage_die files "files takes one id, title or plan file, got: $3"
+	[ -f "$2" ] || require_index
+	# Only the `- `path` — ...` bullets of `## Changes` count; fenced lines
+	# never do.
+	changes_of() {
+		awk '
+			/^```/ { fence = !fence; next }
+			fence { next }
+			/^## / { inchg = ($0 ~ /^## Changes[ \t]*$/); next }
+			inchg && /^- `[^`]+`/ { s = $0; sub(/^- `/, "", s); sub(/`.*/, "", s); print s }
+		' "$1"
+	}
+	if [ -f "$2" ]; then
+		# A plan file outlives its task's entry (task-done deletes the entry).
+		paths="$(changes_of "$2" | awk 'NF && !seen[$0]++')"
+	else
+		entry="$(single_match "$2")"
+		# Union over every pointer of a split plan, first-seen order.
+		paths="$(
+			meta_of_line "$entry" | while IFS= read -r line || [ -n "$line" ]; do
+				case "$line" in
+				"plan$TAB"*)
+					pf="${line#plan"$TAB"}"
+					if [ -f "$pf" ]; then
+						changes_of "$pf"
+					else
+						printf 'radin-backlog: plan file not found: %s\n' "$pf" >&2
+					fi
+					;;
+				esac
+			done | awk 'NF && !seen[$0]++'
+		)"
+	fi
 	[ -n "$paths" ] || exit 1
 	printf '%s\n' "$paths"
 	;;
