@@ -80,19 +80,28 @@ these rungs in order and stop at the first that yields a spec:
    - **Exit 4**: a recorded commit no longer exists and HEAD sits on no branch.
      Report the stderr line and stop the review.
    - **No output**: fall to rung 3.
-   - **Lines**: one `AskUserQuestion` shows them in the printed order and asks
-     the user to confirm the order or drop entries. A sub-agent caller skips
-     the question and takes the `commit` and `reflog` lines only: a `pending`
-     entry is unfinished work, not what the scope implemented.
+   - **Lines**: take every line without asking. Never ask the user to confirm,
+     order or drop entries. A sub-agent caller takes the `commit` and `reflog`
+     lines only: a `pending` entry is unfinished work, not what the scope
+     implemented.
 
-   For each confirmed `id`, a `pending` one resolves as in rung 1. For the
-   others, `RADIN_CLI state completed-show "<id>"` names the plan the task ran
-   against: its `plan` line carries the recorded paths, comma-separated, and
-   those files are the spec. Several ids: every one of their plan files is the
-   spec, and the review covers all of them. Also run `RADIN_CLI state trace "<id>"`
-   for each completed id: when its `facts` line names a file, the reviewer
-   reads that file with the plans, because it records where the implementation
-   departed from the plan on purpose and why.
+   A `pending` id resolves as in rung 1. For the others,
+   `RADIN_CLI state completed-show "<id>"` names the plan the task ran
+   against: its `plan` line carries the recorded paths, comma-separated. Also
+   run `RADIN_CLI state trace "<id>"` for each completed id: when its `facts`
+   line names a file, that file is part of the entry, because it records where
+   the implementation departed from the plan on purpose and why.
+
+   Then sort the entries into two roles. Read each plan and decide:
+
+   - **Follow-up**: the plan answers a review finding (it quotes a
+     `**Finding:**`, a `**Severity:**` or a `review` origin) or fixes work an
+     earlier entry shipped. These are **decisions**.
+   - **Feature**: every other entry. These are the **spec**.
+
+   The sort is yours; never put it to the user. When every entry is a
+   follow-up, there is no spec, only decisions: the review runs with them and
+   reports `no spec available` in Step 6.
 3. **Ask.** One `AskUserQuestion` offering the top entries from
    `RADIN_CLI backlog list` as options, with the tool's free-text field
    carrying a path the user types instead. "There isn't one" falls to rung 4.
@@ -106,7 +115,10 @@ Dispatch one sub-agent. The brief is self-contained: paste in full the resolved
 scope line, Step 1's `command` string and commit list verbatim, and the
 citation rule below. The spec, when Step 2 found one, goes in as absolute
 paths with "read it in full before reviewing"; the sub-agent's `Read` is the
-access that paste-in-full rule exists to provide.
+access that paste-in-full rule exists to provide. The decisions go in the same
+way, labelled: "these entries fixed earlier findings on purpose; the scope's
+behaviour they describe is settled, so never raise it again as a finding unless
+a changed line contradicts the decision."
 
 > Every finding cites one `path:line` the scope introduced: for a diff scope
 > the lines it adds or changes, for a `dir` scope the files under that path.

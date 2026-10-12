@@ -11,6 +11,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   thermo-nuclear and the repo rubrics. The spec is context for that reviewer.
   Survivors that share a file, a root cause or a remedy, and one origin, merge
   into one backlog entry, so a review adds fewer entries.
+- `/radin-review` no longer asks the user which backlog entries to use. It
+  takes every entry `radin scope --specs` lists, treats feature entries as the
+  spec and review follow-ups as settled decisions, and does not re-raise them.
 
 ### Added
 
