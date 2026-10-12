@@ -536,7 +536,7 @@ completed-show)
 		if [ "$(json_get id "$line")" = "$id" ]; then
 			# A line written before provenance existed has no branch, worktree,
 			# plan or ts key: json_get prints nothing, which reads as unknown.
-			for key in id commit title branch worktree plan ts; do
+			for key in id commit title branch worktree plan ts created; do
 				printf '%s\t%s\n' "$key" "$(json_get "$key" "$line")"
 			done
 			exit 0
@@ -694,6 +694,7 @@ task-done)
 	# Resolved before the backlog entry goes away: nothing else records them.
 	title="$(task_title "$repo_root" "$id")"
 	plans="$(task_plans "$repo_root" "$id")"
+	created="$(cd "$repo_root" && bash "$LIB_DIR/radin-backlog.sh" stamps 2>/dev/null | awk -F'\t' -v id="$id" '$1 == id { print $2; exit }')" || created=""
 	# Report-only: files the commit touched that the plan's ## Changes does not
 	# list. Every command is guarded so the exit code never changes.
 	out_of_plan=""
@@ -712,10 +713,11 @@ task-done)
 	if ! completed_get "$id" >/dev/null; then
 		# `ts` is generated here, never passed, so no caller can record a
 		# wrong one.
-		printf '{"id":"%s","commit":"%s","title":"%s","branch":"%s","worktree":"%s","plan":"%s","ts":"%s"}\n' \
+		printf '{"id":"%s","commit":"%s","title":"%s","branch":"%s","worktree":"%s","plan":"%s","ts":"%s","created":"%s"}\n' \
 			"$(json_escape "$id")" "$(json_escape "$hash")" "$(json_escape "$title")" \
 			"$(json_escape "$prov_branch")" "$(json_escape "$prov_worktree")" \
-			"$(json_escape "$plans")" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >>"$completed"
+			"$(json_escape "$plans")" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+			"$(json_escape "$created")" >>"$completed"
 	fi
 	if grep -qF "\"id\":\"$id\"" "$ns/backlog/index.jsonl" 2>/dev/null; then
 		# Copy before remove: `remove_by_id` deletes the task file, and that

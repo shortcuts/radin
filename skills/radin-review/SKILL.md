@@ -67,26 +67,36 @@ these rungs in order and stop at the first that yields a spec:
    `RADIN_CLI backlog field "<it>" TASK_FILE` and
    `RADIN_CLI backlog field "<it>" PLAN_PATHS` (its exit 1 means no plan; the
    task file alone is then the spec). For a path: that file is the spec.
-2. **The scope's commits match a completed task.** Once `radin-execute`
-   finishes a task, `task-done` deletes the entry and its task file, so the id
-   no longer resolves — but `completed.json` still maps id to commit, and the
-   plan survives under `plans/`:
+2. **The backlog holds it.** `radin backlog add` stamps each entry with its
+   creation instant and branch, and `task-done` copies the creation instant,
+   commit and branch into `completed.json`. One call joins them to the scope:
 
    ```bash
-   RADIN_CLI scope --tasks [<the same scope arg as Step 1>]
+   RADIN_CLI scope --specs [<the same scope arg as Step 1>]
    ```
 
-   It prints one matched task id per line, and nothing when no commit in scope
-   came from a task — a `dir` scope always. For each matched id,
-   `RADIN_CLI state completed-show "<id>"`
-   names the plan the task ran against and the branch it ran on: its `plan`
-   line carries the recorded paths, comma-separated, and those files are the
-   spec. Several matched ids: every one of their
-   plan files is the spec, and the axis covers all of them. Also run
-   `RADIN_CLI state trace "<id>"` for each matched id: when its `facts` line
-   names a file, the Spec axis reads that file with the plans, because it
-   records where the implementation departed from the plan on purpose and
-   why.
+   It prints one `id`, `created`, `branch`, `commit`, `source` line per
+   candidate, oldest first. `source` says how the entry joined: `commit` (the
+   task's commit is in scope), `reflog` (a squash or rebase rewrote that
+   commit, and the review branch's reflog still lists it) or `pending` (an
+   open entry recorded on the review branch). Route on the result:
+
+   - **Exit 4**: a recorded commit no longer exists and HEAD sits on no branch.
+     Report the stderr line and stop the review.
+   - **No output**: fall to rung 3.
+   - **Lines**: one `AskUserQuestion` shows them in the printed order and asks
+     the user to confirm the order or drop entries. A sub-agent caller skips
+     the question and takes the `commit` and `reflog` lines only: a `pending`
+     entry is unfinished work, not what the scope implemented.
+
+   For each confirmed `id`, a `pending` one resolves as in rung 1. For the
+   others, `RADIN_CLI state completed-show "<id>"` names the plan the task ran
+   against: its `plan` line carries the recorded paths, comma-separated, and
+   those files are the spec. Several ids: every one of their plan files is the
+   spec, and the axis covers all of them. Also run `RADIN_CLI state trace "<id>"`
+   for each completed id: when its `facts` line names a file, the Spec axis
+   reads that file with the plans, because it records where the implementation
+   departed from the plan on purpose and why.
 3. **Ask.** One `AskUserQuestion` offering the top entries from
    `RADIN_CLI backlog list` as options, with the tool's free-text field
    carrying a path the user types instead. "There isn't one" falls to rung 4.

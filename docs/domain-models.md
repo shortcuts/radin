@@ -14,6 +14,8 @@ One index line:
 
 `id` slug derived from title when task created, deduped with `-2`/`-3` suffix on collision. Never changes afterward, even if title text later edited (`radin backlog retitle`, or `r` in the TUI, rewrites only `title`; `set-category` only `category`) — stable key `depends_on` (state schema below) and `radin-plan`/`radin-execute` key off. `file` task body's location relative to `backlog/` directory — `tasks/<id>.md`, or `tasks/<epic-id>/<id>.md` for a task inside an epic. Ids stay globally unique across epics, so `add`'s dedup loop checks the index's own `id` fields, not the task files on disk. `add` decides it; every other verb reads it back, so it's sole authority on where task's body lives (`radin backlog field <id> TASK_FILE` prints absolute form).
 
+`add` also stamps `"created":"<UTC ISO instant>"` and `"branch":"<branch>"` (key left out on a detached HEAD) onto the line. They are provenance, not human judgment: no verb rewrites them, and a line written before they existed reads as unknown (`radin backlog stamps` prints empty fields). The commit is not stamped: an open entry has none yet, and the completing commit lives in `completed.json`.
+
 Two optional keys carry human judgment that must survive a run. They are also `radin backlog order`'s only inputs besides its own `--rank` / `--infer-deps` / `--defer` flags:
 
 ```json
@@ -93,7 +95,7 @@ Exit 0 resolved, 1 unrecognized, 2 ambiguous (each candidate reading on stderr).
 
 `radin scope --commits [<arg>]` resolves the same scope, then prints one `<hash> <subject>` line per commit it covers. The commit list per type is the branching this flag owns: `git log -1` for a `commit`, `git log <range>` for a `range` or `branch-diff` (newest first), `gh pr view <n> --json commits` for a `pr` (gh's order), and nothing for a `dir`, which reviews files as they stand.
 
-`radin scope --tasks [<arg>]` takes `--commits`'s hashes and prints one completed task id per line for them — deduplicated, in that commit order. A `dir` scope yields no ids. Each commit joins to an id through `radin state trace`, the owner of the short/long hash match against `completed.json`, so no second copy of that rule lives here. Exits for both match `--in-scope`: 0 once the scope resolves, even when no commit came from a task; 1 unrecognized and 2 ambiguous.
+`radin scope --specs [<arg>]` resolves the same scope, then prints one `<id><TAB><created><TAB><branch><TAB><commit><TAB><source>` line per task a review of it could take as its spec, oldest `created` first (an unknown `created` sorts first). `source` is `commit` when a `completed.json` commit is among `--commits`'s hashes (short/long prefix match, seven-character floor), `reflog` when it is not but the review branch's reflog (`git reflog show <branch>`) still lists it — the case after a squash or rebase — and `pending` for an open backlog entry whose stamped `branch` is the review branch (`commit` empty). The review branch is HEAD's branch. Exit 0 once the scope resolves, even with no output; 1 unrecognized, 2 ambiguous; 4 when a completed task's commit no longer exists and HEAD sits on no branch, so the reflog has nothing to search.
 
 `radin scope --attribute [<arg>]` reads `path:line` citations on stdin and prints one `<citation><TAB><task id><TAB><plan path | none>` line per citation, in input order. It runs `git blame` on the cited line (start line of a `<start>-<end>` citation, a leading `./` dropped) and keeps the result only when the blamed commit is one of `--commits`'s hashes; the commit joins to its task and plan through `radin state trace`, and the plan field is printed verbatim. Both fields are `none` when no scope commit wrote the line, the commit is untraced, the scope is `dir` (no commit list), or the citation does not parse. Exits match `--in-scope`: 0 once the scope resolves; 1 unrecognized and 2 ambiguous.
 
@@ -179,12 +181,12 @@ Append-only, one event per line, written by every `radin-state.sh` mutation (`st
 JSONL, one compact object per line:
 
 ```json
-{"id":"add-route-exports","commit":"abc1234","title":"Add route exports","branch":"radin/add-route-exports","worktree":"","plan":"/repo/.claude/.radin/plans/add-route-exports.md","ts":"2026-08-18T09:57:13Z"}
+{"id":"add-route-exports","commit":"abc1234","title":"Add route exports","branch":"radin/add-route-exports","worktree":"","plan":"/repo/.claude/.radin/plans/add-route-exports.md","ts":"2026-08-18T09:57:13Z","created":"2026-08-17T16:02:44Z"}
 ```
 
 Appended to `$NAMESPACE_DIR/state/completed.json` by `radin state task-done` on every validated `STATUS: SUCCESS`. Task's entry in `BACKLOG_STEPS.json` deleted once complete, so can no longer carry commit hash. Later task whose `depends_on` names completed `id` looks its commit up here (`radin state deps-check`), and `radin prompt` forwards to that task's execution sub-agent, so sub-agent can check whether dependency's actual changes still match what this task's plan assumed.
 
-`title` recorded because `task-done` deletes backlog entry, so nothing else can name the task in Phase 5's report; empty when entry was already gone. Same window, same reason for the provenance fields: `branch` and `worktree` come from `prepare`'s `state/prepared/<id>.json` record, `plan` from the entry's plan pointers (comma-separated, in pointer order), `ts` generated by `task-done` itself. Read them back with `completed-show`; a line written before those fields existed simply lacks them, and an absent field reads as unknown — nothing backfills. `completed-list`'s output stays two fields (`id<TAB>commit`) even so — the TUI's Done view parses that.
+`created` is the entry's own stamp, copied before the entry goes away, so a review can order completed and open tasks on one timeline; absent on a line written before it existed. `title` recorded because `task-done` deletes backlog entry, so nothing else can name the task in Phase 5's report; empty when entry was already gone. Same window, same reason for the provenance fields: `branch` and `worktree` come from `prepare`'s `state/prepared/<id>.json` record, `plan` from the entry's plan pointers (comma-separated, in pointer order), `ts` generated by `task-done` itself. Read them back with `completed-show`; a line written before those fields existed simply lacks them, and an absent field reads as unknown — nothing backfills. `completed-list`'s output stays two fields (`id<TAB>commit`) even so — the TUI's Done view parses that.
 
 ## Install manifest (`manifest.json`)
 

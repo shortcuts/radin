@@ -6,6 +6,13 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- `radin backlog add` stamps each entry with its creation instant and branch,
+  `task-done` copies the instant into `completed.json`, and `radin scope --specs`
+  lists the tasks a review scope could take as its spec, oldest first. Rewritten
+  commits resolve through the review branch's reflog. `/radin-review` Step 2
+  reads that list and asks the user only to confirm its order; exit 4 (recorded
+  commit gone, HEAD on no branch) stops the review. `radin backlog stamps`
+  prints the stamps.
 - `/radin-review` logs an `**Origin:**` line (task, plan path, class
   `plan|executor|none`) on every finding, journals a `review-finding` event
   per finding (`radin state review-findings`), and the report rolls them up

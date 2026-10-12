@@ -40,6 +40,7 @@
 #   radin-backlog.sh order <--rank-needed|--report|--steps> [--rank <csv-of-ids>] [--infer-deps <id>=<csv>]... [--defer <csv-of-ids>]  # the execution order: the priority order with the topological dependency fix applied (--rank-needed: print every unset-priority id, exit 1 when there are none; --report: "<order>. <title> (id: <id>)" plus one "dependency override:" line per violated edge; --steps: "id<TAB>order<TAB>depends-on-csv<TAB>pending|deferred", which is `radin state steps-init`'s stdin format)
 #   radin-backlog.sh field <id-or-title> <TASK_FILE|TASK_BODY|EPIC_CONTEXT|TASK_ID|CATEGORY|PLAN_PATHS|SKILLS|SKILLS_DROPPED|ACCEPTANCE|FACTS|LOCATION>  # one Execution-prompt placeholder, rendered ready to substitute
 #   radin-backlog.sh duplicates                  # print "id<TAB><value><TAB><ids>" / "title<TAB><value><TAB><ids>" per duplicated value, exit 1 when there are none
+#   radin-backlog.sh stamps [<branch>]           # print "id<TAB>created<TAB>branch" per entry in index order (only the entries recorded on <branch> when given); a field an old entry lacks prints empty
 #   radin-backlog.sh remove <id-or-title>        # delete task file + index entry (exact single match required)
 #   radin-backlog.sh reconcile                  # drop backlog entries whose id is already in completed.json
 #   radin-backlog.sh epics                       # print every epic id, one per line
@@ -561,6 +562,8 @@ compose_line() {
 	out="$(printf '{"id":"%s","category":"%s","title":"%s","file":"%s"' \
 		"$1" "$2" "$(json_escape "$3")" "$4")"
 	[ -z "$5" ] || out="$out,\"skills\":$5"
+	[ -z "$6" ] || out="$out,\"created\":\"$6\""
+	[ -z "$7" ] || out="$out,\"branch\":\"$(json_escape "$7")\""
 	printf '%s}\n' "$out"
 }
 
@@ -881,7 +884,11 @@ add)
 	printf '%s\n' "$BODY" >"$task_file"
 	skills_array=""
 	[ "${#skill_list[@]}" -eq 0 ] || skills_array="$(json_array "${skill_list[@]}")"
-	compose_line "$id" "$category" "$title" "$rel" "$skills_array" >>"$BACKLOG_INDEX"
+	# Stamped so `radin scope --specs` finds the entry again from a review's
+	# branch and date. Empty on a detached HEAD: the key is then left out.
+	branch="$(git -C "$REPO_ROOT" symbolic-ref --short -q HEAD 2>/dev/null || true)"
+	compose_line "$id" "$category" "$title" "$rel" "$skills_array" \
+		"$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$branch" >>"$BACKLOG_INDEX"
 	printf 'added "%s" (id: %s) under %s in %s\n' "$title" "$id" "$category" "$BACKLOG_INDEX"
 	;;
 
@@ -1044,6 +1051,17 @@ duplicates)
 	require_index
 	[ $# -le 1 ] || usage_die duplicates "duplicates takes no argument, got: $2"
 	awk "$AWK_JSON$AWK_DUP" "$BACKLOG_INDEX"
+	;;
+
+stamps)
+	[ $# -le 2 ] || usage_die stamps "stamps takes at most one branch, got: $3"
+	[ -s "$BACKLOG_INDEX" ] || exit 0
+	while IFS= read -r line || [ -n "$line" ]; do
+		[ -n "$line" ] || continue
+		b="$(json_get branch "$line")"
+		[ -z "${2:-}" ] || [ "$b" = "$2" ] || continue
+		printf '%s\t%s\t%s\n' "$(json_get id "$line")" "$(json_get created "$line")" "$b"
+	done <"$BACKLOG_INDEX"
 	;;
 
 append)

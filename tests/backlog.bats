@@ -482,7 +482,7 @@ EOF
   cli set-category mover fix
   cli epic-move mover grouped
   run cat "$INDEX"
-  [[ "$output" == *'{"id":"mover","category":"fix","title":"mover","file":"tasks/grouped/mover.md","priority":8,"depends_on":["anchor"]}'* ]]
+  [[ "$output" == *'{"id":"mover","category":"fix","title":"mover","file":"tasks/grouped/mover.md"'*'"priority":8,"depends_on":["anchor"]}'* ]]
 }
 
 @test "a failed index rewrite leaves no .tmp behind and keeps the index intact" {
@@ -937,4 +937,29 @@ mkplan() {
   printf '## Outcome\n' >"$WORK/empty.md"
   run cli files "$WORK/empty.md"
   [ "$status" -eq 1 ]
+}
+
+@test "add stamps created and branch, and stamps lists them in index order" {
+  br="$(git -C "$WORK/proj" symbolic-ref --short HEAD)"
+  cli add fix "first one" <<<"b1"
+  git -C "$WORK/proj" checkout -q -b other
+  cli add fix "second one" <<<"b2"
+  [[ "$(cat "$INDEX")" == *'"created":"20'*'Z"'* ]]
+  run cli stamps
+  [ "$status" -eq 0 ]
+  [[ "${lines[0]}" == "first-one"$'\t'"20"*"Z"$'\t'"$br" ]]
+  [[ "${lines[1]}" == "second-one"$'\t'"20"*"Z"$'\t'"other" ]]
+  run cli stamps other
+  [ "${#lines[@]}" -eq 1 ]
+  [[ "$output" == "second-one"* ]]
+  run cli stamps nope
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+@test "stamps reads an entry written before stamps existed as unknown" {
+  mkdir -p "$TASKS"
+  printf '{"id":"old","category":"fix","title":"old","file":"tasks/old.md"}\n' > "$INDEX"
+  run cli stamps
+  [ "$output" = "old"$'\t\t' ]
 }

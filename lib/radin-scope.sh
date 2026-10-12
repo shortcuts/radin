@@ -6,7 +6,7 @@
 # Usage: radin-scope.sh [arg]
 #        radin-scope.sh --in-scope [arg]   # classify "path:line" lines on stdin
 #        radin-scope.sh --commits [arg]    # the scope's commits, "<hash> <subject>"
-#        radin-scope.sh --tasks [arg]      # completed task ids the scope covers
+#        radin-scope.sh --specs [arg]      # candidate specs, "id created branch commit source", oldest first
 #        radin-scope.sh --attribute [arg]  # map "path:line" lines on stdin to task + plan
 #
 # No arg: the current branch's diff against its merge-base with main/master.
@@ -26,15 +26,11 @@
 # --commits resolves the same scope, then prints one "<hash> <subject>" line
 # per commit it covers: newest first for git scopes, gh's order for a PR, and
 # nothing for a `dir` scope.
-# --tasks resolves the same scope, then prints one completed task id per line
-# for the commits it covers: deduplicated, in commit order, joined through
-# `radin state trace` against `state/completed.json`. A `dir` scope has no
-# commit list, so it prints nothing.
 # --attribute resolves the same scope, then prints `<citation><TAB><task id>
 # <TAB><plan path|none>` per stdin citation in input order. The cited line is
 # blamed; it maps only when the blamed commit is one of the scope's commits,
 # joined through `radin state trace`. Anything else prints `none` twice.
-# Exit: 0 resolved (--in-scope, --commits, --tasks and --attribute too, even when they print nothing);
+# Exit: 0 resolved (--in-scope, --commits, --specs and --attribute too, even when they print nothing);
 # 1 unrecognized; 2 ambiguous (each candidate reading printed to stderr).
 # Must stay bash-3.2-compatible (macOS /bin/bash).
 set -euo pipefail
@@ -115,7 +111,7 @@ if [ "${1:-}" = "--in-scope" ]; then
 	exit 0
 fi
 
-# --commits and --tasks re-resolve through this same script for the same
+# --commits re-resolve through this same script for the same
 # reason --in-scope does: one resolution path. The scope-type branching below
 # is the whole point of the flags -- it is what the review skill used to do
 # itself.
@@ -149,27 +145,56 @@ if [ "${1:-}" = "--commits" ]; then
 	exit 0
 fi
 
-if [ "${1:-}" = "--tasks" ]; then
+# --specs: every task a review of this scope could take as its spec, oldest
+# first. A completed task joins by its recorded commit (`commit`); when a
+# squash or rebase rewrote that commit, by the review branch's reflog
+# (`reflog`); a still-open entry recorded on the review branch joins as
+# `pending`. Exit 4: a recorded commit no longer exists and HEAD sits on no
+# branch, so the reflog fallback has nothing to read.
+if [ "${1:-}" = "--specs" ]; then
 	shift
 	commits="$(bash "$0" --commits "${1:-}")" || exit $?
 	hashes="$(printf '%s\n' "$commits" | cut -d' ' -f1)"
 	LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 	# shellcheck disable=SC1091
 	. "$LIB_DIR/radin-namespace.sh"
-	seen=""
-	# ponytail: one `trace` fork per commit; give `radin state trace` a batch
-	# mode if a wide range ever makes that matter.
-	for h in $hashes; do
-		[ -n "$h" ] || continue
-		# `trace` exits 1 for a commit no task completed and 2 when the hash
-		# also reads as an id or branch; stdout is empty either way.
-		traced="$(bash "$LIB_DIR/radin-state.sh" trace "$h" 2>/dev/null || true)"
-		for id in $(printf '%s\n' "$traced" | sed -n "s/^task$TAB//p"); do
-			case " $seen " in *" $id "*) continue ;; esac
-			seen="$seen $id"
-			printf '%s\n' "$id"
+	branch="$(git symbolic-ref --short -q HEAD 2>/dev/null || true)"
+	reflog=""
+	[ -z "$branch" ] || reflog="$(git reflog show --format=%H "$branch" 2>/dev/null || true)"
+	rows=""
+	done_ids=" "
+	# ponytail: one `completed-show` fork per completed task; batch it if the
+	# completed log ever grows past a few hundred lines.
+	while IFS="$TAB" read -r id c; do
+		[ -n "$id" ] || continue
+		done_ids="$done_ids$id "
+		case "$c" in ???????*) ;; *) continue ;; esac
+		source=""
+		for h in $hashes; do
+			case "$c" in "$h"*) source=commit ;; esac
+			case "$h" in "$c"*) source=commit ;; esac
 		done
-	done
+		if [ -z "$source" ]; then
+			if [ -z "$branch" ] && ! git cat-file -e "$c^{commit}" 2>/dev/null; then
+				printf 'radin-scope: commit %s of task %s no longer exists and HEAD has no branch to search the reflog of\n' "$c" "$id" >&2
+				exit 4
+			fi
+			printf '%s\n' "$reflog" | grep -q "^$c" && source=reflog
+		fi
+		[ -n "$source" ] || continue
+		shown="$(bash "$LIB_DIR/radin-state.sh" completed-show "$id" 2>/dev/null || true)"
+		rows="$rows$id$TAB$(printf '%s\n' "$shown" | sed -n "s/^created$TAB//p")$TAB$(printf '%s\n' "$shown" | sed -n "s/^branch$TAB//p")$TAB$c$TAB$source
+"
+	done < <(bash "$LIB_DIR/radin-state.sh" completed-list 2>/dev/null || true)
+	if [ -n "$branch" ]; then
+		while IFS="$TAB" read -r id created b; do
+			[ -n "$id" ] || continue
+			case "$done_ids" in *" $id "*) continue ;; esac
+			rows="$rows$id$TAB$created$TAB$b$TAB${TAB}pending
+"
+		done < <(bash "$LIB_DIR/radin-backlog.sh" stamps "$branch" 2>/dev/null || true)
+	fi
+	[ -z "$rows" ] || printf '%s' "$rows" | sort -s -t "$TAB" -k2,2
 	exit 0
 fi
 

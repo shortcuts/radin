@@ -31,13 +31,6 @@ mock_gh() {
   ln -f "$REPO_ROOT/tests/helpers/mock" "$MOCK_BIN/gh" 2>/dev/null || true
 }
 
-# Records completion $2 against commit $1 in the repo's own namespace.
-record_done() {
-  mkdir -p "$WORK/repo/.claude/.radin/state"
-  printf '{"id":"%s","commit":"%s","title":"t"}\n' "$2" "$1" \
-    >> "$WORK/repo/.claude/.radin/state/completed.json"
-}
-
 @test "no argument resolves to the branch diff against main's merge-base" {
   ( cd "$WORK/repo"
     git checkout -qb feature
@@ -190,40 +183,6 @@ record_done() {
   [ "$status" -eq 1 ]
 }
 
-@test "--tasks prints the task ids the scope's commits completed" {
-  ( cd "$WORK/repo"
-    printf 'b\n' > f.txt && git commit -qam second )
-  head="$(cd "$WORK/repo" && git rev-parse HEAD)"
-  record_done "$head" my-task
-  record_done cafe1234cafe1234 other-task
-
-  run cli --tasks "$head"
-  [ "$status" -eq 0 ]
-  [ "$output" = "my-task" ]
-
-  run cli --tasks "HEAD~1..HEAD"
-  [ "$status" -eq 0 ]
-  [ "$output" = "my-task" ]
-
-  run cli --tasks "since yesterday"
-  [ "$status" -eq 0 ]
-  [ "$output" = "my-task" ]
-
-  # A task with several commits in scope is still one id, printed once.
-  record_done "$(cd "$WORK/repo" && git rev-parse HEAD~1)" my-task
-  run cli --tasks "HEAD~1..HEAD"
-  [ "$status" -eq 0 ]
-  [ "$output" = "my-task" ]
-
-  mkdir -p "$WORK/repo/src"
-  run cli --tasks src
-  [ "$status" -eq 0 ]
-  [ -z "$output" ]
-
-  run cli --tasks "blorp zonk"
-  [ "$status" -eq 1 ]
-}
-
 @test "--attribute maps a cited line to the task and plan of the scope commit that wrote it" {
   ( cd "$WORK/repo"
     printf 'a\nb\n' > f.txt && git commit -qam second )
@@ -278,28 +237,42 @@ record_done() {
   [ "$status" -eq 1 ]
 }
 
-@test "--commits reads a PR's commits through gh" {
-  mock_gh cafe1234
-  run cli --commits "#123"
-  [ "$status" -eq 0 ]
-  [ "${output%% *}" = cafe1234 ]
+# Records completion $2 on commit $1 with branch $3 and created stamp $4.
+record_stamped() {
+  mkdir -p "$WORK/repo/.claude/.radin/state"
+  printf '{"id":"%s","commit":"%s","title":"t","branch":"%s","created":"%s"}\n' "$2" "$1" "$3" "$4" \
+    >> "$WORK/repo/.claude/.radin/state/completed.json"
 }
 
-@test "--tasks with no argument covers the branch diff's commits" {
+@test "--specs lists tasks by created date: in-scope commit, reflog-recovered commit, pending entry" {
   ( cd "$WORK/repo"
-    git checkout -qb feature
-    printf 'b\n' > f.txt && git commit -qam change )
-  record_done "$(cd "$WORK/repo" && git rev-parse HEAD)" my-task
-  run cli --tasks
+    git checkout -qb feat
+    printf 'b\n' > f.txt && git commit -qam second )
+  head="$(cd "$WORK/repo" && git rev-parse HEAD)"
+  # A squashed-away commit: gone from history, still in the branch reflog.
+  ( cd "$WORK/repo"
+    printf 'c\n' > f.txt && git commit -qam third )
+  lost="$(cd "$WORK/repo" && git rev-parse HEAD)"
+  ( cd "$WORK/repo"
+    git reset -q --hard HEAD~1
+    printf 'c2\n' > f.txt && git commit -qam third-squashed )
+  record_stamped "$head" kept-task feat 2026-01-02T00:00:00Z
+  record_stamped "$lost" squashed-task feat 2026-01-01T00:00:00Z
+  record_stamped cafe1234cafe1234 elsewhere-task feat 2026-01-03T00:00:00Z
+  ( cd "$WORK/repo" && bash "$REPO_ROOT/lib/radin-backlog.sh" add fix "pending one" <<<"b" ) >/dev/null
+
+  run cli --specs
   [ "$status" -eq 0 ]
-  [ "$output" = "my-task" ]
+  [[ "${lines[0]}" == "squashed-task"$'\t'"2026-01-01T00:00:00Z"$'\t'"feat"$'\t'"$lost"$'\t'"reflog" ]]
+  [[ "${lines[1]}" == "kept-task"$'\t'"2026-01-02T00:00:00Z"$'\t'"feat"$'\t'"$head"$'\t'"commit" ]]
+  [[ "${lines[2]}" == "pending-one"$'\t'"20"*$'\t'"feat"$'\t'$'\t'"pending" ]]
+  [ "${#lines[@]}" -eq 3 ]
 }
 
-@test "--tasks reads a PR's commits through gh" {
-  head="$(cd "$WORK/repo" && git rev-parse HEAD)"
-  mock_gh "$head"
-  record_done "$head" my-task
-  run cli --tasks "#123"
-  [ "$status" -eq 0 ]
-  [ "$output" = "my-task" ]
+@test "--specs stops with exit 4 when a recorded commit is gone and HEAD has no branch" {
+  record_stamped cafe1234cafe1234 gone-task feat 2026-01-01T00:00:00Z
+  ( cd "$WORK/repo" && git checkout -q --detach )
+  run cli --specs HEAD
+  [ "$status" -eq 4 ]
+  [[ "$output" == *"no branch"* ]]
 }

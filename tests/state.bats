@@ -1039,3 +1039,18 @@ seed_finding_classes() {
   [ "$status" -eq 1 ]
   [ -z "$output" ]
 }
+
+@test "task-done copies the entry's created stamp into completed.json and completed-show prints it" {
+  fixture_repo
+  hash="$(git -C "$WORK/repo" rev-parse HEAD)"
+  ( cd "$WORK/repo" && bash "$REPO_ROOT/lib/radin-backlog.sh" add fix "stamped task" <<<"body" ) > /dev/null
+  created="$(cd "$WORK/repo" && bash "$REPO_ROOT/lib/radin-backlog.sh" stamps | grep "^stamped-task" | cut -f2)"
+  [ -n "$created" ]
+  cli session-set no no
+  cli prepare stamped-task > /dev/null
+  run cli task-done stamped-task "$hash"
+  [ "$status" -eq 0 ]
+  [[ "$(cat "$NS/state/completed.json")" == *"\"created\":\"$created\""* ]]
+  run cli completed-show stamped-task
+  [[ "$output" == *"$(printf 'created\t%s' "$created")"* ]]
+}
