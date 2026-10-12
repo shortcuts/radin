@@ -4,6 +4,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Unreleased
 
+### Changed
+
+- `/radin-review` runs one reviewer, not a Standards and a Spec axis: the
+  question is whether the scope is the simplest native solution that meets
+  thermo-nuclear and the repo rubrics. The spec is context for that reviewer.
+  Survivors that share a file, a root cause or a remedy, and one origin, merge
+  into one backlog entry, so a review adds fewer entries.
+
 ### Added
 
 - `radin backlog add` stamps each entry with its creation instant and branch,

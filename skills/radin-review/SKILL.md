@@ -1,31 +1,27 @@
 ---
 name: radin-review
 description: |
-  Review a commit, PR, directory or range on two axes, Standards (repo
-  rubrics) and Spec (the originating backlog entry), triage findings with
-  the user, and log the kept ones as backlog entries. Use for /radin-review,
-  "review and log to backlog".
+  Review a commit, PR, directory or range for the simplest native solution
+  (ponytail), maintainability (thermo-nuclear) and the repo's documented
+  rubrics, triage findings with the user, and log the kept ones as backlog
+  entries. Use for /radin-review, "review and log to backlog".
 ---
 # Review to Backlog
 
-Review a caller-specified scope on two axes, and persist every finding the
+Review a caller-specified scope in one pass, and persist every finding the
 user keeps as a backlog entry instead of terminal output. That leaves a
 durable backlog `radin-execute` (or a human) works through later.
 
-- **Standards** — does the scope follow the rubrics this repo documents?
-- **Spec** — does the scope do what the originating backlog entry or its plan
-  asked for?
-
-The axes stay separate end to end, for the reason
-`/mattpocock-skills:code-review` states under *Why two axes*. radin supplies
-the spec that skill has to hunt for: the backlog entry, or the plan
-`radin-plan` wrote from it.
+One question drives the review: is this the simplest, most native solution
+that still meets the thermo-nuclear constraints and this repo's documented
+rubrics? The originating backlog entry or its plan is context for that
+question: behaviour it asked for but the scope lacks, and behaviour the scope
+adds unasked, are ordinary findings.
 
 **Sub-agent caller** — `radin-execute`'s Phase 6 dispatches this skill that
 way, and a sub-agent reaches neither the user nor a spawned agent's result:
-run every step inline, Standards axis
-first, skip each `AskUserQuestion`, log every in-scope finding, and say in
-Step 6's report that no triage happened.
+run every step inline, skip each `AskUserQuestion`, log every in-scope
+finding, and say in Step 6's report that no triage happened.
 
 ## Step 1: Resolve the scope
 
@@ -51,15 +47,15 @@ and once:
   both briefs.
 - **The commit list.** `RADIN_CLI scope --commits [<the same scope arg>]`
   prints one `<hash> <subject>` line per commit. A `dir` scope prints nothing:
-  it has no commit list, and both briefs say so.
+  it has no commit list, and the brief says so.
 
-Run the `command` before either axis starts. No output — for a `dir` scope, no
+Run the `command` before the review starts. No output — for a `dir` scope, no
 file under the path — means report "nothing to review in `<scope>`" and stop.
 Write no backlog entry to prove the skill ran.
 
 ## Step 2: Resolve the spec
 
-The Spec axis reviews against the originating backlog entry or its plan. Work
+The review reads the originating backlog entry or its plan as context. Work
 these rungs in order and stop at the first that yields a spec:
 
 1. **The invoking prompt named one** — a backlog id, a title, or a path. For an
@@ -93,26 +89,24 @@ these rungs in order and stop at the first that yields a spec:
    others, `RADIN_CLI state completed-show "<id>"` names the plan the task ran
    against: its `plan` line carries the recorded paths, comma-separated, and
    those files are the spec. Several ids: every one of their plan files is the
-   spec, and the axis covers all of them. Also run `RADIN_CLI state trace "<id>"`
-   for each completed id: when its `facts` line names a file, the Spec axis
+   spec, and the review covers all of them. Also run `RADIN_CLI state trace "<id>"`
+   for each completed id: when its `facts` line names a file, the reviewer
    reads that file with the plans, because it records where the implementation
    departed from the plan on purpose and why.
 3. **Ask.** One `AskUserQuestion` offering the top entries from
    `RADIN_CLI backlog list` as options, with the tool's free-text field
    carrying a path the user types instead. "There isn't one" falls to rung 4.
-4. **Skip.** No spec: the Spec axis does not run. Say so once here, and report
-   `no spec available` for that axis in Steps 3 and 6. A sub-agent caller
-   arrives here straight from rung 2.
+4. **Skip.** No spec: the review runs without one. Say so once here, and report
+   `no spec available` in Step 6. A sub-agent caller arrives here straight from
+   rung 2.
 
-## Step 3: Run both axes
+## Step 3: Run the review
 
-Dispatch both axes in one message as two parallel sub-agents, so neither
-pollutes the other's context.
-
-Each brief is self-contained: paste in full the resolved scope line, Step 1's
-`command` string and commit list verbatim, and the citation rule below. The
-spec goes in as an absolute path with "read it in full before reviewing"; the
-sub-agent's `Read` is the access that paste-in-full rule exists to provide.
+Dispatch one sub-agent. The brief is self-contained: paste in full the resolved
+scope line, Step 1's `command` string and commit list verbatim, and the
+citation rule below. The spec, when Step 2 found one, goes in as absolute
+paths with "read it in full before reviewing"; the sub-agent's `Read` is the
+access that paste-in-full rule exists to provide.
 
 > Every finding cites one `path:line` the scope introduced: for a diff scope
 > the lines it adds or changes, for a `dir` scope the files under that path.
@@ -129,28 +123,25 @@ sub-agent's `Read` is the access that paste-in-full rule exists to provide.
 > before Grep: a graph hit is a pointer, so read the file before you cite it,
 > and never conclude a caller is absent from an empty result.
 
-**Standards brief.** Invoke `/thermo-nuclear` against the scope, then every
-skill Step 1's `passes` line names. Report — per file/hunk where relevant —
-(a) every place the scope breaks a rubric this repo documents: cite the
-rubric, file and rule; and (b) every structural finding the passes raise: name
-it and quote the hunk. A documented repo rubric overrides a pass's generic
+**Brief.** Invoke `/thermo-nuclear` against the scope, then every skill Step
+1's `passes` line names. Report — per file/hunk where relevant —
+(a) every place the scope is more code, more abstraction or less native than
+the task needs, and every structural finding the passes raise: name it and
+quote the hunk; (b) every place the scope breaks a rubric this repo documents:
+cite the rubric, file and rule; (c) with a spec: requirements it asked for that
+are missing, only partly implemented or implemented wrongly, and behaviour the
+scope adds that it never asked for — quote the spec line, and cite the
+`path:line` it lands on. A documented repo rubric overrides a pass's generic
 judgement, and a pass finding stays a labelled judgement call
 ("possible <name>") — the label reaches the backlog entry an agent later acts
 on without the review in front of it. Report findings only, each as its claim, citation, severity and evidence.
 
-**Spec brief.** Skipped entirely when Step 2 reached rung 4. Report: (a)
-requirements the spec asked for that are missing or only partly implemented;
-(b) behaviour in the scope that the spec never asked for (scope creep); (c)
-requirements that look implemented but whose implementation looks wrong. Quote
-the spec line for each finding, and cite the `path:line` it lands on. Report findings only, each as its claim, citation, severity and evidence.
-
-Relay both reports under `## Standards` and `## Spec` headings before any
-triage, each axis in its own order and neither reranked against the other.
+Relay the report before any triage, in the order the sub-agent gave it.
 
 ## Step 4: Filter, classify, triage
 
-Nothing reaches the backlog until the user agrees to it. Both axes' citations
-go through one filter, which drops the out-of-scope findings:
+Nothing reaches the backlog until the user agrees to it. The citations go
+through one filter, which drops the out-of-scope findings:
 
 ```bash
 printf '%s\n' "<path:line per finding, one per line>" |
@@ -159,7 +150,7 @@ printf '%s\n' "<path:line per finding, one per line>" |
 
 Keep the findings on the `in` lines, drop the `out` ones, and carry the
 `dropped` count into Step 6. Cite one line per finding; for a range, its first
-line. A Spec finding about missing behaviour cites the in-scope line the
+line. A finding about missing behaviour cites the in-scope line the
 requirement should have landed on — the hunk with the partial behaviour, or the
 one nearest where it belongs. A finding with genuinely no in-scope line stays
 in Step 3's relay, and Step 6 names it as unlogged.
@@ -171,9 +162,8 @@ tools, read them to settle it, and dismiss the finding when none does — an
 empty graph result is not proof, so confirm with Grep before dismissing. A `traced` or `ran` finding already carries that proof.
 
 Then classify each survivor. This is a rule, not a judgment: **fix** for
-incorrect behavior — on the Spec axis, a missing, partial or wrongly
-implemented requirement — and **refactor** for everything else, scope creep
-included.
+incorrect behavior, including a missing, partial or wrongly implemented
+requirement, and **refactor** for everything else, scope creep included.
 
 Then attribute each survivor's origin, so the review shows whether defects
 trace to plans:
@@ -200,32 +190,45 @@ Each line carries the citation, its task id and its plan paths (comma-joined);
 
 A sub-agent caller does this inline.
 
-Print the survivors as a numbered list — number, axis, category, severity,
-location, the finding in a clause — every Standards finding first, then every Spec finding,
-each in its own axis's order. It is the triage handle for what Step 3 already
-printed, so it carries no further detail. Mark the ones you recommend
-tackling, on severity and effort rather than count; recommending all of them
-is a valid answer.
+Then group the survivors, so one backlog entry covers one piece of work. Merge
+survivors into a group when one fix touches them all:
+
+- They cite the same file, or overlapping hunks, or share one root cause or
+  remedy.
+- They share one task id, origin class and plan paths. Attribution then
+  stays true for the whole group.
+
+A group takes `fix` when any member is `fix`, and the highest member severity.
+Leave a survivor alone when no other survivor shares its fix.
+
+Print the groups as a numbered list — number, category, severity, location,
+the finding in a clause. A group lists each member on a lettered sub-line with
+its location and clause. The list is the triage handle for what Step 3 already
+printed, so it carries no further detail.
+Mark the ones you recommend tackling, on severity and effort rather than
+count; recommending all of them is a valid answer.
 
 Then gate on `AskUserQuestion` (single select):
 
-1. **Recommended only** — log the ones you marked.
-2. **All** — log every in-scope finding.
+1. **Recommended only** — log the groups you marked.
+2. **All** — log every in-scope group.
 
-A free-text answer names the numbers you printed; read it as that subset and
-nothing more, and restate the subset in one line before continuing.
+A free-text answer names the numbers you printed; read it as that subset of
+groups and nothing more, and restate the subset in one line before continuing.
 
 ## Step 5: Log the agreed findings to backlog
 
 The body carries what a sub-agent with no review context needs to act on the
-finding:
+group. A group repeats `**Finding:**`, `**Severity:**` and `**Evidence:**` once
+per member, each opened with the member's `path:line`; the entry's
+`**Preferred remedy:**` covers all members:
 
 ```bash
 RADIN_CLI backlog add <fix|refactor> "<short title>" <<'EOF'
 **Scope:** <what was reviewed, from Step 1>
 **Finding:**
-<the problem as the review stated it: direct, specific. A Spec-axis finding
-opens with the spec line the brief quoted.>
+<the problem as the review stated it: direct, specific. A finding against the
+spec opens with the spec line the brief quoted.>
 **Severity:** <critical|warning|nit>
 **Origin:** task <id|none> · plan <path|none> · class <plan|executor|none> — <the quoted ## Decisions line, or the reason>
 **Evidence:** <rung: cited|traced|ran> — <the reasoning or output the brief gave>
@@ -235,15 +238,18 @@ EOF
 RADIN_CLI backlog set-meta <id> location "<the cited path:line>"
 ```
 
+For a group, `location` is the first member's citation.
+
 For class `plan` and `executor`, end the `**Origin:**` line with
 `Read <plan path> ## Decisions before changing code.`, so the fix's sub-agent
 reads the original plan's decisions.
 
-Log one entry per agreed finding, in the order presented. Log nothing the
+Log one entry per agreed group, in the order presented. Log nothing the
 user discarded.
 
 After the last `add`, journal the logged findings in one call (skip it when
-nothing was logged) and keep its output for Step 6. Task files are deleted at
+nothing was logged) and keep its output for Step 6. Write one row per member
+finding, not per entry, so the rollup counts findings. Task files are deleted at
 `task-done`; the journal event keeps the finding-to-plan link. A class `plan`
 finding carries its Step 4 section as a fourth column, empty when it has none;
 other classes carry no fourth column:
@@ -257,16 +263,15 @@ printf '<task id or empty>\t<class>\t<plan path or none>[\t<section>]\n...' |
 
 - The resolved scope reviewed, and the spec path or `no spec available`.
 - The entries logged, one line each — these are the `add` calls you just made.
+  A group's line states how many findings it covers.
 - The origin rollup: `review-findings`' output verbatim (for example
   `12 findings: 9 plan (3 tasks), 2 executor, 1 none`, then one line per task).
-- Findings the user discarded, findings dropped as out of scope, and Spec
-  findings dropped for having no in-scope line: three counts, no detail.
+- Findings the user discarded, findings dropped as out of scope, and findings
+  dropped for having no in-scope line: three counts, no detail.
 - Findings dismissed by Step 4's call-site test: one line each, the finding
   and the reason, so the user can overrule a dismissal.
 - The backlog index path.
-- Zero findings: say the review passed both axes. Every finding discarded:
-  report that. Either way, write no entry to prove the skill ran.
+- Zero findings: say the review passed. Every finding discarded: report that.
+  Either way, write no entry to prove the skill ran.
 
-End with one line: total findings per axis, and the worst issue within each
-axis. Give each axis its own worst, never one winner across the two — that is
-the reranking the separation exists to prevent.
+End with one line: total findings, and the worst issue.

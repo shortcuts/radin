@@ -511,8 +511,8 @@ its steps entry, flipped by `radin state task-report`, not by a counter the
 router holds — a counter cannot survive a resume or a compaction.
 
 The pass that moved earlier instead is `radin-plan`'s Step 4, which reviews the
-plan on the same two axes `radin-review` runs over code: Standards against the
-repo's rubrics, Spec against the entry the plan came from. It costs two
+plan on two axes: Standards against the repo's rubrics, Spec against the entry
+the plan came from. `radin-review` runs one pass over code. It costs two
 sub-agents per plan and catches a missing acceptance criterion or a contradicted
 `**Decision:**` line while the fix is still one edit to a Markdown file. A
 planning sub-agent's Standards pass runs `/ponytail:ponytail-review` alone:
