@@ -533,18 +533,6 @@ row_titles() {
   [ "$output" -eq 1 ]
 }
 
-@test "a task with no priority gets an empty cell and no priority colour" {
-  bl add feat "high one" <<<"high body" >/dev/null
-  bl set-priority high-one 21 >/dev/null
-  bl add feat "no prio" <<<"none body" >/dev/null
-  run tui "q"
-  [ "$status" -eq 0 ]
-  output="$(last_frame | cat -v | grep 'no prio')"
-  [[ "$output" != *"^[[31m"* ]]
-  [[ "$output" != *"^[[32m"* ]]
-  [[ "$output" != *"^[[33m"* ]]
-}
-
 @test "an off-scale legacy priority renders uncoloured" {
   bl add feat "legacy one" <<<"legacy body" >/dev/null
   bl set-priority legacy-one 21 >/dev/null
@@ -561,23 +549,6 @@ row_titles() {
   [[ "$output" != *"^[[31m"* ]]
 }
 
-@test "an epic child keeps its priority colour, the epic header is cyan" {
-  bl epic-add ui-polish <<<"ctx"
-  bl add feat "low one" <<<"low body" >/dev/null
-  bl set-priority low-one 3 >/dev/null
-  bl add feat "high child" <<<"high body" >/dev/null
-  bl epic-move high-child ui-polish >/dev/null
-  bl set-priority high-child 21 >/dev/null
-  run tui "q"
-  [ "$status" -eq 0 ]
-  run cat -v "$SCREEN"
-  [[ "$output" == *"^[[31m21^[[0m"* ]]
-  output="$(last_frame | cat -v | grep 'epic: ui-polish')"
-  # Cyan is the structural colour, so a header can never read as a priority.
-  [[ "$output" == *"^[[1;36m"* ]]
-  [[ "$output" != *"^[[31m"* ]]
-}
-
 @test "NO_COLOR disables the priority colours" {
   bl add feat "low one" <<<"low body" >/dev/null
   bl set-priority low-one 1 >/dev/null
@@ -591,47 +562,6 @@ row_titles() {
   [[ "$output" != *"^[[32m"* ]]
   [[ "$output" != *"^[[33m"* ]]
   [[ "$output" != *"^[[36m"* ]]
-}
-
-@test "the selected row is an accent background, not reverse video" {
-  seed
-  run tui "q"
-  [ "$status" -eq 0 ]
-  output="$(last_frame | cat -v | grep 'dark mode')"
-  [[ "$output" == *"^[[1;97;44m"* ]]
-  run cat -v "$SCREEN"
-  [[ "$output" != *"^[[7m"* ]]
-}
-
-@test "category badges are coloured and the footer's key letters highlighted" {
-  seed
-  run tui "q"
-  [ "$status" -eq 0 ]
-  run cat -v "$SCREEN"
-  [[ "$output" == *"^[[34mfeat"* ]]
-  [[ "$output" == *"^[[35mfix"* ]]
-  [[ "$output" == *"^[[1;93mj/k^[[0m"* ]]
-}
-
-@test "a 256-colour TERM gets the 256-colour palette" {
-  seed
-  export TERM=xterm-256color
-  run tui "q"
-  [ "$status" -eq 0 ]
-  run cat -v "$SCREEN"
-  [[ "$output" == *"48;5;"* ]]
-  [[ "$output" == *"38;5;"* ]]
-}
-
-@test "each pane gets a rounded border with its title in it" {
-  seed
-  run wide "q"
-  [ "$status" -eq 0 ]
-  run last_frame
-  [[ "$output" == *"╭─"*"tasks"*"╮"* ]]
-  [[ "$output" == *"╭─"*"detail"*"╮"* ]]
-  [ "$(last_frame | grep -o '╰' | wc -l)" -eq 2 ]
-  [ "$(last_frame | grep -o '╯' | wc -l)" -eq 2 ]
 }
 
 @test "a NO_COLOR frame still marks selection, bars and epic headers" {

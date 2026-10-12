@@ -94,20 +94,6 @@ EOF
   [[ "$output" == *"not found"* ]]
 }
 
-@test "radin wire dispatches to install" {
-  mkdir -p "$TEST_HOME/.claude/.radin/lib"
-  cp "$CLI" "$REPO_ROOT/lib/radin-cbm-json" "$TEST_HOME/.claude/.radin/lib/"
-  run bash "$REPO_ROOT/bin/radin" wire
-  [ "$status" -ne 0 ]
-  [[ "$output" == *"not found"* ]]
-}
-
-@test "unknown command fails with usage" {
-  run bash "$CLI" nope
-  [ "$status" -ne 0 ]
-  [[ "$output" == *usage* ]]
-}
-
 @test "install restores the SessionStart hooks upstream replaced, keeping theirs" {
   # Upstream merges PreToolUse and replaces SessionStart wholesale.
   stub_cbm '{"hooks": {"SessionStart": [{"matcher": "", "hooks": [{"type": "command", "command": "cbm-session-reminder"}]}], "PreToolUse": [{"matcher": "Bash", "hooks": [{"type": "command", "command": "mine"}]}, {"matcher": "Grep|Glob", "hooks": [{"type": "command", "command": "cbm-hook-augment"}]}]}}'

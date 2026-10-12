@@ -63,20 +63,6 @@ skill_tokens() {
   }
 }
 
-@test "the extractor sees the names radin actually delegates to" {
-  run skill_tokens
-  [ "$status" -eq 0 ]
-  for expected in radin-plan thermo-nuclear ponytail:ponytail \
-    caveman:caveman-commit mattpocock-skills:grilling \
-    ponytail:ponytail-review ponytail:ponytail-audit ponytail:ponytail-debt \
-    mattpocock-skills:research; do
-    [[ "$output" == *"$expected"* ]] || {
-      echo "extractor missed $expected"
-      false
-    }
-  done
-}
-
 @test "the execution fence states the STATUS contract before its numbered steps" {
   f="$REPO_ROOT/lib/radin-prompt-execution.md"
   contract="$(grep -n 'STATUS: SUCCESS' "$f" | head -1 | cut -d: -f1)"

@@ -2,7 +2,7 @@
 name: radin-review
 description: |
   Review a commit, PR, directory or range for the simplest native solution
-  (ponytail), maintainability (thermo-nuclear) and the repo's documented
+  (ponytail), maintainability (thermo-nuclear) and documented repo
   rubrics, triage findings with the user, and log the kept ones as backlog
   entries. Use for /radin-review, "review and log to backlog".
 ---

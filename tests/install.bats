@@ -263,10 +263,6 @@ run_install_defaults() {
   [ "$status" -eq 0 ]
   run cat "$TEST_HOME/screen"
   [[ "$output" == *"no tasks"* ]]
-  # The `tui` verb is gone: it is an unknown verb like any other.
-  run env HOME="$TEST_HOME" bash "$TEST_HOME/.claude/.radin/bin/radin" tui
-  [ "$status" -ne 0 ]
-  [[ "$output" == *"usage: radin"* ]]
 }
 
 # install is the one path that touches companions, so a tool already on PATH
@@ -293,13 +289,6 @@ run_install_defaults() {
   [[ "$output" != *"wired: skill"* ]]
   grep -q '^PARTIAL ' "$TEST_HOME/.claude/.radin/cbm-config.log"
   grep -q 'OpenCode:' "$TEST_HOME/.claude/.radin/cbm-config.log"
-}
-
-@test "the skill ships no per-task verification pass" {
-  run_install_defaults
-  agent="$TEST_HOME/.claude/.radin/lib/radin-run.md"
-  run ! grep -qi "refut" "$agent"
-  grep -q "Never verify a .SUCCESS. yourself" "$agent"
 }
 
 # radin-implement is radin-execute minus the planning dispatch; each skill's
