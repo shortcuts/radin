@@ -52,7 +52,7 @@ Routers and sub-agents proceed on reversible work without asking. Reversible wor
 - **No-op test.** A sentence that does not change what the model does, compared with its default, costs payload and says nothing. Delete the whole sentence, and never trim a single word out of it. The test is disputed, so measure it ([how](CONTRIBUTING.md#measure-a-prose-edit)) instead of debating it.
 - **Positive over prohibition.** Banned behavior dragged into context gets half-read as an instruction to do it. State the target behavior instead. Keep a prohibition only as a hard guardrail that has no positive phrasing, and then pair it with the target.
 
-The rest lives elsewhere. `/mattpocock-skills:writing-for-agents` holds the full rule set (leading word, completion criterion, progressive disclosure). The `STE` output style covers sentence craft. `no-ai-slop` covers human-facing prose. [One rule, one file](docs/architecture.md#one-rule-one-file) says where each rule lives.
+The rest lives elsewhere. `/mattpocock-skills:writing-for-agents` holds the full rule set (leading word, completion criterion, progressive disclosure). The `STE` output style covers sentence craft. `unslop` covers human-facing prose, and `technical-writing` covers docs, READMEs, and PR and commit text. [One rule, one file](docs/architecture.md#one-rule-one-file) says where each rule lives.
 
 ## Delegation: one owner per job
 
