@@ -122,31 +122,6 @@ tui() {
   [[ "$output" == *"no tasks"* ]]
 }
 
-# The Nth synchronized-output frame (DEC mode 2026) the TUI drew, 1-based.
-frame() {
-  awk -v n="$1" 'BEGIN{RS="\033[[][?]2026h"} NR==n+1{sub(/\033[[][?]2026l.*/, ""); print}' "$SCREEN"
-}
-
-@test "a steady-state frame is one synchronized update with no screen clear" {
-  seed
-  run tui "|j|q"
-  [ "$status" -eq 0 ]
-  run frame 1
-  [[ "$output" == *$'\033[2J'* ]]
-  run frame 2
-  [ -n "$output" ]
-  [[ "$output" != *$'\033[2J'* ]]
-}
-
-@test "j rewrites only the rows that changed" {
-  seed
-  run tui "|j|q"
-  [ "$status" -eq 0 ]
-  # The header's [n/total] and the two rows the selection left and entered;
-  # row 2 is the pane's top border.
-  [ "$(frame 2 | grep -ao $'\033\\[[0-9]*;1H\033\\[K' | tr -dc '0-9;\n' | cut -d';' -f1 | tr '\n' ' ')" = "1 3 4 " ]
-}
-
 @test "e opens the task body in EDITOR and keeps the edit" {
   seed
   run tui "e|q"
@@ -236,16 +211,6 @@ frame() {
   unchanged
 }
 
-@test "g and G select the first and last row" {
-  seed
-  run tui "G|q"
-  [ "$status" -eq 0 ]
-  [ "$(last_pos)" = "[2/2]" ]
-  run tui "G|g|q"
-  [ "$status" -eq 0 ]
-  [ "$(last_pos)" = "[1/2]" ]
-}
-
 @test "a keypress burst applies every motion and keeps the key after them" {
   seed
   bl add chore "third thing" <<<"third body" >/dev/null
@@ -254,18 +219,6 @@ frame() {
   [ ! -f "$TASKS/third-thing.md" ]
   [ -f "$TASKS/dark-mode.md" ]
   [ -f "$TASKS/broken-auth.md" ]
-}
-
-@test "the detail pane reports whether radin-plan has planned the task" {
-  seed
-  (cd "$WORK/proj" && bash "$BACKLOG" add-plan dark-mode "plans/dark-mode.md" >/dev/null)
-  run wide "q"
-  [ "$status" -eq 0 ]
-  output="$(last_frame | plain)"
-  [[ "$output" =~ planned[[:space:]]+yes ]]
-  # And the list row carries no planned marker of its own.
-  output="$(last_frame | grep 'dark mode' | head -1)"
-  [[ "$output" != *"P"* ]]
 }
 
 @test "an epic's children render as a tree, ungrouped tasks without connectors" {
@@ -514,41 +467,6 @@ row_titles() {
   [ ! -s "$TASKS/ui-polish/DESCRIPTION.md" ]
 }
 
-@test "the priority column is coloured by the fixed Fibonacci map" {
-  bl add feat "low one" <<<"low body" >/dev/null
-  bl set-priority low-one 3 >/dev/null
-  bl add feat "mid one" <<<"mid body" >/dev/null
-  bl set-priority mid-one 8 >/dev/null
-  bl add feat "high one" <<<"high body" >/dev/null
-  bl set-priority high-one 21 >/dev/null
-  run tui "q"
-  [ "$status" -eq 0 ]
-  run cat -v "$SCREEN"
-  [[ "$output" == *"^[[31m21^[[0m"* ]]
-  [[ "$output" == *"^[[33m8 ^[[0m"* ]]
-  [[ "$output" == *"^[[32m3 ^[[0m"* ]]
-  # Only the cell is painted: one red escape on the frame, and the title that
-  # follows the reset is not inside it.
-  output="$(last_frame | cat -v | grep -o '\^\[\[31m' | wc -l)"
-  [ "$output" -eq 1 ]
-}
-
-@test "an off-scale legacy priority renders uncoloured" {
-  bl add feat "legacy one" <<<"legacy body" >/dev/null
-  bl set-priority legacy-one 21 >/dev/null
-  bl add feat "high one" <<<"high body" >/dev/null
-  bl set-priority high-one 21 >/dev/null
-  # 70 is off the bounded scale, so only a pre-scale index can carry it.
-  sed '/legacy-one/s/"priority":21/"priority":70/' "$INDEX" >"$INDEX.new"
-  mv "$INDEX.new" "$INDEX"
-  grep -q '"priority":70' "$INDEX"
-  run tui "q"
-  [ "$status" -eq 0 ]
-  output="$(last_frame | cat -v | grep 'legacy one')"
-  [[ "$output" == *"70"* ]]
-  [[ "$output" != *"^[[31m"* ]]
-}
-
 @test "NO_COLOR disables the priority colours" {
   bl add feat "low one" <<<"low body" >/dev/null
   bl set-priority low-one 1 >/dev/null
@@ -562,28 +480,6 @@ row_titles() {
   [[ "$output" != *"^[[32m"* ]]
   [[ "$output" != *"^[[33m"* ]]
   [[ "$output" != *"^[[36m"* ]]
-}
-
-@test "a NO_COLOR frame still marks selection, bars and epic headers" {
-  bl epic-add ui-polish <<<"ctx"
-  bl add feat "loose one" <<<"body" >/dev/null
-  bl add feat "nested one" <<<"body" >/dev/null
-  bl epic-move nested-one ui-polish >/dev/null
-  export NO_COLOR=1
-  run tui "q"
-  [ "$status" -eq 0 ]
-  run cat -v "$SCREEN"
-  [[ "$output" != *"38;5;"* ]]
-  [[ "$output" != *"48;5;"* ]]
-  [[ "$output" != *"^[[3"[0-9]"m"* ]]
-  [[ "$output" != *"^[[4"[0-9]"m"* ]]
-  # Selection is bold reverse, the bars reverse, the epic header bold.
-  output="$(last_frame | cat -v | grep 'loose one')"
-  [[ "$output" == *"^[[1;7m"* ]]
-  output="$(last_frame | cat -v | grep 'radin backlog')"
-  [[ "$output" == *"^[[7m"* ]]
-  output="$(last_frame | cat -v | grep 'epic: ui-polish')"
-  [[ "$output" == *"^[[1m"* ]]
 }
 
 @test "D marks two candidates and writes both dependencies" {
@@ -676,16 +572,6 @@ planned_body() {
   [[ "$output" != *"plan step one"* ]]
 }
 
-@test "the body view shows the entry's own fields above the task file" {
-  seed
-  bl set-meta dark-mode acceptance "the toggle persists" >/dev/null
-  run wide "q"
-  [ "$status" -eq 0 ]
-  run last_frame
-  [[ "$output" == *"the toggle persists"* ]]
-  [[ "$output" == *"Add dark mode."* ]]
-}
-
 @test "the detail view sticks as the selection moves" {
   seed
   planned_body dark-mode dark-mode "first plan text"
@@ -723,18 +609,6 @@ planned_body() {
   [[ "$output" == *"no plan yet"* ]]
 }
 
-@test "the plan view concatenates every plan file" {
-  seed
-  planned_body dark-mode dark-mode "plan one text"
-  planned_body dark-mode dark-mode-extra "plan two text"
-  run wide "l|q"
-  [ "$status" -eq 0 ]
-  run last_frame
-  [[ "$output" == *"plan one text"* ]]
-  [[ "$output" == *"plan two text"* ]]
-  [[ "$output" == *"plans/dark-mode-extra.md"* ]]
-}
-
 @test "a plan pointer whose file is gone reads as missing" {
   seed
   planned_body dark-mode dark-mode "plan step one"
@@ -767,27 +641,6 @@ planned_body() {
   [ "$status" -eq 0 ]
   run last_frame
   [[ "$output" == *"no plan yet"* ]]
-}
-
-@test "the detail pane renders markdown beside the tree at 120 columns" {
-  md_body
-  run wide "q"
-  [ "$status" -eq 0 ]
-  output="$(last_frame | plain)"
-  [[ "$output" == *"Heading"* ]]
-  [[ "$output" == *"quoted"* ]]
-  [[ "$output" == *"item"* ]]
-  [[ "$output" == *"bold text"* ]]
-  [[ "$output" != *"# Heading"* ]]
-  [[ "$output" != *"> quoted"* ]]
-  [[ "$output" != *"**bold**"* ]]
-  [[ "$output" =~ category[[:space:]]+feat ]]
-  [[ "$output" =~ id[[:space:]]+dark-mode ]]
-  [[ "$output" =~ priority[[:space:]]+unset ]]
-  [[ "$output" == *"│"* ]]
-  [[ "$output" == *"───"* ]]
-  # The active view name is bold, so escape bytes sit between the two names.
-  [[ "$output" =~ body.*plan ]]
 }
 
 @test "no detail pane below 100 columns" {
@@ -823,44 +676,6 @@ planned_body() {
   [[ "$output" != *"$(printf 'A%.0s' $(seq 71))"* ]]
   # The tail no longer falls past the cut: it wraps onto a following row.
   [[ "$output" == *"$(printf '\303\251%.0s' $(seq 5))"* ]]
-}
-
-@test "a long detail line wraps on a word boundary" {
-  seed
-  # 30 five-column words: 150 columns of text in a 70-column pane.
-  printf '%s\n' "$(printf 'word%.0s ' $(seq 29))last" >"$TASKS/dark-mode.md"
-  run wide "q"
-  [ "$status" -eq 0 ]
-  run last_frame
-  # The last word survives whole, so nothing was truncated at the pane edge.
-  [[ "$output" == *"last"* ]]
-  # No word is split across the break.
-  [[ "$output" != *"wor "* ]]
-  [[ "$output" != *"las "* ]]
-}
-
-@test "a wrapped bullet's continuation indents past the bullet marker" {
-  seed
-  printf -- '- %s\n' "$(printf 'alpha%.0s ' $(seq 20))omega" >"$TASKS/dark-mode.md"
-  run wide "q"
-  [ "$status" -eq 0 ]
-  run last_frame
-  [[ "$output" == *"\342\200\242 alpha"* || "$output" == *"• alpha"* ]]
-  # The continuation starts four columns in, under the bullet's text, so it
-  # does not read as a new bullet.
-  [[ "$output" == *"    alpha"* ]]
-  [[ "$output" == *"omega"* ]]
-}
-
-@test "a wide glyph in the detail costs two columns, not one" {
-  seed
-  printf '%s\n' "$(printf '\343\201\202%.0s' $(seq 80))" >"$TASKS/dark-mode.md"
-  run wide "q"
-  [ "$status" -eq 0 ]
-  run last_frame
-  # 70 columns hold 35 two-column glyphs exactly.
-  [[ "$output" == *"$(printf '\343\201\202%.0s' $(seq 35))"* ]]
-  [[ "$output" != *"$(printf '\343\201\202%.0s' $(seq 36))"* ]]
 }
 
 @test "a tab in the detail does not widen the row" {

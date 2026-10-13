@@ -581,8 +581,6 @@ skill loaded the same text twice. That makes the hook load-bearing, so
 `install.sh` enables any companion plugin it finds disabled at user scope and
 warns when the enable fails, and `radin-doctor` reports such a plugin as
 `disabled`, not `found`.
-`tests/links.bats` pins every relative link, `#anchor` and `RADIN_LIB/<doc>.md`
-path in the repo's markdown, so a renamed heading or doc fails the suite.
 
 ## One rule, one file
 

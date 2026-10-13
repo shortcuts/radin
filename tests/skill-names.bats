@@ -63,31 +63,6 @@ skill_tokens() {
   }
 }
 
-@test "the execution fence states the STATUS contract before its numbered steps" {
-  f="$REPO_ROOT/lib/radin-prompt-execution.md"
-  contract="$(grep -n 'STATUS: SUCCESS' "$f" | head -1 | cut -d: -f1)"
-  first_step="$(grep -n '^1\. ' "$f" | head -1 | cut -d: -f1)"
-  [ -n "$contract" ]
-  [ -n "$first_step" ]
-  [ "$contract" -lt "$first_step" ]
-}
-
-# A model-invoked skill's description loads into every session and every
-# sub-agent, so its length is a per-turn cost. A user-only skill carries
-# disable-model-invocation instead, which keeps its description out entirely.
-@test "model-invoked descriptions stay short, and user-only skills opt out of the listing" {
-  long=""
-  for f in "$REPO_ROOT"/skills/*/SKILL.md; do
-    grep -q '^disable-model-invocation: true$' "$f" && continue
-    words="$(awk '/^description:/ { on = 1; sub(/^description: *\|?/, "") } on && /^[a-z-]+:/ && !/^description:/ { on = 0 } /^---$/ && NR > 1 { on = 0 } on' "$f" | wc -w | tr -d ' ')"
-    [ "$words" -le 40 ] || long="$long $(basename "$(dirname "$f")")=$words"
-  done
-  [ -z "$long" ] || { echo "descriptions over 40 words:$long"; false; }
-  for s in radin-doctor radin-uninstall radin-stats radin-show; do
-    grep -q '^disable-model-invocation: true$' "$REPO_ROOT/skills/$s/SKILL.md" || { echo "$s is model-invoked"; false; }
-  done
-}
-
 # A skill that misses any of these four hand-synced lists ships nowhere.
 @test "every skills/<name>/ is listed in install.sh, radin-doctor.sh, the README table and the architecture tree" {
   cd "$REPO_ROOT"

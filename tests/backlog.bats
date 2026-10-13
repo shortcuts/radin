@@ -45,16 +45,6 @@ cli() {
   [ "$status" -ne 0 ]
 }
 
-@test "list prints id, category, title, file, priority and depends-on for every task" {
-  cli add feat "f thing" <<<"body f"
-  cli add fix "b thing" <<<"body b"
-  run cli list
-  [ "$status" -eq 0 ]
-  [ "${#lines[@]}" -eq 2 ]
-  [[ "${lines[0]}" == "f-thing"$'\037'"feat"$'\037'"f thing"$'\037'"tasks/f-thing.md"$'\037'$'\037' ]]
-  [[ "${lines[1]}" == "b-thing"$'\037'"fix"$'\037'"b thing"$'\037'"tasks/b-thing.md"$'\037'$'\037' ]]
-}
-
 @test "find falls back to exact title, then case-insensitive substring" {
   cli add feat "Add OAuth support" <<<"body"
   run cli find "Add OAuth support"
@@ -89,64 +79,6 @@ cli() {
   [[ "$output" == *"keep-me"* ]]
 }
 
-@test "show renders grouped-by-category markdown from the index and task files" {
-  cli add feat "f thing" <<<"body f"
-  cli add fix "b thing" <<<"body b"
-  cli set-meta "f thing" acceptance "it renders"
-  run cli show
-  [[ "$output" == *"acceptance"$'\t'"it renders"* ]]
-  [[ "$output" == *"# Backlog"* ]]
-  [[ "$output" == *"## feat"* ]]
-  [[ "$output" == *"### f thing"* ]]
-  [[ "$output" == *"body f"* ]]
-  [[ "$output" == *"## fix"* ]]
-  [[ "$output" == *"### b thing"* ]]
-}
-
-@test "reconcile drops entries whose id is in completed.json, keeps the rest" {
-  cli add fix "done task" <<<"body done"
-  cli add feat "still open" <<<"body open"
-  mkdir -p "$WORK/proj/.claude/.radin/state"
-  printf '{"id":"done-task","commit":"abc123"}\n' > "$WORK/proj/.claude/.radin/state/completed.json"
-  run cli reconcile
-  [ "$status" -eq 0 ]
-  [[ "$output" == *"done-task"* ]]
-  [ ! -f "$TASKS/done-task.md" ]
-  [ -f "$TASKS/still-open.md" ]
-  run cat "$INDEX"
-  [[ "$output" != *"done-task"* ]]
-  [[ "$output" == *"still-open"* ]]
-}
-
-@test "add --skill writes the canonical instruction onto the entry, not the body" {
-  run cli add feat "styled thing" --skill /frontend-design <<<"the body"
-  [ "$status" -eq 0 ]
-  run grep -F '"id":"styled-thing"' "$INDEX"
-  [[ "$output" == *'"skills":["Invoke /frontend-design to tackle this task."]'* ]]
-  run cat "$TASKS/styled-thing.md"
-  [ "$output" = "the body" ]
-}
-
-@test "meta prints every entry field in key order, nothing for a bare task" {
-  cli add feat "rich task" --skill /frontend-design <<<"body"
-  cli add fix "bare task" <<<"body"
-  cli add-plan "rich task" ".claude/.radin/plans/rich-task.md"
-  cli set-meta "rich task" acceptance "it works"
-  cli set-meta "rich task" facts "/tmp/facts.md"
-  cli set-meta "rich task" location "lib/x.sh:12"
-  run cli meta "rich task"
-  [ "$status" -eq 0 ]
-  [ "${#lines[@]}" -eq 5 ]
-  [[ "${lines[0]}" == "plan"$'\t'".claude/.radin/plans/rich-task.md" ]]
-  [[ "${lines[1]}" == "skill"$'\t'"Invoke /frontend-design to tackle this task." ]]
-  [[ "${lines[2]}" == "acceptance"$'\t'"it works" ]]
-  [[ "${lines[3]}" == "facts"$'\t'"/tmp/facts.md" ]]
-  [[ "${lines[4]}" == "location"$'\t'"lib/x.sh:12" ]]
-  run cli meta "bare task"
-  [ "$status" -eq 0 ]
-  [ -z "$output" ]
-}
-
 @test "list --meta carries each entry's meta lines on its row, joined by RS" {
   cli add feat "rich task" <<<"body"
   cli add fix "bare task" <<<"body"
@@ -155,85 +87,6 @@ cli() {
   [ "$status" -eq 0 ]
   [ "${lines[0]##*$'\037'}" = "acceptance"$'\t'"one"$'\036'"acceptance"$'\t'"two" ]
   [ "${lines[1]##*$'\037'}" = "" ]
-}
-
-@test "set-meta rejects a malformed value on write and --none clears the key" {
-  cli add feat "target" <<<"body"
-  run cli set-meta target acceptance ""
-  [ "$status" -ne 0 ]
-  [[ "$output" == *"must not be empty"* ]]
-  run cli set-meta target acceptance "bad"$'\t'"value"
-  [ "$status" -ne 0 ]
-  [[ "$output" == *"must not contain a tab"* ]]
-  run cli set-meta target acceptance "- [ ] bullet form"
-  [ "$status" -ne 0 ]
-  [[ "$output" == *"bare text"* ]]
-  run cli set-meta target facts /tmp/a.md /tmp/b.md
-  [ "$status" -ne 0 ]
-  [[ "$output" == *"exactly one value"* ]]
-  run cli set-meta target nosuchkey x
-  [ "$status" -ne 0 ]
-  cli set-meta target acceptance "first" "second"
-  run cli meta target
-  [ "${#lines[@]}" -eq 2 ]
-  cli set-meta target acceptance --none
-  run cli meta target
-  [ -z "$output" ]
-  run grep -F '"id":"target"' "$INDEX"
-  [[ "$output" != *"acceptance"* ]]
-}
-
-@test "set-meta skills composes the instruction sentence from a bare name" {
-  cli add feat "target" <<<"body"
-  cli set-meta target skills /ponytail:ponytail
-  run cli meta target
-  [ "${lines[0]}" = "skill"$'\t'"Invoke /ponytail:ponytail to tackle this task." ]
-}
-
-@test "add and append reject a body that repeats a moved label, prose labels pass" {
-  run cli add feat "bad body" <<<'**Acceptance:**'
-  [ "$status" -ne 0 ]
-  [[ "$output" == *"index line"* ]]
-  run cli add feat "bad body" <<<'**Location:** lib/x.sh:12'
-  [ "$status" -ne 0 ]
-  cli add feat "good body" <<<"the prose"
-  run cli append good-body <<'EOF'
-**Decision:** keep it.
-**Fact:** it is slow.
-**Root cause:** the lock.
-EOF
-  [ "$status" -eq 0 ]
-  run cli append good-body <<<'**Facts:** /tmp/f.md'
-  [ "$status" -ne 0 ]
-  [[ "$output" == *"index line"* ]]
-}
-
-@test "field FACTS and field LOCATION print the value, exit 1 when unset" {
-  cli add feat "target" <<<"body"
-  run cli field target FACTS
-  [ "$status" -eq 1 ]
-  [ -z "$output" ]
-  run cli field target LOCATION
-  [ "$status" -eq 1 ]
-  cli set-meta target facts "/tmp/facts.md"
-  cli set-meta target location "lib/x.sh:12"
-  run cli field target FACTS
-  [ "$status" -eq 0 ]
-  [ "$output" = "/tmp/facts.md" ]
-  run cli field target LOCATION
-  [ "$output" = "lib/x.sh:12" ]
-}
-
-@test "append adds stdin text to the task's file only" {
-  cli add feat "target" <<<"original body"
-  cli add feat "other" <<<"other body"
-  run cli append target <<<"**Decision:** keep both."
-  [ "$status" -eq 0 ]
-  run cat "$TASKS/target.md"
-  [[ "$output" == *"original body"* ]]
-  [[ "$output" == *"**Decision:** keep both."* ]]
-  run cat "$TASKS/other.md"
-  [[ "$output" != *"Decision"* ]]
 }
 
 # Epic support will nest a task under tasks/<epic-id>/, so the index's `file`
@@ -316,23 +169,6 @@ nest_task() {
   [[ "$output" == *'"file":"tasks/drifter.md"'* ]]
 }
 
-@test "epic-remove refuses a non-empty epic and deletes nothing" {
-  cli epic-add auth <<<"ctx"
-  cli add feat "child" <<<"body"
-  cli epic-move child auth >/dev/null
-  run cli epic-remove auth
-  [ "$status" -ne 0 ]
-  [ -f "$TASKS/auth/child.md" ]
-  [ -f "$TASKS/auth/DESCRIPTION.md" ]
-}
-
-@test "epic-remove deletes an epic with no child tasks" {
-  cli epic-add auth <<<"ctx"
-  run cli epic-remove auth
-  [ "$status" -eq 0 ]
-  [ ! -d "$TASKS/auth" ]
-}
-
 @test "remove does not leave an empty epic directory behind" {
   cli epic-add auth <<<"ctx"
   cli add feat "only child" <<<"body"
@@ -341,51 +177,6 @@ nest_task() {
   [ ! -d "$TASKS/auth" ]
   run cli epics
   [ -z "$output" ]
-}
-
-@test "show prints flat tasks first, then each epic group in name order" {
-  cli epic-add beta <<<"Beta context."
-  cli epic-add alpha </dev/null
-  cli add feat "flat one" <<<"flat body"
-  cli add feat "beta child" <<<"beta body"
-  cli epic-move beta-child beta >/dev/null
-  cli add fix "alpha child" <<<"alpha body"
-  cli epic-move alpha-child alpha >/dev/null
-  cli add feat "flat two" <<<"flat two body"
-  cli add feat "alpha extra" <<<"alpha extra body"
-  cli epic-move alpha-extra alpha >/dev/null
-  run cli show
-  [ "$status" -eq 0 ]
-  [ "$output" = "$(cat <<'EOF'
-# Backlog
-
-## feat
-
-### flat one
-flat body
-
-### flat two
-flat two body
-
-### epic: alpha
-
-#### alpha extra
-alpha extra body
-
-### epic: beta
-Beta context.
-
-#### beta child
-beta body
-
-## fix
-
-### epic: alpha
-
-#### alpha child
-alpha body
-EOF
-  )" ]
 }
 
 @test "set-priority sets, changes and clears the priority" {
@@ -460,19 +251,6 @@ EOF
   [ "$output" = "keeper	feat	keeper	tasks/keeper.md		" ]
 }
 
-@test "list orders by priority descending with unset entries last" {
-  cli add feat "low" <<<"b"
-  cli set-priority low 3 >/dev/null
-  cli add feat "none at all" <<<"b"
-  cli add feat "high" <<<"b"
-  cli set-priority high 21 >/dev/null
-  cli add feat "mid" <<<"b"
-  cli set-priority mid 8 >/dev/null
-  run cli list
-  [ "$status" -eq 0 ]
-  [ "$(printf '%s\n' "$output" | cut -d$'\037' -f1 | tr '\n' ' ')" = "high mid low none-at-all " ]
-}
-
 @test "set-category and epic-move preserve priority and depends_on" {
   cli add feat "anchor" <<<"b"
   cli add feat "mover" <<<"b"
@@ -496,21 +274,6 @@ EOF
   [ "$status" -ne 0 ]
   [ ! -e "$INDEX.tmp" ]
   [ "$(cat "$INDEX")" = "$before" ]
-}
-
-@test "help exits 0 and documents every dispatcher command" {
-  run cli help
-  [ "$status" -eq 0 ]
-  # Derived from the script, not a second hand-maintained list: a new `case`
-  # label with no header line is exactly the drift this guards against.
-  local label
-  while IFS= read -r label; do
-    label="${label%)}"
-    [[ "$output" == *"  $label "* ]] || {
-      echo "help does not document: $label"
-      false
-    }
-  done < <(grep -oE '^[a-z][a-z-]*\)$' "$CLI")
 }
 
 @test "list --order created gives index order, the default stays priority" {
@@ -563,38 +326,6 @@ prioritized_backlog() {
 IDX
 }
 
-@test "order --steps numbers the priority order from 1 with an empty deps field" {
-  prioritized_backlog
-  run cli order --steps
-  [ "$status" -eq 0 ]
-  [ "${#lines[@]}" -eq 4 ]
-  [ "${lines[0]}" = "high"$'\t'"1"$'\t'$'\t'"pending" ]
-  [ "${lines[1]}" = "mid-a"$'\t'"2"$'\t'$'\t'"pending" ]
-  [ "${lines[2]}" = "mid-b"$'\t'"3"$'\t'$'\t'"pending" ]
-  [ "${lines[3]}" = "low"$'\t'"4"$'\t'$'\t'"pending" ]
-}
-
-@test "order --steps folds the index depends_on into the third field" {
-  prioritized_backlog
-  cli set-deps high low
-  run cli order --steps
-  [ "$status" -eq 0 ]
-  # low is a dependency of high, so it comes up to position 1.
-  [ "${lines[0]}" = "low"$'\t'"1"$'\t'$'\t'"pending" ]
-  [ "${lines[1]}" = "high"$'\t'"2"$'\t'"low"$'\t'"pending" ]
-}
-
-@test "order --steps takes --infer-deps only where the index has none" {
-  prioritized_backlog
-  run cli order --steps --infer-deps "mid-a=low"
-  [ "$status" -eq 0 ]
-  [[ "$output" == *"mid-a"$'\t'"3"$'\t'"low"* ]]
-  cli set-deps mid-b high
-  run cli order --steps --infer-deps "mid-b=low"
-  [ "$status" -ne 0 ]
-  [[ "$output" == *"already has depends_on"* ]]
-}
-
 @test "order moves a dependency up and leaves every other position alone" {
   prioritized_backlog
   cli set-deps mid-a low
@@ -616,68 +347,6 @@ IDX
   [[ "$output" != *"dependency override"* ]]
 }
 
-@test "order --rank-needed exits 1 when every priority is set, 0 with the ids" {
-  prioritized_backlog
-  run cli order --rank-needed
-  [ "$status" -eq 1 ]
-  [ -z "$output" ]
-  cli add chore "unranked one" <<<"b"
-  cli add chore "unranked two" <<<"b"
-  run cli order --rank-needed
-  [ "$status" -eq 0 ]
-  [ "${#lines[@]}" -eq 2 ]
-  [ "${lines[0]}" = "unranked-one" ]
-  [ "${lines[1]}" = "unranked-two" ]
-}
-
-@test "order --rank reorders the unset group and rejects a partial csv" {
-  prioritized_backlog
-  cli add chore "unranked one" <<<"b"
-  cli add chore "unranked two" <<<"b"
-  run cli order --steps --rank "unranked-two,unranked-one"
-  [ "$status" -eq 0 ]
-  [ "${lines[4]}" = "unranked-two"$'\t'"5"$'\t'$'\t'"pending" ]
-  [ "${lines[5]}" = "unranked-one"$'\t'"6"$'\t'$'\t'"pending" ]
-  run cli order --steps --rank "unranked-one"
-  [ "$status" -ne 0 ]
-  run cli order --steps --rank "unranked-one,unranked-two,nosuchtask"
-  [ "$status" -ne 0 ]
-  run cli order --steps --rank "unranked-one,unranked-two,high"
-  [ "$status" -ne 0 ]
-  [[ "$output" == *"already has a priority"* ]]
-}
-
-@test "order --infer-deps rejects a cycle and a self-reference" {
-  prioritized_backlog
-  cli set-deps low high
-  run cli order --steps --infer-deps "high=low"
-  [ "$status" -ne 0 ]
-  [[ "$output" == *"cycle"* ]]
-  run cli order --steps --infer-deps "high=high"
-  [ "$status" -ne 0 ]
-  [[ "$output" == *"itself"* ]]
-}
-
-@test "order --defer marks the named ids deferred and renumbers nothing" {
-  prioritized_backlog
-  run cli order --steps --defer "mid-a,low"
-  [ "$status" -eq 0 ]
-  [ "${lines[1]}" = "mid-a"$'\t'"2"$'\t'$'\t'"deferred" ]
-  [ "${lines[3]}" = "low"$'\t'"4"$'\t'$'\t'"deferred" ]
-  [ "${lines[0]}" = "high"$'\t'"1"$'\t'$'\t'"pending" ]
-  run cli order --steps --defer "nosuchtask"
-  [ "$status" -ne 0 ]
-}
-
-@test "order needs exactly one mode" {
-  prioritized_backlog
-  run cli order
-  [ "$status" -ne 0 ]
-  run cli order --steps --report
-  [ "$status" -ne 0 ]
-  [[ "$output" == *"exactly one mode"* ]]
-}
-
 @test "list --planned appends P for planned tasks and empty for unplanned" {
   cli add feat "planned one" <<<"body"
   cli add feat "unplanned one" <<<"body"
@@ -693,162 +362,9 @@ IDX
 
 # --- field -------------------------------------------------------------------
 
-@test "field prints the index values and follows a non-default file value" {
-  cli add feat "a thing" <<<"body"
-  cli epic-add shipping <<<"epic ctx"
-  cli epic-move a-thing shipping
-  run cli field a-thing TASK_ID
-  [ "$output" = "a-thing" ]
-  run cli field a-thing CATEGORY
-  [ "$output" = "feat" ]
-  run cli field a-thing TASK_FILE
-  [ "$output" = "$TASKS/shipping/a-thing.md" ]
-  run cli field a-thing TASK_BODY
-  [ "$output" = "body" ]
-  run cli field a-thing EPIC_CONTEXT
-  [ "$output" = "epic ctx" ]
-  cli add feat "flat thing" <<<"body"
-  run cli field flat-thing EPIC_CONTEXT
-  [ "$status" -ne 0 ]
-  [ -z "$output" ]
-  run cli field nosuchtask TASK_FILE
-  [ "$status" -ne 0 ]
-  run cli field a-thing NOSUCHFIELD
-  [ "$status" -ne 0 ]
-}
-
-@test "field PLAN_PATHS joins pointers in file order, exit 1 without one" {
-  cli add feat "planned" <<<"body"
-  cli add feat "unplanned" <<<"body"
-  cli add-plan planned /tmp/one.md
-  cli add-plan planned /tmp/two.md
-  run cli field planned PLAN_PATHS
-  [ "$status" -eq 0 ]
-  [ "$output" = "/tmp/one.md, /tmp/two.md" ]
-  run cli field unplanned PLAN_PATHS
-  [ "$status" -eq 1 ]
-  [[ "$output" == "none — implement directly from the entry" ]]
-}
-
-@test "field SKILLS drops the four unrunnable classes and forwards the rest" {
-  mkdir -p "$WORK/proj/.claude/workflows"
-  : >"$WORK/proj/.claude/workflows/ship-it.md"
-  cli add feat "skilled" \
-    --skill /ponytail:ponytail \
-    --skill /mattpocock-skills:grilling \
-    --skill /mattpocock-skills:research \
-    --skill /ship-it \
-    --skill /radin-plan <<<"body"
-  run cli field skilled SKILLS
-  [ "$status" -eq 0 ]
-  [ "${#lines[@]}" -eq 1 ]
-  [[ "${lines[0]}" == *"/ponytail:ponytail"* ]]
-  run cli field skilled SKILLS_DROPPED
-  [ "$status" -eq 0 ]
-  [ "${#lines[@]}" -eq 4 ]
-  [[ "$output" == *"/mattpocock-skills:grilling"* ]]
-  [[ "$output" == *"/mattpocock-skills:research"* ]]
-  [[ "$output" == *"/ship-it"* ]]
-  [[ "$output" == *"/radin-plan"* ]]
-  cli add feat "plain" <<<"body"
-  run cli field plain SKILLS
-  [ "$output" = "none" ]
-  run cli field plain SKILLS_DROPPED
-  [ "$status" -eq 1 ]
-  [ -z "$output" ]
-}
-
-@test "field ACCEPTANCE renders the 1b. block, exit 1 without criteria" {
-  cli add feat "criteria" <<<"body"
-  cli set-meta criteria acceptance "first one" "second one"
-  cli add feat "no criteria" <<<"body"
-  run cli field criteria ACCEPTANCE
-  [ "$status" -eq 0 ]
-  [ "${#lines[@]}" -eq 4 ]
-  [[ "${lines[0]}" == "1b. This task states its own acceptance criteria."* ]]
-  [ "${lines[2]}" = "   - first one" ]
-  [ "${lines[3]}" = "   - second one" ]
-  run cli field no-criteria ACCEPTANCE
-  [ "$status" -eq 1 ]
-  [ -z "$output" ]
-}
-
 # --- duplicates --------------------------------------------------------------
 
-@test "duplicates exits 1 on a clean index, 0 naming the shared id and title" {
-  cli add feat "one" <<<"b"
-  cli add feat "two" <<<"b"
-  run cli duplicates
-  [ "$status" -eq 1 ]
-  [ -z "$output" ]
-  # `add` dedupes ids by design, so a duplicate only arrives by hand-editing.
-  printf '{"id":"one","category":"feat","title":"two","file":"tasks/one.md"}\n' >>"$INDEX"
-  run cli duplicates
-  [ "$status" -eq 0 ]
-  [[ "$output" == *"id"$'\t'"one"$'\t'"one,one"* ]]
-  [[ "$output" == *"title"$'\t'"two"$'\t'"two,one"* ]]
-}
-
 # --- plan-target -------------------------------------------------------------
-
-@test "plan-target resolves one unplanned match to four key lines" {
-  cli add feat "cache layer" <<<"body"
-  run cli plan-target cache-layer
-  [ "$status" -eq 0 ]
-  [ "${lines[0]}" = "id"$'\t'"cache-layer" ]
-  [ "${lines[1]}" = "title"$'\t'"cache layer" ]
-  [ "${lines[2]}" = "task_file"$'\t'"$TASKS/cache-layer.md" ]
-  [ "${lines[3]}" = "plan_file"$'\t'"$WORK/proj/.claude/.radin/plans/cache-layer.md" ]
-  [ "${#lines[@]}" -eq 4 ]
-}
-
-@test "plan-target exits 1 with nothing on stdout when no entry matches" {
-  cli add feat "cache layer" <<<"body"
-  run cli plan-target nothing-like-this
-  [ "$status" -eq 1 ]
-  [[ "$output" == *"no entry matches: nothing-like-this"* ]]
-  run bash -c "(cd '$WORK/proj' && bash '$CLI' plan-target nothing-like-this 2>/dev/null)"
-  [ -z "$output" ]
-}
-
-@test "plan-target exits 2 listing candidates on stderr, stdout empty" {
-  cli add feat "cache layer" <<<"body"
-  cli add fix "cache eviction" <<<"body"
-  run cli plan-target cache
-  [ "$status" -eq 2 ]
-  [[ "$output" == *"matches several entries"* ]]
-  [[ "$output" == *"candidate"$'\t'"cache-layer"* ]]
-  [[ "$output" == *"candidate"$'\t'"cache-eviction"* ]]
-  run bash -c "(cd '$WORK/proj' && bash '$CLI' plan-target cache 2>/dev/null)"
-  [ -z "$output" ]
-}
-
-@test "plan-target exits 3 printing every existing plan pointer" {
-  cli add feat "cache layer" <<<"body"
-  cli add-plan cache-layer /tmp/one.md
-  cli add-plan cache-layer /tmp/two.md
-  run cli plan-target cache-layer
-  [ "$status" -eq 3 ]
-  [ "${lines[4]}" = "plan"$'\t'"/tmp/one.md" ]
-  [ "${lines[5]}" = "plan"$'\t'"/tmp/two.md" ]
-}
-
-@test "plan-target slugifies a sub-task title into the plan file" {
-  cli add feat "cache layer" <<<"body"
-  run cli plan-target cache-layer "Evict Policy (LRU)"
-  [ "$status" -eq 0 ]
-  [ "${lines[3]}" = "plan_file"$'\t'"$WORK/proj/.claude/.radin/plans/cache-layer-evict-policy-lru.md" ]
-}
-
-@test "plan-target's sub-slug suffixes the plan file, and a third argument is a usage error" {
-  cli add feat "cache layer" <<<"body"
-  run cli plan-target cache-layer evict-policy
-  [ "$status" -eq 0 ]
-  [ "${lines[3]}" = "plan_file"$'\t'"$WORK/proj/.claude/.radin/plans/cache-layer-evict-policy.md" ]
-  run cli plan-target cache-layer a b
-  [ "$status" -ne 0 ]
-  [[ "$output" == *"plan-target"* ]]
-}
 
 # --- files -------------------------------------------------------------------
 
@@ -858,108 +374,4 @@ mkplan() {
     '```' "- \`in/fence.sh\` — snippet" '```' "" "## Order" "- \`order/item\` — x" >"$1"
 }
 
-@test "files prints only the Changes bullets' paths, skipping fences and other sections" {
-  cli add feat "cache layer" <<<"body"
-  mkplan "$WORK/p1.md" lib/a.sh docs/b.md
-  cli add-plan cache-layer "$WORK/p1.md"
-  run cli files cache-layer
-  [ "$status" -eq 0 ]
-  [ "${#lines[@]}" -eq 2 ]
-  [ "${lines[0]}" = "lib/a.sh" ]
-  [ "${lines[1]}" = "docs/b.md" ]
-}
-
-@test "files unions several pointers, deduplicated in first-seen order" {
-  cli add feat "cache layer" <<<"body"
-  mkplan "$WORK/p1.md" lib/a.sh docs/b.md
-  mkplan "$WORK/p2.md" docs/b.md tests/c.bats
-  cli add-plan cache-layer "$WORK/p1.md"
-  cli add-plan cache-layer "$WORK/p2.md"
-  run cli files cache-layer
-  [ "$status" -eq 0 ]
-  [ "${#lines[@]}" -eq 3 ]
-  [ "${lines[2]}" = "tests/c.bats" ]
-}
-
-@test "files exits 1 with nothing on stdout when the task has no plan" {
-  cli add feat "cache layer" <<<"body"
-  run bash -c "(cd '$WORK/proj' && bash '$CLI' files cache-layer 2>/dev/null)"
-  [ "$status" -eq 1 ]
-  [ -z "$output" ]
-}
-
-@test "files warns on a missing plan file and still prints the others" {
-  cli add feat "cache layer" <<<"body"
-  mkplan "$WORK/p1.md" lib/a.sh docs/b.md
-  cli add-plan cache-layer "$WORK/gone.md"
-  cli add-plan cache-layer "$WORK/p1.md"
-  run bash -c "(cd '$WORK/proj' && bash '$CLI' files cache-layer 2>'$WORK/err')"
-  [ "$status" -eq 0 ]
-  [ "$output" = "lib/a.sh"$'\n'"docs/b.md" ]
-  grep -q "plan file not found: $WORK/gone.md" "$WORK/err"
-}
-
-@test "files exits 1 when the plan has no Changes bullets" {
-  cli add feat "cache layer" <<<"body"
-  printf '## Outcome\n\n## Changes\n\nnone\n' >"$WORK/p1.md"
-  cli add-plan cache-layer "$WORK/p1.md"
-  run cli files cache-layer
-  [ "$status" -eq 1 ]
-  [ -z "$output" ]
-}
-
-@test "files without an argument is a usage error naming files" {
-  run cli files
-  [ "$status" -ne 0 ]
-  [[ "$output" == *"files"* ]]
-}
-
 # --- add-plan sidecar ---------------------------------------------------------
-
-@test "add-plan records HEAD in plans/<id>.head, and writes nothing before a first commit" {
-  cli add feat "cache layer" <<<"body"
-  mkplan "$WORK/p1.md" lib/a.sh docs/b.md
-  cli add-plan cache-layer "$WORK/p1.md"
-  [ ! -e "$WORK/proj/.claude/.radin/plans/cache-layer.head" ]
-  ( cd "$WORK/proj" && git config user.email t@t && git config user.name t &&
-    git commit -q --allow-empty -m init )
-  run cli add-plan cache-layer "$WORK/p1.md"
-  [ "$status" -eq 0 ]
-  [ "$(cat "$WORK/proj/.claude/.radin/plans/cache-layer.head")" = "$(cd "$WORK/proj" && git rev-parse HEAD)" ]
-}
-
-@test "files accepts a plan file path directly, exit 1 with no Changes bullets" {
-  mkplan "$WORK/p1.md" lib/a.sh docs/b.md
-  run cli files "$WORK/p1.md"
-  [ "$status" -eq 0 ]
-  [ "${#lines[@]}" -eq 2 ]
-  [ "${lines[0]}" = "lib/a.sh" ]
-  printf '## Outcome\n' >"$WORK/empty.md"
-  run cli files "$WORK/empty.md"
-  [ "$status" -eq 1 ]
-}
-
-@test "add stamps created and branch, and stamps lists them in index order" {
-  br="$(git -C "$WORK/proj" symbolic-ref --short HEAD)"
-  cli add fix "first one" <<<"b1"
-  git -C "$WORK/proj" checkout -q -b other
-  cli add fix "second one" <<<"b2"
-  [[ "$(cat "$INDEX")" == *'"created":"20'*'Z"'* ]]
-  run cli stamps
-  [ "$status" -eq 0 ]
-  [[ "${lines[0]}" == "first-one"$'\t'"20"*"Z"$'\t'"$br" ]]
-  [[ "${lines[1]}" == "second-one"$'\t'"20"*"Z"$'\t'"other" ]]
-  run cli stamps other
-  [ "${#lines[@]}" -eq 1 ]
-  [[ "$output" == "second-one"* ]]
-  run cli stamps nope
-  [ "$status" -eq 0 ]
-  [ -z "$output" ]
-}
-
-@test "stamps reads an entry written before stamps existed as unknown" {
-  mkdir -p "$TASKS"
-  printf '{"id":"old","category":"fix","title":"old","file":"tasks/old.md"}\n' > "$INDEX"
-  run cli stamps
-  [ "$output" = "old"$'\t\t' ]
-}

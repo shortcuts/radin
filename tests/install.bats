@@ -338,15 +338,6 @@ run_install_defaults() {
   grep -q 'OpenCode:' "$TEST_HOME/.claude/.radin/cbm-config.log"
 }
 
-# radin-batch alone may dispatch a planning sub-agent; the no-plan rule
-# in each skill file is the only thing that tells the skills apart.
-@test "only radin-batch dispatches a planning sub-agent" {
-  run_install_defaults
-  grep -q -- "--plan-first" "$TEST_HOME/.claude/skills/radin-batch/SKILL.md"
-  run ! grep -q -- "--plan-first" "$TEST_HOME/.claude/skills/radin-do/SKILL.md"
-  run ! grep -q -- "--plan-first" "$TEST_HOME/.claude/.radin/lib/radin-run.md"
-}
-
 # The arrow-key picker only draws on a real terminal, so it gets driven through
 # a pty helper. Extracting the functions from install.sh keeps the picker itself
 # single-sourced there.
@@ -369,15 +360,6 @@ pick_with_keys() {
   pick_with_keys '\033[B\r'
   [ "$PICKED" = "beta" ]
   pick_with_keys '\033[B\033[B\r'
-  [ "$PICKED" = "gamma" ]
-}
-
-@test "picker wraps at the ends and takes j/k and digits too" {
-  pick_with_keys '\033[A\r'
-  [ "$PICKED" = "gamma" ]
-  pick_with_keys 'j\r'
-  [ "$PICKED" = "beta" ]
-  pick_with_keys '3\r'
   [ "$PICKED" = "gamma" ]
 }
 

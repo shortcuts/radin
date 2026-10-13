@@ -16,6 +16,7 @@ radin is a Claude Code plugin made of skills, a CLI, and install glue. It is wri
 | `~/.claude` ownership | `tests/install.bats` ("never overwrites a skill radin did not install"), `tests/bash-compat.bats` (`rm` allowlist) | Foreign content in the `CLAUDE.md` block and settings restore is untested. `install.sh` removes `~/.claude/skills/thermo-nuclear`, a known exception. |
 | Companion install is advisory | `tests/install.bats` ("a failing companion tool and a missing claude CLI both warn, and the install completes") | None. |
 | One owner per delegation | `tests/skill-names.bats` (every name resolves) | Nothing for "one file per delegation" and graph tool names; review only. |
+| Critical-path-only tests ([policy](#test-suite-speed)) | None; review only | A new test that guards no install or TUI failure passes unnoticed. |
 
 A rule with no enforcer is a repeat risk, so a new hard rule lands with its row.
 
@@ -86,7 +87,14 @@ The graph tool name lives in one file only, and it must exist in the upstream ta
 
 ## Before committing
 
-- `make lint` and `make test` must come back clean, and `make test` must stay under 60 seconds. Every tree-only test replays one recorded `install.sh` run. A live run serves only install-time behavior. The mock command is `tests/helpers/mock.c`, one compiled binary, not a shell stub per command, because `/bin/sh` startup costs 20 ms per call. No test makes a network request.
+- `make lint` and `make test` must come back clean, and `make test` must stay under 15 seconds ([policy](#test-suite-speed)). Every tree-only test replays one recorded `install.sh` run. A live run serves only install-time behavior. The mock command is `tests/helpers/mock.c`, one compiled binary, not a shell stub per command, because `/bin/sh` startup costs 20 ms per call. No test makes a network request.
 - Update the docs in the same commit: `docs/architecture.md` (layout, namespace resolution), `docs/domain-models.md` (format), the README (a new skill or companion), and `CHANGELOG.md` (a user-facing change).
+
+## Test suite speed
+
+- Test the critical paths only: the install path (`install.sh`, the `radin` dispatcher, `radin-cbm-*`, `radin-doctor`, `radin-uninstall`, `radin update`) and the TUI path (`lib/radin-tui.c` with the `radin-backlog.sh` verbs it calls).
+- Before adding a test, name the install or TUI step it guards and the failure it catches: a broken step, lost user data, or a half-written `~/.claude`.
+- Assert the failure the test guards. A test that passes only because everything went right, pins formatting or escape bytes, or repeats a case another test already covers does not go in.
+- Remove a test when its step leaves the critical paths, and update the "Rule enforcers" row that named it.
 
 For details, see [architecture](docs/architecture.md) · [domain models](docs/domain-models.md) · [constraints](docs/technical-constraints.md) · [contributing](CONTRIBUTING.md).
