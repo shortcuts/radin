@@ -17,7 +17,7 @@
 #                                               # the fourth field is optional and defaults to pending; also writes state/baseline.json
 #   radin-state.sh task-next [--plan-first] [<id>]  # pick, gate, claim and write the prompt in one call; exit 1 when nothing is left
 # an execution task also prints "overlap<TAB>none|unclear|<id>[,<id>...]": other live tasks sharing plan files
-#   radin-state.sh task-report <id> <the sub-agent's STATUS: line> [--next [--plan-first]] [--usage "<kind> <tokens> <tool_uses> <duration_ms>"]...  # verify the tree, record the outcome, then a final "next<TAB>continue|debug|halt|clarify FACT|clarify DECISION" line
+#   radin-state.sh task-report <id> <the sub-agent's STATUS: line (SUCCESS|FAILED|INCONCLUSIVE|BLOCKED)> [--next [--plan-first]] [--usage "<kind> <tokens> <tool_uses> <duration_ms>"]...  # verify the tree, record the outcome, then a final "next<TAB>continue|debug|halt|clarify FACT|clarify DECISION" line
 #   radin-state.sh task-report <id> --no-status <last line> [--next [--plan-first]] [--usage "<kind> <tokens> <tool_uses> <duration_ms>"]...  # the same, for a sub-agent that ended with no STATUS: line
 #                                               # --next: when the final line is "next<TAB>continue", also run task-next (with --plan-first) and print its output after; exit is task-next's
 #   radin-state.sh task-diagnosis <id>          # stdin becomes a **Root cause:** line on the task file, status untouched
@@ -996,9 +996,10 @@ task-report)
 		word="BLOCKED"
 		tag="DECISION"
 		;;
+	*"STATUS: INCONCLUSIVE"*) word="INCONCLUSIVE" ;;
 	*SUCCESS*) word="SUCCESS" ;;
 	*FAILED*) word="FAILED" ;;
-	*) die "no SUCCESS/FAILED/BLOCKED in that line: $line -- pass --no-status when the sub-agent produced none" ;;
+	*) die "no SUCCESS/FAILED/INCONCLUSIVE/BLOCKED in that line: $line -- pass --no-status when the sub-agent produced none" ;;
 	esac
 	# The tree comes first whatever the line claimed: a dirty tree fails the
 	# task and nothing else runs.
@@ -1017,6 +1018,16 @@ task-report)
 	detail="${detail# }"
 	if [ "$word" = "BLOCKED" ]; then
 		printf 'next\tclarify %s\n' "$tag"
+		exit 0
+	fi
+	if [ "$word" = "INCONCLUSIVE" ]; then
+		# Not a pass, not a failure: no debug pass, no fail streak, no commit.
+		# `blocked` keeps it out of next_pending and in the report.
+		write_entry "$steps" "$id" blocked "$(num_field "$entry" attempts)" "inconclusive: $detail"
+		ot="$(order_title "$id")"
+		printf "⚠️ Task %s '%s' inconclusive: %s. Not counted as a pass; left in the backlog.\n" \
+			"${ot%%	*}" "${ot#*	}" "$detail"
+		printf 'next\tcontinue\n'
 		exit 0
 	fi
 	if [ "$word" = "SUCCESS" ]; then

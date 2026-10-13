@@ -786,6 +786,18 @@ overlap_plan() {
   [[ "$(cat "$ST")" == *'"id":"aa-task"'*'"status":"pending"'* ]]
 }
 
+@test "task-report records INCONCLUSIVE as blocked with the reason, no streak, no completion" {
+  fixture_repo
+  printf 'aa-task\t1\t\n' | cli steps-init > /dev/null
+  run cli task-report aa-task "STATUS: INCONCLUSIVE — no way to run the SDK here"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"inconclusive: no way to run the SDK here"* ]]
+  [ "${lines[${#lines[@]}-1]}" = "$(printf 'next\tcontinue')" ]
+  [[ "$(cat "$ST")" == *'"status":"blocked"'*'"note":"inconclusive: no way to run the SDK here"'* ]]
+  [ ! -s "$NS/state/completed.json" ]
+  [ ! -f "$NS/state/fail-streak" ]
+}
+
 @test "task-report stashes a dirty tree before it believes any status" {
   fixture_repo
   printf 'aa-task\t1\t\n' | cli steps-init > /dev/null
@@ -810,7 +822,7 @@ overlap_plan() {
   [[ "$(cat "$ST")" == *"last words: I have a question about"* ]]
   run cli task-report bb-task "all done, hope that helps"
   [ "$status" -ne 0 ]
-  [[ "$output" == *"no SUCCESS/FAILED/BLOCKED"* ]]
+  [[ "$output" == *"no SUCCESS/FAILED/INCONCLUSIVE/BLOCKED"* ]]
 }
 
 @test "task-report sends an infra death back to pending, outside the failure count" {

@@ -6,6 +6,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- An execution task that cannot check its behavior change now reports
+  `STATUS: INCONCLUSIVE` and stays in the backlog as `blocked` with the
+  reason, instead of counting as a pass.
 - `/radin-execute` and `/radin-implement` no longer ask when the full test
   suite runs. Each task verifies its own work on the real artifact and fixes
   its failures (three rounds at most), and the full suite always runs once at

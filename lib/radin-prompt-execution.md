@@ -24,6 +24,7 @@ Report back the LAST line of your response as exactly one of:
 `STATUS: SUCCESS — <commit hash(es), or "no new commit, already satisfied by <existing
 hash>">`
 `STATUS: FAILED — <reason>`
+`STATUS: INCONCLUSIVE — <what could not be checked, and why>`
 `STATUS: BLOCKED (FACT) — <what's unverifiable from here and why, e.g. a third-party
 API/library behavior local code and repo exploration can't settle>`
 `STATUS: BLOCKED (DECISION) — <the decision question, the candidate options, and your
@@ -181,7 +182,10 @@ ACCEPTANCE
    the project's declared dependencies, install them with its own package
    manager and lockfile, never with sudo or the system package manager. If
    no real check can run here, record which one and why as a `**Fact:**`
-   line.
+   line. For a task that changes behavior, revert everything you touched,
+   leave the tree clean, and report `STATUS: INCONCLUSIVE`: an unchecked
+   change is no pass. A task with no behavior change keeps the `**Fact:**`
+   line and continues.
    Prove the change on the real artifact: run the changed code path itself and
    read its actual output. "It compiles" and a passing proxy are not proof.
    A check that fails: suspect your observation (wrong command, stale build)

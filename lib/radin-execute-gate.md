@@ -26,8 +26,9 @@ naming the culprit commit, and re-run the full suite. Leave the tree clean.
 The LAST line is exactly one of:
 `STATUS: SUCCESS — <"suite green at <hash>", or "fixed in <hash(es)>, culprit <hash(es)>">`
 `STATUS: FAILED — <failing check>, culprit <hash>, <why no fix landed>`
+`STATUS: INCONCLUSIVE — <check that could not run, and why>`
 ```
 
-Carry each fix hash into Phase 6's commit list. A `FAILED` line, or a last
+Carry each fix hash into Phase 6's commit list. A `FAILED` or `INCONCLUSIVE` line, or a last
 line that is not a `STATUS:` line, goes to the user after the Phase 5 summary,
 verbatim.
