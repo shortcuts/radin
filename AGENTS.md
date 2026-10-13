@@ -95,8 +95,9 @@ wrong one cost failed call in every sub-agent
 
 ## Decisions that look like bugs
 
-- **No per-task verification in `radin-execute`**, and `FAILED` task get
-  Debug prompt once per session ([why](docs/architecture.md#verification-in-radin-execute)).
+- **No router-side per-task verification in `radin-execute`** — the leaf
+  verifies and reviews its own staged diff before it commits — and `FAILED`
+  task get Debug prompt once per session ([why](docs/architecture.md#verification-in-radin-execute)).
 - **What sub-agent learn stay on its task** — a `**Fact:**` or
   `**Root cause:**` line, long form in `state/facts/<id>.md`. No shared note
   file, no cross-task memory.

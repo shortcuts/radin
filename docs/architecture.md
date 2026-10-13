@@ -479,12 +479,11 @@ next `radin update` resets it.
 
 ## Verification in radin-execute
 
-There is none per task, deliberately. A `STATUS: SUCCESS` goes straight to the
-bookkeeping, and `/radin-review` at Phase 6 is the session's one verification
-pass. A per-task refuter sub-agent used to run here; it cost an extra
-sub-agent per successful task for findings the Phase 6 pass finds anyway.
-Don't reintroduce one, and don't have the router re-read the diff instead —
-that read is the cost the single end-of-session pass exists to avoid.
+The router does none, deliberately. A `STATUS: SUCCESS` goes straight to the
+bookkeeping. A per-task refuter sub-agent used to run here; it cost an extra
+sub-agent per successful task. Don't reintroduce one, and don't have the
+router re-read the diff instead — the leaf verifies its own work before it
+commits (below), and Phase 4.5 gates the session.
 
 The `out-of-plan:` line in the report is not a verification pass: `task-done`
 compares the commit's file list with the plan's `## Changes` paths (test paths
@@ -507,8 +506,16 @@ The leaf's verify loop is distilled from the MIT-licensed
 [cursor/plugins pstack](https://github.com/cursor/plugins/tree/main/pstack)
 principles `prove-it-works`, `sequence-verifiable-units` and
 `test-behavior-not-implementation`. The leaf re-runs a failed check up to three
-rounds, then reports `FAILED`, so a stuck task never loops. This replaces the
-need for a `/radin-review` pass to catch a task's own defects.
+rounds, then reports `FAILED`, so a stuck task never loops.
+
+Step 5a of the execution prompt then runs `/radin-review` on the leaf's staged
+diff (`radin scope staged`), inline, before the commit: the skill holds the
+repo's rubrics, so the leaf meets them while the context is warm. The leaf fixes
+`critical` and `warning` findings and re-reviews, two rounds at most; the skill
+logs `nit` findings as backlog entries, which this session's
+`BACKLOG_STEPS.json` does not pick up. The same agent that wrote the diff
+reviews it. That is the price of no extra cold sub-agent per task; Phase 6's
+fresh-eyes review stays available on request.
 
 The one Debug pass a `FAILED` task gets is enforced by the `debugged` flag on
 its steps entry, flipped by `radin state task-report`, not by a counter the

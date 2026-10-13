@@ -191,6 +191,12 @@ ACCEPTANCE
    nothing: assert literal expected values.
    Fix what the checks surface before step 6. The router's session gate runs the
    whole suite once after the last task.
+5a. Stage your task's files (`git add <paths>`, never `.claude/.radin/`) and
+   invoke `/radin-review` with scope `staged` and spec `TASK_ID`, inline. Fix
+   every `critical` and `warning` finding in the tree, re-run step 5's checks,
+   restage and review again. Two rounds at most: a `critical` still standing
+   then is `STATUS: FAILED` with its citation. The skill logs the `nit`
+   findings as backlog entries itself.
 6. Invoke the `/caveman:caveman-commit` skill to draft the commit message, then commit.
 7. Run `RADIN_CLI state dirty-check` from the tree
    step 1a handed you, so the check covers the files you actually touched.

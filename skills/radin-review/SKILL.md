@@ -23,6 +23,13 @@ way, and a sub-agent reaches neither the user nor a spawned agent's result:
 run every step inline, skip each `AskUserQuestion`, log every in-scope
 finding, and say in Step 6's report that no triage happened.
 
+**Leaf caller** — an execution leaf invokes this skill with scope `staged`
+before it commits, so the review is part of its verify loop. Run it inline as a
+sub-agent caller does, and take the spec the invoking prompt names (Step 2,
+rung 1). The leaf, not the backlog, takes the `critical` and `warning`
+findings: relay them for it to fix now. Step 5 logs the `nit` findings only,
+and skips `review-findings`, since no commit exists yet to attribute.
+
 ## Step 1: Resolve the scope
 
 ```bash

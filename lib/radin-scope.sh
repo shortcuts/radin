@@ -12,10 +12,11 @@
 # No arg: the current branch's diff against its merge-base with main/master.
 # With arg: a commit-ish, a PR reference (#123, 123, GitHub PR URL), a
 # directory path, a range (`last commit`, `last <n> commits`, `<rev>..<rev>`),
-# or a date phrase (`since yesterday`, `since last week`).
+# a date phrase (`since yesterday`, `since last week`), or `staged`: the index
+# diff, which a task reviews before it commits.
 #
 # Output (TAB-separated key/value lines):
-#   type    commit|pr|dir|branch-diff|range
+#   type    commit|pr|dir|branch-diff|range|staged
 #   scope   <normalized scope>
 #   command <the diff/read command to run>
 #   passes  <the ponytail skill(s) this scope type calls for>
@@ -139,8 +140,9 @@ if [ "${1:-}" = "--commits" ]; then
 		# shellcheck disable=SC2086
 		gh pr view "$num" $repo --json commits --jq '.commits[] | .oid + " " + .messageHeadline'
 		;;
-	# A dir scope reviews the files as they stand: no commit list.
-	dir) ;;
+	# A dir scope reviews the files as they stand, a staged one has no commit
+	# yet: no commit list.
+	dir | staged) ;;
 	esac
 	exit 0
 fi
@@ -273,6 +275,11 @@ esac
 
 # Two range shapes the script can validate without parsing English.
 case "$arg" in
+staged)
+	git rev-parse --git-dir >/dev/null 2>&1 || die "not in a git repo: $arg"
+	emit staged "staged" "git diff --cached"
+	exit 0
+	;;
 'last commit')
 	git rev-parse --git-dir >/dev/null 2>&1 || die "not in a git repo: $arg"
 	emit range "HEAD~1..HEAD" "git diff HEAD~1..HEAD"

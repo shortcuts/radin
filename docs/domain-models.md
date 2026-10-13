@@ -84,8 +84,8 @@ TAB-separated key/value lines, one call per review:
 
 | Key | Value |
 | --- | --- |
-| `type` | `commit`, `pr`, `dir`, `branch-diff` or `range` |
-| `scope` | the normalized scope (`#123`, `HEAD~3..HEAD`, a directory path) |
+| `type` | `commit`, `pr`, `dir`, `branch-diff`, `range` or `staged` |
+| `scope` | the normalized scope (`#123`, `HEAD~3..HEAD`, a directory path, `staged`) |
 | `command` | the diff or read command that yields the scope's content |
 | `passes` | the `/ponytail:*` skill(s) this type calls for — `ponytail-audit` plus `ponytail-debt` for `dir`, `ponytail-review` otherwise |
 
@@ -93,7 +93,7 @@ Exit 0 resolved, 1 unrecognized, 2 ambiguous (each candidate reading on stderr).
 
 `radin scope --in-scope [<arg>]` resolves the same scope, then reads `path:line` citations on stdin and prints, in input order, `in<TAB><citation>` when the scope introduced that line and `out<TAB><citation>` otherwise, then one `dropped<TAB><n>`. `in` means under the directory for a `dir` scope, and inside a diff hunk of that path for every other type; paths compare repo-relative exactly as the diff spells them, a leading `./` aside. Exit 0 once resolved, even when every citation is dropped; resolution failures keep exits 1 and 2. The citation filter and the `location` index key are not two spellings of one thing: the filter screens fresh review citations that have no backlog entry yet, while `location` records where an existing entry's finding sits, for the trace lookup.
 
-`radin scope --commits [<arg>]` resolves the same scope, then prints one `<hash> <subject>` line per commit it covers. The commit list per type is the branching this flag owns: `git log -1` for a `commit`, `git log <range>` for a `range` or `branch-diff` (newest first), `gh pr view <n> --json commits` for a `pr` (gh's order), and nothing for a `dir`, which reviews files as they stand.
+`radin scope --commits [<arg>]` resolves the same scope, then prints one `<hash> <subject>` line per commit it covers. The commit list per type is the branching this flag owns: `git log -1` for a `commit`, `git log <range>` for a `range` or `branch-diff` (newest first), `gh pr view <n> --json commits` for a `pr` (gh's order), and nothing for a `dir`, which reviews files as they stand, or for `staged`, which has no commit yet.
 
 `radin scope --specs [<arg>]` resolves the same scope, then prints one `<id><TAB><created><TAB><branch><TAB><commit><TAB><source>` line per task a review of it could take as its spec, oldest `created` first (an unknown `created` sorts first). `source` is `commit` when a `completed.json` commit is among `--commits`'s hashes (short/long prefix match, seven-character floor), `reflog` when it is not but the review branch's reflog (`git reflog show <branch>`) still lists it — the case after a squash or rebase — and `pending` for an open backlog entry whose stamped `branch` is the review branch (`commit` empty). The review branch is HEAD's branch. Exit 0 once the scope resolves, even with no output; 1 unrecognized, 2 ambiguous; 4 when a completed task's commit no longer exists and HEAD sits on no branch, so the reflog has nothing to search.
 

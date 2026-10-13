@@ -96,6 +96,15 @@ assembled() {
   [[ "$output" == *"real artifact"* ]]
 }
 
+@test "the leaf reviews its staged diff through /radin-review before it commits" {
+  backlog add chore "a check" <<<"Check it."
+  run assembled execution a-check
+  [[ "$output" == *"/radin-review"* ]]
+  [[ "$output" == *"staged"* ]]
+  review="${output%%/caveman:caveman-commit*}"
+  [[ "$review" == *"/radin-review"* ]]
+}
+
 @test "each category gets its own step 3 row" {
   backlog add fix "a bug" <<<"It breaks."
   run assembled execution a-bug

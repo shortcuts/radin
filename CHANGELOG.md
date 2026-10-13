@@ -11,6 +11,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   its failures (three rounds at most), and the full suite always runs once at
   the end of the session. The verify rules come from the MIT-licensed
   cursor/plugins pstack.
+- Each execution task now runs `/radin-review` on its own staged diff before
+  it commits, fixes the `critical` and `warning` findings, and re-reviews
+  (two rounds at most). `nit` findings land in the backlog. `radin scope
+  staged` is the new scope behind it.
 - `/radin-execute` and `/radin-implement` run only the tasks of a named epic
   (or one named task). Call them with the epic id, for example
   `/radin-implement bluetooth-reconnect-tap`. The run also includes every task

@@ -52,6 +52,21 @@ mock_gh() {
   [[ "$output" == *"passes"$'\t'"/ponytail:ponytail-review"* ]]
 }
 
+@test "staged resolves to the index diff, with no commit list" {
+  ( cd "$WORK/repo" && printf 'a\nb\n' > f.txt && git add f.txt )
+  run cli staged
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"type"$'\t'"staged"* ]]
+  [[ "$output" == *"command"$'\t'"git diff --cached"* ]]
+  [[ "$output" == *"passes"$'\t'"/ponytail:ponytail-review"* ]]
+  run cli --commits staged
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+  run bash -c "printf 'f.txt:2\nf.txt:1\n' | (cd '$WORK/repo' && bash '$CLI' --in-scope staged)"
+  [ "${lines[0]}" = "in"$'\t'"f.txt:2" ]
+  [ "${lines[1]}" = "out"$'\t'"f.txt:1" ]
+}
+
 @test "a directory resolves to a dir scope" {
   mkdir -p "$WORK/repo/src"
   run cli "src"
