@@ -88,23 +88,12 @@ assembled() {
   [[ "$output" != *"Shared context for the epic"* ]]
 }
 
-@test "only an end-of-backlog test mode defers the full suite to the session gate" {
+@test "the leaf never runs the full suite: the session gate does, and the leaf verifies its own work" {
   backlog add chore "a check" <<<"Check it."
-  # No recorded mode reads as per-task: full suite per task.
-  run assembled execution a-check
-  [[ "$output" == *"full check suite"* ]]
-  [[ "$output" != *"session gate"* ]]
-  printf 'a-check\t1\t\n' | state steps-init --tests end > /dev/null
-  # Branch answers no longer decide it: a radin/<id> branch still defers.
-  state session-set no yes
   run assembled execution a-check
   [[ "$output" == *"session gate"* ]]
   [[ "$output" != *"full check suite"* ]]
-  printf 'a-check\t1\t\n' | state steps-init --tests task > /dev/null
-  state session-set no no
-  run assembled execution a-check
-  [[ "$output" == *"full check suite"* ]]
-  [[ "$output" != *"session gate"* ]]
+  [[ "$output" == *"real artifact"* ]]
 }
 
 @test "each category gets its own step 3 row" {

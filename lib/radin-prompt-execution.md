@@ -182,14 +182,15 @@ ACCEPTANCE
    manager and lockfile, never with sudo or the system package manager. If
    no real check can run here, record which one and why as a `**Fact:**`
    line.
-<!-- if:TESTS_AT_END -->
+   Prove the change on the real artifact: run the changed code path itself and
+   read its actual output. "It compiles" and a passing proxy are not proof.
+   A check that fails: suspect your observation (wrong command, stale build)
+   before the code, then fix and re-run that same check until it is green. After
+   three fix rounds on one failure, report `STATUS: FAILED` with its output. A
+   test that still passes when the code under test returns nothing pins
+   nothing: assert literal expected values.
    Fix what the checks surface before step 6. The router's session gate runs the
    whole suite once after the last task.
-<!-- end -->
-<!-- if:!TESTS_AT_END -->
-   Then run the project's full check suite, as its own docs or CI config
-   define it, once. Fix what they surface before step 6.
-<!-- end -->
 6. Invoke the `/caveman:caveman-commit` skill to draft the commit message, then commit.
 7. Run `RADIN_CLI state dirty-check` from the tree
    step 1a handed you, so the check covers the files you actually touched.

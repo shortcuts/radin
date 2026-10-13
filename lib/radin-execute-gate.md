@@ -1,6 +1,6 @@
 # Shared: radin-execute Session Gate
 
-`radin-execute` reads this file at Phase 4.5, only when the test mode is `end`.
+`radin-execute` reads this file at Phase 4.5, once per session that recorded a commit.
 
 Dispatch one gate sub-agent (`model: "RADIN_MODEL_EXECUTION"`) with exactly:
 

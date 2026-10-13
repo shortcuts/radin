@@ -174,9 +174,8 @@ persist them.
 
 ## Phase 2: Confirm Execution Order
 
-The gate is unconditional (Core Constraints). Phase 0.5's preferences, the
-test mode and the scope from Phase 1 step 5 are the only questions a prompt
-may pre-answer.
+The gate is unconditional (Core Constraints). Phase 0.5's preferences and the
+scope from Phase 1 step 5 are the only questions a prompt may pre-answer.
 
 1. Print this verbatim, and compose nothing of your own:
 
@@ -195,10 +194,6 @@ may pre-answer.
      `Only the ones I name` / `Just the first one`. `Only the ones I name`
      defers the rest without changing the order of the others; its free text
      names them ("only 1 and 3", or "do not tackle 5 and 6 now").
-   - **Test mode** (always): "When does the full test suite run?" Options:
-     `Once at the end of the backlog` / `After each task`. Say in the question
-     that each task still runs the checks its diff reaches, and that the
-     answer lasts this session only.
    - **Worktree** (if Phase 0.5 unanswered): "Own git worktree per task?"
      Options: `Yes` / `No`.
    - **Branch** (if Phase 0.5 unanswered): "Own branch per task?" Options:
@@ -207,8 +202,6 @@ may pre-answer.
    Write nothing to `BACKLOG_STEPS.json` and launch no sub-agent before the
    answer arrives.
 3. The answers are routed independently, and each is routed once.
-   - **Test mode** decides Phase 3's `--tests` value, and nothing else:
-     `end` for `Once at the end of the backlog`, `task` for `After each task`.
    - **Task selection** decides Phase 3's `--defer` value, and nothing else:
      - **A scope from Phase 1**: `--defer` every backlog id outside the scope.
        Name the scope, the dependencies it pulled in, and the deferred count
@@ -236,7 +229,7 @@ The confirmed order is persisted by exactly this pipe:
 
 ```bash
 RADIN_CLI backlog order --steps <Phase 1's flags> --defer "<ids Phase 2 excluded>" |
-  RADIN_CLI state steps-init --tests <task|end>
+  RADIN_CLI state steps-init
 ```
 
 `--defer` takes the ids Phase 2 excluded; omit the flag entirely when nothing
@@ -322,8 +315,8 @@ next task's dispatch and carry on. The loop stops only at a `halt`, a
 `clarify DECISION` waiting on the user, Phase 4.5, or Phase 5.
 
 Never verify a `SUCCESS` yourself: no per-task verification sub-agent, and no
-re-reading the diff — that read is the cost Phase 6's `/radin-review` pass
-exists to avoid. A task is finished when `task-report` has recorded it,
+re-reading the diff — that read is the cost the leaf's own verify loop and
+Phase 4.5's gate exist to avoid. A task is finished when `task-report` has recorded it,
 whatever the sub-agent's prose said.
 
 Failed, blocked and deferred entries stay in the file for the user to retry
@@ -332,10 +325,9 @@ loop from reaching Phase 4.5.
 
 ## Phase 4.5: Session Gate
 
-Run this phase only when `RADIN_CLI state test-mode` prints `end`: execution
-sub-agents then ran only the checks their diffs reached, so the whole suite
-runs here once. Skip it when the session recorded no commit, and after a
-`halt`.
+Execution sub-agents run only the checks their diffs reached, so the whole
+suite runs here once, every session. Skip it when the session recorded no
+commit, and after a `halt`.
 
 Read `RADIN_LIB/radin-execute-gate.md` and follow it to dispatch the gate.
 

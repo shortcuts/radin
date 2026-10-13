@@ -6,6 +6,11 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- `/radin-execute` and `/radin-implement` no longer ask when the full test
+  suite runs. Each task verifies its own work on the real artifact and fixes
+  its failures (three rounds at most), and the full suite always runs once at
+  the end of the session. The verify rules come from the MIT-licensed
+  cursor/plugins pstack.
 - `/radin-execute` and `/radin-implement` run only the tasks of a named epic
   (or one named task). Call them with the epic id, for example
   `/radin-implement bluetooth-reconnect-tap`. The run also includes every task

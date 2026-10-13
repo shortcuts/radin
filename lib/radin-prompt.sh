@@ -162,7 +162,6 @@ active=" CAT_$category "
 [ -z "$epic_context" ] || active="$active EPIC_CONTEXT "
 [ -z "$depends_on" ] || active="$active DEPENDS_ON "
 [ -z "$stale_plan" ] || active="$active STALE_PLAN "
-[ "$(bash "$LIB_DIR/radin-state.sh" test-mode 2>/dev/null)" != end ] || active="$active TESTS_AT_END "
 
 body="$(printf '%s\n' "$body" | awk -v active="$active" '
 	/^<!-- if:/ {

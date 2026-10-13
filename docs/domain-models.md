@@ -143,10 +143,10 @@ Every mutation goes through `lib/radin-state.sh` — `radin-execute` never hand-
 Single line, written by `radin-state.sh steps-init` each run, so Phase 5 can scope "this session" without the router carrying counts across phases:
 
 ```json
-{"backlog_count":7,"completed_count":2,"tests":"end"}
+{"backlog_count":7,"completed_count":2}
 ```
 
-`tests` is Phase 2's test-mode answer, `task` or `end`, read through `radin state test-mode`. Absent: `task`.
+An older file may carry a `tests` key; nothing reads it.
 
 `radin state report` is the only consumer: completions past `completed_count` are this session's, and `backlog_count` against `backlog count` now gives the net-new entry count. Absent (a file written before this key existed): `report` reports every completion and omits the net-new line.
 
