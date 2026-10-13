@@ -6,10 +6,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
-- `/radin-run <prompt>` records one ad-hoc prompt as a backlog entry, optionally
+- `/radin-do <prompt>` records one ad-hoc prompt as a backlog entry, optionally
   plans it with your sign-off, then executes just that task.
 
 ### Changed
+
+- `/radin-execute` is now `/radin-batch`, and `/radin-run` is now `/radin-do`.
+  `/radin-implement` is gone: `/radin-batch` asks whether to plan each task
+  first or implement directly. `radin uninstall` still removes the old skill
+  names.
 
 - Failing and blocked tasks now ask you how to proceed and re-run, instead of
   being deferred. `next halt` and the failure streak are removed, and

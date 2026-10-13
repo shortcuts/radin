@@ -187,7 +187,7 @@ sub-agents, and all show up as hang -- run stops mid-task, task claimed
   report with no `STATUS:` line.
 - **No `AskUserQuestion`.** Claude Code removes it from every sub-agent,
   foreground and background alike, even when `tools` lists it. Sub-agent has no
-  way to ask anything at all. This is why radin-execute is skill rather than
+  way to ask anything at all. This is why radin-batch is skill rather than
   agent: its Phase 2 gate must ask, so as agent it could never satisfy own
   gate.
 - **No workflows, and nothing that waits on one.** `Workflow` tool is in
@@ -234,6 +234,6 @@ before it lands, and treats a dispatch that returns nothing as unfinished --
 
 `claude agents` (agent view) dispatches full Claude Code background sessions:
 whole tool pool, working `AskUserQuestion`, peek/reply/attach. `/bg` sends
-current conversation there. `/radin-execute` runs unchanged in one, so that's
+current conversation there. `/radin-batch` runs unchanged in one, so that's
 the route. Second `claude` session in another terminal works too --
 worktree-per-task answer keeps concurrent sessions off each other's checkout.

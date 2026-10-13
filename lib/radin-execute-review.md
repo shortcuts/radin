@@ -1,6 +1,6 @@
-# Shared: radin-execute Review
+# Shared: radin-batch Review
 
-`radin-execute` reads this file at Phase 6, only when the user asked for a
+`radin-batch` reads this file at Phase 6, only when the user asked for a
 post-session review.
 
 Reviewer sub-agent (`model: "RADIN_MODEL_REVIEW"`). The

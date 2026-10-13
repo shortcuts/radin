@@ -9,7 +9,7 @@ description: |
 # Record to Backlog
 
 This captures what a human said; `radin-review` logs what a diff revealed. Every
-downstream reader -- `radin-plan`, `radin-execute`, the execution sub-agent it
+downstream reader -- `radin-plan`, `radin-batch`, the execution sub-agent it
 dispatches -- is a **cold start**: it sees the entry and nothing of this
 conversation. Every step below exists to make an entry survive that.
 
@@ -56,7 +56,7 @@ fetch: log from the ask alone, and continue.
 
 ## Step 2: Chart each item's open decisions
 
-The user is at the keyboard now, and `radin-execute` may later run with nobody
+The user is at the keyboard now, and `radin-batch` may later run with nobody
 behind it: settle judgment calls here and execution never has to.
 
 For each item, list what a cold start would have to decide that the conversation
@@ -74,7 +74,7 @@ it skips this step, and so does a stub -- one deliberately deferred whole.
 
 If the user defers a question or stops answering, record the question itself as an
 open decision in the entry body, options and your recommendation included, so
-`radin-execute` blocks on it explicitly instead of guessing.
+`radin-batch` blocks on it explicitly instead of guessing.
 
 ## Step 3: Note any skill invoked for this item
 

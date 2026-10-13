@@ -10,7 +10,7 @@ description: |
 
 Review a caller-specified scope in one pass, and persist every finding the
 user keeps as a backlog entry instead of terminal output. That leaves a
-durable backlog `radin-execute` (or a human) works through later.
+durable backlog `radin-batch` (or a human) works through later.
 
 One question drives the review: is this the simplest, most native solution
 that still meets the thermo-nuclear constraints and this repo's documented
@@ -18,7 +18,7 @@ rubrics? The originating backlog entry or its plan is context for that
 question: behaviour it asked for but the scope lacks, and behaviour the scope
 adds unasked, are ordinary findings.
 
-**Sub-agent caller** — `radin-execute`'s Phase 6 dispatches this skill that
+**Sub-agent caller** — `radin-batch`'s Phase 6 dispatches this skill that
 way, and a sub-agent reaches neither the user nor a spawned agent's result:
 run every step inline, skip each `AskUserQuestion`, log every in-scope
 finding, and say in Step 6's report that no triage happened.

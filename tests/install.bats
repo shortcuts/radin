@@ -96,7 +96,7 @@ run_install_defaults() {
 @test "a real install.sh run succeeds end to end" {
   [ "$(cat "$TEMPLATE/status")" -eq 0 ]
   grep -q 'Done' "$TEMPLATE/output"
-  [ -f "$TEMPLATE/home/.claude/skills/radin-execute/SKILL.md" ]
+  [ -f "$TEMPLATE/home/.claude/skills/radin-batch/SKILL.md" ]
   [ -f "$TEMPLATE/home/.claude/.radin/lib/radin-backlog.sh" ]
   [ -f "$TEMPLATE/home/.claude/.radin/manifest.json" ]
   [ -x "$TEMPLATE/home/.claude/.radin/bin/radin-tui" ]
@@ -196,6 +196,21 @@ run_install_defaults() {
   grep -q '"technical-writing": true' "$TEST_HOME/.claude/.radin/manifest.json"
 }
 
+@test "install removes the skills radin renamed and keeps a foreign one of that name" {
+  for s in radin-execute radin-implement; do
+    mkdir -p "$TEST_HOME/.claude/skills/$s"
+    printf -- '---\nname: %s\n---\n' "$s" >"$TEST_HOME/.claude/skills/$s/SKILL.md"
+  done
+  mkdir -p "$TEST_HOME/.claude/skills/radin-run"
+  printf -- '---\nname: mine\n---\n' >"$TEST_HOME/.claude/skills/radin-run/SKILL.md"
+  run real_install
+  [ "$status" -eq 0 ]
+  [ ! -e "$TEST_HOME/.claude/skills/radin-execute" ]
+  [ ! -e "$TEST_HOME/.claude/skills/radin-implement" ]
+  [ -f "$TEST_HOME/.claude/skills/radin-run/SKILL.md" ]
+  [ -f "$TEST_HOME/.claude/skills/radin-batch/SKILL.md" ]
+}
+
 @test "a failed pstack download keeps the installed copy and still exits 0" {
   replay_install >/dev/null
   printf 'kept\n' >"$TEST_HOME/.claude/skills/unslop/SKILL.md"
@@ -246,7 +261,7 @@ run_install_defaults() {
   grep -q '"$HOME/.claude/.radin/bin/radin" backlog' "$TEST_HOME/.claude/.radin/lib/radin-run.md"
 }
 
-# radin-execute and radin-implement read lib docs with the Read tool, which
+# radin-batch and radin-do read lib docs with the Read tool, which
 # takes no `$HOME`. set_lib resolves RADIN_LIB at install time, so the installed
 # files carry a path Read accepts. The replayed tree was installed under
 # $TEMPLATE/home, which is the HOME the recorded run resolved against.
@@ -259,7 +274,7 @@ run_install_defaults() {
   grep -q "$TEMPLATE/home/.claude/.radin/lib/radin-execute-gate.md" "$run_doc"
   grep -q "$TEMPLATE/home/.claude/.radin/lib/radin-execute-review.md" "$run_doc"
   run ! grep -q 'full check suite' "$run_doc"
-  for s in radin-execute radin-implement radin-run; do
+  for s in radin-batch radin-do; do
     grep -q "$TEMPLATE/home/.claude/.radin/lib/radin-run.md" "$TEST_HOME/.claude/skills/$s/SKILL.md"
   done
 }
@@ -323,13 +338,12 @@ run_install_defaults() {
   grep -q 'OpenCode:' "$TEST_HOME/.claude/.radin/cbm-config.log"
 }
 
-# radin-implement is radin-execute minus the planning dispatch; each skill's
-# own no-plan rule is the only thing that tells them apart.
-@test "only radin-execute dispatches a planning sub-agent" {
+# radin-batch alone may dispatch a planning sub-agent; the no-plan rule
+# in each skill file is the only thing that tells the skills apart.
+@test "only radin-batch dispatches a planning sub-agent" {
   run_install_defaults
-  grep -q -- "--plan-first" "$TEST_HOME/.claude/skills/radin-execute/SKILL.md"
-  run ! grep -q -- "--plan-first" "$TEST_HOME/.claude/skills/radin-implement/SKILL.md"
-  run ! grep -q -- "--plan-first" "$TEST_HOME/.claude/skills/radin-run/SKILL.md"
+  grep -q -- "--plan-first" "$TEST_HOME/.claude/skills/radin-batch/SKILL.md"
+  run ! grep -q -- "--plan-first" "$TEST_HOME/.claude/skills/radin-do/SKILL.md"
   run ! grep -q -- "--plan-first" "$TEST_HOME/.claude/.radin/lib/radin-run.md"
 }
 

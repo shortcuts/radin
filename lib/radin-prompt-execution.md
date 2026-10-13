@@ -1,4 +1,4 @@
-# Template: radin-execute execution prompt (Phase 4)
+# Template: radin-batch execution prompt (Phase 4)
 
 Source text for `radin prompt execution <id>` (`lib/radin-prompt.sh`), which drops the
 guarded blocks that do not apply to the task, substitutes every `UPPERCASE`

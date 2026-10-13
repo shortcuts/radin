@@ -1,6 +1,6 @@
-# Shared: radin-execute Resume and State Persistence
+# Shared: radin-batch Resume and State Persistence
 
-`radin-execute` reads this file only when a run is not starting clean:
+`radin-batch` reads this file only when a run is not starting clean:
 `BACKLOG_STEPS.json` already exists at startup, or a context compaction
 summarized earlier turns away.
 

@@ -1,6 +1,6 @@
-# Shared: radin-execute Final Summary
+# Shared: radin-batch Final Summary
 
-`radin-execute` reads this file at Phase 5.
+`radin-batch` reads this file at Phase 5.
 `RADIN_CLI state report`
 prints the report itself — the residual-changes check, the commit-location
 lines, every `failed`, `blocked` and `deferred` entry with its note, the

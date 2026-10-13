@@ -18,9 +18,9 @@ All radin state — backlog content, execution state — lives inside target rep
         DESCRIPTION.md            # the epic's root context, inherited by every child task
         <task-id>.md              # a child task of that epic
   state/
-    BACKLOG_STEPS.json          # radin-execute execution plan
-    completed.json               # radin-execute completed-task -> commit log
-    session.json                 # radin-execute worktree/branch answers, one per run
+    BACKLOG_STEPS.json          # radin-batch execution plan
+    completed.json               # radin-batch completed-task -> commit log
+    session.json                 # radin-batch worktree/branch answers, one per run
     journal.jsonl                # append-only log of every state transition
     facts/
       <task-id>.md                # long-form evidence for one task, when a report won't fit inline
@@ -44,7 +44,7 @@ Replaced earlier `~/.claude/.radin/projects/<repo-slug>/` scheme. That scheme ke
 
 ## Namespace resolution and the backlog CLI
 
-Every one of `lib/radin-run.md` (the body of `radin-execute`, `radin-implement` and `radin-run`), `skills/radin-plan/SKILL.md`, `skills/radin-review/SKILL.md`, `skills/radin-record/SKILL.md`, `skills/radin-show/SKILL.md` goes through same shared CLI, `lib/radin-backlog.sh`, for every deterministic backlog op:
+Every one of `lib/radin-run.md` (the body of `radin-batch` and `radin-do`), `skills/radin-plan/SKILL.md`, `skills/radin-review/SKILL.md`, `skills/radin-record/SKILL.md`, `skills/radin-show/SKILL.md` goes through same shared CLI, `lib/radin-backlog.sh`, for every deterministic backlog op:
 
 ```bash
 radin backlog <env|show|list|count|find|add|add-plan|append|meta|order|field|duplicates|plan-target|files|set-category|retitle|set-priority|set-deps|set-meta|remove|reconcile|epics|epic-add|epic-show|epic-move|epic-remove>   # dispatcher at ~/.claude/.radin/bin/radin, symlinked into ~/.local/bin
@@ -96,7 +96,7 @@ NAMESPACE_DIR="$REPO_ROOT/.claude/.radin"
 
 Creates `state/`, `plans/`, `reviews/`, `backlog/tasks/` under `$NAMESPACE_DIR`, then prints four vars with `printf %q` — output stays source-able even when repo path has spaces.
 
-`radin-execute`'s own state files (`BACKLOG_STEPS.json`, `completed.json`) get same treatment as backlog. Sibling CLI, `lib/radin-state.sh`, only way agent mutates either file — never hand-written JSON edit in agent's own prose.
+`radin-batch`'s own state files (`BACKLOG_STEPS.json`, `completed.json`) get same treatment as backlog. Sibling CLI, `lib/radin-state.sh`, only way agent mutates either file — never hand-written JSON edit in agent's own prose.
 
 Every verb resolves the namespace from the current directory through `lib/radin-namespace.sh`, so no caller passes a path. A task worktree that `prepare` made (`<checkout>-<id>` on `radin/<id>`) resolves to the checkout that made it; any other linked worktree keeps its own backlog. A router that had to carry `$NAMESPACE_DIR` into every Bash call re-sourced the env each time, and one run wrote its own script to do it.
 
@@ -107,7 +107,7 @@ radin state <steps-init|task-next|task-report|task-diagnosis|task-done|set-statu
 Each verb answers one step a caller takes. Claiming, stashing, the debug-pass flag and the completion write are functions inside the script, not verbs: no caller needs them on their own, and a verb nobody calls is one more thing a model can reach for.
 
 - `steps-init` — write `BACKLOG_STEPS.json` from `order --steps` lines on stdin, each entry's `depends_on` taken from its index line. Also writes `state/baseline.json`, which scopes `report` to this session
-- `task-next [--plan-first] [<id>]` — everything between two dispatches in one call: lowest-order `pending` entry (or the named id, for a debug or clarify re-run), dependency gate, drift check against the backlog, claim, and the prompt file. The claim sets `in_progress` and bumps `attempts`; past `MAX_ATTEMPTS` (3) the entry goes `blocked` instead, so a crash loop can't burn tokens forever. Each skip — unresolved dependency, lost entry, `MAX_ATTEMPTS` — is marked `blocked` and printed as a `blocked` line; then `id`/`order`/`kind`/`model`/`prompt` for the task to run, plus an `overlap` line for an `execution` task: `none`, `unclear` (no plan `## Changes` path), or the ids of other `pending`/`in_progress` tasks that share a plan path, have no plan paths, or sit on a `depends_on` edge with it. `--plan-first` (`radin-execute`) hands out an unclaimed `kind planning` prompt for a task with no plan. Skills the leaf cannot run are journaled as `skill-dropped` for `report`. Exit 1 when nothing is left
+- `task-next [--plan-first] [<id>]` — everything between two dispatches in one call: lowest-order `pending` entry (or the named id, for a debug or clarify re-run), dependency gate, drift check against the backlog, claim, and the prompt file. The claim sets `in_progress` and bumps `attempts`; past `MAX_ATTEMPTS` (3) the entry goes `blocked` instead, so a crash loop can't burn tokens forever. Each skip — unresolved dependency, lost entry, `MAX_ATTEMPTS` — is marked `blocked` and printed as a `blocked` line; then `id`/`order`/`kind`/`model`/`prompt` for the task to run, plus an `overlap` line for an `execution` task: `none`, `unclear` (no plan `## Changes` path), or the ids of other `pending`/`in_progress` tasks that share a plan path, have no plan paths, or sit on a `depends_on` edge with it. `--plan-first` (`radin-batch`) hands out an unclaimed `kind planning` prompt for a task with no plan. Skills the leaf cannot run are journaled as `skill-dropped` for `report`. Exit 1 when nothing is left
 - `task-report <id> <STATUS line>` — everything after a dispatch reports, ending in one `next` line. A dirty tree fails the task first, whatever the line claimed: stashed, `failed`, recovery commands in the note. `SUCCESS` goes to `task-done`. A task's first `FAILED` flips its `debugged` flag and answers `next debug`; the second marks it `failed` and answers `next clarify STUCK`: the router asks the user, appends the answer, and re-runs the task. `INCONCLUSIVE` marks the task `blocked` with the reason, answers `next clarify STUCK`, and skips the debug pass; a dirty tree and `--no-status` answer the same. `--no-status <last line>` fails it with no debug pass, unless the last line reads as an API or network death: that entry goes back to `pending`, and `MAX_ATTEMPTS` bounds the retries. `--next` (with `--plan-first` passed through) also runs `task-next` when the answer is `next continue` and prints its output after the report, so the router makes one call between two dispatches. `--usage "<kind> <tokens> <tool_uses> <duration_ms>"` (repeatable) journals a `usage` event per sub-agent dispatch, and `report` prints the per-kind sums for the session; a malformed value warns and records nothing. Any other answer claims nothing
 - `task-diagnosis <id>` — stdin becomes a `**Root cause:**` line on the task file (only place that label is written). Changes no status: the re-run's claim bumps `attempts`, so `MAX_ATTEMPTS` still ends the loop
 - `answered <id>` — the user answered a task waiting on them: back to `pending`, `attempts` 0 (the re-run's claim would otherwise reach `MAX_ATTEMPTS`), `debugged` kept so a second failure asks again
@@ -132,11 +132,11 @@ Each verb answers one step a caller takes. Claiming, stashing, the debug-pass fl
 
 Both `BACKLOG_STEPS.json` and `completed.json` JSONL (one compact object per line), same convention as backlog's `index.jsonl` — single-entry edit never risks another line, model never parses/rewrites bracketed JSON array by hand.
 
-`radin-execute` and `radin-implement` share one body, `lib/radin-run.md`, which each `SKILL.md` tells the router to read in full. A skill file holds only its frontmatter and its **no-plan rule**, the one step that differs: `radin-execute` passes `task-next --plan-first`, so a task with no plan gets a planning sub-agent, and `radin-implement` passes no flag, so it goes straight to execution, whose execution prompt then implements from the entry text. `radin-run` also passes no flag: it records one prompt, then scopes the loop to the task it just recorded. One body, so a change to the loop is a one-file edit and the two skills cannot drift. Below, `radin-execute` names that shared body.
+`radin-batch` and `radin-do` share one body, `lib/radin-run.md`, which each `SKILL.md` tells the router to read in full. A skill file holds only its frontmatter and its **no-plan rule**, the one step that differs. `radin-batch` asks the user whether to plan each task first: on `Plan each task first` it passes `task-next --plan-first`, so a task with no plan gets a planning sub-agent; on `Implement directly` it passes no flag, so the task goes straight to execution, whose execution prompt then implements from the entry text. `radin-do` records one prompt, asks the same question once, then scopes the loop to the task it just recorded. One body, so a change to the loop is a one-file edit and the two skills cannot drift. Below, `radin-batch` names that shared body.
 
-`radin-execute` alone reads `lib/radin-prioritization.md`, via the `RADIN_LIB` token ([resolved at install](#install-time-substitution)), at Phase 1 step 4 and only when `backlog order --rank-needed` exits 0. It holds two things and nothing else: how to rank the unset-priority group, and the bounded dependency inference. Backlog format is `docs/domain-models.md`'s, verb behaviour is the CLI usage comments', so neither is restated there. `radin-plan` reads it not at all — scoped to one entry, nothing to prioritize.
+`radin-batch` alone reads `lib/radin-prioritization.md`, via the `RADIN_LIB` token ([resolved at install](#install-time-substitution)), at Phase 1 step 4 and only when `backlog order --rank-needed` exits 0. It holds two things and nothing else: how to rank the unset-priority group, and the bounded dependency inference. Backlog format is `docs/domain-models.md`'s, verb behaviour is the CLI usage comments', so neither is restated there. `radin-plan` reads it not at all — scoped to one entry, nothing to prioritize.
 
-`radin-execute` alone reads seven on-demand files, none of them inline in `SKILL.md`, because the skill body sits in the user's own context for the rest of the session. Each one be cold path — trigger fire, file get read, otherwise never:
+`radin-batch` alone reads seven on-demand files, none of them inline in `SKILL.md`, because the skill body sits in the user's own context for the rest of the session. Each one be cold path — trigger fire, file get read, otherwise never:
 
 - `lib/radin-execute-recovery.md` — `recover` routing for tasks a dead session left `in_progress`, read only when `radin-state.sh stuck` exits 0. Most runs never load it.
 - `lib/radin-execute-reporting.md` — the one thing `state report` cannot do: the duplicate id/title scan. Read at Phase 5.
@@ -148,20 +148,20 @@ Both `BACKLOG_STEPS.json` and `completed.json` JSONL (one compact object per lin
 
 ## Why every entry point is a skill
 
-radin-execute was an agent (`agents/radin-execute.md`) until it became a skill. Two Claude Code capability limits forced the move, both documented in `docs/technical-constraints.md`:
+radin-batch was an agent (`agents/radin-batch.md`) until it became a skill. Two Claude Code capability limits forced the move, both documented in `docs/technical-constraints.md`:
 
 - `AskUserQuestion` removed from **every** sub-agent, foreground and background alike. Agent's Phase 2 gate asks user to confirm execution order, so as agent it could never actually ask — every run fell back to ending its turn with question and waiting to be re-invoked.
 - Sub-agent's prose reaches only calling session, never user. So agent's own report needed re-summarizing by main thread, and every question had to be encoded as `blocked` backlog state instead of asked.
 
 `/radin-doctor`, `/radin-uninstall`, `/radin-stats` and `/radin-show` carry `disable-model-invocation: true`: only a human types them, and a model-invoked skill's description loads into every session and every sub-agent. An agent that needs the backlog runs `radin backlog show` itself; the `~/.claude/CLAUDE.md` block says so. `tests/skill-names.bats` caps every model-invoked description at 40 words.
 
-As skill, radin-execute runs in user's own thread: asks directly, gets interrupted, resumes from disk. Sub-agents stay, one layer down, as leaf workers — that's where context isolation earns its keep (planning's codebase exploration, execution's edits, review's diff read), each returning single `STATUS:` line. Same split SOTA skill collections use: orchestrate in main thread, isolate leaf work.
+As skill, radin-batch runs in user's own thread: asks directly, gets interrupted, resumes from disk. Sub-agents stay, one layer down, as leaf workers — that's where context isolation earns its keep (planning's codebase exploration, execution's edits, review's diff read), each returning single `STATUS:` line. Same split SOTA skill collections use: orchestrate in main thread, isolate leaf work.
 
 ### Running the backlog in the background
 
-radin ships no agent for this. `claude agents` (agent view) dispatches full Claude Code background sessions — whole tool pool, working `AskUserQuestion`, peek/reply/attach — and `/radin-execute` runs unchanged in one. `/bg` sends the current conversation there. A second `claude` session in another terminal works too.
+radin ships no agent for this. `claude agents` (agent view) dispatches full Claude Code background sessions — whole tool pool, working `AskUserQuestion`, peek/reply/attach — and `/radin-batch` runs unchanged in one. `/bg` sends the current conversation there. A second `claude` session in another terminal works too.
 
-`radin-plan` is skill, not agent: runs inline in whichever context invokes it. In user's own conversation, judges whether its one scoped entry should split into independent sub-plans, confirms with user directly before splitting, writes plan file + plan pointer per resulting sub-task. `radin-execute`'s Phase 4 dispatches one planning sub-agent per task with no plan pointer yet, invoking `/radin-plan`, in the iteration that then executes that task. Keeps planning's codebase exploration out of orchestrator's context — plan file on disk = handoff to execution sub-agent. That sub-agent runs non-interactively: where skill would ask confirmation, takes non-destructive path (no split, no overwrite, no seam confirmation), genuine ambiguity marks task `blocked` for user instead of guessing.
+`radin-plan` is skill, not agent: runs inline in whichever context invokes it. In user's own conversation, judges whether its one scoped entry should split into independent sub-plans, confirms with user directly before splitting, writes plan file + plan pointer per resulting sub-task. `radin-batch`'s Phase 4 dispatches one planning sub-agent per task with no plan pointer yet, invoking `/radin-plan`, in the iteration that then executes that task. Keeps planning's codebase exploration out of orchestrator's context — plan file on disk = handoff to execution sub-agent. That sub-agent runs non-interactively: where skill would ask confirmation, takes non-destructive path (no split, no overwrite, no seam confirmation), genuine ambiguity marks task `blocked` for user instead of guessing.
 
 ### Updating the stack
 
@@ -231,11 +231,9 @@ radin/
   .claude-plugin/
     plugin.json
   skills/
-    radin-execute/
+    radin-batch/
       SKILL.md
-    radin-implement/
-      SKILL.md
-    radin-run/
+    radin-do/
       SKILL.md
     radin-plan/
       SKILL.md
@@ -296,7 +294,7 @@ new, `d` delete, `c` next category, `r` retitle, `/` search).
 
 `o` is the only key any of `order`/`field`/`duplicates` earned. It pages
 `backlog order --report` verbatim, because `Shift-P` sorts by priority and that
-is *not* the order `radin-execute` runs: `order` lays the topological
+is *not* the order `radin-batch` runs: `order` lays the topological
 dependency fix over it, and a human who sets a priority with `p` and a
 dependency with `D` can create that conflict with nothing on screen to show it.
 The rest stay LLM-facing and unbound: `--rank-needed` names the unset
@@ -393,7 +391,7 @@ one-byte sentinel that `draw_detail()` expands. The footer teaches one short lin
 of keys and `?` owns the full list, because a footer that spills off an
 80-column terminal teaches less than one that fits.
 
-An idle TUI polls, because an agent running `/radin-record` or `/radin-execute`
+An idle TUI polls, because an agent running `/radin-record` or `/radin-batch`
 in another terminal writes the same `index.jsonl`. `readkey_wait()` blocks in
 `poll()` for 5 seconds instead of blocking in `read()` forever, and on a timeout
 compares `index.jsonl`'s `st_mtime` and `st_size` against the pair `load()`
@@ -463,12 +461,12 @@ ships with the token intact invents its own answer.
 | --- | --- |
 | `RADIN_CLI <subcommand>` in every `skills/*/SKILL.md` and shipped `lib/*.md` | bare `radin` when the `~/.local/bin` symlink is on PATH, else `"$HOME/.claude/.radin/bin/radin"` (`set_cli`) |
 | `RADIN_MODEL_<ROLE>` — `PLANNING`, `EXECUTION`, `DEBUG`, `FACTFIND` each in its own `lib/radin-prompt-<kind>.md`, `CHORE` on the execution template's `model-chore:` line, `REVIEW` in `lib/radin-execute-review.md` | the install-time pick (`set_role_models`), one per group: major (planning, execution, review, debug) defaults to sonnet, minor defaults to haiku. Minor holds two roles: fact-finding, since its prompt demands the evidence and the router can reject a wrong answer; and a `chore` task's execution, since it needs no design judgement and still meets the dirty-tree check and Phase 6's review |
-| `RADIN_LIB/<doc>.md` in `skills/radin-execute/SKILL.md` | `$HOME/.claude/.radin/lib` (`set_lib`). The Read tool takes no `$HOME`, so the literal would leave the model expanding it before every on-demand doc read |
+| `RADIN_LIB/<doc>.md` in `skills/radin-batch/SKILL.md` | `$HOME/.claude/.radin/lib` (`set_lib`). The Read tool takes no `$HOME`, so the literal would leave the model expanding it before every on-demand doc read |
 
 A new sub-agent role needs a token and a `-e` clause in `set_role_models` that maps
 it to `MODEL_MAJOR` or `MODEL_MINOR`.
 
-Execution concurrency is no install-time answer. `radin-execute` derives it
+Execution concurrency is no install-time answer. `radin-batch` derives it
 from Phase 0.5's worktree answer: parallel agents are safe only in separate
 trees, so a second question could only restate the first or contradict it.
 The CLI computes file overlap from `backlog files` and prints it as
@@ -481,7 +479,7 @@ sub-agent) instead.
 Any new install-time question must also be recorded in `manifest.json`, or the
 next `radin update` resets it.
 
-## Verification in radin-execute
+## Verification in radin-batch
 
 The router does none, deliberately. A `STATUS: SUCCESS` goes straight to the
 bookkeeping. A per-task refuter sub-agent used to run here; it cost an extra
@@ -534,7 +532,7 @@ planning sub-agent's Standards pass runs `/ponytail:ponytail-review` alone:
 `/thermo-nuclear`'s body was about a third of each planning dispatch, and
 `/radin-review` still runs it over the resulting code. Its
 findings stay in the plan file — a backlog entry about code nobody has written
-yet would come back to `radin-execute` as work.
+yet would come back to `radin-batch` as work.
 
 Planning is unconditional for the same reason. The loop used to skip the
 planning sub-agent for a "single obvious change"; the router cannot size a

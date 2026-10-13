@@ -4,7 +4,7 @@
 
 This section documents shape every radin agent/skill must produce reading or appending backlog. Read before changing structure or adding new entry-producing skill. Repo-internal reference only — doesn't ship to consumers, so every agent/skill embeds concrete shape inline instead of reading any file at runtime.
 
-Backlog lives at `<repo-root>/.claude/.radin/backlog/`: `index.jsonl` file (one compact JSON object per line, one per task) plus `tasks/` directory holding one markdown file per task. Related tasks group under `tasks/<epic-id>/`, where `DESCRIPTION.md` holds the root context every child inherits — written once instead of repeated in each child's body. An epic has no index line and no category: `list` feeds `radin-execute`, and an epic row there would eventually be dispatched as a task. Membership is `dirname(file)`; one nesting level only. Task's category — `feat`, `fix`, `chore`, `refactor`, same vocabulary as conventional-commit type — field on index line, not section heading. No per-entry bracket tag. `radin-backlog.sh show` reconstructs old grouped-by-category markdown view for humans, canonical order (feat → fix → chore → refactor), but that's rendering, not storage.
+Backlog lives at `<repo-root>/.claude/.radin/backlog/`: `index.jsonl` file (one compact JSON object per line, one per task) plus `tasks/` directory holding one markdown file per task. Related tasks group under `tasks/<epic-id>/`, where `DESCRIPTION.md` holds the root context every child inherits — written once instead of repeated in each child's body. An epic has no index line and no category: `list` feeds `radin-batch`, and an epic row there would eventually be dispatched as a task. Membership is `dirname(file)`; one nesting level only. Task's category — `feat`, `fix`, `chore`, `refactor`, same vocabulary as conventional-commit type — field on index line, not section heading. No per-entry bracket tag. `radin-backlog.sh show` reconstructs old grouped-by-category markdown view for humans, canonical order (feat → fix → chore → refactor), but that's rendering, not storage.
 
 One index line:
 
@@ -12,7 +12,7 @@ One index line:
 {"id":"add-route-exports","category":"feat","title":"Add route exports","file":"tasks/add-route-exports.md"}
 ```
 
-`id` slug derived from title when task created, deduped with `-2`/`-3` suffix on collision. Never changes afterward, even if title text later edited (`radin backlog retitle`, or `r` in the TUI, rewrites only `title`; `set-category` only `category`) — stable key `depends_on` (state schema below) and `radin-plan`/`radin-execute` key off. `file` task body's location relative to `backlog/` directory — `tasks/<id>.md`, or `tasks/<epic-id>/<id>.md` for a task inside an epic. Ids stay globally unique across epics, so `add`'s dedup loop checks the index's own `id` fields, not the task files on disk. `add` decides it; every other verb reads it back, so it's sole authority on where task's body lives (`radin backlog field <id> TASK_FILE` prints absolute form).
+`id` slug derived from title when task created, deduped with `-2`/`-3` suffix on collision. Never changes afterward, even if title text later edited (`radin backlog retitle`, or `r` in the TUI, rewrites only `title`; `set-category` only `category`) — stable key `depends_on` (state schema below) and `radin-plan`/`radin-batch` key off. `file` task body's location relative to `backlog/` directory — `tasks/<id>.md`, or `tasks/<epic-id>/<id>.md` for a task inside an epic. Ids stay globally unique across epics, so `add`'s dedup loop checks the index's own `id` fields, not the task files on disk. `add` decides it; every other verb reads it back, so it's sole authority on where task's body lives (`radin backlog field <id> TASK_FILE` prints absolute form).
 
 `add` also stamps `"created":"<UTC ISO instant>"` and `"branch":"<branch>"` (key left out on a detached HEAD) onto the line. They are provenance, not human judgment: no verb rewrites them, and a line written before they existed reads as unknown (`radin backlog stamps` prints empty fields). The commit is not stamped: an open entry has none yet, and the completing commit lives in `completed.json`.
 
@@ -26,17 +26,17 @@ Two optional keys carry human judgment that must survive a run. They are also `r
 
 Five more optional keys carry the per-task fields a parser reads: `plan`, `skills` and `acceptance` (arrays of strings), `facts` and `location` (strings). They live on the index line, not as `**Label:**` lines in the task body, because each one has a parser and a parser reading markdown fails silently — a label written with the colon outside the bold markers yields nothing and tells no caller. `add --skill` writes `skills`, `add-plan` appends to `plan`, `set-meta <id> <key> <value>… | --none` writes or clears any of the five, and every one of them is validated on write: a value must be non-empty and carry no tab, CR or LF, an `acceptance` value written as a `-` bullet or a `[ ]` checkbox is rejected by name, and `facts`/`location` take exactly one value. `add` and `append` refuse a body line that repeats one of the five labels, so no field is ever carried in two places. `radin backlog meta <id>` is the only reader: it prints `plan<TAB>`, `skill<TAB>`, `acceptance<TAB>`, `facts<TAB>` and `location<TAB>` lines in that fixed key order, and `backlog show`, `backlog field` and `plan-target` all render it rather than parsing anything themselves. `list --meta` appends the same lines to every row, joined by RS (`\036`), so the TUI reads every entry's fields in the one fork its load already pays. `list --planned` answers "is this planned?" from the `plan` key alone, with no task-file read.
 
-Task's file (path `radin backlog field <id> TASK_FILE` prints) holds the task's prose: description, lists, code blocks, and the labeled prose material below — what `radin-execute`/`radin-plan` read as task's scope.
+Task's file (path `radin backlog field <id> TASK_FILE` prints) holds the task's prose: description, lists, code blocks, and the labeled prose material below — what `radin-batch`/`radin-plan` read as task's scope.
 
 ```
 <as exhaustive a description as the situation warrants — what the change is,
 why it matters, affected files/areas if known, acceptance criteria if
-known. radin-execute/radin-plan derive scope and priority entirely from
+known. radin-batch/radin-plan derive scope and priority entirely from
 this text, so write enough that a sub-agent given only this entry, with no
 other session context, could act on it correctly.>
 ```
 
-Every radin agent/skill appending entry classifies into one of four categories, writes same title + description shape via `radin-backlog.sh add`: `radin-review` (code-review findings, usually `fix` for actual bug or `refactor` for structural finding), `radin-record` (feedback/bugs/follow-ups/ideas surfaced in conversation), `radin-execute`/`radin-plan` (own backlog grooming). None invent fifth category or per-entry tag on top.
+Every radin agent/skill appending entry classifies into one of four categories, writes same title + description shape via `radin-backlog.sh add`: `radin-review` (code-review findings, usually `fix` for actual bug or `refactor` for structural finding), `radin-record` (feedback/bugs/follow-ups/ideas surfaced in conversation), `radin-batch`/`radin-plan` (own backlog grooming). None invent fifth category or per-entry tag on top.
 
 `radin-plan` skill, not agent — runs inline in whichever context invokes it. Scoped to single task, not whole backlog; caller points it at one task by id or title. If scope broad enough to split into independent sub-tasks, and user confirms split, it calls `add-plan` once per plan, in order, so the entry's `plan` array carries them all.
 
@@ -49,13 +49,13 @@ Two stores, split by whether a parser reads the value. A path, id, hash or enum 
 | `plan` | `radin-plan` produced a plan | `radin-plan` (`add-plan`) |
 | `skills` | user named a skill for this task | `radin-record` (`add --skill`) |
 | `acceptance` | the session surfaced checkable criteria | radin-record, radin-review, or a human (`set-meta`) |
-| `facts` | the long form went to `state/facts/<task-id>.md` | `radin-execute`, `radin-plan` (`set-meta`) |
+| `facts` | the long form went to `state/facts/<task-id>.md` | `radin-batch`, `radin-plan` (`set-meta`) |
 | `location` | where the finding is | `radin-review` (`set-meta`) |
 
 | Body label | Written when | Written by |
 | --- | --- | --- |
-| `**Decision:** <answer>` | user settled a `BLOCKED (DECISION)` | `radin-execute` |
-| `**Fact:** [measured\|inferred\|guess] <answer>` | a fact-finder returned `STATUS: FOUND`, or an execution sub-agent recorded a plan deviation, a skipped skill or a test's red-green proof | `radin-execute`, execution sub-agent |
+| `**Decision:** <answer>` | user settled a `BLOCKED (DECISION)` | `radin-batch` |
+| `**Fact:** [measured\|inferred\|guess] <answer>` | a fact-finder returned `STATUS: FOUND`, or an execution sub-agent recorded a plan deviation, a skipped skill or a test's red-green proof | `radin-batch`, execution sub-agent |
 | `**Root cause:** [measured\|inferred] <cause + fix direction + sibling sites>` | debug sub-agent returned `STATUS: DIAGNOSED` | `radin state task-diagnosis` |
 | `**Raised as:** <verbatim ask>` | the triggering text, quoted | `radin-record` |
 | `**Scope:** <what was reviewed>` | the review surface | `radin-review` |
@@ -76,7 +76,7 @@ Earlier revisions described single monolithic `<repo-root>/.claude/.radin/BACKLO
 
 ## Plan-file format (`radin-plan` output)
 
-Free-form markdown at `<NAMESPACE_DIR>/plans/<task-id>.md`, or `<NAMESPACE_DIR>/plans/<task-id>-<sub-slug>.md` for one sub-task of a split, where `backlog plan-target` derives `<sub-slug>` from the sub-task's short title: lowercase, each run of other characters one hyphen. `backlog plan-target` prints that path as its `plan_file` line and is the only place the convention lives; nothing composes it by hand. `backlog files` reads the `## Changes` section, so its entries must keep the "- `<path>` — …" shape. `add-plan` also writes `<NAMESPACE_DIR>/plans/<task-id>.head`: one line, the full commit hash of `HEAD` at that moment, read by `radin-prompt.sh` for the stale-plan guard; absent before the first commit. Fixed nine-section shape: Outcome, Decisions, Changes, Reach and reuse, Rubrics triggered, Modes and states, Order, Testing, Out of scope; Reach and reuse is omitted when the plan changes no existing symbol and adds no new one, and Rubrics triggered when `## Changes` trips no rubric the repo documents, and Modes and states when the change adds or alters no behavior a trigger can reach or touches code with no mode or state to branch on. Template with each section's authoring rule lives in `skills/radin-plan/SKILL.md`, only place shape defined; sub-agents write it, `radin-execute` (or human) reads it.
+Free-form markdown at `<NAMESPACE_DIR>/plans/<task-id>.md`, or `<NAMESPACE_DIR>/plans/<task-id>-<sub-slug>.md` for one sub-task of a split, where `backlog plan-target` derives `<sub-slug>` from the sub-task's short title: lowercase, each run of other characters one hyphen. `backlog plan-target` prints that path as its `plan_file` line and is the only place the convention lives; nothing composes it by hand. `backlog files` reads the `## Changes` section, so its entries must keep the "- `<path>` — …" shape. `add-plan` also writes `<NAMESPACE_DIR>/plans/<task-id>.head`: one line, the full commit hash of `HEAD` at that moment, read by `radin-prompt.sh` for the stale-plan guard; absent before the first commit. Fixed nine-section shape: Outcome, Decisions, Changes, Reach and reuse, Rubrics triggered, Modes and states, Order, Testing, Out of scope; Reach and reuse is omitted when the plan changes no existing symbol and adds no new one, and Rubrics triggered when `## Changes` trips no rubric the repo documents, and Modes and states when the change adds or alters no behavior a trigger can reach or touches code with no mode or state to branch on. Template with each section's authoring rule lives in `skills/radin-plan/SKILL.md`, only place shape defined; sub-agents write it, `radin-batch` (or human) reads it.
 
 ## Review-scope output (`radin scope`)
 
@@ -101,7 +101,7 @@ Exit 0 resolved, 1 unrecognized, 2 ambiguous (each candidate reading on stderr).
 
 ## Execution-order output (`backlog order`)
 
-`radin backlog order` is the only thing that composes an execution order, and it prints one of three views of the same computation — the priority order `list` defaults to, with the topological dependency fix applied. It stores nothing: the order is re-derived on every call, which is why no phase of `radin-execute` carries it in context.
+`radin backlog order` is the only thing that composes an execution order, and it prints one of three views of the same computation — the priority order `list` defaults to, with the topological dependency fix applied. It stores nothing: the order is re-derived on every call, which is why no phase of `radin-batch` carries it in context.
 
 - `--rank-needed` — one unset-priority id per line, exit 1 (no output) when every entry has a priority. The gate: exit 1 means skip the ranking work entirely.
 - `--report` — one `<order>. <title> (id: <id>)` line per task in final order, then one line per dependency the fix moved up:
@@ -125,9 +125,9 @@ JSONL, one compact object per line — same convention as `index.jsonl`, so sing
 
 `id` matches task's id in `index.jsonl`. File located through index's `file` field (`radin backlog field <id> TASK_FILE`), so schema no longer carries line range — task's file path fixed at creation, never goes stale.
 
-`radin-execute`'s only state file — `radin-plan` skill runs inline within one conversation, re-resolves sub-task list each time instead of persisting one to disk.
+`radin-batch`'s only state file — `radin-plan` skill runs inline within one conversation, re-resolves sub-task list each time instead of persisting one to disk.
 
-Every mutation goes through `lib/radin-state.sh` — `radin-execute` never hand-edits this file's JSON.
+Every mutation goes through `lib/radin-state.sh` — `radin-batch` never hand-edits this file's JSON.
 
 - `depends_on` lists `id`s of other tasks in this file whose result this task's plan or implementation assumes. `radin backlog order --steps` resolves the value (index line first, prioritization's bounded overlap inference otherwise, empty when neither) and `steps-init` reapplies the index half; nothing else restates the precedence.
 - `status` one of `pending`, `in_progress`, `failed`, `blocked`, `deferred`. Entry's absence from file means task complete. `deferred` is a task Phase 2's gate listed but the user excluded from this run: only `steps-init` writes it (fourth stdin field), `set-status` refuses it, `task-next` skips it, `report` lists it. Persisting it is what keeps the excluded set from having to survive in context between Phase 2 and Phase 5.
@@ -152,7 +152,7 @@ An older file may carry a `tests` key; nothing reads it.
 
 ## Session preferences (`session.json`)
 
-Single line, written by `radin-state.sh session-set` when `radin-execute`'s Phase 0.5 resolves worktree/branch questions:
+Single line, written by `radin-state.sh session-set` when `radin-batch`'s Phase 0.5 resolves worktree/branch questions:
 
 ```json
 {"worktree":"yes","branch":"no"}
@@ -202,7 +202,7 @@ Written by `install.sh` to `~/.claude/.radin/manifest.json` on every run — not
   "claude_md_guidance": false,
   "cbm_agent_config": false,
   "cli_on_path": true,
-  "skills": ["radin-execute", "radin-plan", "radin-record", "radin-review", "radin-setup-hooks", "radin-show", "radin-stats", "radin-doctor", "radin-uninstall", "thermo-nuclear"],
+  "skills": ["radin-batch", "radin-plan", "radin-record", "radin-review", "radin-setup-hooks", "radin-show", "radin-stats", "radin-doctor", "radin-uninstall", "thermo-nuclear"],
   "lib": ["radin-namespace.sh", "radin-backlog.sh", "radin-state.sh", "radin-prioritization.md", "radin-cbm-hooks.sh", "radin-cbm-config.sh", "radin-update.sh", "radin-doctor.sh", "radin-uninstall.sh"],
   "companion_tools": {
     "rtk": true,

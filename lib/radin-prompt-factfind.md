@@ -1,4 +1,4 @@
-# Template: radin-execute fact-finding prompt (`BLOCKED (FACT)`)
+# Template: radin-batch fact-finding prompt (`BLOCKED (FACT)`)
 
 Source text for `radin prompt factfind <id>` (`lib/radin-prompt.sh`), which drops the
 guarded blocks that do not apply to the task, substitutes every `UPPERCASE`

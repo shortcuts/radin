@@ -9,9 +9,11 @@
 setup() {
   REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
   FILES="install.sh bin/radin lib/*.sh tests/bench-tui.sh"
-  # Known exception: removes the radin-installed copy right before the fresh
-  # npx copy is renamed over it.
-  RM_ALLOWED='rm -rf "$HOME/.claude/skills/thermo-nuclear"'
+  # Known exceptions, in file order: removes a skill radin renamed, then the
+  # radin-installed thermo-nuclear copy right before the fresh npx copy is
+  # renamed over it.
+  RM_ALLOWED='rm -rf "$HOME/.claude/skills/$s"
+rm -rf "$HOME/.claude/skills/thermo-nuclear"'
 }
 
 @test "no bash 4+ or uname construct in the shell files" {
@@ -22,7 +24,7 @@ setup() {
   [ "$status" -eq 1 ]
 }
 
-@test "the only rm under ~/.claude in install.sh and lib/ is the allowlisted one" {
+@test "the only rms under ~/.claude in install.sh and lib/ are the allowlisted ones" {
   cd "$REPO_ROOT" || return 1
   hits="$(grep -nE '^[^#]*\brm[[:space:]].*\.claude' install.sh lib/*.sh |
     grep -v '^lib/radin-uninstall.sh:' | sed 's/^[^:]*:[0-9]*:[[:space:]]*//')"

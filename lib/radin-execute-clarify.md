@@ -1,6 +1,6 @@
-# Shared: radin-execute Blocked-Task Routing
+# Shared: radin-batch Blocked-Task Routing
 
-`radin-execute` reads this file when a sub-agent reports `STATUS: BLOCKED`, at
+`radin-batch` reads this file when a sub-agent reports `STATUS: BLOCKED`, at
 any of the phases that can produce one, and when `task-report` answers
 `next clarify STUCK`.
 

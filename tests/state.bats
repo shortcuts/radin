@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Exercises lib/radin-state.sh: deterministic operations on radin-execute's
+# Exercises lib/radin-state.sh: deterministic operations on radin-batch's
 # JSONL state files (BACKLOG_STEPS.json, completed.json). Also covers the
 # shared JSON helpers in radin-json.sh from the state side (note escaping,
 # field extraction).

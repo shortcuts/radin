@@ -41,7 +41,7 @@ own stacks; one that fails is reported and skipped, and radin still installs.
 `rtk` and `headroom` install through Homebrew, mise, or their own
 installers -- the install asks which.
 
-Install asks two questions: one about `radin-execute`'s sub-agent models,
+Install asks two questions: one about `radin-batch`'s sub-agent models,
 one naming the package manager for companion tools. Add `-s -- --yes` to take the defaults. Add `-s -- --verbose` to
 trace every command, for an install that hangs or fails.
 
@@ -55,9 +55,8 @@ companions that are missing. Re-run `install.sh` to update the companions too.
 | --- | --- |
 | `/radin-record` | Turn a bug, idea, or aside raised mid-session into a backlog task |
 | `/radin-plan` | Write a step-by-step plan for one task, touching no code |
-| `/radin-execute` | Work the backlog: prioritize, implement, commit, one task per commit |
-| `/radin-implement` | Same as `/radin-execute`, with no planning pass: each task goes straight to implementation |
-| `/radin-run` | Record one ad-hoc prompt as a backlog entry, optionally plan it, then execute just that task |
+| `/radin-batch` | Work the backlog: prioritize, optionally plan each task first, implement, commit, one task per commit |
+| `/radin-do` | Record one ad-hoc prompt as a backlog entry, optionally plan it, then execute just that task |
 | `/radin-review` | Two-axis pass over a scope — repo rubrics, plus the originating entry's spec; kept findings become tasks |
 | `/radin-show` | Print the backlog |
 | `/radin-stats` | Every companion tool's own savings report, side by side |
@@ -68,7 +67,7 @@ companions that are missing. Re-run `install.sh` to update the companions too.
 
 Typical loop: record → (plan) → execute → review, whose findings feed the next
 execute. Each skill runs in your own conversation, so it can ask you
-questions; only leaf work goes to sub-agents. `/radin-execute` confirms the
+questions; only leaf work goes to sub-agents. `/radin-batch` confirms the
 order before it starts, and every task's state is on disk, so interrupting it
 costs nothing. Want your thread free? Dispatch it from `claude agents` or a
 second `claude` session — the worktree-per-task answer keeps concurrent runs

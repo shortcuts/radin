@@ -1,4 +1,4 @@
-# Template: radin-execute debug prompt (Phase 4, after `STATUS: FAILED`)
+# Template: radin-batch debug prompt (Phase 4, after `STATUS: FAILED`)
 
 Source text for `radin prompt debug <id>` (`lib/radin-prompt.sh`), which drops the
 guarded blocks that do not apply to the task, substitutes every `UPPERCASE`

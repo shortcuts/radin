@@ -1351,7 +1351,7 @@ static int readkey(void) {
 }
 
 /* Blocks for a key, but wakes every POLL_MS to notice another shell's write to
- * index.jsonl -- an agent running /radin-record or /radin-execute elsewhere --
+ * index.jsonl -- an agent running /radin-record or /radin-batch elsewhere --
  * and returns -2 for "reload". An unchanged index draws nothing, so the last
  * keypress's footer MSG survives a timeout, and no `backlog list` runs. Only
  * the main loop waits here: a poll while $EDITOR or $PAGER owns the terminal
@@ -1926,7 +1926,7 @@ static void view_task(void) {
 }
 
 /* `o` pages `order --report` verbatim: Shift-P sorts by priority, which is not
- * the order radin-execute runs -- `order` lays the topological dependency fix
+ * the order radin-batch runs -- `order` lays the topological dependency fix
  * over it, and nothing else in the TUI shows that override. No parsing here;
  * the format stays the CLI's business. */
 static void view_order(void) {
@@ -1999,7 +1999,7 @@ static void help_screen(void) {
 		"                own description, every plan file and the dependency titles --\n"
 		"                everything the pane leaves out\n"
 		"  o             view the execution order in $PAGER: the priority order\n"
-		"                with the dependency fix radin-execute will actually use\n"
+		"                with the dependency fix radin-batch will actually use\n"
 		"  Tab           the Done view: completed tasks and their commits (read-only)\n"
 		"  a             new task (category, title, then body in $EDITOR)\n"
 		"  d             delete the selected task (asks first)\n"

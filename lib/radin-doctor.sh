@@ -79,7 +79,7 @@ check_plugin() {
 printf 'radin doctor\n============\n'
 
 printf '\nSkills (%s/skills):\n' "$CLAUDE_DIR"
-for name in radin-execute radin-implement radin-run radin-plan radin-record radin-review radin-setup-hooks radin-show radin-stats radin-doctor radin-uninstall thermo-nuclear; do
+for name in radin-batch radin-do radin-plan radin-record radin-review radin-setup-hooks radin-show radin-stats radin-doctor radin-uninstall thermo-nuclear; do
 	check_file "$name" "$CLAUDE_DIR/skills/$name/SKILL.md"
 done
 
@@ -125,7 +125,7 @@ check_lib_script "radin-uninstall.sh" "$CLAUDE_DIR/.radin/lib/radin-uninstall.sh
 # directory, so exclude it or it always matches itself.
 printf '\nInstall-time substitutions:\n'
 if grep -rq --exclude=radin-doctor.sh 'RADIN_MODEL_\|RADIN_CLI ' \
-	"$CLAUDE_DIR/skills/radin-execute" "$CLAUDE_DIR/skills/radin-implement" "$CLAUDE_DIR/skills/radin-run" \
+	"$CLAUDE_DIR/skills/radin-batch" "$CLAUDE_DIR/skills/radin-do" \
 	"$CLAUDE_DIR/skills/radin-plan" \
 	"$CLAUDE_DIR/skills/radin-review" "$CLAUDE_DIR/skills/radin-record" \
 	"$CLAUDE_DIR/skills/radin-show" "$CLAUDE_DIR/.radin/lib" 2>/dev/null; then

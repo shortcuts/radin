@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Deterministic operations on radin-execute's per-session state files
+# Deterministic operations on radin-batch's per-session state files
 # (BACKLOG_STEPS.json, completed.json), so the orchestrator never hand-edits
 # JSON in its own prose. Installed to ~/.claude/.radin/lib/radin-state.sh by
 # install.sh.
@@ -296,7 +296,7 @@ stash_tree() {
 prepare_stash() {
 	local ref
 	[ -n "$(dirty_files "$1")" ] || return 0
-	ref="$(stash_tree "$1" "radin-execute: uncommitted changes found before task $2")"
+	ref="$(stash_tree "$1" "radin-batch: uncommitted changes found before task $2")"
 	journal "$ns/state" "stash" "$2" \
 		"$ref in $1 -- uncommitted before task $2 started. Recover: git -C $1 stash pop"
 	printf 'radin: stashed uncommitted changes in %s as %s before task %s. Recover: git -C %s stash pop\n' \
@@ -344,7 +344,7 @@ dirty_recover() {
 	ot="$(order_title "$1")"
 	order="${ot%%	*}"
 	title="${ot#*	}"
-	ref="$(stash_tree "$dir" "radin-execute: task $order '$title' left uncommitted (sub-agent reported $2)")"
+	ref="$(stash_tree "$dir" "radin-batch: task $order '$title' left uncommitted (sub-agent reported $2)")"
 	entry="$(entry_line "$steps" "$1")"
 	write_entry "$steps" "$1" failed "$(num_field "$entry" attempts)" \
 		"sub-agent left uncommitted changes in $dir, stashed as $ref. Run 'git -C $dir stash show -p $ref' to inspect, 'git -C $dir stash pop' to recover."
@@ -1083,7 +1083,7 @@ recover)
 		printf 'recovered\t%s\tnothing left behind, back to pending\n' "$id"
 		exit 0
 	fi
-	ref="$(stash_tree "$dir" "radin-execute: crash recovery for task $id")"
+	ref="$(stash_tree "$dir" "radin-batch: crash recovery for task $id")"
 	set_status "$id" pending "tree stashed as $ref in $dir before retry"
 	journal "$ns/state" "stash" "$id" \
 		"$ref in $dir -- crash recovery for task $id. Recover: git -C $dir stash pop"
@@ -1146,8 +1146,8 @@ report)
 	# Residual changes: never committed, parked instead. The user's call.
 	residual="no residual changes"
 	if [ -n "$(git -C "$repo_root" status --porcelain -- . ':(exclude).claude/.radin' 2>/dev/null)" ]; then
-		ref="$(stash_tree "$repo_root" "radin-execute: session end, untracked to any task")"
-		journal "$state_dir" "stash" "" "radin-execute: session end, untracked to any task"
+		ref="$(stash_tree "$repo_root" "radin-batch: session end, untracked to any task")"
+		journal "$state_dir" "stash" "" "radin-batch: session end, untracked to any task"
 		residual="residual changes stashed as $ref"
 		stash_block="${stash_block:+$stash_block$'\n'}- $ref in $repo_root -- session end, untracked to any task. Recover: git -C $repo_root stash pop"
 	fi

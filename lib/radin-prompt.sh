@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Assembles one radin-execute sub-agent prompt, so the router never reads the
+# Assembles one radin-batch sub-agent prompt, so the router never reads the
 # template file, never substitutes a placeholder, and never sends a leaf the
 # steps its task does not have. Installed to ~/.claude/.radin/lib/radin-prompt.sh
 # by install.sh.

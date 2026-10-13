@@ -170,9 +170,17 @@ for f in radin-namespace.sh radin-json.sh radin-backlog.sh radin-tui.c \
 	radin-doctor.sh radin-uninstall.sh; do
 	cp "$RADIN_ROOT/lib/$f" "$HOME/.claude/.radin/lib/"
 done
-for s in radin-execute radin-implement radin-run radin-review radin-record radin-show radin-plan \
+for s in radin-batch radin-do radin-review radin-record radin-show radin-plan \
 	radin-setup-hooks radin-stats radin-doctor radin-uninstall; do
 	cp -r "$RADIN_ROOT/skills/$s" "$HOME/.claude/skills/"
+done
+
+# radin-execute, radin-implement and radin-run became radin-batch and radin-do.
+# Only a dir whose SKILL.md still names itself is radin's own to remove.
+for s in radin-execute radin-implement radin-run; do
+	if grep -qx "name: $s" "$HOME/.claude/skills/$s/SKILL.md" 2>/dev/null; then
+		rm -rf "$HOME/.claude/skills/$s"
+	fi
 done
 mkdir -p "$HOME/.claude/.radin/bin"
 cp "$RADIN_ROOT/bin/radin" "$HOME/.claude/.radin/bin/"
@@ -516,14 +524,14 @@ set_lib() {
 }
 
 step "Sub-agent models"
-# radin-execute is a skill running in the user's own thread, so its own model
+# radin-batch is a skill running in the user's own thread, so its own model
 # is whatever they picked with /model. Only its leaf sub-agents get a choice.
 # The Agent tool takes a family alias, never a version: Claude Code resolves
 # it to that family's current model.
 MODELS="fable opus sonnet haiku"
 SONNET_INDEX=3
 HAIKU_INDEX=4
-if prompt_yn "Choose radin-execute's sub-agent models? (defaults: sonnet, haiku for fact-finding and chores)"; then
+if prompt_yn "Choose radin-batch's sub-agent models? (defaults: sonnet, haiku for fact-finding and chores)"; then
 	# shellcheck disable=SC2086  # word splitting is the point -- one arg per model
 	MODEL_MAJOR="$(prompt_pick "planning, execution, review and debug sub-agents" "$SONNET_INDEX" $MODELS)"
 	# shellcheck disable=SC2086
@@ -569,7 +577,7 @@ else
 		;;
 	esac
 fi
-for f in radin-execute radin-implement radin-run radin-plan radin-record radin-review radin-show \
+for f in radin-batch radin-do radin-plan radin-record radin-review radin-show \
 	radin-doctor radin-uninstall radin-setup-hooks radin-stats; do
 	set_cli "$HOME/.claude/skills/$f/SKILL.md" "$RADIN_CLI_VALUE"
 done
@@ -583,9 +591,8 @@ set_cli "$HOME/.claude/.radin/lib/radin-execute-session.md" "$RADIN_CLI_VALUE"
 set_cli "$HOME/.claude/.radin/lib/radin-execute-reporting.md" "$RADIN_CLI_VALUE"
 set_cli "$HOME/.claude/.radin/lib/radin-execute-resume.md" "$RADIN_CLI_VALUE"
 set_cli "$HOME/.claude/.radin/lib/radin-run.md" "$RADIN_CLI_VALUE"
-set_lib "$HOME/.claude/skills/radin-execute/SKILL.md"
-set_lib "$HOME/.claude/skills/radin-implement/SKILL.md"
-set_lib "$HOME/.claude/skills/radin-run/SKILL.md"
+set_lib "$HOME/.claude/skills/radin-batch/SKILL.md"
+set_lib "$HOME/.claude/skills/radin-do/SKILL.md"
 set_lib "$HOME/.claude/.radin/lib/radin-run.md"
 
 step "Agent guidance"
@@ -604,7 +611,7 @@ survive past one conversation. Reach for it instead of ad-hoc task tracking:
 
 - A bug, idea, or follow-up comes up mid-session: record it with `/radin-record`.
 - The user asks what is pending: run `'"$RADIN_CLI_VALUE"' backlog show` and print its output. One entry needs a plan first: `/radin-plan`.
-- The user wants the backlog worked through: `/radin-execute`, or `/radin-implement` to skip the planning pass. A code review whose findings should become tasks: `/radin-review`.
+- The user wants the backlog worked through: `/radin-batch` (it asks whether to plan each task first), or `/radin-do <prompt>` for one ad-hoc task. A code review whose findings should become tasks: `/radin-review`.
 - Never hand-edit files under `.claude/.radin/` -- every backlog operation goes through the `'"$RADIN_CLI_VALUE"' backlog` CLI.
 - Never guess on a broad or ambiguous ask: invoke `/mattpocock-skills:grilling` and let the user settle it before radin writes anything.
 <!-- radin:end -->'
@@ -902,12 +909,11 @@ cat >"$MANIFEST_FILE" <<EOF
   "cbm_agent_config": $CBM_AGENT_CONFIG,
   "cli_on_path": $CLI_ON_PATH,
   "skills": [
-    "radin-execute",
-    "radin-implement",
+    "radin-batch",
     "radin-plan",
     "radin-record",
     "radin-review",
-    "radin-run",
+    "radin-do",
     "radin-setup-hooks",
     "radin-show",
     "radin-stats",
@@ -964,6 +970,6 @@ if [ -n "$UPDATE" ]; then
 else
 	ok "radin installed. ${DIM}Go be stingy with those tokens.${RESET}"
 	info "Open Claude Code in a repo and run ${BOLD}/radin-record${RESET} to file your first"
-	info "task, then ${BOLD}/radin-execute${RESET} to work the backlog. ${BOLD}radin${RESET} opens the TUI."
+	info "task, then ${BOLD}/radin-batch${RESET} to work the backlog. ${BOLD}radin${RESET} opens the TUI."
 fi
 info "${BOLD}radin doctor${RESET} checks this install · ${BOLD}radin update${RESET} updates radin itself."

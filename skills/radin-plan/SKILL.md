@@ -91,7 +91,7 @@ neither is re-resolved between sub-tasks. For each sub-task, in order:
 
      The skill asks you anything: drop it, never wait on it, and name the
      question in the report. Non-interactive: name it and stop —
-     `radin-execute`'s router owns the research arm
+     `radin-batch`'s router owns the research arm
      (`lib/radin-execute-clarify.md`) and appends the answer to this task's
      file, so the next planning wave reads it.
 3. Sketch the seam the change will be tested at: the highest existing one, and
@@ -297,4 +297,4 @@ Non-interactive: report the finding and stop, on Step 3's step 4 bound.
 
 **Reply:** one line per plan, with the counts from Step 4's review, in the form
 `✅ <id> planned. Plan: <path>. Review findings: <n> standards, <n> spec.`
-and a closing line `Next: radin-execute (or a human) can implement from the plan(s) above.`
+and a closing line `Next: radin-batch (or a human) can implement from the plan(s) above.`
