@@ -31,6 +31,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- `install.sh` installs the pstack `unslop` and `technical-writing` skills
+  straight from cursor/plugins `main`, unpinned, on every install and update.
+  It never overwrites a copy it did not install, and a failed download keeps
+  the previous one.
 - `radin backlog add` stamps each entry with its creation instant and branch,
   `task-done` copies the instant into `completed.json`, and `radin scope --specs`
   lists the tasks a review scope could take as its spec, oldest first. Rewritten

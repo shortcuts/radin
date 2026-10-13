@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Removes everything install.sh copies into ~/.claude. Never touches
-# thermo-nuclear (not vendored by this repo), companion tools (advisory
+# thermo-nuclear (not vendored by this repo), the unslop and technical-writing
+# skills (fetched from cursor/plugins at install time), companion tools (advisory
 # installs), ~/.claude/radin (the fetched source copy), or any per-repo
 # .claude/.radin/ backlog directory -- see AGENTS.md's Constraints section.
 # Installed to ~/.claude/.radin/lib/radin-uninstall.sh by install.sh.
@@ -75,6 +76,9 @@ remove_path "radin-doctor.sh" "$CLAUDE_DIR/.radin/lib/radin-doctor.sh"
 
 printf '\nLeft untouched:\n'
 printf '  %-20s not vendored by radin, remove manually if wanted\n' "thermo-nuclear"
+for pstack_skill in unslop technical-writing; do
+	printf '  %-20s fetched from cursor/plugins at install time, remove manually if wanted\n' "$pstack_skill"
+done
 # rtk and headroom come from whichever manager install.sh asked about, so name
 # the matching remover instead of assuming brew.
 PKG_MGR=""

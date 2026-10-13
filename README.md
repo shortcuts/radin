@@ -22,7 +22,8 @@ gives you:
   survive the conversation. Plan them, execute them one commit at a time,
   review the result. Any run resumes where it stopped.
 - **A curated token-reduction stack**, installed whole: rtk, caveman,
-  ponytail, codebase-memory-mcp, headroom, thermo-nuclear, mattpocock-skills.
+  ponytail, codebase-memory-mcp, headroom, thermo-nuclear, mattpocock-skills,
+  unslop, technical-writing.
   radin delegates to them instead of reimplementing them. It never forks or
   vendors them.
 
@@ -94,6 +95,12 @@ can sit under an epic whose `DESCRIPTION.md` every child inherits.
 | [headroom](https://github.com/headroomlabs-ai/headroom) | Whole-session context compression, complements rtk's per-command one |
 | [thermo-nuclear](https://github.com/cursor/plugins/tree/main/cursor-team-kit/skills/thermo-nuclear-code-quality-review) | Maintainability review skill |
 | [mattpocock-skills](https://github.com/mattpocock/skills) | Engineering skills; radin delegates interviewing and research here |
+| [unslop](https://github.com/cursor/plugins/tree/main/pstack/skills/unslop) | Rewrites prose to strip AI-slop patterns |
+| [technical-writing](https://github.com/cursor/plugins/tree/main/pstack/skills/technical-writing) | Technical-writing rules for docs and agent-facing prose |
+
+unslop and technical-writing are fetched from cursor/plugins `main` on every
+install and update, unpinned. An upstream edit changes agent behavior without
+review.
 
 Two caveats: a graph answer is a pointer, never proof of absence — read the
 file before editing. And after `codebase-memory-mcp update`, run

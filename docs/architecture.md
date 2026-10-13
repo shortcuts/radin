@@ -175,6 +175,8 @@ radin ships no agent for this. `claude agents` (agent view) dispatches full Clau
 - plain run (`make install`): every step, and every companion tool takes its install or upgrade path, installed or not.
 - `--update` (`make update`, `radin update`): every step, but a companion already installed is not reinstalled. Its configuration still runs: the thermo-nuclear frontmatter strip, `auto_index`, and the `codebase-memory-mcp` wiring into `settings.json`. A missing companion still installs. It asks the sub-agent model question again. The package-manager answer comes back from the previous `manifest.json` (`manifest_value`, a `sed` lookup — no JSON parser), and the question runs only when that key is missing.
 
+Both modes also fetch the two pstack skills, `unslop` and `technical-writing`, with `curl` straight from cursor/plugins `main` into `~/.claude/skills/<name>/SKILL.md`, stripping `disable-model-invocation` like thermo-nuclear. Three guards: the download must start with `---` frontmatter (a failed fetch keeps the previous copy), a skill directory that `manifest.json` does not record as radin's own is skipped, and a failure only warns. The fetch is unpinned on purpose, so upstream edits change agent behavior without review.
+
 Non-destructive by construction: the installer only `cp`s radin's own files, plugins go through `claude plugin update`, brew/pipx installs re-run as upgrades, and the `radin-cbm-config.sh install` step re-brackets upstream's `settings.json` write with a fresh snapshot.
 
 ## Code-graph wiring (codebase-memory-mcp)
@@ -218,7 +220,7 @@ it, never conclude something is absent from an empty result.
 
 ## Install manifest
 
-`install.sh` writes `~/.claude/.radin/manifest.json` every run: generated snapshot of what installed. Records `version` (release tag, or `dev` for local git clone), `installed_at` (UTC timestamp), `skills`/`lib` file lists copied, `install_root` and the six `model_<role>` keys (both read back by `install.sh --update`), `claude_md_guidance` (whether the radin section in `~/.claude/CLAUDE.md` was written), `cbm_agent_config` (whether upstream's own `codebase-memory-mcp install` ran), `cli_on_path` (whether the symlink landed), `companion_tools` object recording which of rtk, codebase-memory-mcp, headroom, caveman, ponytail, mattpocock-skills came out reachable — a companion install is advisory, so `false` means its own installer failed or its CLI is missing.
+`install.sh` writes `~/.claude/.radin/manifest.json` every run: generated snapshot of what installed. Records `version` (release tag, or `dev` for local git clone), `installed_at` (UTC timestamp), `skills`/`lib` file lists copied, `install_root` and the six `model_<role>` keys (both read back by `install.sh --update`), `claude_md_guidance` (whether the radin section in `~/.claude/CLAUDE.md` was written), `cbm_agent_config` (whether upstream's own `codebase-memory-mcp install` ran), `cli_on_path` (whether the symlink landed), `companion_tools` object recording which of rtk, codebase-memory-mcp, headroom, caveman, ponytail, mattpocock-skills, unslop, technical-writing came out reachable — a companion install is advisory, so `false` means its own installer failed or its CLI is missing.
 
 Snapshot for external tooling to read, not live source of truth. `radin-doctor.sh` and `radin-uninstall.sh` each keep own independent file list, check filesystem direct, rather than trust manifest. Corrupted or stale manifest must never make either report false "OK" or delete wrong thing.
 
@@ -447,7 +449,7 @@ subcommand. `install.sh` asks nothing about it.
 
 ## Authoring vs. distribution
 
-This repo source of truth. `skills/*/SKILL.md` authored/edited direct here — no external fork, no sync step. `install.sh` dist them one-directional into `~/.claude/skills`. Every entry point is a skill, so it runs in the user's own thread and can talk to them (see "Why every entry point is a skill"). `thermo-nuclear` not part of this repo at all: `install.sh` downloads its `SKILL.md` straight from cursor/plugins at install time.
+This repo source of truth. `skills/*/SKILL.md` authored/edited direct here — no external fork, no sync step. `install.sh` dist them one-directional into `~/.claude/skills`. Every entry point is a skill, so it runs in the user's own thread and can talk to them (see "Why every entry point is a skill"). `thermo-nuclear`, `unslop` and `technical-writing` are not part of this repo at all: `install.sh` downloads their `SKILL.md` straight from cursor/plugins at install time.
 
 ## Install-time substitution
 

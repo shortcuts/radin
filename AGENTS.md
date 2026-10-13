@@ -10,10 +10,12 @@ radin be Claude Code plugin: skills, CLI, install glue. Bash, plus two C file (T
   Call out every script edit explicitly.
 - **`~/.claude` not ours.** `install.sh` only `cp` radin own named
   files and `mkdir -p`. Never `rm`, never wildcard-delete, never overwrite
-  file radin not ship. Two exception: the
+  file radin not ship. Three exception: the
   `<!-- radin:begin -->`…`<!-- radin:end -->` block in `~/.claude/CLAUDE.md`,
-  and `lib/radin-cbm-config.sh` snapshot/restore of `settings.json` +
-  `~/.claude.json`. Call out every `install.sh` edit explicitly.
+  `lib/radin-cbm-config.sh` snapshot/restore of `settings.json` +
+  `~/.claude.json`, and `skills/unslop/SKILL.md` +
+  `skills/technical-writing/SKILL.md`, which `install.sh` fetch from upstream
+  and overwrite only when `manifest.json` record them as radin own. Call out every `install.sh` edit explicitly.
 - **Companion install be advisory.** Failure warn, run continue.
   Not optional. One question only: which package manager install them
   (`brew`/`mise`/`curl`), so radin add no manager user not already run.

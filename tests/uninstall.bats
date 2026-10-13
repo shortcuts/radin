@@ -52,6 +52,16 @@ printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-cbm-
   [[ "$output" == *"thermo-nuclear"*"not vendored"* ]]
 }
 
+@test "leaves the pstack skills untouched" {
+  install_all_expected
+  mkdir -p "$TEST_HOME/.claude/skills/unslop"
+  : > "$TEST_HOME/.claude/skills/unslop/SKILL.md"
+  run env HOME="$TEST_HOME" bash "$TEST_HOME/.claude/.radin/lib/radin-uninstall.sh"
+  [ "$status" -eq 0 ]
+  [ -f "$TEST_HOME/.claude/skills/unslop/SKILL.md" ]
+  [[ "$output" == *"unslop"*"cursor/plugins"* ]]
+}
+
 @test "prints manual removal commands for advisory companion tools" {
   install_all_expected
   run env HOME="$TEST_HOME" bash "$TEST_HOME/.claude/.radin/lib/radin-uninstall.sh"

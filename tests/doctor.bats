@@ -73,6 +73,18 @@ printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-cbm-
   [[ "$output" == *"INVALID  radin-backlog.sh"* ]]
 }
 
+@test "reports the pstack skills found or not found without touching the exit code" {
+  install_all_expected
+  run env HOME="$TEST_HOME" bash "$CLI"
+  [ "$status" -eq 0 ]
+  printf '%s\n' "$output" | grep -qE '^ +unslop +not found$'
+  mkdir -p "$TEST_HOME/.claude/skills/unslop"
+  : > "$TEST_HOME/.claude/skills/unslop/SKILL.md"
+  run env HOME="$TEST_HOME" bash "$CLI"
+  [ "$status" -eq 0 ]
+  printf '%s\n' "$output" | grep -qE '^ +unslop +found$'
+}
+
 @test "reports companion tools as informational, never affecting exit code" {
   install_all_expected
   cat > "$MOCK_BIN/rtk" <<'EOF'

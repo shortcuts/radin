@@ -13,6 +13,7 @@
  *   MOCK_NPX        "fail" exits 1, "eat-stdin" reads fd 0 to EOF
  *   MOCK_CBM        "fail-install" prints an editor inventory and exits 1 for `install`
  *   MOCK_CLAUDE_LIST file whose contents `claude plugin list` prints
+ *   MOCK_CURL       "pstack-fail" makes curl of a /pstack/skills/ URL exit 1
  *
  * cc -O1 -o mock mock.c
  */
@@ -102,11 +103,16 @@ int main(int argc, char **argv) {
 	if (named("curl")) {
 		/* -o file: write a byte so downstream existence checks pass. No -o:
 		 * print nothing, matching an empty GitHub API response. */
+		int pstack = has_substr(argc, argv, "/pstack/skills/");
+		const char *cm = getenv("MOCK_CURL");
+		if (pstack && cm && !strcmp(cm, "pstack-fail")) return 1;
 		for (int i = 1; i + 1 < argc; i++) {
 			if (strcmp(argv[i], "-o")) continue;
 			FILE *f = fopen(argv[i + 1], "w");
 			if (f) {
-				fprintf(f, "mock\n");
+				/* install.sh keeps a pstack download only when it opens with
+				 * frontmatter. */
+				fprintf(f, pstack ? "---\nname: stub\ndisable-model-invocation: true\n---\n" : "mock\n");
 				fclose(f);
 			}
 		}

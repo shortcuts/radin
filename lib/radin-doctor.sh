@@ -2,7 +2,7 @@
 # Read-only post-install health check for radin. Confirms the files
 # install.sh should have copied are present, and reports which advisory
 # companion tools (rtk, codebase-memory-mcp, headroom, caveman, ponytail,
-# mattpocock-skills) are reachable. Never mutates anything -- mirrors install.sh's own
+# mattpocock-skills, and the unslop and technical-writing skills) are reachable. Never mutates anything -- mirrors install.sh's own
 # "advisory only" stance on companion tools.
 # Installed to ~/.claude/.radin/lib/radin-doctor.sh by install.sh.
 #
@@ -45,6 +45,14 @@ check_path_tool() {
 		printf '  %-20s found\n' "$label"
 	else
 		printf '  %-20s not found\n' "$label"
+	fi
+}
+
+check_skill() {
+	if [ -f "$CLAUDE_DIR/skills/$1/SKILL.md" ]; then
+		printf '  %-20s found\n' "$1"
+	else
+		printf '  %-20s not found\n' "$1"
 	fi
 }
 
@@ -134,6 +142,8 @@ check_path_tool "headroom" "headroom"
 check_plugin "caveman" "caveman@caveman"
 check_plugin "ponytail" "ponytail@ponytail"
 check_plugin "mattpocock-skills" "mattpocock-skills@claude-plugins-official"
+check_skill "unslop"
+check_skill "technical-writing"
 
 # Informational, like every companion check: the graph binary can be installed
 # and still answer nothing if its Claude Code wiring never landed.

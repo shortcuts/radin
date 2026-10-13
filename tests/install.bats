@@ -175,6 +175,38 @@ run_install_defaults() {
   grep -q '"headroom": true' "$manifest"
 }
 
+@test "installs unslop and technical-writing from upstream, minus the invocation block" {
+  run_install_defaults >/dev/null
+  for s in unslop technical-writing; do
+    f="$TEST_HOME/.claude/skills/$s/SKILL.md"
+    [ "$(head -c 3 "$f")" = "---" ]
+    run ! grep -q 'disable-model-invocation' "$f"
+    grep -q "\"$s\": true" "$TEST_HOME/.claude/.radin/manifest.json"
+  done
+}
+
+@test "never overwrites a skill radin did not install" {
+  mkdir -p "$TEST_HOME/.claude/skills/unslop"
+  printf 'mine\n' >"$TEST_HOME/.claude/skills/unslop/SKILL.md"
+  run real_install
+  [ "$status" -eq 0 ]
+  [ "$(cat "$TEST_HOME/.claude/skills/unslop/SKILL.md")" = mine ]
+  [[ "$output" == *"unslop skipped"* ]]
+  grep -q '"unslop": false' "$TEST_HOME/.claude/.radin/manifest.json"
+  grep -q '"technical-writing": true' "$TEST_HOME/.claude/.radin/manifest.json"
+}
+
+@test "a failed pstack download keeps the installed copy and still exits 0" {
+  replay_install >/dev/null
+  printf 'kept\n' >"$TEST_HOME/.claude/skills/unslop/SKILL.md"
+  export MOCK_CURL=pstack-fail
+  run bash -c "printf '1\n1\n1\n' | bash ./install.sh --update"
+  [ "$status" -eq 0 ]
+  [ "$(cat "$TEST_HOME/.claude/skills/unslop/SKILL.md")" = kept ]
+  [[ "$output" == *"download failed"* ]]
+  grep -q '"unslop": true' "$TEST_HOME/.claude/.radin/manifest.json"
+}
+
 # The guidance block rewrites only what sits between its own markers, so
 # install.sh writes it unconditionally -- including into a file that already
 # has the user's own content.
@@ -441,7 +473,7 @@ pick_with_keys() {
   grep -q '"package_manager": "brew"' "$manifest"
   [ ! -e "$TEST_HOME/brew.log" ]
   [ ! -e "$TEST_HOME/npx.log" ]
-  [ ! -e "$TEST_HOME/curl.log" ]
+  run ! grep -v 'pstack/skills/' "$TEST_HOME/curl.log"
   run ! grep -q 'disable-model-invocation' "$TEST_HOME/.claude/skills/thermo-nuclear/SKILL.md"
   grep -q 'headroom-ai' "$TEST_HOME/pipx.log"
   grep -q 'config set auto_index true' "$TEST_HOME/codebase-memory-mcp.log"

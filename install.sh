@@ -696,6 +696,39 @@ if [ -f "$THERMO_SKILL" ]; then
 	mv "$THERMO_TMP" "$THERMO_SKILL"
 fi
 
+# unslop and technical-writing: two pstack skills fetched straight from
+# cursor/plugins `main`, deliberately unpinned so users get upstream edits.
+# Every run (update included) refetches, because `radin update` is the only way
+# they arrive. A skill directory radin did not install is never touched; a
+# failed or non-frontmatter download keeps the previous copy. Advisory.
+PSTACK_RAW="https://raw.githubusercontent.com/cursor/plugins/refs/heads/main/pstack/skills"
+PSTACK_OWNED=""
+install_pstack_skill() {
+	local name="$1" dir="$HOME/.claude/skills/$1" tmp mine=""
+	[ "$(manifest_value "$name")" = true ] && mine=1
+	if [ -d "$dir" ] && [ -z "$mine" ]; then
+		warn "$name skipped: $dir exists and radin did not install it."
+		return 0
+	fi
+	tmp="$(mktemp)"
+	if curl -fsSL "$PSTACK_RAW/$name/SKILL.md" -o "$tmp" </dev/null 2>/dev/null &&
+		[ "$(head -c 3 "$tmp")" = "---" ]; then
+		mkdir -p "$dir"
+		# Same strip as thermo-nuclear: upstream's disable-model-invocation also
+		# blocks radin's own sub-agents.
+		grep -v '^disable-model-invocation:' "$tmp" >"$dir/SKILL.md"
+		ok "$name installed."
+		PSTACK_OWNED="$PSTACK_OWNED $name "
+	else
+		warn "$name download failed -- radin itself is unaffected."
+		[ -n "$mine" ] && [ -f "$dir/SKILL.md" ] && PSTACK_OWNED="$PSTACK_OWNED $name "
+	fi
+	rm -f "$tmp"
+	return 0
+}
+install_pstack_skill unslop
+install_pstack_skill technical-writing
+
 # rtk and headroom ship in more than one package manager. Installing them with
 # brew on a mise-managed machine leaves behind a manager the user never chose,
 # so the one question here is which manager to install through. `curl` keeps
@@ -833,6 +866,12 @@ json_bool_cmd() {
 		printf 'false'
 	fi
 }
+json_bool_pstack() {
+	case "$PSTACK_OWNED" in
+	*" $1 "*) printf 'true' ;;
+	*) printf 'false' ;;
+	esac
+}
 json_bool_plugin() {
 	if command -v claude >/dev/null 2>&1 && [ "$(plugin_state "$1")" = enabled ]; then
 		printf 'true'
@@ -908,7 +947,9 @@ cat >"$MANIFEST_FILE" <<EOF
     "headroom": $(json_bool_cmd headroom),
     "caveman": $(json_bool_plugin "caveman@caveman"),
     "ponytail": $(json_bool_plugin "ponytail@ponytail"),
-    "mattpocock-skills": $(json_bool_plugin "mattpocock-skills@claude-plugins-official")
+    "mattpocock-skills": $(json_bool_plugin "mattpocock-skills@claude-plugins-official"),
+    "unslop": $(json_bool_pstack unslop),
+    "technical-writing": $(json_bool_pstack technical-writing)
   }
 }
 EOF
