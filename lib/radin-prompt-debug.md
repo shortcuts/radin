@@ -54,8 +54,11 @@ repo: every site that shares it fails the same way, and the next attempt fixes
 only the sites you name.
 
 Your final message is exactly one of these lines, and nothing else:
-`STATUS: DIAGNOSED — <root cause in one sentence, the concrete fix direction, then every sibling path:line sharing the pattern, or "no siblings">[; long form: NAMESPACE_DIR/state/facts/TASK_ID.md]`
+`STATUS: DIAGNOSED — [measured|inferred] <root cause in one sentence, the concrete fix direction, then every sibling path:line sharing the pattern, or "no siblings">[; long form: NAMESPACE_DIR/state/facts/TASK_ID.md]`
 `STATUS: NOT DIAGNOSED — <what you ruled out, and what is left to check>[; long form: NAMESPACE_DIR/state/facts/TASK_ID.md]`
+`[measured]` means you reproduced it or read the code that causes it and the
+sentence names which; `[inferred]` means it follows from what you measured.
+Anything less is NOT DIAGNOSED.
 Use NOT DIAGNOSED after you have actually looked, and never as a guess with a
 hedge in front of it.
 ```

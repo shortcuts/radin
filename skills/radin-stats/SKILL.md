@@ -28,3 +28,6 @@ visibly, and that failure is the skip -- never an error, never worth retrying.
 - **`headroom savings`** -- measured: headroom's compression ledger. "No
   savings recorded yet" is a normal empty result: nothing has been routed
   through its proxy or MCP tool.
+
+**Reply:** each source's output as-is, in the order listed, with no merged total.
+A source that is not installed fails visibly and is skipped.

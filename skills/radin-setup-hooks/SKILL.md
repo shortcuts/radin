@@ -50,10 +50,9 @@ merge-only path below.
 
 ## Report
 
-Print the script's output as-is: one `ADDED` or `PRESENT` line per write. A
-non-zero exit writes nothing and prints its own cause and remedy -- relay that
-line, add nothing to it.
-
-Then tell the user to restart Claude Code so the MCP server loads. The graph
-indexes itself on first connection (`install.sh` sets `auto_index`); if a query
-reports no project, ask the agent to index the project.
+**Reply:** the script's output as-is, one `ADDED` or `PRESENT` line per write. A
+non-zero exit writes nothing and prints its own cause and remedy: relay that
+line and add nothing to it. Then tell the user to restart Claude Code so the MCP
+server loads; the graph indexes itself on first connection (`install.sh` sets
+`auto_index`), and if a query reports no project, ask the agent to index the
+project.

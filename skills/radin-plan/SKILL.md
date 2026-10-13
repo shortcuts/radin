@@ -295,10 +295,6 @@ Non-interactive: report the finding and stop, on Step 3's step 4 bound.
 
 ## Step 5: Report back
 
-One line per plan, with the counts from Step 4's review:
-
+**Reply:** one line per plan, with the counts from Step 4's review, in the form
 `✅ <id> planned. Plan: <path>. Review findings: <n> standards, <n> spec.`
-
-Then:
-
-`Next: radin-execute (or a human) can implement from the plan(s) above.`
+and a closing line `Next: radin-execute (or a human) can implement from the plan(s) above.`

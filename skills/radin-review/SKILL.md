@@ -280,17 +280,13 @@ printf '<task id or empty>\t<class>\t<plan path or none>[\t<section>]\n...' |
 
 ## Step 6: Report back
 
-- The resolved scope reviewed, and the spec path or `no spec available`.
-- The entries logged, one line each — these are the `add` calls you just made.
-  A group's line states how many findings it covers.
-- The origin rollup: `review-findings`' output verbatim (for example
-  `12 findings: 9 plan (3 tasks), 2 executor, 1 none`, then one line per task).
-- Findings the user discarded, findings dropped as out of scope, and findings
-  dropped for having no in-scope line: three counts, no detail.
-- Findings dismissed by Step 4's call-site test: one line each, the finding
-  and the reason, so the user can overrule a dismissal.
-- The backlog index path.
-- Zero findings: say the review passed. Every finding discarded: report that.
-  Either way, write no entry to prove the skill ran.
-
-End with one line: total findings, and the worst issue.
+**Reply:** the resolved scope reviewed, and the spec path or `no spec available`;
+one line per logged entry, a group's line stating how many findings it covers
+(these are the `add` calls you just made); the origin rollup, `review-findings`'
+output verbatim (for example `12 findings: 9 plan (3 tasks), 2 executor, 1 none`,
+then one line per task); three counts, no detail, for findings the user
+discarded, dropped as out of scope, and dropped for having no in-scope line; one
+line each, finding and reason, for findings Step 4's call-site test dismissed so
+the user can overrule; the backlog index path. Zero findings: say the review
+passed. Every finding discarded: report that. Either way, write no entry to
+prove the skill ran. End with one line: total findings, and the worst issue.

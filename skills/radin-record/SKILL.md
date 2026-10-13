@@ -174,8 +174,7 @@ than an occasional repeat. The user dedupes.
 
 ## Step 6: Report back
 
-- How many entries logged, with titles and categories, and the backlog path the
-  CLI printed.
-- Decisions settled by grilling, and questions left open, per entry.
-- If nothing in scope rose to a loggable item, say so plainly, and don't pad the
-  file with a vague entry to prove the skill ran.
+**Reply:** how many entries were logged, with titles and categories, and the
+backlog path the CLI printed; the decisions grilling settled and the questions
+left open, per entry. When nothing in scope rose to a loggable item, say so
+plainly and write no vague entry to prove the skill ran.

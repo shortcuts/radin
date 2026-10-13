@@ -23,3 +23,5 @@ like any other.
 - `STATUS: PLANNED`: re-run `task-next --plan-first "<task id>"`, which now hands out the execution prompt.
 - `STATUS: BLOCKED (FACT|DECISION)`: route per Clarifying Ambiguity, then
   re-run the task.
+
+**Reply:** the run loop's Phase 5 summary, verbatim; nothing is skill-specific.

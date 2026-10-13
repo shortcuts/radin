@@ -35,9 +35,12 @@ inferred from prose, and your final message is exactly this one line with
 nothing before it.
 
 Before you report, append each item below to the task, one line each, with
-`RADIN_CLI backlog append "TASK_ID"` and a `**Fact:** <the line>` line on
-stdin. On SUCCESS, `task-done` keeps these lines in the task's facts file for
-`/radin-review`.
+`RADIN_CLI backlog append "TASK_ID"` and a `**Fact:** [measured|inferred|guess] <the line>`
+line on stdin. On SUCCESS, `task-done` keeps these lines in the task's facts
+file for `/radin-review`. Label every `**Fact:**` line: `measured` when you ran
+a command or read a file this session and the line names which, `inferred` when
+it follows from measured facts the line names, `guess` otherwise. A line with no
+label is a guess.
 
 Ground rules, applying to every step below:
 - You are a leaf: do the task yourself, spawn no sub-agent, and expect no
@@ -73,8 +76,10 @@ EPIC_CONTEXT
 
 <!-- end -->
 1. Your task, in full. Anything the router appended to it is part of the task,
-   not commentary: `**Decision:**`, `**Fact:**`, and `**Root cause:**` lines
-   are settled and binding. This text, plus whatever it names, is the only
+   not commentary: `**Decision:**` lines are settled and
+   binding, and so are `**Fact:**` and `**Root cause:**` lines labeled
+   `measured` or `inferred`; one labeled `guess` or unlabeled is a lead you
+   check before relying on it. This text, plus whatever it names, is the only
    cross-agent context you get, and that is deliberate: no other task's
    material reaches you.
 

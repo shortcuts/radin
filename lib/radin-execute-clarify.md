@@ -65,7 +65,9 @@ settled judgment call, `**Fact:**` for a fact-finder's answer, `**Root
 cause:**` for a diagnosis. The long form of any of them is a file the entry
 points at, recorded with
 `RADIN_CLI backlog set-meta "<task id>" facts "<path>"`. Every one of them is
-task-scoped.
+task-scoped. A `**Fact:**` or `**Root cause:**` line keeps the `[measured]` or
+`[inferred]` token its sub-agent's `STATUS:` line opened with, copied after the
+label; a line with no token is a guess.
 
 Then re-run the task (Phase 4).
 

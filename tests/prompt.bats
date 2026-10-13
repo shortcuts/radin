@@ -267,3 +267,20 @@ stale_setup() {
   [ "$status" -eq 0 ]
   [[ "$output" != *"2c."* ]]
 }
+
+@test "every skill ends with a Reply paragraph" {
+  for f in "$REPO_ROOT"/skills/*/SKILL.md; do
+    last="$(awk 'BEGIN{RS=""} {p=$0} END{print p}' "$f")"
+    [[ "$last" == "**Reply:**"* ]] || { echo "$f"; return 1; }
+  done
+}
+
+@test "sub-agent prompts name the evidence labels their lines carry" {
+  backlog add fix "a bug" <<<"It breaks."
+  run assembled execution a-bug
+  [[ "$output" == *"[measured|inferred|guess]"* ]]
+  run assembled debug a-bug "the suite fails"
+  [[ "$output" == *"[measured|inferred]"* ]]
+  run assembled factfind a-bug "does it retry"
+  [[ "$output" == *"[measured|inferred]"* ]]
+}

@@ -41,11 +41,13 @@ When the evidence is longer than the line can carry, write it to
 file is the one thing you may write).
 
 Your final message is exactly one of these lines, and nothing else:
-`STATUS: FOUND — <the answer, one sentence, naming the file path, command
+`STATUS: FOUND — [measured|inferred] <the answer, one sentence, naming the file path, command
 output or version that establishes it>[; long form:
 NAMESPACE_DIR/state/facts/TASK_ID.md]`
 `STATUS: NOT FOUND — <what you checked, and why it cannot be settled from
 here>[; long form: NAMESPACE_DIR/state/facts/TASK_ID.md]`
+`[measured]` means you read the file or ran the command that establishes it;
+`[inferred]` means it follows from what you read. Anything less is NOT FOUND.
 Use NOT FOUND only after you have actually looked. A question that turns out
 to need a human's preference rather than a fact is NOT FOUND, so say so.
 ```

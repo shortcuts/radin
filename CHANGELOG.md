@@ -6,6 +6,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Sub-agent `**Fact:**` and `**Root cause:**` lines carry a `[measured]`,
+  `[inferred]` or `[guess]` label, and an unlabeled line is a lead rather than
+  binding. Every skill ends with a `**Reply:**` paragraph.
 - An execution task that cannot check its behavior change now reports
   `STATUS: INCONCLUSIVE` and stays in the backlog as `blocked` with the
   reason, instead of counting as a pass.

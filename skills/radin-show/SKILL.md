@@ -19,4 +19,4 @@ It exits 1 with "no backlog" when the project has none. Tell the user that,
 point them at `radin-record` or `radin-review` to start one, and create no
 file.
 
-Print the output as-is: the CLI already orders and formats it.
+**Reply:** the CLI's output as-is; it already orders and formats it.

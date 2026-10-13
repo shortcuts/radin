@@ -15,3 +15,5 @@ Re-read it after any compaction.
 Call `task-next` and `task-report --next` with no other flag. Every task then comes back as `kind execution`,
 whatever its size or shape, and a task with no plan implements from the entry
 text alone.
+
+**Reply:** the run loop's Phase 5 summary, verbatim; nothing is skill-specific.

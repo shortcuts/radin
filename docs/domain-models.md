@@ -55,8 +55,8 @@ Two stores, split by whether a parser reads the value. A path, id, hash or enum 
 | Body label | Written when | Written by |
 | --- | --- | --- |
 | `**Decision:** <answer>` | user settled a `BLOCKED (DECISION)` | `radin-execute` |
-| `**Fact:** <answer>` | a fact-finder returned `STATUS: FOUND`, or an execution sub-agent recorded a plan deviation, a skipped skill or a test's red-green proof | `radin-execute`, execution sub-agent |
-| `**Root cause:** <cause + fix direction + sibling sites>` | debug sub-agent returned `STATUS: DIAGNOSED` | `radin state task-diagnosis` |
+| `**Fact:** [measured\|inferred\|guess] <answer>` | a fact-finder returned `STATUS: FOUND`, or an execution sub-agent recorded a plan deviation, a skipped skill or a test's red-green proof | `radin-execute`, execution sub-agent |
+| `**Root cause:** [measured\|inferred] <cause + fix direction + sibling sites>` | debug sub-agent returned `STATUS: DIAGNOSED` | `radin state task-diagnosis` |
 | `**Raised as:** <verbatim ask>` | the triggering text, quoted | `radin-record` |
 | `**Scope:** <what was reviewed>` | the review surface | `radin-review` |
 | `**Finding:**` | the problem, as the review stated it | `radin-review` |
@@ -64,7 +64,7 @@ Two stores, split by whether a parser reads the value. A path, id, hash or enum 
 | `**Evidence:**` | the proof rung (`cited`, `traced`, `ran`), then the reasoning or output | `radin-review` |
 | `**Preferred remedy:**` | the restructuring suggested | `radin-review` |
 
-Every one of them is binding on the next sub-agent that reads the task, not commentary on it.
+Every one of them is binding on the next sub-agent that reads the task, not commentary on it, except a `**Fact:**` or `**Root cause:**` line labeled `guess` or carrying no label, which is a lead to check. `measured`: the author ran a command or read a file this session and the line names which. `inferred`: it follows from measured facts the line names. `guess`: neither; a line with no label is a guess.
 
 ## Per-task facts file (`state/facts/<task-id>.md`)
 

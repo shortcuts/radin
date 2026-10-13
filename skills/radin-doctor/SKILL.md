@@ -13,8 +13,6 @@ A read-only health check for radin's own install under `~/.claude`.
 RADIN_CLI doctor
 ```
 
-Print the full output to the user as-is. It already lists every checked item
-with its status.
-
-A non-zero exit means one or more expected files are missing or have invalid
-syntax. Tell the user to re-run `install.sh` (or `radin update`) to fix it.
+**Reply:** the CLI's full output as-is, since it already lists every checked item
+with its status. A non-zero exit means expected files are missing or have invalid
+syntax: tell the user to re-run `install.sh` (or `radin update`).

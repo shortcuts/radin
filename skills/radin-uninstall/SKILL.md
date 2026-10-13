@@ -13,6 +13,5 @@ Removes every file `install.sh` copied into `~/.claude`, and only those.
 RADIN_CLI uninstall
 ```
 
-Print the full output to the user as-is. It already lists what was removed and
-what was left untouched, with manual removal commands for the advisory
-companion tools.
+**Reply:** the CLI's full output as-is; it already lists what was removed and what
+was left untouched, with manual removal commands for the advisory companion tools.
