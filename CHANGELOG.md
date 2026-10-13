@@ -6,6 +6,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- `/radin-review` triage sorts findings into Act on, Consider, Noted and
+  Dismissed with a reason each, filtering nitpicks, hypotheticals, premature
+  abstractions and preference-only findings. Dismissed stays visible so you can
+  override it.
 - Sub-agent `**Fact:**` and `**Root cause:**` lines carry a `[measured]`,
   `[inferred]` or `[guess]` label, and an unlabeled line is a lead rather than
   binding. Every skill ends with a `**Reply:**` paragraph.

@@ -220,20 +220,38 @@ survivors into a group when one fix touches them all:
 A group takes `fix` when any member is `fix`, and the highest member severity.
 Leave a survivor alone when no other survivor shares its fix.
 
-Print the groups as a numbered list — number, category, severity, location,
-the finding in a clause. A group lists each member on a lettered sub-line with
-its location and clause. The list is the triage handle for what Step 3 already
+Interactive callers only: sort each group into a bucket, each with a one-line
+reason. A group takes its highest member's bucket.
+
+- **Act on**: survives every filter below, is `critical` or `warning`, and
+  carries a `traced` or `ran` rung, a quoted spec line or a cited rubric.
+- **Consider**: survives every filter, is `critical` or `warning`, and carries
+  only a `cited` rung or a "possible <name>" label.
+- **Noted**: survives every filter and is a `nit`. When every survivor is
+  Noted, Step 6 says the code is fine.
+- **Dismissed**: fails a filter. The call-site test above dismisses
+  hypotheticals. A finding asking for an interface, config or generalisation
+  with one caller or one value is a premature abstraction. A finding that cites
+  no rubric, quotes no spec line and shows no incorrect behavior is "I would
+  have done it differently".
+
+More than five Act on groups: re-test the weakest against the last two filters
+and demote it to Consider before printing.
+
+Print the groups as a numbered list in the order Act on, Consider, Noted,
+Dismissed — number, bucket and reason, category, severity, location, the
+finding in a clause. A group lists each member on a lettered sub-line with its
+location and clause. The list is the triage handle for what Step 3 already
 printed, so it carries no further detail.
-Mark the ones you recommend tackling, on severity and effort rather than
-count; recommending all of them is a valid answer.
 
 Then gate on `AskUserQuestion` (single select):
 
-1. **Recommended only** — log the groups you marked.
-2. **All** — log every in-scope group.
+1. **Recommended only** — log the Act on groups.
+2. **All** — log the Act on and Consider groups.
 
-A free-text answer names the numbers you printed; read it as that subset of
-groups and nothing more, and restate the subset in one line before continuing.
+A free-text answer names the numbers you printed, Noted and Dismissed ones
+included; read it as that subset of groups and nothing more, and restate the
+subset in one line before continuing.
 
 ## Step 5: Log the agreed findings to backlog
 
@@ -286,7 +304,7 @@ one line per logged entry, a group's line stating how many findings it covers
 output verbatim (for example `12 findings: 9 plan (3 tasks), 2 executor, 1 none`,
 then one line per task); three counts, no detail, for findings the user
 discarded, dropped as out of scope, and dropped for having no in-scope line; one
-line each, finding and reason, for findings Step 4's call-site test dismissed so
-the user can overrule; the backlog index path. Zero findings: say the review
-passed. Every finding discarded: report that. Either way, write no entry to
+line each, finding and reason, for every Dismissed group so the user can
+overrule; the Noted count; the backlog index path. Zero findings, or only
+Noted ones: say the review passed and the code is fine. Every finding discarded: report that. Either way, write no entry to
 prove the skill ran. End with one line: total findings, and the worst issue.
