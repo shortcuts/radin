@@ -4,6 +4,11 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Unreleased
 
+### Added
+
+- `/radin-run <prompt>` records one ad-hoc prompt as a backlog entry, optionally
+  plans it with your sign-off, then executes just that task.
+
 ### Changed
 
 - Failing and blocked tasks now ask you how to proceed and re-run, instead of

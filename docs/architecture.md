@@ -44,7 +44,7 @@ Replaced earlier `~/.claude/.radin/projects/<repo-slug>/` scheme. That scheme ke
 
 ## Namespace resolution and the backlog CLI
 
-Every one of `lib/radin-run.md` (the body of `radin-execute` and `radin-implement`), `skills/radin-plan/SKILL.md`, `skills/radin-review/SKILL.md`, `skills/radin-record/SKILL.md`, `skills/radin-show/SKILL.md` goes through same shared CLI, `lib/radin-backlog.sh`, for every deterministic backlog op:
+Every one of `lib/radin-run.md` (the body of `radin-execute`, `radin-implement` and `radin-run`), `skills/radin-plan/SKILL.md`, `skills/radin-review/SKILL.md`, `skills/radin-record/SKILL.md`, `skills/radin-show/SKILL.md` goes through same shared CLI, `lib/radin-backlog.sh`, for every deterministic backlog op:
 
 ```bash
 radin backlog <env|show|list|count|find|add|add-plan|append|meta|order|field|duplicates|plan-target|files|set-category|retitle|set-priority|set-deps|set-meta|remove|reconcile|epics|epic-add|epic-show|epic-move|epic-remove>   # dispatcher at ~/.claude/.radin/bin/radin, symlinked into ~/.local/bin
@@ -132,7 +132,7 @@ Each verb answers one step a caller takes. Claiming, stashing, the debug-pass fl
 
 Both `BACKLOG_STEPS.json` and `completed.json` JSONL (one compact object per line), same convention as backlog's `index.jsonl` — single-entry edit never risks another line, model never parses/rewrites bracketed JSON array by hand.
 
-`radin-execute` and `radin-implement` share one body, `lib/radin-run.md`, which each `SKILL.md` tells the router to read in full. A skill file holds only its frontmatter and its **no-plan rule**, the one step that differs: `radin-execute` passes `task-next --plan-first`, so a task with no plan gets a planning sub-agent, and `radin-implement` passes no flag, so it goes straight to execution, whose execution prompt then implements from the entry text. One body, so a change to the loop is a one-file edit and the two skills cannot drift. Below, `radin-execute` names that shared body.
+`radin-execute` and `radin-implement` share one body, `lib/radin-run.md`, which each `SKILL.md` tells the router to read in full. A skill file holds only its frontmatter and its **no-plan rule**, the one step that differs: `radin-execute` passes `task-next --plan-first`, so a task with no plan gets a planning sub-agent, and `radin-implement` passes no flag, so it goes straight to execution, whose execution prompt then implements from the entry text. `radin-run` also passes no flag: it records one prompt, then scopes the loop to the task it just recorded. One body, so a change to the loop is a one-file edit and the two skills cannot drift. Below, `radin-execute` names that shared body.
 
 `radin-execute` alone reads `lib/radin-prioritization.md`, via the `RADIN_LIB` token ([resolved at install](#install-time-substitution)), at Phase 1 step 4 and only when `backlog order --rank-needed` exits 0. It holds two things and nothing else: how to rank the unset-priority group, and the bounded dependency inference. Backlog format is `docs/domain-models.md`'s, verb behaviour is the CLI usage comments', so neither is restated there. `radin-plan` reads it not at all — scoped to one entry, nothing to prioritize.
 
@@ -234,6 +234,8 @@ radin/
     radin-execute/
       SKILL.md
     radin-implement/
+      SKILL.md
+    radin-run/
       SKILL.md
     radin-plan/
       SKILL.md

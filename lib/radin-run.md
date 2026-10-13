@@ -1,6 +1,6 @@
 # Backlog Run
 
-The shared body of `/radin-execute` and `/radin-implement`. The skill that
+The shared body of `/radin-execute`, `/radin-implement` and `/radin-run`. The skill that
 sent you here holds the one rule that differs between them: the **no-plan
 rule** Phase 4 applies.
 

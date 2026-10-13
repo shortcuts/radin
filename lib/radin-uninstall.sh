@@ -29,7 +29,7 @@ printf 'radin uninstall\n===============\n'
 printf '\nSkills (%s/skills):\n' "$CLAUDE_DIR"
 # radin-update shipped as a skill before `radin update` took the job; install.sh
 # only adds, so only this script can clear the leftover.
-for name in radin-execute radin-implement radin-plan radin-record radin-review radin-setup-hooks radin-show radin-stats radin-doctor radin-uninstall radin-update; do
+for name in radin-execute radin-implement radin-run radin-plan radin-record radin-review radin-setup-hooks radin-show radin-stats radin-doctor radin-uninstall radin-update; do
 	remove_path "$name" "$CLAUDE_DIR/skills/$name"
 done
 

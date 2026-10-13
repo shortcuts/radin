@@ -259,7 +259,7 @@ run_install_defaults() {
   grep -q "$TEMPLATE/home/.claude/.radin/lib/radin-execute-gate.md" "$run_doc"
   grep -q "$TEMPLATE/home/.claude/.radin/lib/radin-execute-review.md" "$run_doc"
   run ! grep -q 'full check suite' "$run_doc"
-  for s in radin-execute radin-implement; do
+  for s in radin-execute radin-implement radin-run; do
     grep -q "$TEMPLATE/home/.claude/.radin/lib/radin-run.md" "$TEST_HOME/.claude/skills/$s/SKILL.md"
   done
 }
@@ -329,6 +329,7 @@ run_install_defaults() {
   run_install_defaults
   grep -q -- "--plan-first" "$TEST_HOME/.claude/skills/radin-execute/SKILL.md"
   run ! grep -q -- "--plan-first" "$TEST_HOME/.claude/skills/radin-implement/SKILL.md"
+  run ! grep -q -- "--plan-first" "$TEST_HOME/.claude/skills/radin-run/SKILL.md"
   run ! grep -q -- "--plan-first" "$TEST_HOME/.claude/.radin/lib/radin-run.md"
 }
 

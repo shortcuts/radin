@@ -170,7 +170,7 @@ for f in radin-namespace.sh radin-json.sh radin-backlog.sh radin-tui.c \
 	radin-doctor.sh radin-uninstall.sh; do
 	cp "$RADIN_ROOT/lib/$f" "$HOME/.claude/.radin/lib/"
 done
-for s in radin-execute radin-implement radin-review radin-record radin-show radin-plan \
+for s in radin-execute radin-implement radin-run radin-review radin-record radin-show radin-plan \
 	radin-setup-hooks radin-stats radin-doctor radin-uninstall; do
 	cp -r "$RADIN_ROOT/skills/$s" "$HOME/.claude/skills/"
 done
@@ -569,7 +569,7 @@ else
 		;;
 	esac
 fi
-for f in radin-execute radin-implement radin-plan radin-record radin-review radin-show \
+for f in radin-execute radin-implement radin-run radin-plan radin-record radin-review radin-show \
 	radin-doctor radin-uninstall radin-setup-hooks radin-stats; do
 	set_cli "$HOME/.claude/skills/$f/SKILL.md" "$RADIN_CLI_VALUE"
 done
@@ -585,6 +585,7 @@ set_cli "$HOME/.claude/.radin/lib/radin-execute-resume.md" "$RADIN_CLI_VALUE"
 set_cli "$HOME/.claude/.radin/lib/radin-run.md" "$RADIN_CLI_VALUE"
 set_lib "$HOME/.claude/skills/radin-execute/SKILL.md"
 set_lib "$HOME/.claude/skills/radin-implement/SKILL.md"
+set_lib "$HOME/.claude/skills/radin-run/SKILL.md"
 set_lib "$HOME/.claude/.radin/lib/radin-run.md"
 
 step "Agent guidance"
@@ -906,6 +907,7 @@ cat >"$MANIFEST_FILE" <<EOF
     "radin-plan",
     "radin-record",
     "radin-review",
+    "radin-run",
     "radin-setup-hooks",
     "radin-show",
     "radin-stats",
