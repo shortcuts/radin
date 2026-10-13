@@ -8,8 +8,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - `/radin-execute` and `/radin-implement` run only the tasks of a named epic
   (or one named task). Call them with the epic id, for example
-  `/radin-implement bluetooth-reconnect-tap`. The run defers every other task
-  and still asks you to confirm the order.
+  `/radin-implement bluetooth-reconnect-tap`. The run also includes every task
+  the named ones depend on, defers the rest, and still asks you to confirm the
+  order.
 - `/radin-review` runs one reviewer, not a Standards and a Spec axis: the
   question is whether the scope is the simplest native solution that meets
   thermo-nuclear and the repo rubrics. The spec is context for that reviewer.

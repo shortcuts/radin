@@ -165,6 +165,11 @@ persist them.
    - No match, or several: show the user the epic ids and ask which one they
      meant, via one `AskUserQuestion`. Never guess.
 
+   Then add every task the scope depends on, transitively: the
+   depends-on csv (field 6) of each `list` row you kept names ids still in the
+   backlog, and each of those joins the scope with its own dependencies. A
+   task cannot run before its dependencies, so they run too.
+
    The ids you keep are the scope. Hold them as ids, at low resolution.
 
 ## Phase 2: Confirm Execution Order
@@ -206,10 +211,9 @@ may pre-answer.
      `end` for `Once at the end of the backlog`, `task` for `After each task`.
    - **Task selection** decides Phase 3's `--defer` value, and nothing else:
      - **A scope from Phase 1**: `--defer` every backlog id outside the scope.
-       Name the scope and the deferred count in the order question, so the
-       user sees what the run leaves out. A scoped task that `depends_on` an
-       out-of-scope task comes back `blocked` from `task-next`: report it, and
-       offer to widen the scope.
+       Name the scope, the dependencies it pulled in, and the deferred count
+       in the order question, so the user sees what the run adds and leaves
+       out.
      - **All of them**: no `--defer` flag.
      - **Just the first one**: `--defer` every id but `order` 1's.
      - **Only the ones I name** (or "Other" text): read the selection off the
