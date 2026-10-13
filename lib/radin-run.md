@@ -156,11 +156,22 @@ persist them.
    `--infer-deps <id>=<csv>` flag per entry you inferred a dependency for.
    Carry those flags into every later `order` call this session; carry
    nothing else.
+5. Resolve the **scope**, only when the invoking prompt names one (an epic id,
+   a task id or a task title). No name, no scope: skip this step.
+   - An epic: the name is one line of `RADIN_CLI backlog epics`. Its tasks are
+     the rows of `RADIN_CLI backlog list --order created` whose `file` field
+     begins `tasks/<epic>/`. Keep their ids.
+   - A task: `RADIN_CLI backlog find "<name>"` returns one line. Keep its id.
+   - No match, or several: show the user the epic ids and ask which one they
+     meant, via one `AskUserQuestion`. Never guess.
+
+   The ids you keep are the scope. Hold them as ids, at low resolution.
 
 ## Phase 2: Confirm Execution Order
 
-The gate is unconditional (Core Constraints). Phase 0.5's preferences and the
-test mode are the only questions a prompt may pre-answer.
+The gate is unconditional (Core Constraints). Phase 0.5's preferences, the
+test mode and the scope from Phase 1 step 5 are the only questions a prompt
+may pre-answer.
 
 1. Print this verbatim, and compose nothing of your own:
 
@@ -174,7 +185,8 @@ test mode are the only questions a prompt may pre-answer.
 2. Ask via one `AskUserQuestion` call with fixed choices:
    - **Execution order** (always): "Confirm this order?" Options: `Yes` /
      `No, I'll explain`.
-   - **Task selection** (always): "Which tasks now?" Options: `All of them` /
+   - **Task selection** (always, unless Phase 1 resolved a scope): "Which
+     tasks now?" Options: `All of them` /
      `Only the ones I name` / `Just the first one`. `Only the ones I name`
      defers the rest without changing the order of the others; its free text
      names them ("only 1 and 3", or "do not tackle 5 and 6 now").
@@ -193,6 +205,11 @@ test mode are the only questions a prompt may pre-answer.
    - **Test mode** decides Phase 3's `--tests` value, and nothing else:
      `end` for `Once at the end of the backlog`, `task` for `After each task`.
    - **Task selection** decides Phase 3's `--defer` value, and nothing else:
+     - **A scope from Phase 1**: `--defer` every backlog id outside the scope.
+       Name the scope and the deferred count in the order question, so the
+       user sees what the run leaves out. A scoped task that `depends_on` an
+       out-of-scope task comes back `blocked` from `task-next`: report it, and
+       offer to widen the scope.
      - **All of them**: no `--defer` flag.
      - **Just the first one**: `--defer` every id but `order` 1's.
      - **Only the ones I name** (or "Other" text): read the selection off the

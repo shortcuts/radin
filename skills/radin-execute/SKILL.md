@@ -1,10 +1,9 @@
 ---
 name: radin-execute
 description: |
-  Work through the whole backlog with a planning pass: prioritize every task,
-  plan and execute each via a sub-agent, commit after each. Use for "work
-  through my backlog", not one named task. Asks the user when an entry is
-  ambiguous.
+  Plan and execute backlog tasks via sub-agents, prioritized, one commit each.
+  Use for "work through my backlog", or name an epic or task to run only
+  those. Asks the user when an entry is ambiguous.
 ---
 # Backlog Execution
 

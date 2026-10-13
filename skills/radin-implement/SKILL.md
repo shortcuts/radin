@@ -1,10 +1,9 @@
 ---
 name: radin-implement
 description: |
-  Work through the whole backlog with no planning pass: prioritize every task,
-  implement each straight from its entry via a sub-agent, commit after each.
-  Use for "skip planning", "just implement the backlog". A task with a
-  plan still follows it.
+  Implement backlog tasks via sub-agents with no planning pass, prioritized,
+  one commit each. Use for "skip planning", "just implement the backlog", or
+  name an epic or task to run only those. A task with a plan still follows it.
 ---
 # Backlog Implementation
 
