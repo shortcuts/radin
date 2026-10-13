@@ -572,6 +572,9 @@ new companion needs its plugin prefix in that test's list. Not pinned by it:
 the MCP graph tool names, and the README row and `docs/architecture.md`
 mention a new skill needs (AGENTS.md) — those are checked by review.
 
+`tests/bash-compat.bats` pins the bash 3.2 construct ban in the shell files and
+the single `rm` under `~/.claude` in `install.sh` and `lib/`.
+
 The execution prompt names `/ponytail:ponytail` but never invokes it: ponytail's
 SubagentStart hook injects the ladder into every sub-agent, and invoking the
 skill loaded the same text twice. That makes the hook load-bearing, so

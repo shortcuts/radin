@@ -8,6 +8,17 @@ radin is a Claude Code plugin made of skills, a CLI, and install glue. It is wri
 - **`~/.claude` is not ours.** `install.sh` runs `cp` only on radin's own named files, and it runs `mkdir -p`. It never runs `rm`, never deletes with a wildcard, and never overwrites a file that radin does not ship. There are three exceptions. The first is the `<!-- radin:begin -->`…`<!-- radin:end -->` block in `~/.claude/CLAUDE.md`. The second is the `lib/radin-cbm-config.sh` snapshot and restore of `settings.json` and `~/.claude.json`. The third is `skills/unslop/SKILL.md` and `skills/technical-writing/SKILL.md`. `install.sh` fetches those two skills from upstream, and it overwrites them only when `manifest.json` records them as radin's own. Call out every `install.sh` edit explicitly.
 - **Companion install is advisory.** When an install fails, it prints a warning, and the run continues. This behavior is not optional. The installer asks one question: which package manager installs the companions (`brew`, `mise`, or `curl`). radin adds no package manager that the user has not already run.
 
+## Rule enforcers
+
+| Rule | Enforcer | Gap |
+| --- | --- | --- |
+| bash 3.2 | `tests/bash-compat.bats` (banned constructs) | Grep only; no 3.2 interpreter run. |
+| `~/.claude` ownership | `tests/install.bats` ("never overwrites a skill radin did not install"), `tests/bash-compat.bats` (`rm` allowlist) | Foreign content in the `CLAUDE.md` block and settings restore is untested. `install.sh` removes `~/.claude/skills/thermo-nuclear`, a known exception. |
+| Companion install is advisory | `tests/install.bats` ("a failing companion tool and a missing claude CLI both warn, and the install completes") | None. |
+| One owner per delegation | `tests/skill-names.bats` (every name resolves) | Nothing for "one file per delegation" and graph tool names; review only. |
+
+A rule with no enforcer is a repeat risk, so a new hard rule lands with its row.
+
 ## Where to edit what
 
 | Change | Edit |
