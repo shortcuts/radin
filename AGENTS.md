@@ -18,7 +18,7 @@ radin is a Claude Code plugin made of skills, a CLI, and install glue. It is wri
 | Rare-need part of `radin-execute` | `lib/radin-execute-*.md`, read on demand. |
 | Sub-agent model, how CLI invoked | Nothing. Write a token, and `install.sh` resolves it ([how](docs/architecture.md#install-time-substitution)). |
 
-`install.sh` goes one way, from the repo to `~/.claude`. A new skill needs a `cp -r` line there, a `lib/radin-doctor.sh` entry, a README row, and a mention in `docs/architecture.md`. Without all four, the skill ships nowhere.
+`install.sh` goes one way, from the repo to `~/.claude`. A new skill needs a `cp -r` entry there, an entry in `lib/radin-doctor.sh`, a README row, and a `docs/architecture.md` layout entry. `tests/skill-names.bats` fails when one is missing.
 
 A new companion that ships its own stats or a gain command needs a bullet in `skills/radin-stats/SKILL.md`. Without that bullet, the roundup never sees it.
 
