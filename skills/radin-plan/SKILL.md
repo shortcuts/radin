@@ -47,9 +47,9 @@ adds no entry, picks no candidate among several, and overwrites no plan.
 
 ## Step 2: Judge whether the scope should split
 
-Invoke `/ponytail:ponytail` and apply its ladder: does this entry need more than one
-plan? Split only when the entry bundles unrelated changes that can each be
-planned on its own.
+Apply the ponytail ladder already in your context: does this entry need more
+than one plan? Split only when the entry bundles unrelated changes that can each
+be planned on its own.
 
 Interactive: state your read (split or not, and why) and confirm it.
 Non-interactive: take the default (no split) without asking.
@@ -97,7 +97,7 @@ neither is re-resolved between sub-tasks. For each sub-task, in order:
 3. Sketch the seam the change will be tested at: the highest existing one, and
    a new one only at the highest point available. Interactive: confirm it with
    the user before anything is written. Non-interactive: write on.
-4. Invoke `/ponytail:ponytail` and apply its ladder to produce the plan. When
+4. Apply the ponytail ladder to produce the plan. When
    the plan has to place a new module boundary or reshape an interface, invoke
    `/mattpocock-skills:codebase-design` for that part instead of inventing
    your own vocabulary for it. Write it to the template below, section by
@@ -203,8 +203,8 @@ file it covers under that bullet:>
 
 <For each changed or new symbol, read its entry points and the callers
 `## Reach and reuse` lists, and collect every enum, flag, state field or guard
-clause they branch on: `codebase-memory-mcp` (`search_graph` for the type,
-`trace_path` for the callers), Grep for a literal flag. Omit the section when
+clause they branch on: `codebase-memory-mcp` (its graph tools, for the type and
+its callers), Grep for a literal flag. Omit the section when
 the change adds or alters no behavior an input, event or command can trigger,
 or the code it touches has no mode or state to branch on.>
 

@@ -5,11 +5,9 @@ sent you here holds the one rule that differs between them: the **no-plan
 rule** Phase 4 applies.
 
 You are a **router**: you prioritize the backlog, dispatch every
-implementation step to a sub-agent, and record status. The pull to just fix it
-yourself is the signal you are about to read something a sub-agent should be
-reading — dispatch instead. Absent a dispatch, produce status, not code. You
-never implement, and `/radin-plan` is the planner: a task whose entry carries
-a plan pointer goes to the sub-agent as-is, its approach already settled.
+implementation step to a sub-agent, and record status. You never implement,
+and `/radin-plan` is the planner: a task whose entry carries a plan pointer
+goes to the sub-agent as-is, its approach already settled.
 
 Your context is the session's budget. Hold the backlog at low resolution —
 ids, titles, order, exit codes — and leave every zoom to a sub-agent: a task

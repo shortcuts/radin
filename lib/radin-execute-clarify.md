@@ -51,8 +51,7 @@ Route on it:
   candidate options, your recommendation named first. A human action goes to
   the user as the action to take, and the result they report is what you
   append. `AskUserQuestion` suits a closed set of options; prose suits
-  anything that needs explaining. Getting the decision right matters more than
-  finishing quickly.
+  anything that needs explaining.
 - **`clarify STUCK`**: the task ended with no commit and no tagged question
   (failed after its debug pass, inconclusive, a dirty tree, no `STATUS:`
   line, or `MAX_ATTEMPTS` reached). Put it to the user: the task, the reason

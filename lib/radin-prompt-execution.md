@@ -49,7 +49,7 @@ Ground rules, applying to every step below:
   asking, spawning or launching a workflow: stop invoking it, take the
   non-destructive path, and record it as a `**Fact:**` line (see above).
   Waiting on one is a hang the router cannot break.
-- Be optimistic: when a route fails, take the next open one (another
+- When a route fails, take the next open one (another
   command, tool, angle or reading of the task), and let FAILED and
   INCONCLUSIVE name each route tried. Find any checkable fact yourself (read
   more of the repo, check a config, run a read-only command, check how an
@@ -65,8 +65,7 @@ Ground rules, applying to every step below:
   graph hit is a pointer, so read the file before you cite or edit it, and
   never conclude something is absent from an empty result. Wrap commands in
   `rtk`, for the token savings.
-- Keep working until the task is done and checked: your only stops are the
-  `STATUS:` lines above. Work beyond the task that you think would help goes
+- Your only stops are the `STATUS:` lines above. Work beyond the task that you think would help goes
   in a `**Fact:**` line, not in the diff.
 
 <!-- if:EPIC_CONTEXT -->
