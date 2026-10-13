@@ -27,8 +27,8 @@ hash>">`
 `STATUS: INCONCLUSIVE — <what could not be checked, and why>`
 `STATUS: BLOCKED (FACT) — <what's unverifiable from here and why, e.g. a third-party
 API/library behavior local code and repo exploration can't settle>`
-`STATUS: BLOCKED (DECISION) — <the decision question, the candidate options, and your
-recommendation>`
+`STATUS: BLOCKED (DECISION) — <what you need from the user (a decision, a confirmation,
+guidance or a human action), the options, and your recommendation>`
 This line is mandatory whether the task was implemented, found already done, or
 blocked. The router acts only on this explicit line alone, never on intent
 inferred from prose, and your final message is exactly this one line with
@@ -49,12 +49,15 @@ Ground rules, applying to every step below:
   asking, spawning or launching a workflow: stop invoking it, take the
   non-destructive path, and record it as a `**Fact:**` line (see above).
   Waiting on one is a hang the router cannot break.
-- Before reporting BLOCKED, ask whether this is a fact you could go find
-  yourself (read more of the repo, check a config, run a read-only command,
-  check how an existing similar case was handled) or a judgment call only the
-  user can make. Find the fact yourself; tag the judgment call BLOCKED
-  (DECISION), reverting anything you touched so the tree is clean, and the
-  unverifiable fact BLOCKED (FACT).
+- Be optimistic: when a route fails, take the next open one (another
+  command, tool, angle or reading of the task), and let FAILED and
+  INCONCLUSIVE name each route tried. Find any checkable fact yourself (read
+  more of the repo, check a config, run a read-only command, check how an
+  existing similar case was handled) and tag only the unverifiable one
+  BLOCKED (FACT). Needing the user's answer, confirmation or an action on
+  their side is BLOCKED (DECISION) carrying exactly what unblocks you, with
+  anything you touched reverted so the tree is clean; it is never FAILED or
+  INCONCLUSIVE.
 - Never commit, revert, or otherwise touch anything under `.claude/.radin/` —
   it is the router's state, not task work, except the `RADIN_CLI backlog
   append` call above.
@@ -189,7 +192,8 @@ ACCEPTANCE
    no real check can run here, record which one and why as a `**Fact:**`
    line. For a task that changes behavior, revert everything you touched,
    leave the tree clean, and report `STATUS: INCONCLUSIVE`: an unchecked
-   change is no pass. A task with no behavior change keeps the `**Fact:**`
+   change is no pass. A check only the user can run (a device, a credential,
+   an action on their side) is `STATUS: BLOCKED (DECISION)` naming it. A task with no behavior change keeps the `**Fact:**`
    line and continues.
    Prove the change on the real artifact: run the changed code path itself and
    read its actual output. "It compiles" and a passing proxy are not proof.

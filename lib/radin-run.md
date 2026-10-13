@@ -67,7 +67,7 @@ meant.
 
 A sub-agent's `STATUS: BLOCKED` routes through
 `RADIN_LIB/radin-execute-clarify.md`: read it and follow it — it holds
-the routing for both tags, the fact-finder handoff, the research arm for a
+the routing for both tags and for `clarify STUCK`, the fact-finder handoff, the research arm for a
 fact that lives outside this repo, and the `backlog append` labels that put a
 settled answer where planning and execution sub-agents read it.
 
@@ -253,7 +253,8 @@ order:
 
 - zero or more `blocked<TAB><id><TAB><why>` lines — tasks it skipped (an
   unresolved dependency, an entry the backlog lost, `MAX_ATTEMPTS` reached).
-  It already marked each one `blocked`; report each as skipped.
+  It already marked each one `blocked`. A `MAX_ATTEMPTS` line goes to
+  Clarifying Ambiguity's `clarify STUCK` route; report each other as skipped.
 - `id`, `order`, `kind`, `model` and `prompt` lines for the task to run now,
   then, for an `execution` task, an `overlap` line: `none`, `unclear`, or the
   ids of live tasks sharing its plan files or a `depends_on` edge.
@@ -300,9 +301,8 @@ claims it again and bumps `attempts`, so the cap still ends it.
 | `next` | Do |
 | --- | --- |
 | `continue` | Recorded on disk, and the lines after it are `task-next`'s output for the next task: report any `blocked` lines, then dispatch it as above. Exit 1 after `next continue` means nothing is left, so go to Phase 4.5. |
-| `debug` | This task still has its one debug pass. `RADIN_CLI prompt debug "<task id>" "<the reason from the STATUS: line>"` prints a `model` and a `prompt` path: dispatch it the same way. `STATUS: DIAGNOSED`: record it, then re-run the task. `STATUS: NOT DIAGNOSED`: re-run `task-report` with the same line and `--next <no-plan rule flag>`, which routes to `continue` this time. |
-| `clarify FACT` / `clarify DECISION` | Route per Clarifying Ambiguity. Once settled, re-run the task. |
-| `halt` | Several tasks failed in a row, so the cause is likely shared. Dispatch nothing more; go to Phase 5, and tell the user the failure reasons the last reports printed. |
+| `debug` | This task still has its one debug pass. `RADIN_CLI prompt debug "<task id>" "<the reason from the STATUS: line>"` prints a `model` and a `prompt` path: dispatch it the same way. `STATUS: DIAGNOSED`: record it, then re-run the task. `STATUS: NOT DIAGNOSED`: re-run `task-report` with the same line and `--next <no-plan rule flag>`, which routes to `clarify STUCK` this time. |
+| `clarify FACT` / `clarify DECISION` / `clarify STUCK` | Route per Clarifying Ambiguity. Once settled, re-run the task. |
 
 ```bash
 RADIN_CLI state task-diagnosis "<task id>" <<'EOF'
@@ -311,23 +311,23 @@ EOF
 ```
 
 A task report is not a stopping point: send it in the same message as the
-next task's dispatch and carry on. The loop stops only at a `halt`, a
-`clarify DECISION` waiting on the user, Phase 4.5, or Phase 5.
+next task's dispatch and carry on. The loop stops only at a
+`clarify` waiting on the user, Phase 4.5, or Phase 5.
 
 Never verify a `SUCCESS` yourself: no per-task verification sub-agent, and no
 re-reading the diff — that read is the cost the leaf's own verify loop and
 Phase 4.5's gate exist to avoid. A task is finished when `task-report` has recorded it,
 whatever the sub-agent's prose said.
 
-Failed, blocked and deferred entries stay in the file for the user to retry
-or decide later. They are not retried within this session, and never block the
-loop from reaching Phase 4.5.
+An entry stays `failed` or `blocked` only after the user explicitly deferred
+it. A deferred entry is not retried within this session, and does not block
+the loop from reaching Phase 4.5.
 
 ## Phase 4.5: Session Gate
 
 Execution sub-agents run only the checks their diffs reached, so the whole
 suite runs here once, every session. Skip it when the session recorded no
-commit, and after a `halt`.
+commit.
 
 Read `RADIN_LIB/radin-execute-gate.md` and follow it to dispatch the gate.
 

@@ -209,6 +209,7 @@ assembled() {
   [[ "$output" == *"**Fact:**"* ]]
   [[ "$output" == *"backlog append"* ]]
   [[ "$output" == *"STATUS: INCONCLUSIVE"* ]]
+  [[ "$output" == *"a human action"* ]]
 }
 
 @test "prompt assembly refuses bad input" {

@@ -770,7 +770,7 @@ overlap_plan() {
   run cli task-report aa-task "STATUS: FAILED — the suite broke"
   [ "$status" -eq 0 ]
   [[ "$output" == *"failed: the suite broke."* ]]
-  [ "${lines[${#lines[@]}-1]}" = "$(printf 'next\tcontinue')" ]
+  [ "${lines[${#lines[@]}-1]}" = "$(printf 'next\tclarify STUCK')" ]
   [[ "$(cat "$ST")" == *'"status":"failed"'*'"note":"the suite broke"'* ]]
 }
 
@@ -786,16 +786,15 @@ overlap_plan() {
   [[ "$(cat "$ST")" == *'"id":"aa-task"'*'"status":"pending"'* ]]
 }
 
-@test "task-report records INCONCLUSIVE as blocked with the reason, no streak, no completion" {
+@test "task-report records INCONCLUSIVE as blocked with the reason, then asks the user" {
   fixture_repo
   printf 'aa-task\t1\t\n' | cli steps-init > /dev/null
   run cli task-report aa-task "STATUS: INCONCLUSIVE — no way to run the SDK here"
   [ "$status" -eq 0 ]
   [[ "$output" == *"inconclusive: no way to run the SDK here"* ]]
-  [ "${lines[${#lines[@]}-1]}" = "$(printf 'next\tcontinue')" ]
+  [ "${lines[${#lines[@]}-1]}" = "$(printf 'next\tclarify STUCK')" ]
   [[ "$(cat "$ST")" == *'"status":"blocked"'*'"note":"inconclusive: no way to run the SDK here"'* ]]
   [ ! -s "$NS/state/completed.json" ]
-  [ ! -f "$NS/state/fail-streak" ]
 }
 
 @test "task-report stashes a dirty tree before it believes any status" {
@@ -806,7 +805,7 @@ overlap_plan() {
   run cli task-report aa-task "STATUS: SUCCESS — $hash"
   [ "$status" -eq 0 ]
   [[ "$output" == *"Task 1 'aa task'"*"reported SUCCESS but left a dirty tree"*"stash@{0}"* ]]
-  [ "${lines[${#lines[@]}-1]}" = "$(printf 'next\tcontinue')" ]
+  [ "${lines[${#lines[@]}-1]}" = "$(printf 'next\tclarify STUCK')" ]
   [ ! -s "$NS/state/completed.json" ]
   [ ! -f "$REPO/wip.txt" ]
   [[ "$(cat "$ST")" == *'"status":"failed"'*"stashed as stash@{0}"*"$REPO"* ]]
@@ -818,7 +817,7 @@ overlap_plan() {
   run cli task-report aa-task --no-status "I have a question about"
   [ "$status" -eq 0 ]
   [[ "$output" == *"Task 1 'aa task' failed"* ]]
-  [ "${lines[${#lines[@]}-1]}" = "$(printf 'next\tcontinue')" ]
+  [ "${lines[${#lines[@]}-1]}" = "$(printf 'next\tclarify STUCK')" ]
   [[ "$(cat "$ST")" == *"last words: I have a question about"* ]]
   run cli task-report bb-task "all done, hope that helps"
   [ "$status" -ne 0 ]
@@ -837,28 +836,21 @@ overlap_plan() {
   [[ "$(cat "$ST")" == *'"status":"pending"'* ]]
 }
 
-@test "task-report halts the loop after three failures in a row, and a success resets the count" {
+@test "answered puts a waiting task back to pending with a fresh attempt count, keeping debugged" {
   fixture_repo
-  printf 'aa-task\t1\t\nbb-task\t2\t\ncc-task\t3\t\ndd-task\t4\t\n' | cli steps-init > /dev/null
-  hash="$(git -C "$REPO" rev-parse HEAD)"
-  run cli task-report aa-task --no-status "no status one"
-  [ "${lines[${#lines[@]}-1]}" = "$(printf 'next\tcontinue')" ]
-  run cli task-report bb-task --no-status "no status two"
-  [ "${lines[${#lines[@]}-1]}" = "$(printf 'next\tcontinue')" ]
-  run cli task-report cc-task "STATUS: SUCCESS — $hash"
-  [ "${lines[${#lines[@]}-1]}" = "$(printf 'next\tcontinue')" ]
-  run cli task-report dd-task --no-status "no status three"
-  [ "${lines[${#lines[@]}-1]}" = "$(printf 'next\tcontinue')" ]
-  run cli task-report aa-task --no-status "no status four"
-  [ "${lines[${#lines[@]}-1]}" = "$(printf 'next\tcontinue')" ]
-  run cli task-report bb-task --no-status "no status five"
-  [ "$status" -eq 0 ]
-  [[ "$output" == *"3 tasks failed in a row"* ]]
-  [ "${lines[${#lines[@]}-1]}" = "$(printf 'next\thalt')" ]
-  # A new session starts its own count.
   printf 'aa-task\t1\t\n' | cli steps-init > /dev/null
-  run cli task-report aa-task --no-status "no status six"
-  [ "${lines[${#lines[@]}-1]}" = "$(printf 'next\tcontinue')" ]
+  cli task-next > /dev/null
+  cli task-report aa-task "STATUS: FAILED — the suite broke" > /dev/null
+  cli task-report aa-task "STATUS: FAILED — the suite broke" > /dev/null
+  cli set-status aa-task blocked "attempts used up"
+  run cli answered aa-task
+  [ "$status" -eq 0 ]
+  [[ "$(cat "$ST")" == *'"status":"pending"'*'"attempts":0'*'"debugged":1'*'"note":""'* ]]
+  run cli task-next "aa-task"
+  [ "$status" -eq 0 ]
+  [[ "$(cat "$ST")" == *'"status":"in_progress"'*'"attempts":1'* ]]
+  run cli answered no-such-task
+  [ "$status" -ne 0 ]
 }
 
 @test "recover finishes what it can, and hands back only the commits case" {

@@ -6,6 +6,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Failing and blocked tasks now ask you how to proceed and re-run, instead of
+  being deferred. `next halt` and the failure streak are removed, and
+  `BLOCKED (DECISION)` also covers confirmations and human actions.
 - `/radin-review` triage sorts findings into Act on, Consider, Noted and
   Dismissed with a reason each, filtering nitpicks, hypotheticals, premature
   abstractions and preference-only findings. Dismissed stays visible so you can

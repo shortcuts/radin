@@ -45,7 +45,7 @@ Every entry point is a skill, because a skill runs in the user's thread and can 
 
 ## Autonomy
 
-Routers and sub-agents proceed on reversible work without asking. Reversible work covers code edits, notes, task splits and backlog entries, anything that `git revert` or deleting a file radin wrote can undo. Irreversible work pauses: force-push, deploy, data deletion and external messages. A skill in the user's thread asks the user before it acts. A sub-agent cannot ask, so it stops and reports `STATUS: BLOCKED (DECISION)` with the question, the options and its recommendation. The human owns product direction, so a sub-agent that meets a product choice reports it rather than picking one. When an agent is asked to add scope, it replies with its real judgment, and "no" is an acceptable answer. Agreement the agent does not hold is not a reply.
+Routers and sub-agents proceed on reversible work without asking. Reversible work covers code edits, notes, task splits and backlog entries, anything that `git revert` or deleting a file radin wrote can undo. Irreversible work pauses: force-push, deploy, data deletion and external messages. A skill in the user's thread asks the user before it acts. A sub-agent cannot ask, so it stops and reports `STATUS: BLOCKED (DECISION)` with the question, the options and its recommendation. The human owns product direction, so a sub-agent that meets a product choice reports it rather than picking one. When an agent is asked to add scope, it replies with its real judgment, and "no" is an acceptable answer. Agreement the agent does not hold is not a reply. A sub-agent's blocker is a question to the user, never a reason to skip the task.
 
 ## Writing prose for agents
 
@@ -72,7 +72,7 @@ The graph tool name lives in one file only, and it must exist in the upstream ta
 
 ## Decisions that look like bugs
 
-- **No router-side per-task verification in `radin-execute`.** The leaf verifies and reviews its own staged diff before it commits. A `FAILED` task gets a Debug prompt once per session ([why](docs/architecture.md#verification-in-radin-execute)).
+- **No router-side per-task verification in `radin-execute`.** The leaf verifies and reviews its own staged diff before it commits. A `FAILED` task gets a Debug prompt once per session, and one that still fails asks the user and re-runs; the router defers only on the user's explicit word ([why](docs/architecture.md#verification-in-radin-execute)).
 - **What a sub-agent learns stays on its task.** It records a `**Fact:**` or `**Root cause:**` line, and the long form goes in `state/facts/<id>.md`. There is no shared note file and no cross-task memory.
 - **The `radin-execute` worktree and branch answers never reach a prompt.** Only `radin-state.sh prepare` turns those answers into git commands. A model that receives them can eventually override a `no`.
 - **`lib/radin-cbm-config.sh` takes a snapshot before the upstream write.** The upstream installer replaces the whole hook array instead of merging into it. Without the snapshot, a machine loses its hooks silently ([limits](docs/technical-constraints.md)).

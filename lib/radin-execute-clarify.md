@@ -1,7 +1,8 @@
 # Shared: radin-execute Blocked-Task Routing
 
 `radin-execute` reads this file when a sub-agent reports `STATUS: BLOCKED`, at
-any of the phases that can produce one.
+any of the phases that can produce one, and when `task-report` answers
+`next clarify STUCK`.
 
 A sub-agent's `STATUS: BLOCKED` always carries a `(FACT)` or `(DECISION)` tag.
 Route on it:
@@ -45,11 +46,22 @@ Route on it:
     finding onto another entry, and never build a shared notes file.
   - `STATUS: NOT FOUND`: it has escalated into a decision. Fall through to
     `(DECISION)`, with its report as context.
-- **`BLOCKED (DECISION)`**: a judgment call the entry or plan doesn't settle.
-  Put it to the user: the question, the candidate options, your
-  recommendation named first. `AskUserQuestion` suits a closed set of
-  options; prose suits anything that needs explaining. Getting the decision
-  right matters more than finishing quickly.
+- **`BLOCKED (DECISION)`**: a judgment call, a confirmation or a human action
+  the entry or plan doesn't settle. Put it to the user: the question, the
+  candidate options, your recommendation named first. A human action goes to
+  the user as the action to take, and the result they report is what you
+  append. `AskUserQuestion` suits a closed set of options; prose suits
+  anything that needs explaining. Getting the decision right matters more than
+  finishing quickly.
+- **`clarify STUCK`**: the task ended with no commit and no tagged question
+  (failed after its debug pass, inconclusive, a dirty tree, no `STATUS:`
+  line, or `MAX_ATTEMPTS` reached). Put it to the user: the task, the reason
+  from the report line (and the entry's `**Root cause:**` line when it has
+  one; for a dirty tree, the stash recovery command in the entry's note), and
+  the options: a hint or a different approach, a human action to perform, or
+  defer this task. Name your recommendation first. Once settled, append the
+  answer as a `**Decision:**` line (below), run
+  `RADIN_CLI state answered "<task id>"`, then re-run the task (Phase 4).
 
 Once settled, append the resolution to the task's file. Planning and
 execution sub-agents read that file, so the answer must live there:
@@ -71,14 +83,15 @@ label; a line with no token is a guess.
 
 Then re-run the task (Phase 4).
 
-If the user defers the decision, it cannot be had this session. Do not guess.
-Mark the entry `blocked` with `set-status` (its signature is in
-`radin-run.md`), `note` holding the question, the options, and the recommendation. Then
-report `⏸️ Task <order> '<title>' deferred: <question>. Continuing to next
-task.` and continue. Blocked entries surface in the Phase 5 summary, and
+Deferral happens only when the user explicitly says so; silence, "not sure"
+or an unrelated reply is asked again. A deferred entry keeps its
+`failed`/`blocked` status (`set-status ... blocked` with `note` holding the
+question, the options and the recommendation, for an entry that has none).
+Report `⏸️ Task <order> '<title>' deferred: <question>. Continuing to next
+task.` and continue. Deferred entries surface in the Phase 5 summary, and
 re-invoking the skill resumes them: append the decision first, then treat the
 entry as `pending`.
 
 A fully planned task leaves nothing to decide, and its execution sub-agent
-implements the plan without inventing choices. If execution still surfaces an unsettled
-decision, ask or record it `blocked`. Never leave it hanging.
+implements the plan without inventing choices. If execution still surfaces an
+unsettled decision, ask the user.
