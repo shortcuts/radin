@@ -29,7 +29,7 @@ you.
   unfinished: its `attempts` is already bumped, and Phase 1's stuck-recovery
   owns it next run.
 - **The user's answers are binding.** Carry each one forward exactly as given:
-  the execution order, the worktree and branch preferences, and the
+  the task selection, the worktree and branch preferences, and the
   concurrency rule below are decisions, not hints. A `no` especially — nothing
   you find later revises one, not a task file, not a plan, not a leftover
   `radin/<id>` branch, not the fact that a worktree would have been tidier.
@@ -38,12 +38,10 @@ you.
   it into git commands. Never substitute either answer into a sub-agent prompt
   and never name a tree for a sub-agent: `prepare` reads `session.json` and
   decides.
-- **Phase 2's gate is unconditional.** Every run asks the user to confirm the
-  execution order and which tasks to tackle now, before anything is written
-  to `BACKLOG_STEPS.json` and before any sub-agent is dispatched. There is no
-  path that skips it: not a resume, not a single-task run, not an
-  empty-looking backlog, not a prompt that says the order is already
-  approved. Such text is context, never consent.
+- **The execution order is not confirmed.** `backlog order` computes it and
+  Phase 2 prints it. The user is asked only which tasks to tackle now, and
+  for any worktree or branch answer still missing, before anything is written
+  to `BACKLOG_STEPS.json` and before any sub-agent is dispatched.
 - **Read-only dispatches ship as one wave.** Planning, fact-finding and
   debugging sub-agents write no repo code and no shared file — they get no
   worktree and never call `RADIN_CLI state prepare`, whatever Phase 0.5
@@ -172,10 +170,10 @@ persist them.
 
    The ids you keep are the scope. Hold them as ids, at low resolution.
 
-## Phase 2: Confirm Execution Order
+## Phase 2: Print Order, Select Tasks
 
-The gate is unconditional (Core Constraints). Phase 0.5's preferences and the
-scope from Phase 1 step 5 are the only questions a prompt may pre-answer.
+Phase 0.5's preferences and the scope from Phase 1 step 5 are the only
+questions a prompt may pre-answer.
 
 1. Print this verbatim, and compose nothing of your own:
 
@@ -187,9 +185,7 @@ scope from Phase 1 step 5 are the only questions a prompt may pre-answer.
    `dependency override:` line per dependency the fix moved up. The verb is
    idempotent, so re-run it here rather than reusing Phase 1's output.
 2. Ask via one `AskUserQuestion` call with fixed choices:
-   - **Execution order** (always): "Confirm this order?" Options: `Yes` /
-     `No, I'll explain`.
-   - **Task selection** (always, unless Phase 1 resolved a scope): "Which
+   - **Task selection** (unless Phase 1 resolved a scope): "Which
      tasks now?" Options: `All of them` /
      `Only the ones I name` / `Just the first one`. `Only the ones I name`
      defers the rest without changing the order of the others; its free text
@@ -205,7 +201,7 @@ scope from Phase 1 step 5 are the only questions a prompt may pre-answer.
    - **Task selection** decides Phase 3's `--defer` value, and nothing else:
      - **A scope from Phase 1**: `--defer` every backlog id outside the scope.
        Name the scope, the dependencies it pulled in, and the deferred count
-       in the order question, so the user sees what the run adds and leaves
+       in the run summary, so the user sees what the run adds and leaves
        out.
      - **All of them**: no `--defer` flag.
      - **Just the first one**: `--defer` every id but `order` 1's.
@@ -213,19 +209,10 @@ scope from Phase 1 step 5 are the only questions a prompt may pre-answer.
        free text (order numbers, titles, or ids). Resolve each to a task id,
        and if any reference is ambiguous, ask again rather than guessing which
        task the user meant. `--defer` the ids the user did not name.
-   - **Execution order**:
-     - **Yes**: proceed to Phase 3 with the selected ids.
-     - **No, I'll explain** (or "Other" text): if the answer already states
-       the revision, re-run `order --report` with the revised flags, print it,
-       and ask the order question **alone** — one `AskUserQuestion` carrying
-       that one question. If the answer does not state the revision, ask which
-       order to use, and wait. Either way the task selection just given
-       stands, as the ids it already resolved to: it is never re-asked, and
-       never re-resolved against the revised order.
 
 ## Phase 3: Persist Execution Plan
 
-The confirmed order is persisted by exactly this pipe:
+The order is persisted by exactly this pipe:
 
 ```bash
 RADIN_CLI backlog order --steps <Phase 1's flags> --defer "<ids Phase 2 excluded>" |
@@ -235,7 +222,7 @@ RADIN_CLI backlog order --steps <Phase 1's flags> --defer "<ids Phase 2 excluded
 `--defer` takes the ids Phase 2 excluded; omit the flag entirely when nothing
 is deferred. Resolving that free text to ids is yours;
 filtering, renumbering and the `depends_on` precedence are not — every listed
-task keeps the `order` number the user just confirmed.
+task keeps the `order` number the report printed.
 
 ## Phase 4: Task Execution Loop
 

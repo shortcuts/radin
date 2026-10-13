@@ -11,7 +11,7 @@ independent tasks run in parallel, `no` runs one task at a time. Say both when
 you ask.
 
 Take the invoking prompt's preference if it states one, otherwise ask both in
-the same `AskUserQuestion` call as Phase 2's order confirmation, so one call
+the same `AskUserQuestion` call as Phase 2's task selection, so one call
 covers all three questions. Then persist them:
 
 ```bash

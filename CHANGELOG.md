@@ -16,6 +16,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   first or implement directly. `radin uninstall` still removes the old skill
   names.
 
+- `/radin-batch` and `/radin-do` no longer ask you to confirm the execution
+  order. They print it and run. Task selection and worktree/branch questions
+  stay.
 - Failing and blocked tasks now ask you how to proceed and re-run, instead of
   being deferred. `next halt` and the failure streak are removed, and
   `BLOCKED (DECISION)` also covers confirmations and human actions.
