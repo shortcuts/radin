@@ -43,6 +43,10 @@ Read and write this directory only through the CLI (`radin backlog …`, `radin 
 
 Every entry point is a skill, because a skill runs in the user's thread and can talk to the user. A sub-agent cannot. It has no prose to the user, no `AskUserQuestion`, and no background-task notification. All three look like a hang. A sub-agent is a leaf worker that a skill dispatches. Before a prompt points at a skill, check that the skill asks the user nothing and spawns no agent ([constraints](docs/technical-constraints.md)). Every prompt names its companion directly, with no `command -v` gate and no escape clause. The install is all-or-nothing, so a missing tool fails loudly, and that failure counts as a skip. The only guard that stays is a skill that asks a human anything. A sub-agent drops that guard and never waits on it.
 
+## Autonomy
+
+Routers and sub-agents proceed on reversible work without asking. Reversible work covers code edits, notes, task splits and backlog entries, anything that `git revert` or deleting a file radin wrote can undo. Irreversible work pauses: force-push, deploy, data deletion and external messages. A skill in the user's thread asks the user before it acts. A sub-agent cannot ask, so it stops and reports `STATUS: BLOCKED (DECISION)` with the question, the options and its recommendation. The human owns product direction, so a sub-agent that meets a product choice reports it rather than picking one. When an agent is asked to add scope, it replies with its real judgment, and "no" is an acceptable answer. Agreement the agent does not hold is not a reply.
+
 ## Writing prose for agents
 
 - **No-op test.** A sentence that does not change what the model does, compared with its default, costs payload and says nothing. Delete the whole sentence, and never trim a single word out of it. The test is disputed, so measure it ([how](CONTRIBUTING.md#measure-a-prose-edit)) instead of debating it.
