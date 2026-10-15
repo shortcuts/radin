@@ -514,8 +514,9 @@ Step 5a of the execution prompt then runs `/radin-review` on the leaf's staged
 diff (`radin scope staged`), inline, before the commit: the skill holds the
 repo's rubrics, so the leaf meets them while the context is warm. The leaf fixes
 `critical` and `warning` findings and re-reviews, two rounds at most; the skill
-logs `nit` findings as backlog entries, which this session's
-`BACKLOG_STEPS.json` does not pick up. The same agent that wrote the diff
+writes no backlog entry for an agent caller, so a `nit` costs the session
+no entry. The skill asks only a human caller whether to add a finding to the
+backlog or tackle it now. The same agent that wrote the diff
 reviews it. That is the price of no extra cold sub-agent per task; Phase 6's
 fresh-eyes review stays available on request.
 

@@ -57,7 +57,7 @@ companions that are missing. Re-run `install.sh` to update the companions too.
 | `/radin-plan` | Write a step-by-step plan for one task, touching no code |
 | `/radin-batch` | Work the backlog: prioritize, optionally plan each task first, implement, commit, one task per commit |
 | `/radin-do` | Record one ad-hoc prompt as a backlog entry, optionally plan it, then execute just that task |
-| `/radin-review` | Two-axis pass over a scope — repo rubrics, plus the originating entry's spec; kept findings become tasks |
+| `/radin-review` | Two-axis pass over a scope — repo rubrics, plus the originating entry's spec; kept findings go to the backlog or straight to `/radin-do` |
 | `/radin-show` | Print the backlog |
 | `/radin-stats` | Every companion tool's own savings report, side by side |
 | `/radin-doctor` | Verify the install, report unreachable companions |

@@ -88,7 +88,7 @@ The graph tool name lives in one file only, and it must exist in the upstream ta
 ## Before committing
 
 - `make lint` and `make test` must come back clean, and `make test` must stay under 15 seconds ([policy](#test-suite-speed)). Every tree-only test replays one recorded `install.sh` run. A live run serves only install-time behavior. The mock command is `tests/helpers/mock.c`, one compiled binary, not a shell stub per command, because `/bin/sh` startup costs 20 ms per call. No test makes a network request.
-- Update the docs in the same commit: `docs/architecture.md` (layout, namespace resolution), `docs/domain-models.md` (format), the README (a new skill or companion), and `CHANGELOG.md` (a user-facing change).
+- Update the docs in the same commit: `docs/architecture.md` (layout, namespace resolution), `docs/domain-models.md` (format), the README (a new skill or companion).
 
 ## Test suite speed
 

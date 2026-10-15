@@ -1,16 +1,15 @@
 ---
 name: radin-review
 description: |
-  Review a commit, PR, directory or range for the simplest native solution
-  (ponytail), maintainability (thermo-nuclear) and documented repo
-  rubrics, triage findings with the user, and log the kept ones as backlog
-  entries. Use for /radin-review, "review and log to backlog".
+  Review a commit, PR, directory or range for the simplest native solution,
+  maintainability and documented repo rubrics, triage findings with the user.
+  Use for /radin-review, "review and log to backlog".
 ---
-# Review to Backlog
+# Review
 
-Review a caller-specified scope in one pass, and persist every finding the
-user keeps as a backlog entry instead of terminal output. That leaves a
-durable backlog `radin-batch` (or a human) works through later.
+Review a caller-specified scope in one pass. A human caller then picks, per
+kept finding group, to add it to the backlog or tackle it now. An agent
+caller gets the findings back and acts on them itself.
 
 One question drives the review: is this the simplest, most native solution
 that still meets the thermo-nuclear constraints and this repo's documented
@@ -18,17 +17,14 @@ rubrics? The originating backlog entry or its plan is context for that
 question: behaviour it asked for but the scope lacks, and behaviour the scope
 adds unasked, are ordinary findings.
 
-**Sub-agent caller** — `radin-batch`'s Phase 6 dispatches this skill that
-way, and a sub-agent reaches neither the user nor a spawned agent's result:
-run every step inline, skip each `AskUserQuestion`, log every in-scope
-finding, and say in Step 6's report that no triage happened.
-
-**Leaf caller** — an execution leaf invokes this skill with scope `staged`
-before it commits, so the review is part of its verify loop. Run it inline as a
-sub-agent caller does, and take the spec the invoking prompt names (Step 2,
-rung 1). The leaf, not the backlog, takes the `critical` and `warning`
-findings: relay them for it to fix now. Step 5 logs the `nit` findings only,
-and skips `review-findings`, since no commit exists yet to attribute.
+**Agent caller** — an execution leaf (scope `staged`, step 5a, before it
+commits) or `radin-batch`'s Phase 6 reviewer. An agent reaches neither the
+user nor a spawned agent's result, so run every step inline, skip each
+`AskUserQuestion`, write no backlog entry and return the findings. Take the
+spec the invoking prompt names (Step 2, rung 1). Prove each `critical` finding
+on the real artifact: run the changed code path and read its output (rung
+`ran`) instead of citing it. Step 4 ends for an agent caller after the
+call-site test; Step 6 says no triage happened.
 
 ## Step 1: Resolve the scope
 
@@ -58,7 +54,6 @@ and once:
 
 Run the `command` before the review starts. No output — for a `dir` scope, no
 file under the path — means report "nothing to review in `<scope>`" and stop.
-Write no backlog entry to prove the skill ran.
 
 ## Step 2: Resolve the spec
 
@@ -159,7 +154,7 @@ Relay the report before any triage, in the order the sub-agent gave it.
 
 ## Step 4: Filter, classify, triage
 
-Nothing reaches the backlog until the user agrees to it. The citations go
+Nothing is logged or acted on until the user agrees to it. The citations go
 through one filter, which drops the out-of-scope findings:
 
 ```bash
@@ -179,6 +174,9 @@ this is null"): it survives only when you find a call site or data path that
 produces that input. Find the callers through `codebase-memory-mcp`'s MCP
 tools, read them to settle it, and dismiss the finding when none does — an
 empty graph result is not proof, so confirm with Grep before dismissing. A `traced` or `ran` finding already carries that proof.
+
+An agent caller stops here: its survivors go to Step 6 as Step 3's claim,
+citation, severity and evidence.
 
 Then classify each survivor. This is a rule, not a judgment: **fix** for
 incorrect behavior, including a missing, partial or wrongly implemented
@@ -207,8 +205,6 @@ Each line carries the citation, its task id and its plan paths (comma-joined);
    `reach-and-reuse`, `rubrics-triggered`, `modes-and-states`, `order`,
    `testing`, `out-of-scope`), or leave it empty when no section would have.
 
-A sub-agent caller does this inline.
-
 Then group the survivors, so one backlog entry covers one piece of work. Merge
 survivors into a group when one fix touches them all:
 
@@ -220,7 +216,7 @@ survivors into a group when one fix touches them all:
 A group takes `fix` when any member is `fix`, and the highest member severity.
 Leave a survivor alone when no other survivor shares its fix.
 
-Interactive callers only: sort each group into a bucket, each with a one-line
+Sort each group into a bucket, each with a one-line
 reason. A group takes its highest member's bucket.
 
 - **Act on**: survives every filter below, is `critical` or `warning`, and
@@ -244,24 +240,24 @@ finding in a clause. A group lists each member on a lettered sub-line with its
 location and clause. The list is the triage handle for what Step 3 already
 printed, so it carries no further detail.
 
-Then gate on `AskUserQuestion` (single select):
+Then gate on one `AskUserQuestion` with two single-select questions:
 
-1. **Recommended only** — log the Act on groups.
-2. **All** — log the Act on and Consider groups.
+- Which groups: **Recommended only** (the Act on groups) or **All** (Act on
+  and Consider).
+- What to do with them: **Add to backlog** or **Tackle now**.
 
 A free-text answer names the numbers you printed, Noted and Dismissed ones
 included; read it as that subset of groups and nothing more, and restate the
 subset in one line before continuing.
 
-## Step 5: Log the agreed findings to backlog
+## Step 5: Act on the agreed findings
 
-The body carries what a sub-agent with no review context needs to act on the
-group. A group repeats `**Finding:**`, `**Severity:**` and `**Evidence:**` once
-per member, each opened with the member's `path:line`; the entry's
-`**Preferred remedy:**` covers all members:
+Build one body per agreed group. It carries what a sub-agent with no review
+context needs to act on the group. A group repeats `**Finding:**`,
+`**Severity:**` and `**Evidence:**` once per member, each opened with the
+member's `path:line`; the `**Preferred remedy:**` covers all members:
 
-```bash
-RADIN_CLI backlog add <fix|refactor> "<short title>" <<'EOF'
+```
 **Scope:** <what was reviewed, from Step 1>
 **Finding:**
 <the problem as the review stated it: direct, specific. A finding against the
@@ -271,21 +267,31 @@ spec opens with the spec line the brief quoted.>
 **Evidence:** <rung: cited|traced|ran> — <the reasoning or output the brief gave>
 **Preferred remedy:**
 <the concrete restructuring suggested>
-EOF
-RADIN_CLI backlog set-meta <id> location "<the cited path:line>"
 ```
-
-For a group, `location` is the first member's citation.
 
 For class `plan` and `executor`, end the `**Origin:**` line with
 `Read <plan path> ## Decisions before changing code.`, so the fix's sub-agent
 reads the original plan's decisions.
 
-Log one entry per agreed group, in the order presented. Log nothing the
-user discarded.
+Act on each agreed group in the order presented, and on nothing the user
+discarded:
 
-After the last `add`, journal the logged findings in one call (skip it when
-nothing was logged) and keep its output for Step 6. Write one row per member
+- **Add to backlog**:
+
+  ```bash
+  RADIN_CLI backlog add <fix|refactor> "<short title>" <<'EOF'
+  <the body>
+  EOF
+  RADIN_CLI backlog set-meta <id> location "<the cited path:line>"
+  ```
+
+  For a group, `location` is the first member's citation.
+- **Tackle now**: invoke `/radin-do` with the body as its prompt, one group at
+  a time, each to its Phase 5 summary before the next. `/radin-do` records the
+  entry itself, so run no `add`.
+
+After the last group, journal the agreed findings in one call (skip it when
+nothing was agreed) and keep its output for Step 6. Write one row per member
 finding, not per entry, so the rollup counts findings. Task files are deleted at
 `task-done`; the journal event keeps the finding-to-plan link. A class `plan`
 finding carries its Step 4 section as a fourth column, empty when it has none;
@@ -298,13 +304,14 @@ printf '<task id or empty>\t<class>\t<plan path or none>[\t<section>]\n...' |
 
 ## Step 6: Report back
 
-**Reply:** the resolved scope reviewed, and the spec path or `no spec available`;
-one line per logged entry, a group's line stating how many findings it covers
-(these are the `add` calls you just made); the origin rollup, `review-findings`'
+**Reply:** the resolved scope reviewed, and the spec path or `no spec available`.
+An agent caller then lists every finding as claim, citation, severity and
+evidence, with the dropped-as-out-of-scope count, says no triage happened, and
+stops. Otherwise: one line per agreed group, stating how many findings it
+covers and the backlog id or the `/radin-do` outcome; the origin rollup, `review-findings`'
 output verbatim (for example `12 findings: 9 plan (3 tasks), 2 executor, 1 none`,
 then one line per task); three counts, no detail, for findings the user
 discarded, dropped as out of scope, and dropped for having no in-scope line; one
 line each, finding and reason, for every Dismissed group so the user can
-overrule; the Noted count; the backlog index path. Zero findings, or only
-Noted ones: say the review passed and the code is fine. Every finding discarded: report that. Either way, write no entry to
-prove the skill ran. End with one line: total findings, and the worst issue.
+overrule; the Noted count; the backlog index path when any group went to the backlog. Zero findings, or only
+Noted ones: say the review passed and the code is fine. Every finding discarded: report that. End with one line: total findings, and the worst issue.
