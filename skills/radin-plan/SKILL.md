@@ -61,8 +61,8 @@ Non-interactive: take the default (no split) without asking.
 
 ## Step 3: Write each plan
 
-Step 1 printed `task_file` and `plan_file`; a task's file never moves, so
-neither is re-resolved between sub-tasks. For each sub-task, in order:
+Step 1 printed `task_file` and `plan_file`; neither is re-resolved between
+sub-tasks. For each sub-task, in order:
 
 1. Read the entry's file. A sub-task from a split has only its one-line
    Step 2 description as scope, so plan just that part.
@@ -71,7 +71,7 @@ neither is re-resolved between sub-tasks. For each sub-task, in order:
    where it has one — and respect any ADR covering the area you're touching.
 
    - Ask `codebase-memory-mcp`'s MCP tools before Grep/Glob/Read: its own
-     skill names the verbs, and its hooks route the search either way.
+     skill names the verbs.
    - A plan hinging on third-party API or library behavior that local code
      cannot confirm: read the entry's `**Fact:**` lines and the `facts` file
      Step 1 printed first, because an earlier invocation may already have
@@ -124,8 +124,7 @@ changes: no source file edited, no build or test run, no commit.
 
 ### The plan template
 
-Write a section only when it carries content a downstream agent acts on; a
-label with nothing under it goes nowhere.
+Write a section only when it carries content a downstream agent acts on.
 
 <plan-template>
 
@@ -238,9 +237,9 @@ above.">
 
 ## Step 4: Review each plan on both axes
 
-The plan is the cheapest place to correct the work. Review it on the two axes
+Review it on the two axes
 `radin-review` runs over code — Standards against this repo's
-rubrics, Spec against the entry — kept separate for the same reason.
+rubrics, Spec against the entry.
 
 Per plan file, dispatch both axes in one message as two parallel sub-agents.
 Each brief names two absolute paths — the plan file, and the `task_file` Step 1
@@ -248,9 +247,7 @@ printed — and says "read both in full before reviewing". The plan file is the
 whole review surface: every finding cites one section and entry inside it, and
 the repo supplies context only.
 
-Non-interactive: run both briefs inline, Standards first. A non-interactive
-`radin-plan` is itself a sub-agent and cannot rely on getting a spawned agent's
-result.
+Non-interactive: run both briefs inline, Standards first.
 
 **Standards brief.** Invoke `/ponytail:ponytail-review` against the plan's
 content. An interactive run invokes `/thermo-nuclear` against the same content
