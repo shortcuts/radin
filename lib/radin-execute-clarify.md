@@ -8,24 +8,19 @@ A sub-agent's `STATUS: BLOCKED` always carries a `(FACT)` or `(DECISION)` tag.
 Route on it:
 
 - **`BLOCKED (FACT)`**: checkable, and the sub-agent already failed to verify
-  it from the repo. Facts are never the user's job to hand over. Where the
-  answer lives decides who goes after it.
+  it from the repo. Facts are never the user's job to hand over.
 
   **Inside the working directory** — the repo, its lockfiles, its vendored
   dependencies, its config: dispatch a fresh sub-agent with
   `RADIN_CLI prompt factfind "<task id>" "<the question>"`, which prints a
-  `model` and a `prompt` path to dispatch as Phase 4 does. It investigates read-only and reports in one
-  turn. Holding more than one at once, every one of those dispatches goes in
+  `model` and a `prompt` path to dispatch as Phase 4 does. Holding more than one at once, every one of those dispatches goes in
   the same message, and each `STATUS: FOUND` is appended to its own task's
   file.
 
   **Outside the working directory** — third-party API or library behavior, a
   spec, a service's own reference: you invoke `/mattpocock-skills:research`
-  yourself, once per question, all the invocations in the same message. This
-  dispatch is yours rather than a sub-agent's: it needs no human and no
-  working tree, a sub-agent cannot rely on a spawned agent's result, and you
-  can — a backgrounded agent's result reaches you as a completion notification
-  (Core Constraints). It asking you anything: drop it, never wait on it, and
+  yourself, once per question, all the invocations in the same message. If it
+  asks you anything: drop it, never wait on it, and
   treat the question as `STATUS: NOT FOUND` below. Otherwise give it the
   question plus these two demands.
 
@@ -62,8 +57,7 @@ Route on it:
   answer as a `**Decision:**` line (below), run
   `RADIN_CLI state answered "<task id>"`, then re-run the task (Phase 4).
 
-Once settled, append the resolution to the task's file. Planning and
-execution sub-agents read that file, so the answer must live there:
+Once settled, append the resolution to the task's file:
 
 ```bash
 RADIN_CLI backlog append "<task id>" <<'EOF'
@@ -91,6 +85,4 @@ task.` and continue. Deferred entries surface in the Phase 5 summary, and
 re-invoking the skill resumes them: append the decision first, then treat the
 entry as `pending`.
 
-A fully planned task leaves nothing to decide, and its execution sub-agent
-implements the plan without inventing choices. If execution still surfaces an
-unsettled decision, ask the user.
+If execution surfaces an unsettled decision, ask the user.
