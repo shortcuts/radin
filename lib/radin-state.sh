@@ -79,7 +79,7 @@ deps_csv() {
 MAX_ATTEMPTS=3
 # The plan template's section labels: the only values a `plan` review finding
 # may carry (review-findings validates against it, finding-classes counts by it).
-FINDING_SECTIONS="outcome decisions changes reach-and-reuse rubrics-triggered modes-and-states order testing out-of-scope"
+FINDING_SECTIONS="outcome decisions alternatives changes reach-and-reuse rubrics-triggered modes-and-states order testing risks out-of-scope"
 
 # Prints task $2's title from the backlog index under repo root $1, empty when
 # the entry is already gone (a completed task's entry is deleted).

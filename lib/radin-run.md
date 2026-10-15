@@ -326,7 +326,7 @@ cannot do.
 
 - **The user asked for a post-session review** (in the invoking prompt or
   once the summary is out): read `RADIN_LIB/radin-execute-review.md` and follow
-  it to dispatch the reviewer sub-agent, then report its outcome.
+  it.
 - **They didn't**: no review. Close the summary with `To review this
   session's work, run /radin-review with scope: <commit hashes recorded in
   Phase 4>.`

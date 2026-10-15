@@ -67,6 +67,7 @@ The subcommand is what switches the two modes apart, so no flag does. `radin <ve
 - `path <id-or-title>` — print task file's absolute path, resolved by reading matched index line's `file` field and joining it to `backlog/` (what the TUI reads and hands to `$EDITOR`)
 - `plan-target <id-or-title> [<sub-task title>]` — the one call `radin-plan` opens on: `id`/`title`/`task_file`/`plan_file` lines, plus the entry's `facts<TAB><path>` line when it has one, plus one `plan<TAB><path>` line per pointer it already carries. It exists because `find`'s four outcomes (one match, several, none, already planned) were a route the skill computed by counting lines and then calling `meta`; they are exit codes 0/2/1/3 here, and exit 2's candidates go to stderr so a resolved record is never confused with a candidate list. `plan_file` is also the one place the `plans/<id>.md` convention lives in code, and the sub-task title is slugified there — `add-plan` keeps its required path argument, because the skill has to write the file before it can point at it
 - `files <id-or-title|plan-file>` — print the paths in the `## Changes` section of every plan the entry points at, one per line: the one reader of that section, so the router and checks never grep a plan themselves. Only `- \`<path>\` — ...` bullets count (the plan template's entry shape is the parsed contract), fenced lines are skipped, a split plan's pointers merge as a deduplicated union in first-seen order, and a missing plan file warns on stderr without hiding the others. An existing plan file as the argument reads that one file, so `/radin-review` still resolves a completed task's plan after `task-done` removed the entry. No plan or no path: exit 1, nothing on stdout, like `field PLAN_PATHS`
+- `plan-lint <plan-file>` — the plan template's shape, checked by code so the plan review spends no tokens on it: every heading of `PLAN_SECTIONS` present and in order, none empty, a `You see:` line under each `## Changes` entry, a `- [ ]` box and a `- [ ] Live:` box under `## Testing`. One line per defect; exit 1 when any. `radin-plan` runs it before `add-plan`
 - `set-category <id-or-title> <category>` / `retitle <id-or-title> <title>` — rewrite that one index line, id and task file untouched (id stays stable for the task's lifetime, so a retitle can't orphan a `depends_on` or a plan pointer)
 - `set-priority <id-or-title> <1|2|3|5|8|13|21|--none>` / `set-deps <id-or-title> <csv-of-ids|--none>` — store the human's ranking and ordering on the index line; `set-deps` refuses an unknown id, a self-reference and a cycle, because an unresolvable dependency stalls `radin state deps-check` instead of failing it
 - `remove <id-or-title>` — delete task's file + index line (exact single match required); drops the epic directory too when that was its last child, so `epics` never reports a husk, and prunes the removed id from every other entry's `depends_on`
@@ -144,7 +145,8 @@ Both `BACKLOG_STEPS.json` and `completed.json` JSONL (one compact object per lin
 - `lib/radin-execute-session.md` — how to ask and persist Phase 0.5's worktree/branch answers, read only when `session-get` exit 1. First run in repo, nothing after.
 - `lib/radin-execute-resume.md` — resume triage, `MAX_ATTEMPTS` exception, state-persistence contract, read only when `BACKLOG_STEPS.json` already exist at startup or compaction ate earlier turns.
 - `lib/radin-execute-gate.md` — the Phase 4.5 gate sub-agent prompt, read once per session that recorded a commit.
-- `lib/radin-execute-review.md` — the Phase 6 reviewer sub-agent prompt, read only when the user asked for a post-session review.
+- `lib/radin-execute-review.md` — the Phase 6 reviewer sub-agent prompt, read only when the user asked for a post-session review. Its findings go to `/radin-review`'s triage.
+- `lib/radin-review-core.md` — the one review brief every level runs: `plan` (`radin-plan` Step 4), `diff` (the execution leaf's staged diff), `session` (Phase 6 and `/radin-review`'s sub-agent). `/radin-review` adds only the human triage.
 
 ## Why every entry point is a skill
 
@@ -274,6 +276,7 @@ radin/
     radin-execute-session.md
     radin-execute-resume.md
     radin-run.md
+    radin-review-core.md
     radin-namespace.sh
     radin-prioritization.md
     radin-state.sh

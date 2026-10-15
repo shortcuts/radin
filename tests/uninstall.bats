@@ -40,6 +40,7 @@ printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-cbm-
   : > "$TEST_HOME/.claude/.radin/lib/radin-execute-session.md"
   : > "$TEST_HOME/.claude/.radin/lib/radin-execute-resume.md"
   : > "$TEST_HOME/.claude/.radin/lib/radin-run.md"
+  : > "$TEST_HOME/.claude/.radin/lib/radin-review-core.md"
   printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-doctor.sh"
   cp "$CLI" "$TEST_HOME/.claude/.radin/lib/radin-uninstall.sh"
 }

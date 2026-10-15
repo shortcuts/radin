@@ -165,7 +165,7 @@ for f in radin-namespace.sh radin-json.sh radin-backlog.sh radin-tui.c \
 	radin-execute-recovery.md radin-execute-reporting.md \
 	radin-execute-gate.md radin-execute-review.md \
 	radin-execute-clarify.md radin-execute-session.md \
-	radin-execute-resume.md radin-run.md radin-cbm-hooks.sh \
+	radin-execute-resume.md radin-run.md radin-review-core.md radin-cbm-hooks.sh \
 	radin-cbm-config.sh radin-update.sh \
 	radin-doctor.sh radin-uninstall.sh; do
 	cp "$RADIN_ROOT/lib/$f" "$HOME/.claude/.radin/lib/"
@@ -591,9 +591,14 @@ set_cli "$HOME/.claude/.radin/lib/radin-execute-session.md" "$RADIN_CLI_VALUE"
 set_cli "$HOME/.claude/.radin/lib/radin-execute-reporting.md" "$RADIN_CLI_VALUE"
 set_cli "$HOME/.claude/.radin/lib/radin-execute-resume.md" "$RADIN_CLI_VALUE"
 set_cli "$HOME/.claude/.radin/lib/radin-run.md" "$RADIN_CLI_VALUE"
+set_cli "$HOME/.claude/.radin/lib/radin-review-core.md" "$RADIN_CLI_VALUE"
 set_lib "$HOME/.claude/skills/radin-batch/SKILL.md"
 set_lib "$HOME/.claude/skills/radin-do/SKILL.md"
 set_lib "$HOME/.claude/.radin/lib/radin-run.md"
+set_lib "$HOME/.claude/skills/radin-plan/SKILL.md"
+set_lib "$HOME/.claude/skills/radin-review/SKILL.md"
+set_lib "$HOME/.claude/.radin/lib/radin-prompt-execution.md"
+set_lib "$HOME/.claude/.radin/lib/radin-execute-review.md"
 
 step "Agent guidance"
 # A short section in ~/.claude/CLAUDE.md telling Claude when to reach for
@@ -943,6 +948,7 @@ cat >"$MANIFEST_FILE" <<EOF
     "radin-execute-session.md",
     "radin-execute-resume.md",
     "radin-run.md",
+    "radin-review-core.md",
     "radin-cbm-hooks.sh",
     "radin-cbm-config.sh",
     "radin-update.sh",

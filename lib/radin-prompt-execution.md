@@ -108,6 +108,8 @@ ACCEPTANCE
 2. Read PLAN_PATHS in order: they are the plan(s) `/radin-plan` already wrote
    for this task. Follow them rather than re-deriving an approach. Several of
    them cover different parts of the same task, so implement all of them.
+   Each `You see:` line under `## Changes` and each `- [ ]` box under
+   `## Testing`, the `Live:` box included, is a check you run.
    Where the code contradicts a plan step: a mechanical deviation (renamed
    function, moved file, adjusted signature) you adjust and record as a
    `**Fact:**` line; a deviation that changes a decision the plan made is
@@ -168,6 +170,8 @@ ACCEPTANCE
    work around.
    For each such test, record a `**Fact:**` line: `test <name>: failed before
    (<its failure>), passes now`.
+4a. Build in small units: one change, run its check, then the next. A unit
+   that turns a check red is the one to fix before you move on.
 5. Choose the checks from what your diff reaches: ask `codebase-memory-mcp`
    for the symbols your working-tree diff changes and their callers. Run the
    typecheck and the tests that exercise those callers as you go, widening to
@@ -184,19 +188,25 @@ ACCEPTANCE
    an action on their side) is `STATUS: BLOCKED (DECISION)` naming it. A task with no behavior change keeps the `**Fact:**`
    line and continues.
    Prove the change on the real artifact: run the changed code path itself and
-   read its actual output. "It compiles" and a passing proxy are not proof.
+   read its actual output. "It compiles", a passing proxy and a check on the
+   wrong surface are not proof.
+   Record one line per acceptance criterion and per plan box:
+   `**Fact:** [measured] <criterion or box>: <the command and the output that
+   proves it>`. A criterion or box you could not prove makes the task
+   `STATUS: INCONCLUSIVE` naming it, never `SUCCESS`.
    A check that fails: suspect your observation (wrong command, stale build)
    before the code, then fix and re-run that same check until it is green. After
    three fix rounds on one failure, report `STATUS: FAILED` with its output. A
    test that still passes when the code under test returns nothing pins
    nothing: assert literal expected values.
    Fix what the checks surface before step 6.
-5a. Stage your task's files (`git add <paths>`, never `.claude/.radin/`) and
-   invoke `/radin-review` with scope `staged` and spec `TASK_ID`, inline. Fix
-   every `critical` and `warning` finding in the tree, re-run step 5's checks,
+5a. Stage your task's files (`git add <paths>`, never `.claude/.radin/`), read
+   `RADIN_LIB/radin-review-core.md`, and follow it at level `diff`: spec the
+   plan(s) above, else this task, plus its acceptance criteria. Fix every
+   `critical` and `warning` finding in the tree, re-run step 5's checks,
    restage and review again. Two rounds at most: a `critical` still standing
    then is `STATUS: FAILED` with its citation. Fix a `nit` finding only when
-   it sits in a file you staged; the skill writes no backlog entry.
+   it sits in a file you staged.
 6. Invoke the `/caveman:caveman-commit` skill to draft the commit message, then commit.
 7. Run `RADIN_CLI state dirty-check` from the tree
    step 1a handed you, so the check covers the files you actually touched.

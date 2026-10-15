@@ -7,11 +7,12 @@ description: |
 ---
 # Plan a Backlog Entry
 
-Turn one backlog entry into one or more implementation plans, without writing
-any code. It runs inline in whichever context invokes it. A caller that cannot
-reach the user says so in its prompt; the branches below marked
-"non-interactive" are then the defaults, and anything only the user could
-settle is reported and stops the run.
+**You own the plan, not the code.** The plan is a checklist an executor runs
+box by box, and a reviewer audits from the evidence each box names. It runs
+inline in whichever context invokes it. A caller that cannot reach the user
+says so in its prompt; the branches marked "non-interactive" are then the
+defaults, and anything only the user could settle is reported and stops the
+run.
 
 ## Step 1: Resolve the task scope
 
@@ -41,46 +42,37 @@ It prints `id`/`title`/`task_file`/`plan_file` lines, plus a
 - **3**: already planned; the `plan` lines are the existing paths. Show them and
   ask whether to re-plan (overwrite) or stop. Stop unless confirmed.
 
-Non-interactive, for all three: report what `plan-target` printed and stop. The
-scope came from an existing entry, so no match means backlog drift — the run
-adds no entry, picks no candidate among several, and overwrites no plan.
+Non-interactive, for exits 1-3: report what `plan-target` printed and stop. The
+scope came from an existing entry, so no match means backlog drift: the run
+adds no entry, picks no candidate, and overwrites no plan.
 
 ## Step 2: Judge whether the scope should split
 
-Apply the ponytail ladder already in your context: does this entry need more
-than one plan? Split only when the entry bundles unrelated changes that can each
-be planned on its own.
-
-Interactive: state your read (split or not, and why) and confirm it.
-Non-interactive: take the default (no split) without asking.
-
-- **Not splitting**: the sub-task list is the entry itself.
-- **Splitting**: show the proposed sub-tasks (short titles, one-line
-  description each, full coverage, no overlap) and confirm. Confirmed or
-  edited: use that list. Rejected: fall back to the single-item list.
+Split only when the entry bundles unrelated changes that can each be planned
+on its own. Interactive: state your read (split or not, and why) and confirm
+it; a confirmed split lists short titles and one-line descriptions with full
+coverage and no overlap. Non-interactive: no split.
 
 ## Step 3: Write each plan
 
-Step 1 printed `task_file` and `plan_file`; neither is re-resolved between
-sub-tasks. For each sub-task, in order:
+For each sub-task, in order:
 
 1. Read the entry's file. A sub-task from a split has only its one-line
    Step 2 description as scope, so plan just that part.
-2. Explore the repo as far as the plan needs. Carry the
-   project's own vocabulary into the plan — its glossary or domain-model doc
-   where it has one — and respect any ADR covering the area you're touching.
-
-   - Ask `codebase-memory-mcp`'s MCP tools before Grep/Glob/Read: its own
-     skill names the verbs.
-   - A plan hinging on third-party API or library behavior that local code
-     cannot confirm: read the entry's `**Fact:**` lines and the `facts` file
-     Step 1 printed first, because an earlier invocation may already have
-     answered it.
-     Still open, and running in the user's own thread: hand the question to
+2. Explore the repo as far as the plan needs, through `codebase-memory-mcp`'s
+   MCP tools before Grep/Glob/Read. Carry the project's own vocabulary into
+   the plan, its glossary or domain-model doc where it has one, and respect
+   any ADR covering the area.
+3. Settle each open fact before you write:
+   - A fact you can observe by running something (a command, a scratch
+     script, a one-off probe outside the repo tree) is yours to run. Delete
+     the scratch file after.
+   - Third-party API or library behavior local code cannot confirm: read the
+     entry's `**Fact:**` lines and the `facts` file Step 1 printed first.
+     Still open, interactive: hand the question to
      `/mattpocock-skills:research` naming
-     `<repo root>/.claude/.radin/state/facts/<task-id>.md` as the file to write to, plan
-     the parts that do not hinge on the answer meanwhile, and record what it
-     reports so the next invocation reads it instead of re-researching:
+     `<repo root>/.claude/.radin/state/facts/<task-id>.md` as the file to write
+     to, plan the parts that do not hinge on it meanwhile, then record it:
 
      ```bash
      RADIN_CLI backlog append "<id>" <<'EOF'
@@ -89,42 +81,42 @@ sub-tasks. For each sub-task, in order:
      RADIN_CLI backlog set-meta "<id>" facts "<the state/facts path above>"
      ```
 
-     The skill asks you anything: drop it, never wait on it, and name the
-     question in the report. Non-interactive: name it and stop —
+     The skill asks you anything: drop it and name the question in the
+     report. Non-interactive: name the question and stop, because
      `radin-batch`'s router owns the research arm
-     (`lib/radin-execute-clarify.md`) and appends the answer to this task's
-     file, so the next planning dispatch reads it.
-3. Sketch the seam the change will be tested at: the highest existing one, and
-   a new one only at the highest point available. Interactive: confirm it with
-   the user before anything is written. Non-interactive: write on.
-4. Apply the ponytail ladder to produce the plan. When
-   the plan has to place a new module boundary or reshape an interface, invoke
-   `/mattpocock-skills:codebase-design` for that part instead of inventing
-   your own vocabulary for it. Write it to the template below, section by
-   section — the template is the output contract, and every plan radin writes
-   has that shape.
-
-   Non-interactive: synthesize the plan from the entry, the repo, and what this
-   conversation already holds. A question none of those three answers is the
-   report line that ends the run, not a decision to leave open in the plan.
-5. Save the plan at the `plan_file` path Step 1 printed. For a sub-task from a
+     (`lib/radin-execute-clarify.md`) and appends the answer to this task.
+4. Sketch the seam the change will be tested at: the highest existing one,
+   and a new one only at the highest point available. Interactive: confirm it
+   with the user. Non-interactive: write on.
+5. Apply the ponytail ladder already in your context to produce the plan.
+   When the plan places a new module boundary or reshapes an interface,
+   invoke `/mattpocock-skills:codebase-design` for that part. Write it to the
+   template below. Non-interactive: a question the entry, the repo and this
+   conversation cannot answer ends the run as a report line, not an open
+   decision in the plan.
+6. Save the plan at the `plan_file` path Step 1 printed. For a sub-task from a
    split, re-run `plan-target "<id>" "<sub-task short title>"` and use the
-   `plan_file` it prints: the CLI derives the file name from the title.
-6. Insert the pointer via the CLI (adds the path to the entry, after any
-   earlier plan pointer):
+   `plan_file` it prints.
+7. Lint it and fix every line it prints, until it exits 0:
+
+   ```bash
+   RADIN_CLI backlog plan-lint "<the plan_file path>"
+   ```
+
+8. Insert the pointer:
 
    ```bash
    RADIN_CLI backlog add-plan "<id>" "<the plan_file path>"
    ```
 
-This skill's whole output is the plan file(s) it writes, plus the plan
-pointer — and the `**Fact:**` line and `facts` pointer, when research ran —
-that the CLI records against the scoped task. Nothing else in the tree
-changes: no source file edited, no build or test run, no commit.
+This skill's whole output is the plan file(s), the plan pointer, and, when
+research ran, the `**Fact:**` line and `facts` pointer. No source file is
+edited, no build or test runs, nothing is committed.
 
 ### The plan template
 
-Write a section only when it carries content a downstream agent acts on.
+Keep every heading, in this order. A section that does not apply reads
+`n/a: <reason>`, so a reader sees it was considered.
 
 <plan-template>
 
@@ -139,148 +131,112 @@ Write a section only when it carries content a downstream agent acts on.
 
 ## Decisions
 
-<A numbered list: every choice the executor would otherwise have to make, each
-one settled here. Each entry in the format:>
+<Every choice the executor would otherwise have to make, settled here:>
 
-1. <The question> → <the settled answer>. Why: <one line>.
+1. <The question> → <the settled answer>. Why: <one line>. Source: <`path:line`, the read-only command that produced it, or the owning doc for third-party behavior>.
 
-<Every claim carries its source inline: `path:line` or the read-only command
-that produced it for current code, the owning docs/spec/API for third-party
-behavior. A claim with no source is an open question, which ends the run per
-Step 3's step 4 rather than entering a plan step, and a decision the executor
-has to invent is a defect in this plan.>
+<A change that adds state settles its data shape here, before any logic: a
+state machine over scattered booleans, a table over branching, a typed model
+over repeated shape assumptions. A claim with no source is an open question,
+which ends the run per Step 3; a decision the executor has to invent is a
+defect in this plan.>
+
+## Alternatives rejected
+
+- <Each approach weighed, and the one line why it lost.>
 
 ## Changes
 
-<One entry per file to touch — the minimum set, no more:>
+<One entry per file to touch, the minimum set:>
 
 - `<path>` — <the concrete change, in prose: the symbols to touch and what
   becomes of each. No line numbers, and no pasted code.>
+  You see: <the one observable result that proves this entry landed: the exact
+  output, log line, exit code or screen state.>
 
 <Exception for code: a snippet that encodes a decision more precisely than
-prose can — a schema, a type shape, a state machine, the exact string a test
-asserts on. Inline it in the entry it belongs to, trimmed to the
-decision-rich part.>
+prose can (a schema, a type shape, a state machine, the exact string a test
+asserts on), trimmed to the decision-rich part.>
 
 ## Reach and reuse
 
-<One `codebase-memory-mcp` query pass per changed or new symbol. Omit the
-section when the plan changes no existing symbol and adds no new one.>
+<One `codebase-memory-mcp` query pass per changed or new symbol.>
 
-<For each changed symbol, one bullet listing its callers and implementers,
-test doubles included. Each one is either a `## Changes` entry or excluded
-with a one-line reason:>
+- `<symbol>` — <`path:line` of each caller or implementer, test doubles
+  included> → <in Changes, or excluded: reason>
+- `<new symbol>` — reuse: <`path:line` | none — searched <query>>; sibling:
+  <`path:line` whose naming and structure it matches>
 
-- `<symbol>` — <`path:line` of each caller or implementer> → <in Changes, or
-  excluded: reason>
-
-<For each new function, type or composable, one bullet: the reuse evidence and
-the sibling implementation the change must match in naming and structure:>
-
-- `<symbol>` — reuse: <`path:line` | none — searched <query>>; sibling:
-  <`path:line`>
+<A changed shared primitive lists every consumer; each one is a Changes entry
+with its own You see line, or excluded with a reason.>
 
 ## Rubrics triggered
 
 <Sources: the repo's root `AGENTS.md` or `CLAUDE.md` (follow its `@AGENTS.md`
-import) and the docs index or `CONTRIBUTING.md` they point at. Omit the section
-when `## Changes` trips no documented rubric.>
-
-<One bullet per rubric `## Changes` trips (doc-sync list, line budget,
-convention doc), each either a file added to `## Changes` or excluded with a
-one-line reason:>
+import) and the docs index or `CONTRIBUTING.md` they point at.>
 
 - <rubric> (`<file>:<line or heading>`) → <file added to Changes | not needed:
   reason>
-
-<Where a rubric states a line budget, print the current `wc -l` of each Changes
-file it covers under that bullet:>
-
-  - `<path>` — <n> lines (budget <b>)
+  - `<path>` — <n> lines (budget <b>), for each Changes file a line budget
+    covers
 
 ## Modes and states
 
-<For each changed or new symbol, read its entry points and the callers
-`## Reach and reuse` lists, and collect every enum, flag, state field or guard
-clause they branch on: `codebase-memory-mcp` (its graph tools, for the type and
-its callers), Grep for a literal flag. Omit the section when
-the change adds or alters no behavior an input, event or command can trigger,
-or the code it touches has no mode or state to branch on.>
+<Every enum, flag, state field or guard clause the changed symbols and their
+callers branch on.>
 
-<One bullet per mode or state the behavior is reachable in:>
-
-- <mode or state> (`<path:line>` of its definition or guard) → <gated here:
-  decision | ungated: reason | not reachable: reason>
+- <mode or state> (`<path:line>`) → <gated here: decision | ungated: reason |
+  not reachable: reason>
 
 ## Order
 
 <The steps that must happen in a given order, numbered, each with the one line
-saying why it gates the next — or "Any order." when nothing does.>
+saying why it gates the next, or "Any order.">
 
 ## Testing
 
-**Seam:** <the seam from the Step 3 sketch, and why it's the highest available.>
+**Seam:** <the seam from Step 3, and why it is the highest available.>
 **Prior art:** <an existing test in this repo whose shape the new test copies.>
-**What to test:** <external behavior only — what a caller observes, never an
-implementation detail.>
+**What to test:** <external behavior only: what a caller observes.>
 
-- [ ] <one line per check to run, as the command that runs it>
+Tests alone are not sufficient verification.
+
+- [ ] <one line per check, as the command that runs it>
+- [ ] Live: <the real path a user takes (the CLI command, the TUI key, the
+  request), the command that drives it, and the output that passes>
+
+## Risks
+
+- <Each risk, the Changes entry it lands in, and what the executor watches.>
 
 ## Out of scope
 
-<What a reader might expect here and this plan deliberately does not do, each
-with where it does belong — or "Nothing — the entry's scope is covered in full
-above.">
+<What a reader might expect here and this plan does not do, each with where it
+belongs, or "Nothing: the entry's scope is covered in full above.">
 ```
 
 </plan-template>
 
-## Step 4: Review each plan on both axes
+## Step 4: Review each plan
 
-Review it on the two axes
-`radin-review` runs over code — Standards against this repo's
-rubrics, Spec against the entry.
+Review it with `RADIN_LIB/radin-review-core.md` at level `plan`: scope the
+plan file, spec the `task_file` Step 1 printed. Interactive: dispatch one
+sub-agent whose brief names the core file, the level and both absolute paths,
+and says "read all three in full before reviewing". Non-interactive: read the
+core and run it inline.
 
-Per plan file, dispatch both axes in one message as two parallel sub-agents.
-Each brief names two absolute paths — the plan file, and the `task_file` Step 1
-printed — and says "read both in full before reviewing". The plan file is the
-whole review surface: every finding cites one section and entry inside it, and
-the repo supplies context only.
+Relay the findings before editing anything, then fix each one by editing the
+plan file in place and re-run Step 3's lint. The backlog gains nothing:
+nobody has written this code yet.
 
-Non-interactive: run both briefs inline, Standards first.
-
-**Standards brief.** Invoke `/ponytail:ponytail-review` against the plan's
-content. An interactive run invokes `/thermo-nuclear` against the same content
-first; a non-interactive run leaves it to `/radin-review`, which runs it over
-the code. Report every structural
-issue the rubric flags in the approach, and every place the plan breaks its own
-template contract — a speculative abstraction in `## Changes`, a `## Decisions`
-claim carrying no source. Also report every documented repo rubric the plan's `## Changes` trips
-that `## Rubrics triggered` omits, every budgeted Changes file with no
-printed line count, and every mode or state the changed symbols' callers branch
-on that `## Modes and states` omits. Report findings only, each as its claim and citation.
-
-**Spec brief.** The entry is the spec. Report (a) every acceptance criterion no
-`## Changes` entry implements and no `## Testing` box checks; (b) every
-`## Changes` entry no criterion asks for, and where `## Out of scope` would put
-it; (c) every `**Decision:**` line the plan contradicts. Quote the entry's line
-for each finding. Report findings only, each as its claim and citation.
-
-Relay both reports under `## Standards` and `## Spec` headings before editing
-anything, each axis in its own order and neither reranked against the other.
-
-Then fix each finding by editing the plan file in place. The fix lands in the
-plan, and the backlog gains nothing: `radin-review` logs findings against code
-that exists, and nobody has written this code yet.
-
-One class of finding outruns an edit — a finding that the approach itself is
-wrong, or that leaves a decision for the executor to invent. Invoke
-`/mattpocock-skills:grilling` over those findings, one at a time, and fold each
-settled answer into the plan's `## Decisions` before starting the next one.
-Non-interactive: report the finding and stop, on Step 3's step 4 bound.
+A finding that the approach itself is wrong, or that leaves a decision for
+the executor to invent, outruns an edit. Interactive: invoke
+`/mattpocock-skills:grilling` over those findings, one at a time, and fold
+each settled answer into `## Decisions` before the next. Non-interactive:
+report the finding and stop.
 
 ## Step 5: Report back
 
-**Reply:** one line per plan, with the counts from Step 4's review, in the form
-`✅ <id> planned. Plan: <path>. Review findings: <n> standards, <n> spec.`
+**Reply:** one line per plan, in the form
+`✅ <id> planned. Plan: <path>. Lint: clean. Review findings: <n> (<n> fixed).`
 and a closing line `Next: radin-batch (or a human) can implement from the plan(s) above.`

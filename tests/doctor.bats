@@ -42,6 +42,7 @@ printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-cbm-
   : > "$TEST_HOME/.claude/.radin/lib/radin-execute-session.md"
   : > "$TEST_HOME/.claude/.radin/lib/radin-execute-resume.md"
   : > "$TEST_HOME/.claude/.radin/lib/radin-run.md"
+  : > "$TEST_HOME/.claude/.radin/lib/radin-review-core.md"
   : > "$TEST_HOME/.claude/.radin/lib/radin-tui.c"
   : > "$TEST_HOME/.claude/.radin/lib/radin-cbm-json.c"
   printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-update.sh"

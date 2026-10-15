@@ -114,6 +114,7 @@ check_file "radin-execute-clarify.md" "$CLAUDE_DIR/.radin/lib/radin-execute-clar
 check_file "radin-execute-session.md" "$CLAUDE_DIR/.radin/lib/radin-execute-session.md"
 check_file "radin-execute-resume.md" "$CLAUDE_DIR/.radin/lib/radin-execute-resume.md"
 check_file "radin-run.md" "$CLAUDE_DIR/.radin/lib/radin-run.md"
+check_file "radin-review-core.md" "$CLAUDE_DIR/.radin/lib/radin-review-core.md"
 check_lib_script "radin-update.sh" "$CLAUDE_DIR/.radin/lib/radin-update.sh"
 check_lib_script "radin-doctor.sh" "$CLAUDE_DIR/.radin/lib/radin-doctor.sh"
 check_lib_script "radin-uninstall.sh" "$CLAUDE_DIR/.radin/lib/radin-uninstall.sh"
