@@ -103,6 +103,12 @@ Classify into exactly one category (conventional-commit vocabulary):
 - **chore**: a maintenance follow-up (docs, tooling, cleanup).
 - **refactor**: structure should change without behavior change.
 
+Then judge whether the item needs a plan before execution. It needs none when
+the change touches one or two files and has one obvious approach: an
+execution sub-agent then implements from the entry alone. Anything else needs
+a plan: more files, a new module boundary or data shape, or an approach with a
+real alternative.
+
 ## Step 5: Review, quiz the user on the batch, then append via the CLI
 
 An entry passes by carrying its decisions, or by naming what stays open. Literal
@@ -115,8 +121,10 @@ Present the batch as a numbered list, each item showing:
 - **Category**: from Step 4.
 - **Blocked by**: the entries that gate it, or "None -- can start immediately".
 - **What it delivers**: the end-to-end behavior this entry makes work.
+- **Plan**: needed or not, with the one-line reason.
 
-Then ask whether the granularity, the dependencies, and the split are right.
+Then ask whether the granularity, the dependencies, the split and the plan
+verdicts are right.
 Iterate until the user approves the batch. One run skips the gate: a specific ask
 that produced exactly one entry with no dependencies. A generic ask always
 quizzes, single entry included, because a session scan is a guess about what the
@@ -157,6 +165,12 @@ with no bullet and no checkbox. Never ask for criteria, never synthesise one.
 RADIN_CLI backlog set-meta <id> acceptance "<criterion>" "<criterion>"
 ```
 
+Flag each approved entry whose verdict is "needed":
+
+```bash
+RADIN_CLI backlog set-meta <id> planning needed
+```
+
 Once every approved item is added -- each `add` prints its id -- record Step 4's
 dependencies, one call per dependent entry, always after all the adds:
 
@@ -173,7 +187,8 @@ than an occasional repeat.
 
 ## Step 6: Report back
 
-**Reply:** how many entries were logged, with titles and categories, and the
+**Reply:** how many entries were logged, with titles, categories and plan
+flags, and the
 backlog path the CLI printed; the decisions grilling settled and the questions
 left open, per entry. When nothing in scope rose to a loggable item, say so
 plainly and write no vague entry to prove the skill ran.

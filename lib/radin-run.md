@@ -1,8 +1,6 @@
 # Backlog Run
 
-The shared body of `/radin-batch` and `/radin-do`. The skill that
-sent you here holds the one rule that differs between them: the **no-plan
-rule** Phase 4 applies.
+The shared body of `/radin-batch` and `/radin-do`.
 
 You are a **router**: you prioritize the backlog, dispatch every
 implementation step to a sub-agent, and record status. You never implement,
@@ -223,7 +221,7 @@ it, and writes its prompt to a file. The frontier is the CLI's to compute,
 never yours:
 
 ```bash
-RADIN_CLI state task-next <no-plan rule flag>
+RADIN_CLI state task-next
 ```
 
 Exit 1 means nothing is left to run, so go to Phase 4.5. Exit 0 prints, in
@@ -237,8 +235,11 @@ order:
   then, for an `execution` task, an `overlap` line: `none`, `unclear`, or the
   ids of live tasks sharing its plan files or a `depends_on` edge.
 
-`kind` is `planning` or `execution`, and the no-plan rule of the skill that
-sent you here says what a `planning` one needs. Dispatch the prompt as one
+`kind` is `planning` for an entry radin-record flagged as needing a plan that
+has none yet, else `execution`. A `planning` dispatch that reports
+`STATUS: PLANNED` skips `task-report`: re-run `task-next "<task id>"`, which
+now hands out its execution prompt. `STATUS: BLOCKED (FACT|DECISION)`
+routes per Clarifying Ambiguity. Dispatch the prompt as one
 `Agent` call with exactly that model and this text, and nothing else:
 
 ```
@@ -255,12 +256,12 @@ tree first (a dirty tree fails the task, whatever the `STATUS:` claimed), then
 records the terminal state and prints the report line:
 
 ```bash
-RADIN_CLI state task-report "<task id>" "<the sub-agent's STATUS: line>" --next <no-plan rule flag>
+RADIN_CLI state task-report "<task id>" "<the sub-agent's STATUS: line>" --next
 ```
 
 Two dispatches hand back no such line. A last line that is not a `STATUS:`
 line — it asked something, hit an interactive skill, or died mid-turn — goes
-in as `--no-status "<its final line>" --next <no-plan rule flag>` instead, an API or network error text
+in as `--no-status "<its final line>" --next` instead, an API or network error text
 included: the CLI sends that task back for a retry. A sub-agent with no content at
 all is still working, whatever the elapsed time suggests: wait, and if your
 turn ends first, leave the entry `in_progress` for Phase 1's stuck-recovery.
@@ -273,13 +274,13 @@ dispatch's usage rides on the re-run's `task-report`, one `--usage` per dispatch
 No usage block, no flag; a synchronous result's `totalTokens` counts only the
 final request, so it never supplies the number.
 
-Your whole message to the user about this task is the call's report: every line above its `next` line, copied verbatim. Then route on that `next` line. A re-run names the task: `task-next <flag> "<task id>"`
+Your whole message to the user about this task is the call's report: every line above its `next` line, copied verbatim. Then route on that `next` line. A re-run names the task: `task-next "<task id>"`
 claims it again and bumps `attempts`, so the cap still ends it.
 
 | `next` | Do |
 | --- | --- |
 | `continue` | Recorded on disk, and the lines after it are `task-next`'s output for the next task: report any `blocked` lines, then dispatch it as above. Exit 1 after `next continue` means nothing is left, so go to Phase 4.5. |
-| `debug` | This task still has its one debug pass. `RADIN_CLI prompt debug "<task id>" "<the reason from the STATUS: line>"` prints a `model` and a `prompt` path: dispatch it the same way. `STATUS: DIAGNOSED`: record it, then re-run the task. `STATUS: NOT DIAGNOSED`: re-run `task-report` with the same line and `--next <no-plan rule flag>`, which routes to `clarify STUCK` this time. |
+| `debug` | This task still has its one debug pass. `RADIN_CLI prompt debug "<task id>" "<the reason from the STATUS: line>"` prints a `model` and a `prompt` path: dispatch it the same way. `STATUS: DIAGNOSED`: record it, then re-run the task. `STATUS: NOT DIAGNOSED`: re-run `task-report` with the same line and `--next`, which routes to `clarify STUCK` this time. |
 | `clarify FACT` / `clarify DECISION` / `clarify STUCK` | Route per Clarifying Ambiguity. Once settled, re-run the task. |
 
 ```bash

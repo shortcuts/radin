@@ -33,7 +33,7 @@ Add a row with every new hard rule.
 | --- | --- |
 | A skill's behavior | `skills/<name>/SKILL.md`, never the installed copy. |
 | Anything deterministic (install, update, doctor, uninstall, backlog, state, TUI) | A `bin/radin` subcommand in `lib/`, never a skill. |
-| Backlog loop of `radin-batch` and `radin-do` | `lib/radin-run.md`. Each `SKILL.md` keeps only its no-plan rule. |
+| Backlog loop of `radin-batch` and `radin-do` | `lib/radin-run.md`. |
 | Rare-need part of `radin-batch` | `lib/radin-execute-*.md`, read on demand. |
 | Sub-agent model, CLI invocation | Nothing. Write a token and `install.sh` resolves it ([how](docs/architecture.md#install-time-substitution)). |
 

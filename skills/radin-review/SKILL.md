@@ -278,7 +278,9 @@ discarded:
   RADIN_CLI backlog set-meta <id> location "<the cited path:line>"
   ```
 
-  For a group, `location` is the first member's citation.
+  For a group, `location` is the first member's citation. Flag the entry
+  `RADIN_CLI backlog set-meta <id> planning needed` unless its remedy touches
+  one or two files with one obvious approach.
 - **Tackle now**: invoke `/radin-do` with the body as its prompt, one group at
   a time, each to its Phase 5 summary before the next. `/radin-do` records the
   entry itself, so run no `add`.

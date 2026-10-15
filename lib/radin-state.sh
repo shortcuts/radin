@@ -15,11 +15,11 @@
 #   radin-state.sh steps-init                    # write BACKLOG_STEPS.json from "id<TAB>order<TAB>depends-on-csv<TAB>pending|deferred" lines on stdin
 #                                               # each entry's depends_on comes from its index line; the stdin csv is used only where the index has none
 #                                               # the fourth field is optional and defaults to pending; also writes state/baseline.json
-#   radin-state.sh task-next [--plan-first] [<id>]  # pick, gate, claim and write the prompt in one call; exit 1 when nothing is left
+#   radin-state.sh task-next [<id>]  # pick, gate, claim and write the prompt in one call; an entry flagged planning=needed with no plan gets a planning prompt; exit 1 when nothing is left
 # an execution task also prints "overlap<TAB>none|unclear|<id>[,<id>...]": other live tasks sharing plan files
-#   radin-state.sh task-report <id> <the sub-agent's STATUS: line (SUCCESS|FAILED|INCONCLUSIVE|BLOCKED)> [--next [--plan-first]] [--usage "<kind> <tokens> <tool_uses> <duration_ms>"]...  # verify the tree, record the outcome, then a final "next<TAB>continue|debug|clarify FACT|clarify DECISION|clarify STUCK" line
-#   radin-state.sh task-report <id> --no-status <last line> [--next [--plan-first]] [--usage "<kind> <tokens> <tool_uses> <duration_ms>"]...  # the same, for a sub-agent that ended with no STATUS: line
-#                                               # --next: when the final line is "next<TAB>continue", also run task-next (with --plan-first) and print its output after; exit is task-next's
+#   radin-state.sh task-report <id> <the sub-agent's STATUS: line (SUCCESS|FAILED|INCONCLUSIVE|BLOCKED)> [--next] [--usage "<kind> <tokens> <tool_uses> <duration_ms>"]...  # verify the tree, record the outcome, then a final "next<TAB>continue|debug|clarify FACT|clarify DECISION|clarify STUCK" line
+#   radin-state.sh task-report <id> --no-status <last line> [--next] [--usage "<kind> <tokens> <tool_uses> <duration_ms>"]...  # the same, for a sub-agent that ended with no STATUS: line
+#                                               # --next: when the final line is "next<TAB>continue", also run task-next and print its output after; exit is task-next's
 #   radin-state.sh task-diagnosis <id>          # stdin becomes a **Root cause:** line on the task file, status untouched
 #   radin-state.sh task-done <id> <commit-hash> # record completion, copy the entry's **Fact:** lines to state/facts/<id>.md, remove backlog and steps entries, in crash-safe order; exit 3 when the hash does not validate
 #                                               # also journals an out-of-plan event naming commit files its plan's ## Changes omits (test paths exempt), shown by report
@@ -821,14 +821,7 @@ task-next)
 	# and composes nothing: pick, dependency gate, drift check, claim, prompt.
 	# A named id skips the pick -- the debug and clarify retry of a task
 	# already in flight.
-	plan_first=0
-	want=""
-	for arg in "${@:2}"; do
-		case "$arg" in
-		--plan-first) plan_first=1 ;;
-		*) want="$arg" ;;
-		esac
-	done
+	want="${2:-}"
 	errfile="$(mktemp)"
 	trap 'rm -f "$errfile"' EXIT
 	# Prints the blocked line; a named id has no next task to fall through to.
@@ -864,8 +857,9 @@ task-next)
 		fi
 		kind=execution
 		# Planning claims nothing: the task is still pending when its plan
-		# lands, so the next call hands out its execution prompt.
-		if [ "$plan_first" -eq 1 ] && ! field PLAN_PATHS >/dev/null; then
+		# lands, so the next call hands out its execution prompt. radin-record
+		# flags the entries that need one while the user can confirm it.
+		if field PLANNING >/dev/null && ! field PLAN_PATHS >/dev/null; then
 			kind=planning
 		fi
 		if [ "$kind" = execution ] && ! claim "$pid"; then
@@ -909,7 +903,6 @@ task-report)
 	# call between two dispatches. The report itself runs as a child, which
 	# leaves every exit point below untouched.
 	fuse=0
-	plan_first=0
 	args=()
 	usages=()
 	want_usage=0
@@ -921,13 +914,11 @@ task-report)
 		fi
 		case "$arg" in
 		--next) fuse=1 ;;
-		--plan-first) plan_first=1 ;;
 		--usage) want_usage=1 ;;
 		*) args+=("$arg") ;;
 		esac
 	done
 	[ "$want_usage" -eq 0 ] || die "--usage needs a value"
-	[ "$plan_first" -eq 0 ] || [ "$fuse" -eq 1 ] || die "--plan-first needs --next"
 	if [ "$fuse" -eq 1 ]; then
 		# The child records the usage values, once.
 		for u in ${usages[@]+"${usages[@]}"}; do args+=(--usage "$u"); done
@@ -938,9 +929,6 @@ task-report)
 		}
 		printf '%s\n' "$out"
 		[ "$(printf '%s\n' "$out" | tail -n 1)" = "$(printf 'next\tcontinue')" ] || exit 0
-		if [ "$plan_first" -eq 1 ]; then
-			exec bash "$LIB_DIR/radin-state.sh" task-next --plan-first
-		fi
 		exec bash "$LIB_DIR/radin-state.sh" task-next
 	fi
 	set -- "$1" ${args[@]+"${args[@]}"}

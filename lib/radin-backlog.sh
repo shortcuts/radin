@@ -12,9 +12,9 @@
 # appending to one task can never shift another task's content — unlike the
 # old single-file BACKLOG.md, nothing here is ever addressed by line number.
 #
-# Five per-task fields a parser reads are JSON keys on the index line rather
+# Six per-task fields a parser reads are JSON keys on the index line rather
 # than markdown labels in the body: "plan", "skills" and "acceptance" (arrays
-# of strings), "facts" and "location" (strings). `add --skill`, `add-plan` and
+# of strings), "facts", "location" and "planning" (strings). `add --skill`, `add-plan` and
 # `set-meta` write them, `meta` reads them, and `add`/`append` reject a body
 # line that repeats one, so a malformed value fails loudly on write instead of
 # silently yielding nothing on read.
@@ -35,10 +35,10 @@
 #   radin-backlog.sh retitle <id-or-title> <title>  # change a task's title (its id never changes)
 #   radin-backlog.sh set-priority <id-or-title> <1|2|3|5|8|13|21|--none>  # set/clear the priority (higher wins)
 #   radin-backlog.sh set-deps <id-or-title> <csv-of-ids|--none>   # set/clear depends_on (rejects an unknown id and any cycle)
-#   radin-backlog.sh set-meta <id-or-title> <plan|skills|acceptance|facts|location> <value>...|--none  # set/clear one index-line field (skills takes skill names; facts and location take exactly one value)
-#   radin-backlog.sh meta <id-or-title>          # print "plan<TAB><path>" / "skill<TAB><instruction>" / "acceptance<TAB><criterion>" / "facts<TAB><path>" / "location<TAB><path:line>" lines from the task's entry
+#   radin-backlog.sh set-meta <id-or-title> <plan|skills|acceptance|facts|location|planning> <value>...|--none  # set/clear one index-line field (skills takes skill names; facts, location and planning take exactly one value; planning takes only "needed")
+#   radin-backlog.sh meta <id-or-title>          # print "plan<TAB><path>" / "skill<TAB><instruction>" / "acceptance<TAB><criterion>" / "facts<TAB><path>" / "location<TAB><path:line>" / "planning<TAB>needed" lines from the task's entry
 #   radin-backlog.sh order <--rank-needed|--report|--steps> [--rank <csv-of-ids>] [--infer-deps <id>=<csv>]... [--defer <csv-of-ids>]  # the execution order: the priority order with the topological dependency fix applied (--rank-needed: print every unset-priority id, exit 1 when there are none; --report: "<order>. <title> (id: <id>)" plus one "dependency override:" line per violated edge; --steps: "id<TAB>order<TAB>depends-on-csv<TAB>pending|deferred", which is `radin state steps-init`'s stdin format)
-#   radin-backlog.sh field <id-or-title> <TASK_FILE|TASK_BODY|EPIC_CONTEXT|TASK_ID|CATEGORY|PLAN_PATHS|SKILLS|SKILLS_DROPPED|ACCEPTANCE|FACTS|LOCATION>  # one Execution-prompt placeholder, rendered ready to substitute
+#   radin-backlog.sh field <id-or-title> <TASK_FILE|TASK_BODY|EPIC_CONTEXT|TASK_ID|CATEGORY|PLAN_PATHS|SKILLS|SKILLS_DROPPED|ACCEPTANCE|FACTS|LOCATION|PLANNING>  # one Execution-prompt placeholder, rendered ready to substitute
 #   radin-backlog.sh duplicates                  # print "id<TAB><value><TAB><ids>" / "title<TAB><value><TAB><ids>" per duplicated value, exit 1 when there are none
 #   radin-backlog.sh stamps [<branch>]           # print "id<TAB>created<TAB>branch" per entry in index order (only the entries recorded on <branch> when given); a field an old entry lacks prints empty
 #   radin-backlog.sh remove <id-or-title>        # delete task file + index entry (exact single match required)
@@ -224,7 +224,7 @@ END { hit = 0
   for (i = 1; i <= n; i++) if (index(tolower(titles[i]), lq) > 0) print lines[i] }
 '
 
-# `meta`: the five parser-read fields of one index line on stdin, in a fixed
+# `meta`: the six parser-read fields of one index line on stdin, in a fixed
 # key order. One parser, shared by `meta`, `field`, `plan-target` and `show`:
 # a second copy would drift the next time a field is added.
 # `metas` joins them with sep, so `list --meta` carries them on one row.
@@ -236,6 +236,7 @@ function metas(line, sep,   a, n, i, s) {
   n = jarr(line, "acceptance", a); for (i = 1; i <= n; i++) s = s sep "acceptance" TAB a[i]
   if (jhas(line, "facts")) s = s sep "facts" TAB jstr(line, "facts")
   if (jhas(line, "location")) s = s sep "location" TAB jstr(line, "location")
+  if (jhas(line, "planning")) s = s sep "planning" TAB jstr(line, "planning")
   return substr(s, length(sep) + 1) }
 '
 # shellcheck disable=SC2016  # $0 is awk's record, not a shell expansion
@@ -435,6 +436,10 @@ require_meta_value() {
 	[ -n "$value" ] || die "$key value must not be empty"
 	[ "$(printf '%s' "$value" | tr -d '\t\r\n')" = "$value" ] ||
 		die "$key value must not contain a tab, carriage return or newline: $value"
+	if [ "$key" = planning ]; then
+		[ "$value" = needed ] || die "planning takes only \"needed\", got: $value"
+		return 0
+	fi
 	[ "$key" = acceptance ] || return 0
 	case "$value" in
 	'- '* | '[ ]'* | '[x]'* | '[X]'*)
@@ -443,7 +448,7 @@ require_meta_value() {
 	esac
 }
 
-# The five fields that live on the index line must not also be written into a
+# The six fields that live on the index line must not also be written into a
 # task body: one copy, one parser, one place to fix a malformed value. Matched
 # on the exact label prefix, so the prose `**Fact:**` label is not caught by
 # the `**Facts:**` rule.
@@ -451,7 +456,7 @@ require_no_moved_label() {
 	local line
 	while IFS= read -r line || [ -n "$line" ]; do
 		case "$line" in
-		'**Plan:**'* | '**Skill:**'* | '**Acceptance:**'* | '**Facts:**'* | '**Location:**'*)
+		'**Plan:**'* | '**Skill:**'* | '**Acceptance:**'* | '**Facts:**'* | '**Location:**'* | '**Planning:**'*)
 			die "that label lives on the index line now, not in the body: ${line}
 write it with \`add --skill\`, \`add-plan\` or \`backlog set-meta\` instead"
 			;;
@@ -979,9 +984,12 @@ field)
 		[ -s "$BACKLOG_TASKS_DIR/$epic/DESCRIPTION.md" ] || exit 1
 		cat "$BACKLOG_TASKS_DIR/$epic/DESCRIPTION.md"
 		;;
-	FACTS | LOCATION)
-		key=facts
-		[ "$fname" = FACTS ] || key=location
+	FACTS | LOCATION | PLANNING)
+		case "$fname" in
+		FACTS) key=facts ;;
+		LOCATION) key=location ;;
+		*) key=planning ;;
+		esac
 		# Exit 1 with no output is the caller's "delete the whole line" signal,
 		# the same contract PLAN_PATHS and ACCEPTANCE already use.
 		value="$(meta_of_line "$entry" | sed -n "s/^$key$TAB//p")"
@@ -1243,8 +1251,8 @@ set-meta)
 	key="${3:-}"
 	[ -n "$key" ] || usage_die set-meta "set-meta needs an id or title, a key, and a value or --none"
 	case "$key" in
-	plan | skills | acceptance | facts | location) ;;
-	*) usage_die set-meta "key must be plan|skills|acceptance|facts|location, got: $key" ;;
+	plan | skills | acceptance | facts | location | planning) ;;
+	*) usage_die set-meta "key must be plan|skills|acceptance|facts|location|planning, got: $key" ;;
 	esac
 	shift 3
 	[ $# -gt 0 ] || usage_die set-meta "set-meta needs at least one value, or --none"
@@ -1256,7 +1264,7 @@ set-meta)
 		raw=""
 	else
 		case "$key" in
-		facts | location)
+		facts | location | planning)
 			[ $# -eq 1 ] || usage_die set-meta "$key takes exactly one value, got $#"
 			;;
 		esac
@@ -1269,7 +1277,7 @@ set-meta)
 			meta_vals[${#meta_vals[@]}]="$v"
 		done
 		case "$key" in
-		facts | location) raw="$(json_string "${meta_vals[0]}")" ;;
+		facts | location | planning) raw="$(json_string "${meta_vals[0]}")" ;;
 		*) raw="$(json_array "${meta_vals[@]}")" ;;
 		esac
 	fi

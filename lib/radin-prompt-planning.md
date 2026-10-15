@@ -1,4 +1,4 @@
-# Template: radin-batch planning prompt (Phase 4, `--plan-first`)
+# Template: radin-batch planning prompt (Phase 4, an entry flagged `planning needed`)
 
 Source text for `radin prompt planning <id>` (`lib/radin-prompt.sh`), which drops the
 guarded blocks that do not apply to the task, substitutes every `UPPERCASE`
@@ -15,7 +15,12 @@ The fence states the leaf contract itself: a sub-agent receives only the fence.
 `model: "RADIN_MODEL_PLANNING"`
 
 ```
-Invoke the `/radin-plan` skill scoped to the backlog task with id "TASK_ID",
+Read TASK_FILE first. When the task touches one or two files and has one
+obvious approach, it needs no plan: run
+`RADIN_CLI backlog set-meta "TASK_ID" planning --none`, report
+`STATUS: PLANNED — none needed: <reason>`, and stop.
+
+Otherwise invoke the `/radin-plan` skill scoped to the backlog task with id "TASK_ID",
 reading TASK_FILE in full as the task scope. It writes the plan file(s) and
 records the plan pointer(s) on that task's backlog entry.
 
@@ -33,7 +38,7 @@ read-only command) or a judgment call only the user can make. Find the fact
 yourself; block only on the judgment call.
 
 Your final message is exactly one of these lines, and nothing else:
-`STATUS: PLANNED — <plan file path(s)>`
+`STATUS: PLANNED — <plan file path(s), or "none needed: <reason>">`
 `STATUS: BLOCKED (FACT) — <what's unverifiable from here and why, e.g. a
 third-party API/library behavior local code and repo exploration can't
 settle>`
