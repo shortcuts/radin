@@ -65,9 +65,7 @@ these rungs in order and stop at the first that yields a spec:
    `RADIN_CLI backlog field "<it>" TASK_FILE` and
    `RADIN_CLI backlog field "<it>" PLAN_PATHS` (its exit 1 means no plan; the
    task file alone is then the spec). For a path: that file is the spec.
-2. **The backlog holds it.** `radin backlog add` stamps each entry with its
-   creation instant and branch, and `task-done` copies the creation instant,
-   commit and branch into `completed.json`. One call joins them to the scope:
+2. **The backlog holds it.** One call joins entries to the scope:
 
    ```bash
    RADIN_CLI scope --specs [<the same scope arg as Step 1>]
@@ -91,8 +89,7 @@ these rungs in order and stop at the first that yields a spec:
    `RADIN_CLI state completed-show "<id>"` names the plan the task ran
    against: its `plan` line carries the recorded paths, comma-separated. Also
    run `RADIN_CLI state trace "<id>"` for each completed id: when its `facts`
-   line names a file, that file is part of the entry, because it records where
-   the implementation departed from the plan on purpose and why.
+   line names a file, that file is part of the entry.
 
    Then sort the entries into two roles. Read each plan and decide:
 
@@ -116,8 +113,7 @@ these rungs in order and stop at the first that yields a spec:
 Dispatch one sub-agent. The brief is self-contained: paste in full the resolved
 scope line, Step 1's `command` string and commit list verbatim, and the
 citation rule below. The spec, when Step 2 found one, goes in as absolute
-paths with "read it in full before reviewing"; the sub-agent's `Read` is the
-access that paste-in-full rule exists to provide. The decisions go in the same
+paths with "read it in full before reviewing"; the decisions go in the same
 way, labelled: "these entries fixed earlier findings on purpose; the scope's
 behaviour they describe is settled, so never raise it again as a finding unless
 a changed line contradicts the decision."
@@ -178,12 +174,11 @@ empty graph result is not proof, so confirm with Grep before dismissing. A `trac
 An agent caller stops here: its survivors go to Step 6 as Step 3's claim,
 citation, severity and evidence.
 
-Then classify each survivor. This is a rule, not a judgment: **fix** for
+Then classify each survivor: **fix** for
 incorrect behavior, including a missing, partial or wrongly implemented
 requirement, and **refactor** for everything else, scope creep included.
 
-Then attribute each survivor's origin, so the review shows whether defects
-trace to plans:
+Then attribute each survivor's origin:
 
 ```bash
 printf '%s\n' "<path:line per survivor>" |
@@ -199,13 +194,12 @@ Each line carries the citation, its task id and its plan paths (comma-joined);
 2. Otherwise read the plan's `## Decisions`: class `plan` when a Decisions line
    prescribed the flaw or left the choice open for the executor to guess,
    `executor` when the plan was right and the code deviated. Quote that
-   Decisions line, or write `no Decision covers it`, so the label can be
-   audited. For class `plan`, also name the plan-template section whose entry
+   Decisions line, or write `no Decision covers it`. For class `plan`, also name the plan-template section whose entry
    would have caught the flaw (`outcome`, `decisions`, `changes`,
    `reach-and-reuse`, `rubrics-triggered`, `modes-and-states`, `order`,
    `testing`, `out-of-scope`), or leave it empty when no section would have.
 
-Then group the survivors, so one backlog entry covers one piece of work. Merge
+Then group the survivors. Merge
 survivors into a group when one fix touches them all:
 
 - They cite the same file, or overlapping hunks, or share one root cause or
@@ -237,8 +231,7 @@ and demote it to Consider before printing.
 Print the groups as a numbered list in the order Act on, Consider, Noted,
 Dismissed — number, bucket and reason, category, severity, location, the
 finding in a clause. A group lists each member on a lettered sub-line with its
-location and clause. The list is the triage handle for what Step 3 already
-printed, so it carries no further detail.
+location and clause. It carries no further detail.
 
 Then gate on one `AskUserQuestion` with two single-select questions:
 
@@ -292,8 +285,7 @@ discarded:
 
 After the last group, journal the agreed findings in one call (skip it when
 nothing was agreed) and keep its output for Step 6. Write one row per member
-finding, not per entry, so the rollup counts findings. Task files are deleted at
-`task-done`; the journal event keeps the finding-to-plan link. A class `plan`
+finding, not per entry, so the rollup counts findings. A class `plan`
 finding carries its Step 4 section as a fourth column, empty when it has none;
 other classes carry no fourth column:
 
