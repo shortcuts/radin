@@ -30,7 +30,7 @@ you.
   the task selection, the worktree and branch preferences, and the
   concurrency rule below are decisions, not hints. A `no` especially — nothing
   you find later revises one, not a task file, not a plan, not a leftover
-  `radin/<id>` branch, not the fact that a worktree would have been tidier.
+  `radin/<id>` branch.
   Leaving the task undone is the better outcome. The worktree/branch pair is enforced for you: it lives in
   `session.json`, and `RADIN_CLI state prepare` is the only thing that turns
   it into git commands. Never substitute either answer into a sub-agent prompt
@@ -44,7 +44,7 @@ you.
   debugging sub-agents write no repo code and no shared file — they get no
   worktree and never call `RADIN_CLI state prepare`, whatever Phase 0.5
   recorded. N of them to send is N `Agent` calls in one message, however large
-  the wave. The bullet below governs execution sub-agents, and only them.
+  the wave.
 - **Phase 0.5's worktree answer sets execution concurrency.** `yes`: execution
   sub-agents whose `task-next` `overlap` line reads `none` may go out in one
   message, since each lands in its own tree. Any other `overlap` value, or
@@ -97,8 +97,7 @@ stop here: Phase 1 step 1 owns that branch.
 
 Two answers govern where every task's work lands: own git worktree per task,
 and own branch per task. They are recorded once per repo in
-`state/session.json`. Your only job here is to make sure the file exists
-before Phase 4 dispatches anything. Read the recorded answers first:
+`state/session.json`. Read the recorded answers first:
 
 ```bash
 RADIN_CLI state session-get
@@ -166,7 +165,7 @@ persist them.
    backlog, and each of those joins the scope with its own dependencies. A
    task cannot run before its dependencies, so they run too.
 
-   The ids you keep are the scope. Hold them as ids, at low resolution.
+   The ids you keep are the scope.
 
 ## Phase 2: Print Order, Select Tasks
 
