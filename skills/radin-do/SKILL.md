@@ -7,9 +7,6 @@ disable-model-invocation: true
 ---
 # Run One Prompt
 
-A front door for one piece of work: record it, optionally plan it, run the
-loop on that one task.
-
 ## Step 1: Record
 
 Invoke `/radin-record` with the user's prompt as a specific ask, plus one

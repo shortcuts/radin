@@ -5,8 +5,8 @@ description: Wire codebase-memory-mcp into this repo when install.sh could not d
 # radin: Set Up Companion-Tool Hooks
 
 `install.sh` normally wires codebase-memory-mcp globally: it runs upstream's
-own configuration and restores whatever that write dropped. When it did that, **there is nothing for
-this skill to do** — the graph works in every repo with no per-project step.
+own configuration and restores whatever that write dropped. When it did,
+**there is nothing for this skill to do**.
 
 This skill is the fallback for two cases:
 
@@ -21,9 +21,7 @@ wants a per-repo `.mcp.json` entry anyway.
 
 ## Scope
 
-Only `codebase-memory-mcp` needs wiring. `caveman` and `ponytail` register
-their hooks globally at plugin-install time, and `rtk` is a CLI with no hook
-or MCP wiring.
+Only `codebase-memory-mcp` needs wiring.
 
 **Never run `codebase-memory-mcp install` yourself.** Its write replaces whole
 hook arrays in `~/.claude`, deleting other tools' hooks. Only
@@ -36,7 +34,7 @@ merge-only path below.
 
 1. Confirm the user is in the repo they want wired: run `git rev-parse
    --show-toplevel` and show the path. If it does not look right, ask.
-2. Ask for explicit y/n confirmation, naming the two writes: "This adds a
+2. Ask for y/n, naming the two writes: "This adds a
    codebase-memory-mcp section to `~/.claude/CLAUDE.md` and an MCP server
    entry to `.mcp.json` in `<repo path>`. Anything already defined is left
    alone. Proceed?"

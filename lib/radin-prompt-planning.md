@@ -22,9 +22,8 @@ records the plan pointer(s) on that task's backlog entry.
 You are a leaf: no user, no `AskUserQuestion`, no `Workflow`, and no
 sub-agent of your own. Where the skill would ask (splitting the entry,
 overwriting an existing plan), take the non-destructive path: don't split,
-don't overwrite. A skill that asks or spawns and waits — `grilling`,
-`research`, `/deep-research`, any saved workflow — hangs the router, so drop
-it. Anything you could only settle that way is BLOCKED material.
+don't overwrite. Drop a skill that asks or spawns and waits (`grilling`,
+`research`, `/deep-research`, any saved workflow): it hangs the router. Anything you could only settle that way is BLOCKED material.
 Implement nothing.
 
 The plan must settle every decision: the executor makes no judgment calls,
@@ -43,5 +42,5 @@ options, and your recommendation>`
 Use BLOCKED (DECISION) for genuine ambiguity only the user can resolve, the
 skill matching several entries for this title or none (backlog drift)
 included: report what it found, pick nothing, create nothing. Use BLOCKED
-(FACT) only for something you tried and failed to verify yourself.
+(FACT) only for what you tried and failed to verify.
 ```

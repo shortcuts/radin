@@ -7,10 +7,8 @@ when one entry's body implies a dependency on another's.
 
 ## Priority criteria
 
-The order itself is not yours to compose: `RADIN_CLI backlog order` is the
-sort, the dependency fix and the report, and the skill's own phases carry its
-three signatures. One rule is left here, and it is a rule rather than a
-computation:
+`RADIN_CLI backlog order` is the sort, the dependency fix and the report.
+One rule is left here:
 
 1. **A prioritization pass writes nothing.** Read a task's body only for an id
    `--rank-needed` printed; the title alone is never the task. No
@@ -30,9 +28,7 @@ computation:
   the index has none, and only within these bounds: one entry's body must
   name a file, symbol or behaviour the *other* entry's body says it will
   **change** (naming the same area is not enough), and at most one inferred
-  dependency per entry, the earlier-ranked entry being the dependency. This
-  is the one genuinely semantic judgment in the pass — `order` cannot read
-  two bodies for overlap — so it stays here, bounded.
+  dependency per entry, the earlier-ranked entry being the dependency.
 - **Effort vs. value** (quick wins with high value) → prefer earlier
 - **Nice-to-haves and ideas** → lowest priority
 

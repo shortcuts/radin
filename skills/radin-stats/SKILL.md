@@ -7,15 +7,14 @@ disable-model-invocation: true
 ---
 # Stats Roundup
 
-Print each installed tool's own stats or gain command, back to back. Do not
-compute a merged total: the numbers use incompatible units -- real
-per-session tokens, static benchmark medians, and a counted per-repo ledger.
-A sum would misrepresent all three. Display each output as-is.
+Print each tool's own stats or gain command, back to back. Compute no merged
+total: the units differ (per-session tokens, benchmark medians, a per-repo
+ledger). Display each output as-is.
 
 ## Run every source
 
-Run all five. Do not probe first: a source that is not installed fails
-visibly, and that failure is the skip -- never an error, never worth retrying.
+Run all five without probing. A source that is not installed fails visibly;
+that failure is the skip, so do not retry it.
 
 - **`/caveman:caveman-stats`** -- measured: real per-session token usage and
   savings, read from the session log itself.
@@ -30,4 +29,3 @@ visibly, and that failure is the skip -- never an error, never worth retrying.
   through its proxy or MCP tool.
 
 **Reply:** each source's output as-is, in the order listed, with no merged total.
-A source that is not installed fails visibly and is skipped.

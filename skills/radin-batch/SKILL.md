@@ -24,17 +24,14 @@ Step 1's answer sets one flag for every `task-next` call and every
 `task-report --next` call.
 
 - `Plan each task first`: pass `--plan-first`. A task with no plan then comes
-  back as `kind planning`: delegate planning —
-  unconditionally, with no judgment of the task's size or shape. Planning
-  happens here, one task before its own execution dispatch, so the plan is
-  written against the tree the previous tasks' commits already left behind, and
-  the plan file it leaves on disk is the whole handoff. Dispatch its prompt
-  like any other.
+  back as `kind planning`: dispatch its prompt, whatever the task's size or
+  shape. Plan one task right before its own execution dispatch. The plan file
+  is the whole handoff.
   - `STATUS: PLANNED`: re-run `task-next --plan-first "<task id>"`, which now hands out the execution prompt.
   - `STATUS: BLOCKED (FACT|DECISION)`: route per Clarifying Ambiguity, then
     re-run the task.
 - `Implement directly`: pass no flag. Every task then comes back as
-  `kind execution`, whatever its size or shape, and a task with no plan
+  `kind execution`, and a task with no plan
   implements from the entry text alone. A task with a plan still follows it.
 
-**Reply:** the run loop's Phase 5 summary, verbatim; nothing is skill-specific.
+**Reply:** the run loop's Phase 5 summary, verbatim.

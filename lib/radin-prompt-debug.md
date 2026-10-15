@@ -39,9 +39,8 @@ result. Prefer primary evidence on this machine (command output, a file's
 actual contents) over recollection.
 
 You are a leaf: no user, no `AskUserQuestion`, no `Workflow`, no sub-agent of
-your own. A skill that starts asking questions a human is meant to answer:
-stop invoking it and diagnose on your own, because waiting is a hang the
-router cannot break.
+your own. A skill that starts asking a human: stop invoking it and diagnose
+on your own.
 
 Write nothing except, when the evidence is longer than a summary can carry,
 `NAMESPACE_DIR/state/facts/TASK_ID.md` (create the directory if needed); name
@@ -59,6 +58,5 @@ Your final message is exactly one of these lines, and nothing else:
 `[measured]` means you reproduced it or read the code that causes it and the
 sentence names which; `[inferred]` means it follows from what you measured.
 Anything less is NOT DIAGNOSED.
-Use NOT DIAGNOSED after you have actually looked, and never as a guess with a
-hedge in front of it.
+Use NOT DIAGNOSED only after you have looked.
 ```

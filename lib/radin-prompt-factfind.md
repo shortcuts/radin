@@ -30,8 +30,8 @@ dependencies, and its config; run read-only commands (`--help`, `--version`, a
 query, a dry run), `rtk`-wrapped.
 `codebase-memory-mcp`'s MCP tools locate a symbol faster than Grep, and a
 graph hit is a pointer: read the file before you cite it, and never conclude
-something is absent from an empty result. Prefer primary sources already on
-this machine over recollection.
+something is absent from an empty result. Prefer primary sources on this machine
+over recollection.
 
 You are a leaf: no user, no `AskUserQuestion`, no `Workflow`, no sub-agent of
 your own, so invoke no skill that asks a human anything or spawns and waits.
@@ -48,6 +48,6 @@ NAMESPACE_DIR/state/facts/TASK_ID.md]`
 here>[; long form: NAMESPACE_DIR/state/facts/TASK_ID.md]`
 `[measured]` means you read the file or ran the command that establishes it;
 `[inferred]` means it follows from what you read. Anything less is NOT FOUND.
-Use NOT FOUND only after you have actually looked. A question that turns out
+Use NOT FOUND only after you have looked. A question that turns out
 to need a human's preference rather than a fact is NOT FOUND, so say so.
 ```
