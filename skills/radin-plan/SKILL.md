@@ -93,7 +93,7 @@ sub-tasks. For each sub-task, in order:
      question in the report. Non-interactive: name it and stop —
      `radin-batch`'s router owns the research arm
      (`lib/radin-execute-clarify.md`) and appends the answer to this task's
-     file, so the next planning wave reads it.
+     file, so the next planning dispatch reads it.
 3. Sketch the seam the change will be tested at: the highest existing one, and
    a new one only at the highest point available. Interactive: confirm it with
    the user before anything is written. Non-interactive: write on.
@@ -265,17 +265,6 @@ on that `## Modes and states` omits. Report findings only, each as its claim and
 `## Changes` entry no criterion asks for, and where `## Out of scope` would put
 it; (c) every `**Decision:**` line the plan contradicts. Quote the entry's line
 for each finding. Report findings only, each as its claim and citation.
-
-**Recurring classes.** Run `RADIN_CLI state finding-classes` and read its
-`recurring` line: the plan sections that review findings reached in at least
-`--min` distinct tasks (default 3, the tunable threshold). A listed section
-gets one check added to the Standards brief above, in the brief's own shape:
-`Also report every <what the section's entry omits>`, ending with
-`(recurring: <section>, added <YYYY-MM-DD>)`. A human writes that sentence, or a
-run the human asked for does. Remove the sentence once
-`RADIN_CLI state finding-classes --since <added date>` no longer lists its
-section and its header reports at least `--min` tasks completed since that date.
-`recurring: none` means there is nothing to add or remove.
 
 Relay both reports under `## Standards` and `## Spec` headings before editing
 anything, each axis in its own order and neither reranked against the other.

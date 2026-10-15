@@ -84,5 +84,3 @@ Report `⏸️ Task <order> '<title>' deferred: <question>. Continuing to next
 task.` and continue. Deferred entries surface in the Phase 5 summary, and
 re-invoking the skill resumes them: append the decision first, then treat the
 entry as `pending`.
-
-If execution surfaces an unsettled decision, ask the user.

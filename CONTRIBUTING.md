@@ -46,3 +46,14 @@ candidate, which `/skill-creator` leaves open:
 
 Keep the edit only when the comparison favours it. A tie means the edit fails
 the no-op test in AGENTS.md: delete it.
+
+## Tune the plan review from recurring findings
+
+Run `radin state finding-classes` and read its `recurring` line: the plan
+sections that review findings reached in at least `--min` distinct tasks
+(default 3). For each listed section, add one check to the Standards brief in
+`skills/radin-plan/SKILL.md` Step 4, in the brief's own shape:
+`Also report every <what the section's entry omits>`, ending with
+`(recurring: <section>, added <YYYY-MM-DD>)`. Remove the sentence once
+`radin state finding-classes --since <added date>` no longer lists its section
+and its header reports at least `--min` tasks completed since that date.

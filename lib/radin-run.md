@@ -40,11 +40,10 @@ you.
   Phase 2 prints it. The user is asked only which tasks to tackle now, and
   for any worktree or branch answer still missing, before anything is written
   to `BACKLOG_STEPS.json` and before any sub-agent is dispatched.
-- **Read-only dispatches ship as one wave.** Planning, fact-finding and
-  debugging sub-agents write no repo code and no shared file — they get no
-  worktree and never call `RADIN_CLI state prepare`, whatever Phase 0.5
-  recorded. N of them to send is N `Agent` calls in one message, however large
-  the wave.
+- **Read-only dispatches get no worktree.** Planning, fact-finding and
+  debugging sub-agents write no repo code and no shared file, so they never
+  call `RADIN_CLI state prepare`, whatever Phase 0.5 recorded. Several
+  fact-finding or debugging dispatches due at once go out as one message.
 - **Phase 0.5's worktree answer sets execution concurrency.** `yes`: execution
   sub-agents whose `task-next` `overlap` line reads `none` may go out in one
   message, since each lands in its own tree. Any other `overlap` value, or
@@ -55,11 +54,6 @@ you.
   and its own `task-report`.
 
 ## Clarifying Ambiguity
-
-When an entry is broad, vague,
-or needs refinement, invoke `/mattpocock-skills:grilling` before dispatching it,
-so the sub-agent gets the user's answer instead of your guess at what the entry
-meant.
 
 A sub-agent's `STATUS: BLOCKED` routes through
 `RADIN_LIB/radin-execute-clarify.md`: read it and follow it — it holds
