@@ -19,7 +19,8 @@ Execute the task below.
 
 Report back the LAST line of your response as exactly one of:
 `STATUS: SUCCESS — <commit hash(es), or "no new commit, already satisfied by <existing
-hash>">`
+hash>">; built: <what now works, one clause>; chose: <each judgment call you
+made and why, or "none">; open: <decisions left for the user, or "none">`
 `STATUS: FAILED — <reason>`
 `STATUS: INCONCLUSIVE — <what could not be checked, and why>`
 `STATUS: BLOCKED (FACT) — <what's unverifiable from here and why, e.g. a third-party

@@ -3,7 +3,7 @@
 `radin-batch` reads this file at Phase 5.
 `RADIN_CLI state report`
 prints the report itself — the residual-changes check, the commit-location
-lines, every `failed`, `blocked` and `deferred` entry with its note, the
+lines with what each task built, chose and left open, every `failed`, `blocked` and `deferred` entry with its note, the
 stashes this session created, the skills `task-next` dropped as
 unrunnable by a sub-agent, and the out-of-plan files per task. One thing it cannot do:
 

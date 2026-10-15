@@ -18,16 +18,18 @@ Answers one checkable question in one turn.
 
 ```
 Answer one factual question about this codebase or its dependencies, and
-change nothing:
+change nothing in the repo:
 <question>
 QUESTION
 </question>
 
 Context: the task at TASK_FILE was blocked on it.
 
-Investigate read-only: read the repo, its lockfiles, its vendored
-dependencies, and its config; run read-only commands (`--help`, `--version`, a
-query, a dry run), `rtk`-wrapped.
+Investigate: read the repo, its lockfiles, its vendored dependencies, and its
+config; run read-only commands (`--help`, `--version`, a query, a dry run),
+`rtk`-wrapped. A fact you can observe by running something is yours to run:
+write a probe script in a scratch directory outside the repo tree, run it,
+quote its output, and delete it. `[measured]` then names the probe.
 `codebase-memory-mcp`'s MCP tools locate a symbol faster than Grep, and a
 graph hit is a pointer: read the file before you cite it, and never conclude
 something is absent from an empty result. Prefer primary sources on this machine
@@ -37,8 +39,8 @@ You are a leaf: no user, no `AskUserQuestion`, no `Workflow`, no sub-agent of
 your own, so invoke no skill that asks a human anything or spawns and waits.
 
 When the evidence is longer than the line can carry, write it to
-`NAMESPACE_DIR/state/facts/TASK_ID.md` (create the directory if needed; that
-file is the one thing you may write).
+`NAMESPACE_DIR/state/facts/TASK_ID.md` (create the directory if needed; that file
+and the scratch probe are the only things you may write).
 
 Your final message is exactly one of these lines, and nothing else:
 `STATUS: FOUND — [measured|inferred] <the answer, one sentence, naming the file path, command

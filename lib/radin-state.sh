@@ -17,7 +17,7 @@
 #                                               # the fourth field is optional and defaults to pending; also writes state/baseline.json
 #   radin-state.sh task-next [<id>]  # pick, gate, claim and write the prompt in one call; an entry flagged planning=needed with no plan gets a planning prompt; exit 1 when nothing is left
 # an execution task also prints "overlap<TAB>none|unclear|<id>[,<id>...]": other live tasks sharing plan files
-#   radin-state.sh task-report <id> <the sub-agent's STATUS: line (SUCCESS|FAILED|INCONCLUSIVE|BLOCKED)> [--next] [--usage "<kind> <tokens> <tool_uses> <duration_ms>"]...  # verify the tree, record the outcome, then a final "next<TAB>continue|debug|clarify FACT|clarify DECISION|clarify STUCK" line
+#   radin-state.sh task-report <id> <the sub-agent's STATUS: line (SUCCESS|FAILED|INCONCLUSIVE|BLOCKED)> [--next] [--usage "<kind> <tokens> <tool_uses> <duration_ms>"]...  # verify the tree, record the outcome (a SUCCESS line's text after its first ";" is journaled as a summary event for report), then a final "next<TAB>continue|debug|clarify FACT|clarify DECISION|clarify STUCK" line
 #   radin-state.sh task-report <id> --no-status <last line> [--next] [--usage "<kind> <tokens> <tool_uses> <duration_ms>"]...  # the same, for a sub-agent that ended with no STATUS: line
 #                                               # --next: when the final line is "next<TAB>continue", also run task-next and print its output after; exit is task-next's
 #   radin-state.sh task-diagnosis <id>          # stdin becomes a **Root cause:** line on the task file, status untouched
@@ -1016,6 +1016,10 @@ task-report)
 		if [ -n "$hash" ]; then
 			if done_out="$(bash "$LIB_DIR/radin-state.sh" task-done "$id" "$hash" 2>&1)"; then
 				printf '%s\n' "$done_out"
+				# What the leaf built, chose and left open: everything after the hash
+				# field, shown per task in `report`.
+				summary="$(printf '%s' "$detail" | sed -n 's/^[^;]*; *//p')"
+				[ -z "$summary" ] || journal "$ns/state" "summary" "$id" "$summary"
 				printf 'next\tcontinue\n'
 				exit 0
 			fi
@@ -1108,6 +1112,7 @@ report)
 
 	# Stashes of this session: every stash event since the last steps-init.
 	# Reporting only -- no control flow reads the journal.
+	summary_lines=""
 	stash_block=""
 	dropped_block=""
 	usage_block=""
@@ -1120,6 +1125,9 @@ report)
 		dropped_block="$(tail -n "+${from:-1}" "$state_dir/journal.jsonl" |
 			sed -nE 's/.*"event":"skill-dropped","id":"[^"]+","detail":"(.*)"\}$/- \1/p' | awk '!seen[$0]++')"
 		# Crash-retried task-done journals twice, hence the dedupe.
+		# A retried task journals a summary per SUCCESS line; the last one wins.
+		summary_lines="$(tail -n "+${from:-1}" "$state_dir/journal.jsonl" |
+			sed -nE 's/.*"event":"summary","id":"([^"]+)","detail":"(.*)"\}$/\1 \2/p')"
 		outplan_block="$(tail -n "+${from:-1}" "$state_dir/journal.jsonl" |
 			sed -nE 's/.*"event":"out-of-plan","id":"([^"]+)","detail":"(.*)"\}$/- \1 — out-of-plan: \2/p' | awk '!seen[$0]++')"
 		# One journaled usage event per dispatch, summed per kind.
@@ -1151,6 +1159,7 @@ report)
 			chash="$(json_get commit "$line")"
 			ctitle="$(json_get title "$line")"
 			[ -n "$ctitle" ] || ctitle="$cid"
+			csum="$(printf '%s\n' "$summary_lines" | awk -v id="$cid" '$1 == id { s = substr($0, length($1) + 2) } END { gsub(/\\"/, "\"", s); gsub(/\\\\/, "\\", s); print s }')"
 			if [ "$worktree_mode" = "yes" ] || [ "$branch_mode" = "yes" ]; then
 				where=""
 				[ ! -d "$repo_root-$cid" ] || where=" in $repo_root-$cid"
@@ -1159,6 +1168,7 @@ report)
 			else
 				succeeded="$(printf '%s\n- %s — %s' "$succeeded" "$ctitle" "$chash")"
 			fi
+			[ -z "$csum" ] || succeeded="$(printf '%s\n  %s' "$succeeded" "$csum")"
 		done <"$completed"
 	fi
 	n_ok=$((n_ok - base_completed))
