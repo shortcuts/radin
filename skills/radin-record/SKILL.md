@@ -11,7 +11,7 @@ description: |
 This captures what a human said; `radin-review` logs what a diff revealed. Every
 downstream reader -- `radin-plan`, `radin-batch`, the execution sub-agent it
 dispatches -- is a **cold start**: it sees the entry and nothing of this
-conversation. Every step below exists to make an entry survive that.
+conversation.
 
 ## Step 1: Decide what to log
 
@@ -34,8 +34,7 @@ own entry, sized as a **vertical slice**:
 - Landed, it is demoable or verifiable on its own.
 - It fits one fresh context window, the cold start it gets.
 - A **prefactor** -- the restructuring that makes the real change easy -- is its
-  own entry, which every entry needing it depends on. Make the change easy, then
-  make the easy change.
+  own entry, which every entry needing it depends on.
 
 One mechanical change whose blast radius fans across the codebase -- rename a
 column, retype a shared symbol -- is the exception: no vertical slice of it
@@ -56,8 +55,8 @@ fetch: log from the ask alone, and continue.
 
 ## Step 2: Chart each item's open decisions
 
-The user is at the keyboard now, and `radin-batch` may later run with nobody
-behind it: settle judgment calls here and execution never has to.
+Settle judgment calls here, while the user is present; `radin-batch` may run
+unattended.
 
 For each item, list what a cold start would have to decide that the conversation
 didn't settle. Tag each question:
@@ -170,7 +169,7 @@ existed, `RADIN_CLI backlog field "<title>" TASK_ID`.
 
 Always append; never scan for near-duplicates or merge with an existing entry: a
 false-positive merge silently drops something the user cared about, which is worse
-than an occasional repeat. The user dedupes.
+than an occasional repeat.
 
 ## Step 6: Report back
 
