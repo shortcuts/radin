@@ -1,12 +1,19 @@
 # radin Agent Reference
 
-radin is a Claude Code plugin made of skills, a CLI, and install glue. It is written in Bash, plus two C files (the TUI and the JSON helper), and it runs on macOS and Linux.
+radin is a Claude Code plugin of skills, a CLI, and install glue.
 
 ## Hard rules
 
-- **bash 3.2** (macOS ships it): Do not use associative arrays, `mapfile`, or `${var,,}`. Do not add a `uname` branch. Resolve tools through `command -v` or `brew shellenv`, and branch only where a tool differs (`md5` versus `md5sum`). Call out every script edit explicitly.
-- **`~/.claude` is not ours.** `install.sh` runs `cp` only on radin's own named files, and it runs `mkdir -p`. It never runs `rm`, never deletes with a wildcard, and never overwrites a file that radin does not ship. There are five exceptions. The first is the `<!-- radin:begin -->`…`<!-- radin:end -->` block in `~/.claude/CLAUDE.md`. The second is the `lib/radin-cbm-config.sh` snapshot and restore of `settings.json` and `~/.claude.json`. The third is `skills/unslop/SKILL.md` and `skills/technical-writing/SKILL.md`. `install.sh` fetches those two skills from upstream, and it overwrites them only when `manifest.json` records them as radin's own. The fourth is the removal of `skills/radin-execute`, `skills/radin-implement` and `skills/radin-run`, renamed to `radin-batch` and `radin-do`. `install.sh` removes one only when its `SKILL.md` still carries radin's own `name:` line. The fifth is `skills/thermo-nuclear`. `install.sh` removes the existing directory only when the fresh `thermo-nuclear-code-quality-review` copy is ready to take its place, and the allowlist in `tests/bash-compat.bats` pins that one `rm`. Call out every `install.sh` edit explicitly.
-- **Companion install is advisory.** When an install fails, it prints a warning, and the run continues. The installer asks one question: which package manager installs the companions (`brew`, `mise`, or `curl`). radin adds no package manager that the user has not already run.
+- **bash 3.2** (macOS ships it). Use no associative arrays, `mapfile`, or `${var,,}`. Add no `uname` branch. Resolve tools with `command -v` or `brew shellenv`. Branch only where a tool differs (`md5` versus `md5sum`). Call out every script edit.
+- **`~/.claude` is not ours.** `install.sh` runs `cp` only on radin's own named files, plus `mkdir -p`. It never runs `rm`, deletes with a wildcard, or overwrites a file radin does not ship. Five exceptions:
+  1. The `<!-- radin:begin -->`…`<!-- radin:end -->` block in `~/.claude/CLAUDE.md`.
+  2. The `lib/radin-cbm-config.sh` snapshot and restore of `settings.json` and `~/.claude.json`.
+  3. `skills/unslop/SKILL.md` and `skills/technical-writing/SKILL.md`. `install.sh` fetches both from upstream and overwrites them only when `manifest.json` lists them as radin's own.
+  4. `skills/radin-execute`, `skills/radin-implement` and `skills/radin-run`, renamed to `radin-batch` and `radin-do`. `install.sh` removes one only when its `SKILL.md` still has radin's own `name:` line.
+  5. `skills/thermo-nuclear`. `install.sh` removes it only when the fresh `thermo-nuclear-code-quality-review` copy is ready. `tests/bash-compat.bats` pins that one `rm`.
+
+  Call out every `install.sh` edit.
+- **Companion install is advisory.** A failed install prints a warning and the run continues. The installer asks one question: which package manager installs the companions (`brew`, `mise`, or `curl`). radin adds no package manager the user has not already run.
 
 ## Rule enforcers
 
@@ -18,46 +25,66 @@ radin is a Claude Code plugin made of skills, a CLI, and install glue. It is wri
 | One owner per delegation | `tests/skill-names.bats` (every name resolves) | Nothing for "one file per delegation" and graph tool names; review only. |
 | Critical-path-only tests ([policy](#test-suite-speed)) | None; review only | A new test that guards no install or TUI failure passes unnoticed. |
 
-A rule with no enforcer is a repeat risk, so a new hard rule lands with its row.
+Add a row with every new hard rule.
 
 ## Where to edit what
 
 | Change | Edit |
 | --- | --- |
-| A skill's behavior | `skills/<name>/SKILL.md`. It is the source of truth, never the installed copy. |
+| A skill's behavior | `skills/<name>/SKILL.md`, never the installed copy. |
 | Anything deterministic (install, update, doctor, uninstall, backlog, state, TUI) | A `bin/radin` subcommand in `lib/`, never a skill. |
-| Backlog loop `radin-batch` and `radin-do` share | `lib/radin-run.md`. Each `SKILL.md` keeps only its no-plan rule. |
+| Backlog loop of `radin-batch` and `radin-do` | `lib/radin-run.md`. Each `SKILL.md` keeps only its no-plan rule. |
 | Rare-need part of `radin-batch` | `lib/radin-execute-*.md`, read on demand. |
-| Sub-agent model, how CLI invoked | Nothing. Write a token, and `install.sh` resolves it ([how](docs/architecture.md#install-time-substitution)). |
+| Sub-agent model, CLI invocation | Nothing. Write a token and `install.sh` resolves it ([how](docs/architecture.md#install-time-substitution)). |
 
-`install.sh` goes one way, from the repo to `~/.claude`. A new skill needs a `cp -r` entry there, an entry in `lib/radin-doctor.sh`, a README row, and a `docs/architecture.md` layout entry. `tests/skill-names.bats` fails when one is missing.
+A new skill needs a `cp -r` entry in `install.sh`, an entry in `lib/radin-doctor.sh`, a README row, and a `docs/architecture.md` layout entry.
 
-A new companion that ships its own stats or a gain command needs a bullet in `skills/radin-stats/SKILL.md`. Without that bullet, the roundup never sees it.
+A new companion that ships stats or a gain command needs a bullet in `skills/radin-stats/SKILL.md`.
 
 ## Storage
 
-The state directory is `<repo-root>/.claude/.radin/`. It sits outside the repo, under `$PWD`. It holds `backlog/` (`index.jsonl` + `tasks/<id>.md`), `state/`, `plans/`, and `reviews/`. The format is described in [docs/domain-models.md](docs/domain-models.md). It is the only thing radin writes into a consumer repo, and radin never touches that repo's `.gitignore`.
+The state directory is `<repo-root>/.claude/.radin/`, under `$PWD`. It holds `backlog/` (`index.jsonl` and `tasks/<id>.md`), `state/`, `plans/`, and `reviews/` ([format](docs/domain-models.md)). It is the only thing radin writes into a consumer repo. radin never touches that repo's `.gitignore`.
 
-Read and write this directory only through the CLI (`radin backlog …`, `radin state …`). No code parses `index.jsonl` or `completed.json`, and no code grabs a task by line number. If a data view is needed and no subcommand provides it, add a subcommand.
+Read and write it only through the CLI (`radin backlog …`, `radin state …`). No code parses `index.jsonl` or `completed.json`, or grabs a task by line number. When no subcommand gives the view you need, add one.
 
 ## Skills, agents, sub-agents
 
-Every entry point is a skill, because a skill runs in the user's thread and can talk to the user. A sub-agent cannot. It has no prose to the user, no `AskUserQuestion`, and no background-task notification. All three look like a hang. A sub-agent is a leaf worker that a skill dispatches. Before a prompt points at a skill, check that the skill asks the user nothing and spawns no agent ([constraints](docs/technical-constraints.md)). Every prompt names its companion directly, with no `command -v` gate and no escape clause. The install is all-or-nothing, so a missing tool fails loudly, and that failure counts as a skip. The only guard that stays is a skill that asks a human anything. A sub-agent drops that guard and never waits on it.
+Every entry point is a skill, because only a skill runs in the user's thread and can talk to the user. A sub-agent is a leaf worker that a skill dispatches. It cannot write prose to the user, call `AskUserQuestion`, or receive a background-task notification.
+
+- Before a prompt points at a skill, check that the skill asks the user nothing and spawns no agent ([constraints](docs/technical-constraints.md)).
+- Name each companion directly, with no `command -v` gate and no escape clause. A missing tool fails loudly and counts as a skip.
+- The one guard that stays is a skill that asks a human anything. A sub-agent drops it and never waits on it.
 
 ## Autonomy
 
-Routers and sub-agents proceed on reversible work without asking. Reversible work covers code edits, notes, task splits and backlog entries, anything that `git revert` or deleting a file radin wrote can undo. Irreversible work pauses: force-push, deploy, data deletion and external messages. A skill in the user's thread asks the user before it acts. A sub-agent cannot ask, so it stops and reports `STATUS: BLOCKED (DECISION)` with the question, the options and its recommendation. The human owns product direction, so a sub-agent that meets a product choice reports it rather than picking one. When an agent is asked to add scope, it replies with its real judgment, and "no" is an acceptable answer. Agreement the agent does not hold is not a reply. A sub-agent's blocker is a question to the user, never a reason to skip the task.
+Routers and sub-agents proceed on reversible work without asking: code edits, notes, task splits, backlog entries, anything `git revert` or deleting a file radin wrote undoes. Irreversible work pauses: force-push, deploy, data deletion, external messages.
+
+- A skill in the user's thread asks the user first.
+- A sub-agent stops and reports `STATUS: BLOCKED (DECISION)` with the question, the options, and its recommendation. It never skips the task.
+- The human owns product direction. A sub-agent that meets a product choice reports it and does not pick.
+- Asked to add scope, an agent gives its real judgment. "No" is a valid reply. Agreement it does not hold is not.
 
 ## Writing prose for agents
 
-- **No-op test.** A sentence that does not change what the model does, compared with its default, costs payload and says nothing. Delete the whole sentence, and never trim a single word out of it. The test is disputed, so measure it ([how](CONTRIBUTING.md#measure-a-prose-edit)) instead of debating it.
-- **Positive over prohibition.** Banned behavior dragged into context gets half-read as an instruction to do it. State the target behavior instead. Keep a prohibition only as a hard guardrail that has no positive phrasing, and then pair it with the target.
+Applies to `skills/*/SKILL.md`, `lib/radin-*.md`, and this file. Style source: [cursor/plugins `pstack/skills`](https://github.com/cursor/plugins/tree/main/pstack/skills).
 
-The rest lives elsewhere. `/mattpocock-skills:writing-for-agents` holds the full rule set (leading word, completion criterion, progressive disclosure). The `STE` output style covers sentence craft. `unslop` covers human-facing prose, and `technical-writing` covers docs, READMEs, and PR and commit text. [One rule, one file](docs/architecture.md#one-rule-one-file) says where each rule lives.
+- **No-op test.** Delete a whole sentence that does not change what the model does. Never trim one word out of it. Measure disputed cases ([how](CONTRIBUTING.md#measure-a-prose-edit)).
+- **Positive over prohibition.** State the target behavior. Keep a prohibition only as a hard guardrail with no positive form, and pair it with the target.
+- **Start at the job.** Open with the task or step 1.
+- **Description is a trigger.** Start "Use for" or "Apply when".
+- **Every sentence carries a value:** a flag, a field, a default, a fallback, or a decision rule.
+- **Bold lead phrase, one imperative sentence.** Add `**Why:**` only when the rule looks wrong without it.
+- **One yes/no `**The test:**` per judgment call.**
+- **Process skills:** verb-titled phases, ending with `**Reply:**` (what the user gets back).
+- **Name another skill. Never restate it** ([one rule, one file](docs/architecture.md#one-rule-one-file)).
+- **Use the short, exact word,** one term per concept. Keep "the", "a", "not", "only". Skip em dashes, colon connectors, metaphor nouns, and "simply".
+- **A cut never adds words.** Compare `wc -w` before and after. When no sentence fails the no-op test, leave the file unchanged.
+
+More rules: `/mattpocock-skills:writing-for-agents`, the `STE` output style, `unslop` (human-facing prose), `technical-writing` (docs, READMEs, PR and commit text).
 
 ## Delegation: one owner per job
 
-If a shipped tool does a job, name that tool. Never write a radin version of it. Each delegation is named in exactly one file, because a second copy drifts silently, and [a test pins every name](docs/architecture.md#delegation-is-pinned-by-a-test).
+When a shipped tool does a job, name that tool. Never write a radin version. Name each delegation in one file ([a test pins every name](docs/architecture.md#delegation-is-pinned-by-a-test)).
 
 | Job | Owner |
 | --- | --- |
@@ -69,32 +96,38 @@ If a shipped tool does a job, name that tool. Never write a radin version of it.
 | Output compression · structural search/diff | `rtk` · `headroom sg`/`diff`/`loc` |
 | Agent-doc writing rules | `/mattpocock-skills:writing-for-agents` |
 
-The graph tool name lives in one file only, and it must exist in the upstream table. A wrong name causes a failed call in every sub-agent ([which files, and the pointer rule](docs/architecture.md#code-graph-wiring-codebase-memory-mcp)).
+The graph tool name lives in one file and must exist in the upstream table ([which files, and the pointer rule](docs/architecture.md#code-graph-wiring-codebase-memory-mcp)).
 
 ## Decisions that look like bugs
 
-- **No router-side per-task verification in `radin-batch`.** The leaf verifies and reviews its own staged diff before it commits. A `FAILED` task gets a Debug prompt once per session, and one that still fails asks the user and re-runs; the router defers only on the user's explicit word ([why](docs/architecture.md#verification-in-radin-batch)).
+- **No router-side per-task verification in `radin-batch`.** The leaf verifies and reviews its own staged diff before it commits. A `FAILED` task gets a Debug prompt once per session. One that still fails asks the user and re-runs. The router defers only on the user's explicit word ([why](docs/architecture.md#verification-in-radin-batch)).
 - **What a sub-agent learns stays on its task.** It records a `**Fact:**` or `**Root cause:**` line, and the long form goes in `state/facts/<id>.md`. There is no shared note file and no cross-task memory.
-- **The `radin-batch` worktree and branch answers never reach a prompt.** Only `radin-state.sh prepare` turns those answers into git commands. A model that receives them can eventually override a `no`.
-- **`lib/radin-cbm-config.sh` takes a snapshot before the upstream write.** The upstream installer replaces the whole hook array instead of merging into it. Without the snapshot, a machine loses its hooks silently ([limits](docs/technical-constraints.md)).
-- **Two C files only: the TUI (`lib/radin-tui.c`) and the JSON helper (`lib/radin-cbm-json.c`).** The TUI draws and dispatches keys only. It uses raw ANSI and `termios`, and every mutation shells out to `radin-backlog.sh`. The helper holds every JSON rule that `radin repair` and `radin hooks mcp` need. Those scripts keep none of their own, and radin needs no Python of its own. `install.sh` builds both with `cc`, and that build is advisory. Without a compiler, there is no TUI and no `radin repair`, and `radin hooks mcp` prints an entry for the user to paste by hand. The rest still installs ([rules](docs/architecture.md#the-human-tui)).
-- **`order` moves a dependency up, never a dependent down.** The human priority ranking survives as far as the dependency graph allows. Kahn's algorithm with a priority tie-break discards more of it.
-- **The TUI loads `backlog list --order created`,** so a mutation reorders nothing and each row stays put. `Shift-A`, `Shift-P`, `Shift-C`, and `Shift-T` are the only reorder keys. They are session-only, and the active one appears in the header. The CLI default stays `priority`. That default is the ordering contract that `radin-prioritization.md` reads.
-- **No batching of several tasks into one sub-agent.** One sub-agent takes one task. Each task returns one `STATUS` line, and a failure stays inside its own task. A leaf starts cold, so file-locality ordering saves no tokens.
-- **No planning of every task up front as one wave.** A wave plan drifts when an earlier commit changes the tree. Just-in-time planning, one task at a time, is a deliberate defense against drift ([why](docs/architecture.md#verification-in-radin-batch)).
-- **No arena or judge at execution level.** N worktrees, N full implementations, and a judge that reads N diffs break the router's low-resolution rule. At planning, the idea stays open as an opt-in. It is tracked in its own backlog entry and gated on a review-origin rollup.
-- **No model escalation on retry.** All four major roles (planning, execution, review, and debug) default to sonnet. Escalating on retry therefore changes nothing by default.
+- **`radin-batch` worktree and branch answers never reach a prompt.** Only `radin-state.sh prepare` turns them into git commands. A model that receives them can eventually override a `no`.
+- **`lib/radin-cbm-config.sh` snapshots before the upstream write.** The upstream installer replaces the whole hook array and does not merge ([limits](docs/technical-constraints.md)).
+- **Two C files only: the TUI (`lib/radin-tui.c`) and the JSON helper (`lib/radin-cbm-json.c`).**
+  - The TUI draws and dispatches keys with raw ANSI and `termios`. Every mutation shells out to `radin-backlog.sh`.
+  - The helper holds every JSON rule that `radin repair` and `radin hooks mcp` need. Those scripts keep none. radin needs no Python.
+  - `install.sh` builds both with `cc`, and the build is advisory. Without a compiler there is no TUI and no `radin repair`, and `radin hooks mcp` prints an entry to paste by hand ([rules](docs/architecture.md#the-human-tui)).
+- **`order` moves a dependency up, never a dependent down.** Kahn's algorithm with a priority tie-break discards more of the human ranking.
+- **The TUI loads `backlog list --order created`,** so a mutation reorders nothing. `Shift-A`, `Shift-P`, `Shift-C`, and `Shift-T` are the only reorder keys. They last one session, and the header shows the active one. The CLI default stays `priority`, the contract `radin-prioritization.md` reads.
+- **One sub-agent takes one task** and returns one `STATUS` line. A leaf starts cold, so batching tasks for file locality saves no tokens.
+- **Plan one task at a time, just in time.** A wave plan of every task drifts when an earlier commit changes the tree ([why](docs/architecture.md#verification-in-radin-batch)).
+- **No arena or judge at execution level.** N worktrees and a judge that reads N diffs break the router's low-resolution rule. At planning it stays an opt-in in its own backlog entry, gated on a review-origin rollup.
+- **No model escalation on retry.** All four roles (planning, execution, review, debug) default to sonnet.
 
 ## Before committing
 
-- `make lint` and `make test` must come back clean, and `make test` must stay under 15 seconds ([policy](#test-suite-speed)). Every tree-only test replays one recorded `install.sh` run. A live run serves only install-time behavior. The mock command is `tests/helpers/mock.c`, one compiled binary, not a shell stub per command, because `/bin/sh` startup costs 20 ms per call. No test makes a network request.
+- `make lint` and `make test` come back clean, and `make test` stays under 15 seconds ([policy](#test-suite-speed)).
+  - Every tree-only test replays one recorded `install.sh` run. A live run serves only install-time behavior.
+  - The mock command is `tests/helpers/mock.c`, one compiled binary, because `/bin/sh` startup costs 20 ms per stub call.
+  - No test makes a network request.
 - Update the docs in the same commit: `docs/architecture.md` (layout, namespace resolution), `docs/domain-models.md` (format), the README (a new skill or companion).
 
 ## Test suite speed
 
 - Test the critical paths only: the install path (`install.sh`, the `radin` dispatcher, `radin-cbm-*`, `radin-doctor`, `radin-uninstall`, `radin update`) and the TUI path (`lib/radin-tui.c` with the `radin-backlog.sh` verbs it calls).
-- Before adding a test, name the install or TUI step it guards and the failure it catches: a broken step, lost user data, or a half-written `~/.claude`.
-- Assert the failure the test guards. A test that passes only because everything went right, pins formatting or escape bytes, or repeats a case another test already covers does not go in.
-- Remove a test when its step leaves the critical paths, and update the "Rule enforcers" row that named it.
+- Before you add a test, name the install or TUI step it guards and the failure it catches: a broken step, lost user data, or a half-written `~/.claude`.
+- Reject a test that passes only when everything goes right, pins formatting or escape bytes, or repeats another test's case.
+- When a step leaves the critical paths, remove its test and update the "Rule enforcers" row that named it.
 
-For details, see [architecture](docs/architecture.md) · [domain models](docs/domain-models.md) · [constraints](docs/technical-constraints.md) · [contributing](CONTRIBUTING.md).
+See [architecture](docs/architecture.md) · [domain models](docs/domain-models.md) · [constraints](docs/technical-constraints.md) · [contributing](CONTRIBUTING.md).
