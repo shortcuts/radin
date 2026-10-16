@@ -472,6 +472,9 @@ pick_with_keys() {
   run ! grep -q 'disable-model-invocation' "$TEST_HOME/.claude/skills/thermo-nuclear/SKILL.md"
   grep -q 'config set auto_index true' "$TEST_HOME/codebase-memory-mcp.log"
   grep -q '"cbm_agent_config": true' "$manifest"
+  # Upstream's wiring ships no CLAUDE.md text, so without radin's section no
+  # agent is ever told the graph tools exist.
+  grep -q '## MCP Tools: codebase-memory-mcp' "$TEST_HOME/.claude/CLAUDE.md"
   run ! grep -qE 'install|update|marketplace' "$TEST_HOME/claude.log"
 }
 

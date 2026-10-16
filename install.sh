@@ -806,6 +806,9 @@ if CBM_BIN="$(cbm_bin)"; then
 			else
 				ok "codebase-memory-mcp wired: skill, graph agents, hooks, user-scope MCP (every repo, no per-project step)."
 			fi
+			# Upstream writes no CLAUDE.md text, and a skill description alone
+			# did not get agents to call the graph (25 calls in 402 sessions).
+			bash "$HOME/.claude/.radin/lib/radin-cbm-hooks.sh" claude-md || true
 		else
 			warn "codebase-memory-mcp configuration failed -- radin itself is unaffected."
 			warn "Your own hooks were restored from the snapshot. Details: ${BOLD}$CBM_LOG${RESET}"

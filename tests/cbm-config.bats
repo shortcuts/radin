@@ -184,6 +184,22 @@ EOF
   [[ "$output" == *"user-scope MCP entry: present"* ]]
 }
 
+# hook-augment prints nothing once it runs past its 2000 ms default, and on a
+# big graph (metis, 248 MB) every run does. The settings hook timeout is 5 s.
+@test "install sets a hook deadline under the hook timeout, keeping the user's own" {
+  stub_cbm
+  echo '{"env": {"A": "1"}}' > "$TEST_HOME/.claude/settings.json"
+  run bash "$CLI" install
+  [ "$status" -eq 0 ]
+  grep -q '"CBM_HOOK_DEADLINE_MS": "4000"' "$TEST_HOME/.claude/settings.json"
+  grep -q '"A": "1"' "$TEST_HOME/.claude/settings.json"
+  echo '{"env": {"CBM_HOOK_DEADLINE_MS": "3000"}}' > "$TEST_HOME/.claude/settings.json"
+  run bash "$CLI" install
+  [ "$status" -eq 0 ]
+  grep -q '"CBM_HOOK_DEADLINE_MS": "3000"' "$TEST_HOME/.claude/settings.json"
+  [ "$(grep -c CBM_HOOK_DEADLINE_MS "$TEST_HOME/.claude/settings.json")" -eq 1 ]
+}
+
 @test "install restores an mcpServers entry upstream's write dropped" {
   # The stub replaces ~/.claude.json wholesale the way #1200 does, so "other"
   # is gone by the time radin looks.

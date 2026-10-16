@@ -1089,6 +1089,41 @@ bad:
 	return 1;
 }
 
+/* Adds env.<key> only when absent: the value is a default, never an override
+ * of what the user set. A missing file is left alone -- restore, not this,
+ * decides whether settings.json exists. */
+static int ensure_env(const char *path, const char *key, const char *value)
+{
+	int err;
+	JVal *root = parse_file(path, &err), *env;
+
+	if (err == 2 || (root && root->kind != J_OBJ))
+		goto bad;
+	if (!root)
+		return 0;
+	env = obj_get(root, "env");
+	if (env && env->kind != J_OBJ)
+		goto bad;
+	if (!env) {
+		env = jnew(J_OBJ);
+		obj_set(root, "env", env);
+	}
+	if (obj_get(env, key)) {
+		printf("PRESENT  %s (env.%s)\n", path, key);
+		return 0;
+	}
+	obj_set(env, key, jstr(str_encode(value)));
+	write_file(path, root);
+	printf("ADDED    %s (env.%s)\n", path, key);
+	return 0;
+bad:
+	fprintf(stderr,
+	        "radin-cbm-json: %s is not valid JSON -- fix it first, "
+	        "nothing written\n",
+	        path);
+	return 1;
+}
+
 static int usage(void)
 {
 	fprintf(stderr,
@@ -1096,7 +1131,8 @@ static int usage(void)
 	        "<claude_json> <snap_claude_json> <cbm>\n"
 	        "       radin-cbm-json adopt-mcp <staged_claude_json> <claude_json>\n"
 	        "       radin-cbm-json wired <settings> <claude_json> <cbm>\n"
-	        "       radin-cbm-json ensure-mcp <mcp_json> <name> <command>\n");
+	        "       radin-cbm-json ensure-mcp <mcp_json> <name> <command>\n"
+	        "       radin-cbm-json ensure-env <settings> <key> <value>\n");
 	return 1;
 }
 
@@ -1119,6 +1155,8 @@ int main(int argc, char **argv)
 	}
 	if (!strcmp(argv[1], "ensure-mcp") && argc == 5)
 		return ensure_mcp_entry(argv[2], argv[3], argv[4]);
+	if (!strcmp(argv[1], "ensure-env") && argc == 5)
+		return ensure_env(argv[2], argv[3], argv[4]);
 	if (!strcmp(argv[1], "wired") && argc == 5) {
 		settings_path = argv[2];
 		claude_json_path = argv[3];

@@ -43,10 +43,10 @@ CBM_MARKER='<!-- codebase-memory-mcp MCP tools -->'
 CBM_SECTION="$CBM_MARKER"'
 ## MCP Tools: codebase-memory-mcp
 
-This machine has the codebase-memory-mcp knowledge graph. In projects wired
-for it (an `mcpServers.codebase-memory-mcp` entry in `.mcp.json`), use its MCP
-tools before Grep/Glob/Read -- they answer structural questions in fewer
-tokens than file scanning:
+This machine has the codebase-memory-mcp knowledge graph. For a structural
+question (where a symbol is defined, who calls it, what a change affects), use
+its MCP tools before Grep/Glob/Read -- they answer in fewer tokens than file
+scanning. If the tools are deferred, load them with `ToolSearch` first:
 
 - `search_graph` to find a symbol: `query` for BM25, `semantic_query` when you know the idea but not the name; `search_code` for text inside indexed files
 - `get_file_outline` for the symbols in one file, before reading all of it
