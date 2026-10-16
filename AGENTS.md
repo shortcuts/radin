@@ -19,14 +19,16 @@ radin is a Claude Code plugin of skills, a CLI, and install glue.
 
 | Rule | Enforcer | Gap |
 | --- | --- | --- |
-| bash 3.2 | `tests/bash-compat.bats` (banned constructs) | Grep only; no 3.2 interpreter run. |
+| bash 3.2 | `tests/bash-compat.bats` | Grep only; no 3.2 interpreter run. |
 | `~/.claude` ownership | `tests/install.bats` ("never overwrites a skill radin did not install"), `tests/bash-compat.bats` (`rm` allowlist), `SHIPPED` (install copies and uninstall removes only listed names) | Foreign content in the `CLAUDE.md` block and settings restore is untested. |
 | One list of shipped files | `scripts/shipped.sh check`, run by `make check` | README row text is hand-written. |
-| Companion install is advisory | `tests/install.bats` ("a failing companion tool and a missing claude CLI both warn, and the install completes") | None. |
+| Companion install is advisory | `tests/install.bats` ("a failing companion tool...") | None. |
 | One owner per delegation | `tests/skill-names.bats` (every name resolves) | Nothing for "one file per delegation" and graph tool names; review only. |
 | One owner per prose rule | `LEAF_CONTRACT` token, `scripts/check-prose.sh` (new verbatim sentence copy) | A paraphrase or contradiction; review only. |
-| Name each companion directly, no guard or escape clause | `scripts/check-prose.sh` (guard phrases in `skills/*/SKILL.md` and `lib/*.md`), run by `make check` | A paraphrase escapes the phrase list. |
-| A test must be able to fail | `scripts/check-prose.sh` (bare `! cmd` mid-test in `tests/*.bats`), run by `make check` | Other vacuous patterns; review only. |
+| Name each companion directly, no guard or escape clause | `scripts/check-prose.sh` guard phrases | A paraphrase escapes the phrase list. |
+| A test must be able to fail | `scripts/check-prose.sh` bare `! cmd` lint | Other vacuous patterns; review only. |
+| Same checks locally and in CI | `make check` and `make test` in `.github/workflows/ci.yml` | Linux run unverified. |
+| Deterministic work lives in the CLI | None | Review only. |
 | Critical-path-only tests ([policy](#test-suite-speed)) | None; review only | A new test that guards no install or TUI failure passes unnoticed. |
 
 Add a row with every new hard rule.
@@ -42,7 +44,7 @@ Add a row with every new hard rule.
 | What ships, a renamed or removed skill or lib file | `SHIPPED`, then `make gen` ([how](docs/architecture.md#one-list-of-shipped-files)). |
 | Sub-agent model, CLI invocation | Nothing. Write a token and `install.sh` resolves it ([how](docs/architecture.md#install-time-substitution)). |
 
-A new skill or lib file needs its content, one `SHIPPED` line, and `make gen`. A new skill also needs a README row. `make check` names any you missed.
+A new skill also needs a README row. `make check` names any step you missed.
 
 A new companion that ships stats or a gain command needs a bullet in `skills/radin-stats/SKILL.md`.
 
@@ -122,7 +124,7 @@ The graph tool name lives in one file and must exist in the upstream table ([whi
 
 ## Before committing
 
-- `make lint` and `make test` come back clean, and `make test` stays under 15 seconds ([policy](#test-suite-speed)).
+- `make lint`, `make check` and `make test` come back clean, and `make test` stays under 15 seconds ([policy](#test-suite-speed)).
   - Every tree-only test replays one recorded `install.sh` run. A live run serves only install-time behavior.
   - The mock command is `tests/helpers/mock.c`, one compiled binary, because `/bin/sh` startup costs 20 ms per stub call.
   - No test makes a network request.
