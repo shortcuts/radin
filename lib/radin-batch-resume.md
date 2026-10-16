@@ -16,7 +16,7 @@ entries per Phase 1 step 3, treat `failed` and `blocked` entries as `pending`
 for retry, and continue.
 
 One exception: a `blocked` entry whose `note` says it hit `MAX_ATTEMPTS` stays
-blocked — it needs the user to look, not another retry.
+blocked. It needs the user to look, not another retry.
 
 ## State Persistence Contract
 
