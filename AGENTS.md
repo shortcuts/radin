@@ -20,7 +20,8 @@ radin is a Claude Code plugin of skills, a CLI, and install glue.
 | Rule | Enforcer | Gap |
 | --- | --- | --- |
 | bash 3.2 | `tests/bash-compat.bats` (banned constructs) | Grep only; no 3.2 interpreter run. |
-| `~/.claude` ownership | `tests/install.bats` ("never overwrites a skill radin did not install"), `tests/bash-compat.bats` (`rm` allowlist) | Foreign content in the `CLAUDE.md` block and settings restore is untested. |
+| `~/.claude` ownership | `tests/install.bats` ("never overwrites a skill radin did not install"), `tests/bash-compat.bats` (`rm` allowlist), `SHIPPED` (install copies and uninstall removes only listed names) | Foreign content in the `CLAUDE.md` block and settings restore is untested. |
+| One list of shipped files | `scripts/shipped.sh check`, run by `make check` | README row text is hand-written. |
 | Companion install is advisory | `tests/install.bats` ("a failing companion tool and a missing claude CLI both warn, and the install completes") | None. |
 | One owner per delegation | `tests/skill-names.bats` (every name resolves) | Nothing for "one file per delegation" and graph tool names; review only. |
 | Name each companion directly, no guard or escape clause | `scripts/check-prose.sh` (guard phrases in `skills/*/SKILL.md` and `lib/*.md`), run by `make check` | A paraphrase escapes the phrase list. |
@@ -37,9 +38,10 @@ Add a row with every new hard rule.
 | Anything deterministic (install, update, doctor, uninstall, backlog, state, TUI) | A `bin/radin` subcommand in `lib/`, never a skill. |
 | Backlog loop of `radin-batch` and `radin-do` | `lib/radin-run.md`. |
 | Rare-need part of `radin-batch` | `lib/radin-execute-*.md`, read on demand. |
+| What ships, a renamed or removed skill or lib file | `SHIPPED`, then `make gen` ([how](docs/architecture.md#one-list-of-shipped-files)). |
 | Sub-agent model, CLI invocation | Nothing. Write a token and `install.sh` resolves it ([how](docs/architecture.md#install-time-substitution)). |
 
-A new skill needs a `cp -r` entry in `install.sh`, an entry in `lib/radin-doctor.sh`, a README row, and a `docs/architecture.md` layout entry.
+A new skill or lib file needs its content, one `SHIPPED` line, and `make gen`. A new skill also needs a README row. `make check` names any you missed.
 
 A new companion that ships stats or a gain command needs a bullet in `skills/radin-stats/SKILL.md`.
 

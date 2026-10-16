@@ -8,7 +8,7 @@
 
 setup() {
   REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
-  FILES="install.sh bin/radin lib/*.sh tests/bench-tui.sh"
+  FILES="install.sh bin/radin lib/*.sh scripts/*.sh tests/bench-tui.sh"
   # Known exceptions, in file order: removes a skill radin renamed, then the
   # radin-installed thermo-nuclear copy right before the fresh npx copy is
   # renamed over it.

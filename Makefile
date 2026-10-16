@@ -1,4 +1,4 @@
-.PHONY: install update build run test bench-tui lint check clean
+.PHONY: install update build run test bench-tui lint check gen clean
 
 install:
 	./install.sh
@@ -41,7 +41,7 @@ test: build
 bench-tui:
 	@tests/bench-tui.sh
 
-SH_FILES = tests/bench-tui.sh install.sh bin/radin lib/radin-namespace.sh lib/radin-json.sh lib/radin-backlog.sh lib/radin-state.sh lib/radin-scope.sh lib/radin-prompt.sh lib/radin-cbm-hooks.sh lib/radin-cbm-config.sh lib/radin-update.sh lib/radin-doctor.sh lib/radin-uninstall.sh scripts/check-prose.sh
+SH_FILES = tests/bench-tui.sh scripts/shipped.sh install.sh bin/radin lib/radin-namespace.sh lib/radin-json.sh lib/radin-backlog.sh lib/radin-state.sh lib/radin-scope.sh lib/radin-prompt.sh lib/radin-cbm-hooks.sh lib/radin-cbm-config.sh lib/radin-update.sh lib/radin-doctor.sh lib/radin-uninstall.sh scripts/check-prose.sh
 
 clean:
 	rm -f lib/radin-tui lib/radin-cbm-json tests/helpers/pty-run tests/helpers/mock
@@ -58,3 +58,7 @@ check:
 	shfmt -d $(SH_FILES)
 	markdownlint '**/*.md' --ignore node_modules
 	scripts/check-prose.sh
+	scripts/shipped.sh check
+
+gen:
+	scripts/shipped.sh gen

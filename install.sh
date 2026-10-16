@@ -153,31 +153,23 @@ MANIFEST_VERSION="dev"
 
 step "Installing skills into ~/.claude"
 mkdir -p "$HOME/.claude/skills" "$HOME/.claude/.radin/lib"
-# Explicit name lists, not lib/* or skills/* globs: install.sh may only copy
-# files radin itself named (AGENTS.md Constraints), and a stray file in a dev
-# clone must not ship.
-for f in radin-namespace.sh radin-json.sh radin-backlog.sh radin-tui.c \
-	radin-cbm-json.c radin-state.sh \
-	radin-scope.sh radin-prompt.sh \
-	radin-prompt-planning.md radin-prompt-execution.md \
-	radin-prompt-debug.md radin-prompt-factfind.md \
-	radin-prioritization.md \
-	radin-execute-recovery.md radin-execute-reporting.md \
-	radin-execute-gate.md radin-execute-review.md \
-	radin-execute-clarify.md radin-execute-session.md \
-	radin-execute-resume.md radin-run.md radin-review-core.md radin-cbm-hooks.sh \
-	radin-cbm-config.sh radin-update.sh \
-	radin-doctor.sh radin-uninstall.sh; do
+# Explicit names from SHIPPED, not lib/* or skills/* globs: install.sh may only
+# copy files radin itself named (AGENTS.md Constraints), and a stray file in a
+# dev clone must not ship.
+# BEGIN shipped (generated from SHIPPED by scripts/shipped.sh; run make gen, never edit)
+SHIPPED_SKILLS="radin-batch radin-do radin-plan radin-record radin-review radin-setup-hooks radin-show radin-stats radin-doctor radin-uninstall"
+SHIPPED_LIB="radin-namespace.sh radin-json.sh radin-backlog.sh radin-tui.c radin-cbm-json.c radin-state.sh radin-scope.sh radin-prompt.sh radin-prompt-planning.md radin-prompt-execution.md radin-prompt-debug.md radin-prompt-factfind.md radin-prioritization.md radin-execute-recovery.md radin-execute-reporting.md radin-execute-gate.md radin-execute-review.md radin-execute-clarify.md radin-execute-session.md radin-execute-resume.md radin-run.md radin-review-core.md radin-cbm-hooks.sh radin-cbm-config.sh radin-update.sh radin-doctor.sh radin-uninstall.sh"
+RENAMED_SKILLS="radin-execute radin-implement radin-run"
+# END shipped
+for f in $SHIPPED_LIB; do
 	cp "$RADIN_ROOT/lib/$f" "$HOME/.claude/.radin/lib/"
 done
-for s in radin-batch radin-do radin-review radin-record radin-show radin-plan \
-	radin-setup-hooks radin-stats radin-doctor radin-uninstall; do
+for s in $SHIPPED_SKILLS; do
 	cp -r "$RADIN_ROOT/skills/$s" "$HOME/.claude/skills/"
 done
 
-# radin-execute, radin-implement and radin-run became radin-batch and radin-do.
 # Only a dir whose SKILL.md still names itself is radin's own to remove.
-for s in radin-execute radin-implement radin-run; do
+for s in $RENAMED_SKILLS; do
 	if grep -qx "name: $s" "$HOME/.claude/skills/$s/SKILL.md" 2>/dev/null; then
 		rm -rf "$HOME/.claude/skills/$s"
 	fi
@@ -471,6 +463,23 @@ MODEL_MAJOR="sonnet"
 # meets the dirty-tree check and Phase 6's review. Both take the cheapest tier.
 MODEL_MINOR="haiku"
 
+# A file with no token is a no-op, so every pass runs over every SKILL.md and
+# lib/*.md and keeps no list of its own.
+shipped_text_files() {
+	local s f
+	for s in $SHIPPED_SKILLS; do printf '%s\n' "$HOME/.claude/skills/$s/SKILL.md"; done
+	for f in $SHIPPED_LIB; do case "$f" in *.md) printf '%s\n' "$HOME/.claude/.radin/lib/$f" ;; esac done
+}
+
+# Quoted JSON array body of a space-separated name list.
+json_names() {
+	local n sep=""
+	for n in $1; do
+		printf '%s"%s"' "$sep" "$n"
+		sep=", "
+	done
+}
+
 set_role_models() {
 	# No `sed -i`: BSD sed (macOS) and GNU sed (Linux) take incompatible forms
 	# of it. Temp-file-plus-mv avoids the divergence entirely.
@@ -540,11 +549,8 @@ if prompt_yn "Choose radin-batch's sub-agent models? (defaults: sonnet, haiku fo
 else
 	ok "keeping default sub-agent models (sonnet; haiku for fact-finding and chores)"
 fi
-set_role_models "$HOME/.claude/.radin/lib/radin-run.md"
-set_role_models "$HOME/.claude/.radin/lib/radin-execute-gate.md"
-set_role_models "$HOME/.claude/.radin/lib/radin-execute-review.md"
-for k in planning execution debug factfind; do
-	set_role_models "$HOME/.claude/.radin/lib/radin-prompt-$k.md"
+for f in $(shipped_text_files); do
+	set_role_models "$f"
 done
 
 step "radin CLI on PATH"
@@ -577,28 +583,10 @@ else
 		;;
 	esac
 fi
-for f in radin-batch radin-do radin-plan radin-record radin-review radin-show \
-	radin-doctor radin-uninstall radin-setup-hooks radin-stats; do
-	set_cli "$HOME/.claude/skills/$f/SKILL.md" "$RADIN_CLI_VALUE"
+for f in $(shipped_text_files); do
+	set_cli "$f" "$RADIN_CLI_VALUE"
+	set_lib "$f"
 done
-for k in planning execution debug factfind; do
-	set_cli "$HOME/.claude/.radin/lib/radin-prompt-$k.md" "$RADIN_CLI_VALUE"
-done
-set_cli "$HOME/.claude/.radin/lib/radin-execute-recovery.md" "$RADIN_CLI_VALUE"
-set_cli "$HOME/.claude/.radin/lib/radin-prioritization.md" "$RADIN_CLI_VALUE"
-set_cli "$HOME/.claude/.radin/lib/radin-execute-clarify.md" "$RADIN_CLI_VALUE"
-set_cli "$HOME/.claude/.radin/lib/radin-execute-session.md" "$RADIN_CLI_VALUE"
-set_cli "$HOME/.claude/.radin/lib/radin-execute-reporting.md" "$RADIN_CLI_VALUE"
-set_cli "$HOME/.claude/.radin/lib/radin-execute-resume.md" "$RADIN_CLI_VALUE"
-set_cli "$HOME/.claude/.radin/lib/radin-run.md" "$RADIN_CLI_VALUE"
-set_cli "$HOME/.claude/.radin/lib/radin-review-core.md" "$RADIN_CLI_VALUE"
-set_lib "$HOME/.claude/skills/radin-batch/SKILL.md"
-set_lib "$HOME/.claude/skills/radin-do/SKILL.md"
-set_lib "$HOME/.claude/.radin/lib/radin-run.md"
-set_lib "$HOME/.claude/skills/radin-plan/SKILL.md"
-set_lib "$HOME/.claude/skills/radin-review/SKILL.md"
-set_lib "$HOME/.claude/.radin/lib/radin-prompt-execution.md"
-set_lib "$HOME/.claude/.radin/lib/radin-execute-review.md"
 
 step "Agent guidance"
 # A short section in ~/.claude/CLAUDE.md telling Claude when to reach for
@@ -913,48 +901,8 @@ cat >"$MANIFEST_FILE" <<EOF
   "claude_md_guidance": $CLAUDE_MD_GUIDANCE,
   "cbm_agent_config": $CBM_AGENT_CONFIG,
   "cli_on_path": $CLI_ON_PATH,
-  "skills": [
-    "radin-batch",
-    "radin-plan",
-    "radin-record",
-    "radin-review",
-    "radin-do",
-    "radin-setup-hooks",
-    "radin-show",
-    "radin-stats",
-    "radin-doctor",
-    "radin-uninstall",
-    "thermo-nuclear"
-  ],
-  "lib": [
-    "radin-namespace.sh",
-    "radin-json.sh",
-    "radin-backlog.sh",
-    "radin-tui.c",
-    "radin-cbm-json.c",
-    "radin-state.sh",
-    "radin-scope.sh",
-    "radin-prompt.sh",
-    "radin-prompt-planning.md",
-    "radin-prompt-execution.md",
-    "radin-prompt-debug.md",
-    "radin-prompt-factfind.md",
-    "radin-prioritization.md",
-    "radin-execute-recovery.md",
-    "radin-execute-reporting.md",
-    "radin-execute-gate.md",
-    "radin-execute-review.md",
-    "radin-execute-clarify.md",
-    "radin-execute-session.md",
-    "radin-execute-resume.md",
-    "radin-run.md",
-    "radin-review-core.md",
-    "radin-cbm-hooks.sh",
-    "radin-cbm-config.sh",
-    "radin-update.sh",
-    "radin-doctor.sh",
-    "radin-uninstall.sh"
-  ],
+  "skills": [$(json_names "$SHIPPED_SKILLS thermo-nuclear")],
+  "lib": [$(json_names "$SHIPPED_LIB")],
   "companion_tools": {
     "rtk": $(json_bool_cmd rtk),
     "codebase-memory-mcp": $(cbm_bin >/dev/null 2>&1 && printf 'true' || printf 'false'),

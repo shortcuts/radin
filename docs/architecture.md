@@ -224,7 +224,19 @@ it, never conclude something is absent from an empty result.
 
 `install.sh` writes `~/.claude/.radin/manifest.json` every run: generated snapshot of what installed. Records `version` (release tag, or `dev` for local git clone), `installed_at` (UTC timestamp), `skills`/`lib` file lists copied, `install_root` and the six `model_<role>` keys (both read back by `install.sh --update`), `claude_md_guidance` (whether the radin section in `~/.claude/CLAUDE.md` was written), `cbm_agent_config` (whether upstream's own `codebase-memory-mcp install` ran), `cli_on_path` (whether the symlink landed), `companion_tools` object recording which of rtk, codebase-memory-mcp, headroom, caveman, ponytail, mattpocock-skills, unslop, technical-writing came out reachable — a companion install is advisory, so `false` means its own installer failed or its CLI is missing.
 
-Snapshot for external tooling to read, not live source of truth. `radin-doctor.sh` and `radin-uninstall.sh` each keep own independent file list, check filesystem direct, rather than trust manifest. Corrupted or stale manifest must never make either report false "OK" or delete wrong thing.
+Snapshot for external tooling to read, not live source of truth. `radin-doctor.sh` and `radin-uninstall.sh` each carry own copy of the file list, check filesystem direct, rather than trust manifest. Corrupted or stale manifest must never make either report false "OK" or delete wrong thing.
+
+## One list of shipped files
+
+`SHIPPED` at repo root names every shipped skill and lib file, plus tombstones for names an older radin shipped. `scripts/shipped.sh gen` (`make gen`) writes it into the marked `# BEGIN shipped` block of `install.sh`, `lib/radin-doctor.sh` and `lib/radin-uninstall.sh`, and into the layout tree below. The installed scripts read no list at run time, so `curl | bash` still works and uninstall still acts on a broken install. `scripts/shipped.sh check`, run by `make check`, fails and names the fix when a block is stale, a listed file is missing, a skill or tracked lib file is not listed, or a skill has no README row.
+
+| Kind | install | doctor | uninstall |
+| --- | --- | --- | --- |
+| `skill`, `lib` | copies | checks | removes |
+| `renamed skill` | removes, only while its `SKILL.md` names it | - | removes |
+| `retired skill`, `retired lib` | - | - | removes |
+
+Every install-time token pass runs over every shipped `SKILL.md` and `lib/*.md`, so no pass keeps its own list.
 
 ## Plugin repo layout
 
@@ -232,6 +244,7 @@ Snapshot for external tooling to read, not live source of truth. `radin-doctor.s
 radin/
   .claude-plugin/
     plugin.json
+  # BEGIN tree (generated from SHIPPED; run make gen)
   skills/
     radin-batch/
       SKILL.md
@@ -239,35 +252,34 @@ radin/
       SKILL.md
     radin-plan/
       SKILL.md
-    radin-doctor/
+    radin-record/
       SKILL.md
     radin-review/
       SKILL.md
-    radin-record/
+    radin-setup-hooks/
       SKILL.md
     radin-show/
       SKILL.md
-    radin-setup-hooks/
-      SKILL.md
     radin-stats/
+      SKILL.md
+    radin-doctor/
       SKILL.md
     radin-uninstall/
       SKILL.md
-  docs/
-  bin/
-    radin
   lib/
+    radin-namespace.sh
+    radin-json.sh
     radin-backlog.sh
     radin-tui.c
     radin-cbm-json.c
-    radin-cbm-hooks.sh
-    radin-doctor.sh
-    radin-update.sh
+    radin-state.sh
+    radin-scope.sh
     radin-prompt.sh
     radin-prompt-planning.md
     radin-prompt-execution.md
     radin-prompt-debug.md
     radin-prompt-factfind.md
+    radin-prioritization.md
     radin-execute-recovery.md
     radin-execute-reporting.md
     radin-execute-gate.md
@@ -277,10 +289,18 @@ radin/
     radin-execute-resume.md
     radin-run.md
     radin-review-core.md
-    radin-namespace.sh
-    radin-prioritization.md
-    radin-state.sh
+    radin-cbm-hooks.sh
+    radin-cbm-config.sh
+    radin-update.sh
+    radin-doctor.sh
     radin-uninstall.sh
+  # END tree
+  docs/
+  bin/
+    radin
+  scripts/
+    shipped.sh
+  SHIPPED
   install.sh
   README.md
 ```
@@ -573,8 +593,8 @@ the task wanted.
 and `lib/*.md` to a skill radin ships or `install.sh` installs, so a rename or
 typo fails the suite instead of costing a failed call in every sub-agent. A
 new companion needs its plugin prefix in that test's list. Not pinned by it:
-the MCP graph tool names, and the README row and `docs/architecture.md`
-mention a new skill needs (AGENTS.md) — those are checked by review.
+the MCP graph tool names, checked by review. `scripts/shipped.sh check` pins
+the README row and layout entry a new skill needs.
 
 `tests/bash-compat.bats` pins the bash 3.2 construct ban in the shell files and
 the single `rm` under `~/.claude` in `install.sh` and `lib/`.

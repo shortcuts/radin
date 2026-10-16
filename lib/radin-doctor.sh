@@ -15,6 +15,10 @@ set -euo pipefail
 
 CLAUDE_DIR="$HOME/.claude"
 MISSING=0
+# BEGIN shipped (generated from SHIPPED by scripts/shipped.sh; run make gen, never edit)
+SHIPPED_SKILLS="radin-batch radin-do radin-plan radin-record radin-review radin-setup-hooks radin-show radin-stats radin-doctor radin-uninstall"
+SHIPPED_LIB="radin-namespace.sh radin-json.sh radin-backlog.sh radin-tui.c radin-cbm-json.c radin-state.sh radin-scope.sh radin-prompt.sh radin-prompt-planning.md radin-prompt-execution.md radin-prompt-debug.md radin-prompt-factfind.md radin-prioritization.md radin-execute-recovery.md radin-execute-reporting.md radin-execute-gate.md radin-execute-review.md radin-execute-clarify.md radin-execute-session.md radin-execute-resume.md radin-run.md radin-review-core.md radin-cbm-hooks.sh radin-cbm-config.sh radin-update.sh radin-doctor.sh radin-uninstall.sh"
+# END shipped
 
 check_file() {
 	local label="$1" path="$2"
@@ -79,7 +83,7 @@ check_plugin() {
 printf 'radin doctor\n============\n'
 
 printf '\nSkills (%s/skills):\n' "$CLAUDE_DIR"
-for name in radin-batch radin-do radin-plan radin-record radin-review radin-setup-hooks radin-show radin-stats radin-doctor radin-uninstall thermo-nuclear; do
+for name in $SHIPPED_SKILLS thermo-nuclear; do
 	check_file "$name" "$CLAUDE_DIR/skills/$name/SKILL.md"
 done
 
@@ -92,32 +96,12 @@ else
 	printf '  %-20s not on PATH (optional; skills fall back to the full path)\n' "radin (PATH)"
 fi
 
-check_lib_script "radin-namespace.sh" "$CLAUDE_DIR/.radin/lib/radin-namespace.sh"
-check_lib_script "radin-json.sh" "$CLAUDE_DIR/.radin/lib/radin-json.sh"
-check_lib_script "radin-backlog.sh" "$CLAUDE_DIR/.radin/lib/radin-backlog.sh"
-check_file "radin-tui.c" "$CLAUDE_DIR/.radin/lib/radin-tui.c"
-check_file "radin-cbm-json.c" "$CLAUDE_DIR/.radin/lib/radin-cbm-json.c"
-check_lib_script "radin-state.sh" "$CLAUDE_DIR/.radin/lib/radin-state.sh"
-check_lib_script "radin-scope.sh" "$CLAUDE_DIR/.radin/lib/radin-scope.sh"
-check_lib_script "radin-prompt.sh" "$CLAUDE_DIR/.radin/lib/radin-prompt.sh"
-check_lib_script "radin-cbm-hooks.sh" "$CLAUDE_DIR/.radin/lib/radin-cbm-hooks.sh"
-check_lib_script "radin-cbm-config.sh" "$CLAUDE_DIR/.radin/lib/radin-cbm-config.sh"
-check_file "radin-prioritization.md" "$CLAUDE_DIR/.radin/lib/radin-prioritization.md"
-for k in planning execution debug factfind; do
-	check_file "radin-prompt-$k.md" "$CLAUDE_DIR/.radin/lib/radin-prompt-$k.md"
+for name in $SHIPPED_LIB; do
+	case "$name" in
+	*.sh) check_lib_script "$name" "$CLAUDE_DIR/.radin/lib/$name" ;;
+	*) check_file "$name" "$CLAUDE_DIR/.radin/lib/$name" ;;
+	esac
 done
-check_file "radin-execute-recovery.md" "$CLAUDE_DIR/.radin/lib/radin-execute-recovery.md"
-check_file "radin-execute-reporting.md" "$CLAUDE_DIR/.radin/lib/radin-execute-reporting.md"
-check_file "radin-execute-gate.md" "$CLAUDE_DIR/.radin/lib/radin-execute-gate.md"
-check_file "radin-execute-review.md" "$CLAUDE_DIR/.radin/lib/radin-execute-review.md"
-check_file "radin-execute-clarify.md" "$CLAUDE_DIR/.radin/lib/radin-execute-clarify.md"
-check_file "radin-execute-session.md" "$CLAUDE_DIR/.radin/lib/radin-execute-session.md"
-check_file "radin-execute-resume.md" "$CLAUDE_DIR/.radin/lib/radin-execute-resume.md"
-check_file "radin-run.md" "$CLAUDE_DIR/.radin/lib/radin-run.md"
-check_file "radin-review-core.md" "$CLAUDE_DIR/.radin/lib/radin-review-core.md"
-check_lib_script "radin-update.sh" "$CLAUDE_DIR/.radin/lib/radin-update.sh"
-check_lib_script "radin-doctor.sh" "$CLAUDE_DIR/.radin/lib/radin-doctor.sh"
-check_lib_script "radin-uninstall.sh" "$CLAUDE_DIR/.radin/lib/radin-uninstall.sh"
 
 # install.sh swaps every RADIN_* token for the recorded answer. One
 # that survived means the run died mid-install, and the skill then ships a
@@ -125,11 +109,10 @@ check_lib_script "radin-uninstall.sh" "$CLAUDE_DIR/.radin/lib/radin-uninstall.sh
 # token names as its own search pattern and ships into the scanned lib
 # directory, so exclude it or it always matches itself.
 printf '\nInstall-time substitutions:\n'
-if grep -rq --exclude=radin-doctor.sh 'RADIN_MODEL_\|RADIN_CLI ' \
-	"$CLAUDE_DIR/skills/radin-batch" "$CLAUDE_DIR/skills/radin-do" \
-	"$CLAUDE_DIR/skills/radin-plan" \
-	"$CLAUDE_DIR/skills/radin-review" "$CLAUDE_DIR/skills/radin-record" \
-	"$CLAUDE_DIR/skills/radin-show" "$CLAUDE_DIR/.radin/lib" 2>/dev/null; then
+token_dirs=""
+for name in $SHIPPED_SKILLS; do token_dirs="$token_dirs $CLAUDE_DIR/skills/$name"; done
+# shellcheck disable=SC2086  # one path per shipped skill
+if grep -rq --exclude=radin-doctor.sh 'RADIN_MODEL_\|RADIN_CLI ' $token_dirs "$CLAUDE_DIR/.radin/lib" 2>/dev/null; then
 	printf '  INVALID  unsubstituted RADIN_ token -- re-run install.sh\n'
 	MISSING=$((MISSING + 1))
 else

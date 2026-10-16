@@ -1,0 +1,47 @@
+# The only list of files radin ships. Edit here, then run `make gen`.
+# kind  name
+skill radin-batch
+skill radin-do
+skill radin-plan
+skill radin-record
+skill radin-review
+skill radin-setup-hooks
+skill radin-show
+skill radin-stats
+skill radin-doctor
+skill radin-uninstall
+lib radin-namespace.sh
+lib radin-json.sh
+lib radin-backlog.sh
+lib radin-tui.c
+lib radin-cbm-json.c
+lib radin-state.sh
+lib radin-scope.sh
+lib radin-prompt.sh
+lib radin-prompt-planning.md
+lib radin-prompt-execution.md
+lib radin-prompt-debug.md
+lib radin-prompt-factfind.md
+lib radin-prioritization.md
+lib radin-execute-recovery.md
+lib radin-execute-reporting.md
+lib radin-execute-gate.md
+lib radin-execute-review.md
+lib radin-execute-clarify.md
+lib radin-execute-session.md
+lib radin-execute-resume.md
+lib radin-run.md
+lib radin-review-core.md
+lib radin-cbm-hooks.sh
+lib radin-cbm-config.sh
+lib radin-update.sh
+lib radin-doctor.sh
+lib radin-uninstall.sh
+# Tombstones: names an older radin shipped. Uninstall still removes them.
+# A renamed skill is also removed by install, only while its SKILL.md names it.
+renamed skill radin-execute
+renamed skill radin-implement
+renamed skill radin-run
+retired skill radin-update
+retired lib radin-tui.sh
+retired lib radin-crg-hooks.sh

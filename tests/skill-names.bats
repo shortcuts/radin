@@ -62,19 +62,3 @@ skill_tokens() {
     false
   }
 }
-
-# A skill that misses any of these four hand-synced lists ships nowhere.
-@test "every skills/<name>/ is listed in install.sh, radin-doctor.sh, the README table and the architecture tree" {
-  cd "$REPO_ROOT"
-  install_list="$(awk '/^for s in /,/^done/' install.sh)"
-  doctor_list="$(grep '^for name in ' lib/radin-doctor.sh)"
-  missing=""
-  for d in skills/*/; do
-    s="$(basename "$d")"
-    case " $(echo "$install_list" | tr '\\\t\n;' '    ') " in *" $s "*) ;; *) missing="$missing$s: install.sh\n" ;; esac
-    case " $doctor_list " in *" $s "*) ;; *) missing="$missing$s: lib/radin-doctor.sh\n" ;; esac
-    grep -q "^| \`/$s\` |" README.md || missing="$missing$s: README.md\n"
-    grep -qE "^ +$s/\$" docs/architecture.md || missing="$missing$s: docs/architecture.md\n"
-  done
-  [ -z "$missing" ] || { printf '%b' "$missing"; false; }
-}

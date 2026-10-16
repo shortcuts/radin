@@ -11,6 +11,13 @@
 set -euo pipefail
 
 CLAUDE_DIR="$HOME/.claude"
+# BEGIN shipped (generated from SHIPPED by scripts/shipped.sh; run make gen, never edit)
+SHIPPED_SKILLS="radin-batch radin-do radin-plan radin-record radin-review radin-setup-hooks radin-show radin-stats radin-doctor radin-uninstall"
+SHIPPED_LIB="radin-namespace.sh radin-json.sh radin-backlog.sh radin-tui.c radin-cbm-json.c radin-state.sh radin-scope.sh radin-prompt.sh radin-prompt-planning.md radin-prompt-execution.md radin-prompt-debug.md radin-prompt-factfind.md radin-prioritization.md radin-execute-recovery.md radin-execute-reporting.md radin-execute-gate.md radin-execute-review.md radin-execute-clarify.md radin-execute-session.md radin-execute-resume.md radin-run.md radin-review-core.md radin-cbm-hooks.sh radin-cbm-config.sh radin-update.sh radin-doctor.sh radin-uninstall.sh"
+RENAMED_SKILLS="radin-execute radin-implement radin-run"
+RETIRED_SKILLS="radin-update"
+RETIRED_LIB="radin-tui.sh radin-crg-hooks.sh"
+# END shipped
 
 # rm -rf works on a plain file same as a directory -- one helper covers
 # both the agent/lib files and the skill directories below.
@@ -27,9 +34,8 @@ remove_path() {
 printf 'radin uninstall\n===============\n'
 
 printf '\nSkills (%s/skills):\n' "$CLAUDE_DIR"
-# radin-update shipped as a skill before `radin update` took the job; install.sh
-# only adds, so only this script can clear the leftover. radin-execute, radin-implement and radin-run are the names before radin-batch and radin-do.
-for name in radin-batch radin-do radin-execute radin-implement radin-run radin-plan radin-record radin-review radin-setup-hooks radin-show radin-stats radin-doctor radin-uninstall radin-update; do
+# install.sh only adds, so only this script clears a skill an older radin shipped.
+for name in $SHIPPED_SKILLS $RENAMED_SKILLS $RETIRED_SKILLS; do
 	remove_path "$name" "$CLAUDE_DIR/skills/$name"
 done
 
@@ -44,36 +50,10 @@ remove_path "radin-tui" "$CLAUDE_DIR/.radin/bin/radin-tui"
 remove_path "radin-cbm-json" "$CLAUDE_DIR/.radin/bin/radin-cbm-json"
 
 printf '\nLib (%s/.radin/lib):\n' "$CLAUDE_DIR"
-remove_path "radin-namespace.sh" "$CLAUDE_DIR/.radin/lib/radin-namespace.sh"
-remove_path "radin-json.sh" "$CLAUDE_DIR/.radin/lib/radin-json.sh"
-remove_path "radin-backlog.sh" "$CLAUDE_DIR/.radin/lib/radin-backlog.sh"
-remove_path "radin-tui.c" "$CLAUDE_DIR/.radin/lib/radin-tui.c"
-remove_path "radin-cbm-json.c" "$CLAUDE_DIR/.radin/lib/radin-cbm-json.c"
-# Shipped while the TUI was bash: install.sh only adds, so only this clears it.
-remove_path "radin-tui.sh" "$CLAUDE_DIR/.radin/lib/radin-tui.sh"
-remove_path "radin-state.sh" "$CLAUDE_DIR/.radin/lib/radin-state.sh"
-remove_path "radin-scope.sh" "$CLAUDE_DIR/.radin/lib/radin-scope.sh"
-remove_path "radin-prompt.sh" "$CLAUDE_DIR/.radin/lib/radin-prompt.sh"
-remove_path "radin-cbm-hooks.sh" "$CLAUDE_DIR/.radin/lib/radin-cbm-hooks.sh"
-remove_path "radin-cbm-config.sh" "$CLAUDE_DIR/.radin/lib/radin-cbm-config.sh"
-# Shipped by radin up to the codebase-memory-mcp switch: install.sh only adds,
-# so an update leaves it behind and only this script can clear it.
-remove_path "radin-crg-hooks.sh" "$CLAUDE_DIR/.radin/lib/radin-crg-hooks.sh"
-remove_path "radin-prioritization.md" "$CLAUDE_DIR/.radin/lib/radin-prioritization.md"
-for k in planning execution debug factfind; do
-	remove_path "radin-prompt-$k.md" "$CLAUDE_DIR/.radin/lib/radin-prompt-$k.md"
+for name in $SHIPPED_LIB $RETIRED_LIB; do
+	# This script goes last: bash reads a script as it runs.
+	[ "$name" = radin-uninstall.sh ] || remove_path "$name" "$CLAUDE_DIR/.radin/lib/$name"
 done
-remove_path "radin-execute-recovery.md" "$CLAUDE_DIR/.radin/lib/radin-execute-recovery.md"
-remove_path "radin-execute-reporting.md" "$CLAUDE_DIR/.radin/lib/radin-execute-reporting.md"
-remove_path "radin-execute-gate.md" "$CLAUDE_DIR/.radin/lib/radin-execute-gate.md"
-remove_path "radin-execute-review.md" "$CLAUDE_DIR/.radin/lib/radin-execute-review.md"
-remove_path "radin-execute-clarify.md" "$CLAUDE_DIR/.radin/lib/radin-execute-clarify.md"
-remove_path "radin-execute-session.md" "$CLAUDE_DIR/.radin/lib/radin-execute-session.md"
-remove_path "radin-execute-resume.md" "$CLAUDE_DIR/.radin/lib/radin-execute-resume.md"
-remove_path "radin-run.md" "$CLAUDE_DIR/.radin/lib/radin-run.md"
-remove_path "radin-review-core.md" "$CLAUDE_DIR/.radin/lib/radin-review-core.md"
-remove_path "radin-update.sh" "$CLAUDE_DIR/.radin/lib/radin-update.sh"
-remove_path "radin-doctor.sh" "$CLAUDE_DIR/.radin/lib/radin-doctor.sh"
 
 printf '\nLeft untouched:\n'
 printf '  %-20s not vendored by radin, remove manually if wanted\n' "thermo-nuclear"

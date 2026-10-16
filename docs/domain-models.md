@@ -217,7 +217,7 @@ Written by `install.sh` to `~/.claude/.radin/manifest.json` on every run — not
 ```
 
 - `version` `dev` when installed from local git clone (no downloaded release tarball, no `.radin-version` file to read).
-- `skills`/`lib` static lists matching exactly what `install.sh` copies, what `radin-doctor.sh` checks for — not derived from manifest at runtime by either script (see `docs/architecture.md` "Install manifest").
+- `skills`/`lib` lists in `SHIPPED` order, matching exactly what `install.sh` copies, what `radin-doctor.sh` checks for — not derived from manifest at runtime by either script (see `docs/architecture.md` "Install manifest" and "One list of shipped files").
 - `claude_md_guidance` records whether the user opted into the marked radin section in `~/.claude/CLAUDE.md`. `cbm_agent_config` records whether upstream's own `codebase-memory-mcp install` ran (it does whenever the tool installed and the `radin-cbm-json` helper was built; the merge-only wiring is the fallback). `cli_on_path` records whether the `~/.local/bin/radin` symlink was created.
 - `companion_tools` values reflect final reachable state after this install.sh run (already present, just installed, or skipped not distinguished — only "is it there now").
 - `install_root` is the resolved source path (dev clone or fetched tarball dir); `model_<role>` records the model written into each `RADIN_MODEL_<ROLE>` token.

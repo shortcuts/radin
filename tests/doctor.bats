@@ -16,38 +16,16 @@ teardown() {
 install_all_expected() {
   mkdir -p "$TEST_HOME/.claude/.radin/lib" "$TEST_HOME/.claude/.radin/bin"
   printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/bin/radin"
-  for name in radin-batch radin-do radin-plan radin-record radin-review radin-setup-hooks radin-show radin-stats radin-doctor radin-uninstall thermo-nuclear; do
+  for name in $(awk '$1 == "skill" { print $2 }' "$REPO_ROOT/SHIPPED") thermo-nuclear; do
     mkdir -p "$TEST_HOME/.claude/skills/$name"
     : > "$TEST_HOME/.claude/skills/$name/SKILL.md"
   done
-  printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-namespace.sh"
-  printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-json.sh"
-  printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-backlog.sh"
-  : > "$TEST_HOME/.claude/.radin/lib/radin-tui.c"
-  : > "$TEST_HOME/.claude/.radin/lib/radin-cbm-json.c"
-  printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-state.sh"
-  printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-scope.sh"
-  printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-prompt.sh"
-printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-cbm-hooks.sh"
-  printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-cbm-config.sh"
-  : > "$TEST_HOME/.claude/.radin/lib/radin-prioritization.md"
-  for k in planning execution debug factfind; do
-    : > "$TEST_HOME/.claude/.radin/lib/radin-prompt-$k.md"
+  for name in $(awk '$1 == "lib" { print $2 }' "$REPO_ROOT/SHIPPED"); do
+    case "$name" in
+      *.sh) printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/$name" ;;
+      *) : > "$TEST_HOME/.claude/.radin/lib/$name" ;;
+    esac
   done
-  : > "$TEST_HOME/.claude/.radin/lib/radin-execute-recovery.md"
-  : > "$TEST_HOME/.claude/.radin/lib/radin-execute-reporting.md"
-  : > "$TEST_HOME/.claude/.radin/lib/radin-execute-gate.md"
-  : > "$TEST_HOME/.claude/.radin/lib/radin-execute-review.md"
-  : > "$TEST_HOME/.claude/.radin/lib/radin-execute-clarify.md"
-  : > "$TEST_HOME/.claude/.radin/lib/radin-execute-session.md"
-  : > "$TEST_HOME/.claude/.radin/lib/radin-execute-resume.md"
-  : > "$TEST_HOME/.claude/.radin/lib/radin-run.md"
-  : > "$TEST_HOME/.claude/.radin/lib/radin-review-core.md"
-  : > "$TEST_HOME/.claude/.radin/lib/radin-tui.c"
-  : > "$TEST_HOME/.claude/.radin/lib/radin-cbm-json.c"
-  printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-update.sh"
-  printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-doctor.sh"
-  printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/radin-uninstall.sh"
 }
 
 @test "exits 1 and reports MISSING for an absent on-demand lib file" {
