@@ -1,14 +1,6 @@
 # Template: radin-batch planning prompt (Phase 4, an entry flagged `planning needed`)
 
-Source text for `radin prompt planning <id>` (`lib/radin-prompt.sh`), which drops the
-guarded blocks that do not apply to the task, substitutes every `UPPERCASE`
-placeholder, and prints the result. The router sends that output and never
-reads this file.
-
-The `model:` line below is this role's sub-agent model, written in at install
-time from the user's answer; `radin-prompt.sh` reads it from here, so it lives
-in one place. A `<!-- if:NAME -->` … `<!-- end -->` block survives only when
-that guard is active for the task, and `<!-- if:!NAME -->` is its inverse.
+Rendered by `radin prompt planning <id>`. `lib/radin-prompt.sh` holds the format.
 
 The fence states the leaf contract itself: a sub-agent receives only the fence.
 

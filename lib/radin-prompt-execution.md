@@ -1,13 +1,6 @@
 # Template: radin-batch execution prompt (Phase 4)
 
-Source text for `radin prompt execution <id>` (`lib/radin-prompt.sh`), which drops the
-guarded blocks that do not apply to the task, substitutes every `UPPERCASE`
-placeholder, and prints the result.
-
-The `model:` line below is this role's sub-agent model, written in at install
-time; `radin-prompt.sh` reads it from here. A `<!-- if:NAME -->` … `<!-- end -->`
-block survives only when that guard is active for the task, and
-`<!-- if:!NAME -->` is its inverse.
+Rendered by `radin prompt execution <id>`. `lib/radin-prompt.sh` holds the format.
 
 `model: "RADIN_MODEL_EXECUTION"`
 `model-chore: "RADIN_MODEL_CHORE"`

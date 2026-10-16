@@ -18,7 +18,8 @@
 #
 # One template per kind, radin-prompt-<kind>.md: a single fenced prompt, guarded
 # blocks marked `<!-- if:NAME -->`/`<!-- if:!NAME -->` … `<!-- end -->`, and the
-# role's model on a `model: "<name>"` line, written in at install time. One file
+# role's model on a `model: "<name>"` line, written in at install time. Only the
+# fence reaches the sub-agent; the prose around it is for its editor. One file
 # per kind rather than one shared file, so a `---` line inside a prompt body
 # cannot end the extraction. Nothing about a prompt's text lives here.
 #
