@@ -9,14 +9,19 @@
 # Outside a git repo, the current directory takes the repo root's place.
 set -euo pipefail
 
-REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || true)
+# One fork answers all three questions: a git call is ~12ms and every CLI call pays it.
+GIT_REVS="$(git rev-parse --show-toplevel --git-dir --git-common-dir 2>/dev/null || true)"
+REPO_ROOT="" GIT_DIR_REL="" GIT_COMMON_REL=""
+{ IFS= read -r REPO_ROOT && IFS= read -r GIT_DIR_REL && IFS= read -r GIT_COMMON_REL; } <<REVS || true
+$GIT_REVS
+REVS
 [ -n "$REPO_ROOT" ] || REPO_ROOT="$PWD"
 # Only a task worktree `radin state prepare` made (<checkout>-<id> on
 # radin/<id>) resolves to the checkout that made it. A worktree the user made
 # keeps its own backlog: collapsing it to the main checkout sent sub-agents to
 # a tree without the user's uncommitted edits. Only a linked worktree has a
-# git dir apart from the common dir, so only it pays the extra forks.
-if [ "$(git rev-parse --git-dir 2>/dev/null)" != "$(git rev-parse --git-common-dir 2>/dev/null)" ]; then
+# git dir apart from the common dir.
+if [ "$GIT_DIR_REL" != "$GIT_COMMON_REL" ]; then
 	task_branch="$(git symbolic-ref --short -q HEAD 2>/dev/null || true)"
 	case "$task_branch" in
 	radin/?*)
