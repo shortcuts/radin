@@ -52,7 +52,7 @@ the no-op test in AGENTS.md: delete it.
 
 ## Tune the plan review from recurring findings
 
-Run `radin state finding-classes` and read its `recurring` line: the plan
+Run `radin state finding-classes` and read its `recurring` line. It lists the plan
 sections that review findings reached in at least `--min` distinct tasks
 (default 3). For each listed section, add one check to the Standards brief in
 `skills/radin-plan/SKILL.md` Step 4, in the brief's own shape:
