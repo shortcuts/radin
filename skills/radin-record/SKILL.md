@@ -8,55 +8,46 @@ description: |
 ---
 # Record to Backlog
 
-This captures what a human said; `radin-review` logs what a diff revealed. Every
-downstream reader, `radin-plan`, `radin-batch`, the execution sub-agent it
-dispatches, is a **cold start**: it sees the entry and nothing of this
-conversation.
-
 ## Step 1: Decide what to log
 
-The instruction after `/radin-record` sets the scope:
+The instruction sets the scope:
 
-- **Specific** ("add the auth timeout bug"): log exactly that item, nothing else.
-- **Generic** ("add the findings", bare `/radin-record`): scan the whole session
-  for anything a reasonable person calls a bug, follow-up, idea, or feedback,
-  including "we should probably..." asides nobody wrote down. Each distinct item
-  becomes its own entry.
+- **Specific**: "add the auth timeout bug", "fix this issue", "work on adding that feature"
+- **Generic**: "add the findings", "record everything", "we should probably": scan the whole
+    session for anything a reasonable person calls a bug,follow-up, idea, or feedback.
+    Each distinct item becomes its own entry.
 
-Log only what the conversation raised, worded close to how it was raised.
+Log the entry worded close to how it was raised.
 
 One raised thing can be several sequential pieces of work ("add rate limiting on
 top of new auth middleware" needs the middleware first). Log each piece as its
 own entry, sized as a **vertical slice**:
 
-- It cuts a narrow but COMPLETE path through every layer it touches, vertical,
-  not a horizontal slice of one layer.
+- It cuts a narrow but COMPLETE path through every layer it touches.
 - Landed, it is demoable or verifiable on its own.
-- It fits one fresh context window, the cold start it gets.
+- It fits one fresh context window.
 - A **prefactor**, the restructuring that makes the real change easy, is its
   own entry, which every entry needing it depends on.
 
-One mechanical change whose blast radius fans across the codebase, such as renaming a
-column or retyping a shared symbol, is the exception: no vertical slice of it
-lands green, so log it as one entry per batch the change breaks, plus a final
+One mechanical change whose blast radius fans across the codebase is the exception,
+so log it as one entry per batch the change breaks, plus a final
 entry that puts the tree back green depending on every batch.
 
 An item too fuzzy to phrase as a sharp question is a **stub** ("figure out
 caching at some point"): log one stub over the whole area, its body saying what
-is unspecified and what is known, rather than pre-slicing it. `radin-plan`
+is unspecified and what is known, rather than pre-slicing it. Step 2 
 sharpens it later. A question you *can* state precisely is an ordinary entry,
 blocked or not.
 
-### An Atlassian ticket in the ask (optional)
+### An external ticket as context (optional)
 
-A ticket key or a Jira/Confluence URL: fetch it through the Atlassian MCP and
-treat the ticket as more of the user's prompt. No Atlassian MCP, or a failed
-fetch: log from the ask alone, and continue.
+A ticket key, Jira or GitHub issue URL: fetch it through the MCP if possible,
+and treat the ticket as extension to the user's prompt.
+No MCP or API access: log from the ask alone, and continue.
 
 ## Step 2: Chart each item's open decisions
 
-Settle judgment calls here, while the user is present; `radin-batch` may run
-unattended.
+Settle judgment calls here, while the user is present;
 
 For each item, list what a cold start would have to decide that the conversation
 didn't settle. Tag each question:
