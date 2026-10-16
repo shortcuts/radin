@@ -2,8 +2,8 @@
 
 ## Reporting a vulnerability
 
-Open private security advisory on repo's GitHub "Security" tab, or contact maintainer directly. No public issue for security reports.
+Open a private security advisory on the repo's GitHub "Security" tab, or contact the maintainer directly. Do not open a public issue for a security report.
 
 ## Scope note: `install.sh`
 
-`install.sh` runs `brew`/`npm`/`cargo` installs for companion tools (rtk, caveman, codebase-memory-mcp). Never installs without an explicit pick of the yes option — each tool offered individually, skipped by default. Find path where `install.sh` installs without asking? Security bug. Report as above.
+`install.sh` runs `brew`/`npm`/`cargo` installs for companion tools (rtk, caveman, codebase-memory-mcp). It never installs without an explicit yes. It offers each tool individually and skips it by default. Found a path where `install.sh` installs without asking? That is a security bug. Report it as above.
