@@ -15,4 +15,4 @@ RADIN_CLI doctor
 
 **Reply:** the CLI's full output as-is, since it already lists every checked item
 with its status. A non-zero exit means expected files are missing or have invalid
-syntax: tell the user to re-run `install.sh` (or `radin update`).
+syntax. Tell the user to re-run `install.sh` (or `radin update`).
