@@ -28,13 +28,14 @@ run: lib/radin-tui
 	./lib/radin-tui
 
 # One bats per file, run concurrently: every file isolates its state under
-# mktemp -d, and bats' own -j costs more in bookkeeping than it wins here.
+# mktemp -d, and bats' own -j costs more in bookkeeping than it wins here. The
+# slowest files go first so no worker starts one last; tui is four shards.
 test: build
 # Every temp repo a test builds is deleted in teardown, so git's fsync is pure
 # latency here: it cost ~0.1s per test that runs `git init`.
 	@GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.fsync GIT_CONFIG_VALUE_0=none \
 		sh -c 'bats -j 4 tests/install.bats & \
-			ls tests/*.bats | grep -v install | xargs -P 6 -n1 bats; wait'
+			{ ls tests/backlog.bats tests/tui-*.bats; ls tests/*.bats | grep -v -e install -e backlog -e tui-; } | xargs -P 6 -n1 bats; wait'
 
 # Key-to-frame latency on a seeded 42-task backlog; see tests/bench-tui.sh.
 bench-tui:
