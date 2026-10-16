@@ -48,12 +48,11 @@ setup_file() {
 # setup() per test, and setup_file() once for the recorded install.
 make_mocks() {
   BREW_LOG="$TEST_HOME/brew.log"
-  PIP_LOG="$TEST_HOME/pipx.log"
   export MOCK_BIN MOCK_LOG_DIR="$TEST_HOME"
   cc_build "$BATS_TEST_DIRNAME/helpers/mock.c" "$MOCK_SRC_BIN" ||
     skip "a C compiler is needed to build the command mocks"
   cp "$MOCK_SRC_BIN" "$MOCK_BIN/mock"
-  for c in brew curl claude pipx pip3 npx python3 node gh cc gcc clang; do
+  for c in brew curl claude npx python3 node gh cc gcc clang; do
     ln "$MOCK_BIN/mock" "$MOCK_BIN/$c" 2>/dev/null || ln -s "$MOCK_BIN/mock" "$MOCK_BIN/$c"
   done
 }
@@ -69,7 +68,7 @@ replay_install() {
   rm -rf "$TEST_HOME/.claude" "$TEST_HOME/.local"
   cp -a "$TEMPLATE/home/.claude" "$TEST_HOME/.claude"
   [ -d "$TEMPLATE/home/.local" ] && cp -a "$TEMPLATE/home/.local" "$TEST_HOME/.local"
-  for log in brew.log pipx.log; do
+  for log in brew.log; do
     [ -f "$TEMPLATE/home/$log" ] && cp "$TEMPLATE/home/$log" "$TEST_HOME/$log"
   done
   cat "$TEMPLATE/output"
@@ -172,7 +171,7 @@ run_install_defaults() {
   done
   grep -q '"rtk": true' "$manifest"
   grep -q '"codebase-memory-mcp": false' "$manifest"
-  grep -q '"headroom": true' "$manifest"
+  run ! grep -q headroom "$manifest"
 }
 
 @test "installs unslop and technical-writing from upstream, minus the invocation block" {
@@ -390,7 +389,6 @@ pick_with_keys() {
   cd "$REPO_ROOT" && run bash ./install.sh --yes
   [ "$status" -eq 0 ]
   grep -q "install rtk" "$BREW_LOG"
-  grep -q "headroom-ai" "$PIP_LOG"
   [[ "$output" != *"Pick 1-"* ]]
   manifest="$TEST_HOME/.claude/.radin/manifest.json"
   grep -q '"rtk": true' "$manifest"
@@ -400,14 +398,14 @@ pick_with_keys() {
 }
 
 # The package-manager pick is what keeps radin off a manager the user doesn't
-# use: picking mise must install rtk and headroom through mise, never brew, and
+# use: picking mise must install rtk through mise, never brew, and
 # the answer must survive into the manifest so `radin update` keeps it.
-@test "picking mise installs rtk and headroom through mise, not brew" {
+@test "picking mise installs rtk through mise, not brew" {
   ln "$MOCK_BIN/mock" "$MOCK_BIN/mise" 2>/dev/null || ln -s "$MOCK_BIN/mock" "$MOCK_BIN/mise"
   cd "$REPO_ROOT" && run bash -c "printf '2\n2\n' | bash ./install.sh"
   [ "$status" -eq 0 ]
   [[ "$(cat "$TEST_HOME/mise.log")" == *"aqua:rtk-ai/rtk"* ]]
-  [[ "$(cat "$TEST_HOME/mise.log")" == *"pipx:headroom-ai"* ]]
+  [[ "$(cat "$TEST_HOME/mise.log")" != *"headroom"* ]]
   [ ! -s "$TEST_HOME/brew.log" ] || [[ "$(cat "$TEST_HOME/brew.log")" != *"install rtk"* ]]
   grep -q '"package_manager": "mise"' "$TEST_HOME/.claude/.radin/manifest.json"
 }
@@ -425,7 +423,7 @@ pick_with_keys() {
 }
 
 # A companion tool that fails must not abort radin's own install -- set -e used
-# to kill the script the moment a pip/pipx preflight failed. Plugins install
+# to kill the script the moment a companion install failed. Plugins install
 # through the `claude` CLI and nothing else: without it, say so once per plugin
 # rather than failing three times. Both are the same advisory-failure run.
 @test "a failing companion tool and a missing claude CLI both warn, and the install completes" {
@@ -472,7 +470,6 @@ pick_with_keys() {
   [ ! -e "$TEST_HOME/npx.log" ]
   run ! grep -v 'pstack/skills/' "$TEST_HOME/curl.log"
   run ! grep -q 'disable-model-invocation' "$TEST_HOME/.claude/skills/thermo-nuclear/SKILL.md"
-  grep -q 'headroom-ai' "$TEST_HOME/pipx.log"
   grep -q 'config set auto_index true' "$TEST_HOME/codebase-memory-mcp.log"
   grep -q '"cbm_agent_config": true' "$manifest"
   run ! grep -qE 'install|update|marketplace' "$TEST_HOME/claude.log"

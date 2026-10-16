@@ -100,7 +100,7 @@ When a shipped tool does a job, name that tool. Never write a radin version. Nam
 | Maintainability review · commit message | `/thermo-nuclear` · `/caveman:caveman-commit` |
 | Implementation discipline | `/caveman:surgical-patch` (fix), `safe-refactor`, `lean-build` (feat) |
 | Code structure questions | codebase-memory-mcp's MCP tools |
-| Output compression · structural search/diff | `rtk` · `headroom sg`/`diff`/`loc` |
+| Output compression | `rtk` |
 | Agent-doc writing rules | `/mattpocock-skills:writing-for-agents` |
 
 The graph tool name lives in one file and must exist in the upstream table ([which files, and the pointer rule](docs/architecture.md#code-graph-wiring-codebase-memory-mcp)).

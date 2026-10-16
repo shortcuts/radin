@@ -93,11 +93,6 @@ int main(int argc, char **argv) {
 	}
 	if (named("mise")) {
 		if (has_substr(argc, argv, "rtk")) install_tool("rtk");
-		if (has_substr(argc, argv, "headroom-ai")) install_tool("headroom");
-		return 0;
-	}
-	if (named("pipx") || named("pip3")) {
-		if (has_substr(argc, argv, "headroom-ai")) install_tool("headroom");
 		return 0;
 	}
 	if (named("curl")) {

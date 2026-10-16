@@ -624,22 +624,6 @@ printf '%s\n' "$RADIN_GUIDANCE" >>"$GUIDANCE_TMP"
 mv "$GUIDANCE_TMP" "$CLAUDE_MD"
 ok "radin section written to ${BOLD}$CLAUDE_MD${RESET} (between radin:begin/end markers)"
 
-# Preflight for the pipx/pip-based tools below. A broken Homebrew python bottle
-# (pyexpat linked against Apple's system libexpat, which lacks the symbols brew's
-# expat exports) makes every pip/pipx call die with an opaque dlopen traceback.
-# Probe it once here and print the fix, instead of letting pip dump the stack.
-python_ok() {
-	if python3 -c "import pyexpat" >/dev/null 2>&1; then
-		return 0
-	fi
-	warn "python3 can't import pyexpat -- its Homebrew build links a libexpat"
-	warn "that lacks required symbols. pip/pipx installs will fail. Fix with:"
-	warn "  brew reinstall --build-from-source python@3.14"
-	warn "(a plain 'brew reinstall' pulls the same broken bottle -- the"
-	warn "--build-from-source flag relinks against brew's expat). Then re-run."
-	return 1
-}
-
 # Its own installer's default target isn't on PATH in every shell, so resolve
 # the just-installed binary by path too.
 cbm_bin() {
@@ -730,10 +714,10 @@ install_pstack_skill() {
 install_pstack_skill unslop
 install_pstack_skill technical-writing
 
-# rtk and headroom ship in more than one package manager. Installing them with
-# brew on a mise-managed machine leaves behind a manager the user never chose,
-# so the one question here is which manager to install through. `curl` keeps
-# each tool's own installer (upstream script for rtk, pipx for headroom).
+# rtk ships in more than one package manager. Installing it with brew on a
+# mise-managed machine leaves behind a manager the user never chose, so the
+# one question here is which manager to install through. `curl` keeps rtk's
+# own upstream installer.
 # An update keeps the recorded answer instead of asking again.
 PKG_MGR=""
 [ -z "$UPDATE" ] || PKG_MGR="$(manifest_value package_manager)"
@@ -744,13 +728,11 @@ if [ -n "$PKG_MGR" ]; then
 	:
 elif [ -n "$PKG_CHOICES" ]; then
 	# shellcheck disable=SC2086  # word splitting is the point -- one arg per manager
-	PKG_MGR="$(prompt_pick "install rtk and headroom through" 1 $PKG_CHOICES "curl")"
+	PKG_MGR="$(prompt_pick "install rtk through" 1 $PKG_CHOICES "curl")"
 else
 	PKG_MGR="curl"
 fi
-# A manager that doesn't carry the tool falls through to `curl`'s command, so
-# every case below ends up installable: brew has no headroom-ai formula, and
-# neither manager is asked for codebase-memory-mcp -- its own installer
+# Neither manager is asked for codebase-memory-mcp -- its own installer
 # resolves OS/arch and verifies checksums, which radin doesn't reimplement.
 case "$PKG_MGR" in
 # brew refreshes its formula index before installing: with that refresh
@@ -770,17 +752,6 @@ install_tool "rtk" "$RTK_INSTALL_CMD"
 # `radin hooks` does the two it wants, merge-only.
 install_tool "codebase-memory-mcp" \
 	"curl -fsSL https://raw.githubusercontent.com/DeusData/codebase-memory-mcp/main/install.sh | bash -s -- --skip-config"
-
-# headroom complements rtk (whole-session wrap vs per-command output
-# compression), not a replacement -- never phrase this as preferred over rtk.
-# python_ok gates the pip path only: mise's pipx backend brings its own
-# interpreter, so a broken system python3 doesn't apply there.
-if [ "$PKG_MGR" = mise ]; then
-	HEADROOM_INSTALL_CMD="$MISE use -g pipx:headroom-ai@latest"
-else
-	HEADROOM_INSTALL_CMD="python_ok && { pipx --version >/dev/null 2>&1 && pipx install --force headroom-ai || pip3 install --user --upgrade headroom-ai; }"
-fi
-install_tool "headroom" "$HEADROOM_INSTALL_CMD"
 
 # caveman ships as a Claude Code plugin (not an npm package) -- installs via
 # the plugin marketplace flow, same as the interactive `/plugin` command.
@@ -906,7 +877,6 @@ cat >"$MANIFEST_FILE" <<EOF
   "companion_tools": {
     "rtk": $(json_bool_cmd rtk),
     "codebase-memory-mcp": $(cbm_bin >/dev/null 2>&1 && printf 'true' || printf 'false'),
-    "headroom": $(json_bool_cmd headroom),
     "caveman": $(json_bool_plugin "caveman@caveman"),
     "ponytail": $(json_bool_plugin "ponytail@ponytail"),
     "mattpocock-skills": $(json_bool_plugin "mattpocock-skills@claude-plugins-official"),

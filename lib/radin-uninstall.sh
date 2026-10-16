@@ -60,8 +60,9 @@ printf '  %-20s not vendored by radin, remove manually if wanted\n' "thermo-nucl
 for pstack_skill in unslop technical-writing; do
 	printf '  %-20s fetched from cursor/plugins at install time, remove manually if wanted\n' "$pstack_skill"
 done
-# rtk and headroom come from whichever manager install.sh asked about, so name
-# the matching remover instead of assuming brew.
+# rtk comes from whichever manager install.sh asked about, so name the matching
+# remover instead of assuming brew. headroom stays listed for installs made by
+# a radin that still shipped it.
 PKG_MGR=""
 if [ -f "$CLAUDE_DIR/.radin/manifest.json" ]; then
 	PKG_MGR="$(sed -n 's/.*"package_manager": *"\([^"]*\)".*/\1/p' "$CLAUDE_DIR/.radin/manifest.json" | head -1)"

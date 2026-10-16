@@ -13,7 +13,7 @@ ledger). Display each output as-is.
 
 ## Run every source
 
-Run all five without probing. A source that is not installed fails visibly;
+Run all four without probing. A source that is not installed fails visibly;
 that failure is the skip, so do not retry it.
 
 - **`/caveman:caveman-stats`** -- measured: real per-session token usage and
@@ -24,8 +24,5 @@ that failure is the skip, so do not retry it.
   deferred shortcuts, if the repo has one.
 - **`rtk gain`** -- measured: rtk's token-savings ledger (pass `-p` to scope it
   to the current project).
-- **`headroom savings`** -- measured: headroom's compression ledger. "No
-  savings recorded yet" is a normal empty result: nothing has been routed
-  through its proxy or MCP tool.
 
 **Reply:** each source's output as-is, in the order listed, with no merged total.

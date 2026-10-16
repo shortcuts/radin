@@ -22,7 +22,7 @@ gives you:
   survive the conversation. Plan them, execute them one commit at a time,
   review the result. Any run resumes where it stopped.
 - **A curated token-reduction stack**, installed whole: rtk, caveman,
-  ponytail, codebase-memory-mcp, headroom, thermo-nuclear, mattpocock-skills,
+  ponytail, codebase-memory-mcp, thermo-nuclear, mattpocock-skills,
   unslop, technical-writing.
   radin delegates to them instead of reimplementing them. It never forks or
   vendors them.
@@ -38,8 +38,8 @@ JSON surgery behind `radin repair`. Install builds both with `cc` (Xcode
 Command Line Tools on macOS, gcc on Linux) and skips each with a warning when
 no compiler is there. Companion tools pull their
 own stacks; one that fails is reported and skipped, and radin still installs.
-`rtk` and `headroom` install through Homebrew, mise, or their own
-installers. The install asks which.
+`rtk` installs through Homebrew, mise, or its own
+installer. The install asks which.
 
 Install asks two questions: one about `radin-batch`'s sub-agent models,
 one naming the package manager for companion tools. Add `-s -- --yes` to take the defaults. Add `-s -- --verbose` to
@@ -93,7 +93,6 @@ can sit under an epic whose `DESCRIPTION.md` every child inherits.
 | [caveman](https://github.com/JuliusBrussee/caveman) | Terse agent prose, ~65% fewer tokens |
 | [ponytail](https://github.com/DietrichGebert/ponytail) | Makes the agent think like the laziest senior dev in the room |
 | [codebase-memory-mcp](https://github.com/DeusData/codebase-memory-mcp) | Indexes the repo into a knowledge graph, so the agent asks instead of grepping |
-| [headroom](https://github.com/headroomlabs-ai/headroom) | Whole-session context compression, complements rtk's per-command one |
 | [thermo-nuclear](https://github.com/cursor/plugins/tree/main/cursor-team-kit/skills/thermo-nuclear-code-quality-review) | Maintainability review skill |
 | [mattpocock-skills](https://github.com/mattpocock/skills) | Engineering skills; radin delegates interviewing and research here |
 | [unslop](https://github.com/cursor/plugins/tree/main/pstack/skills/unslop) | Rewrites prose to strip AI-slop patterns |

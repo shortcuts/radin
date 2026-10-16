@@ -26,7 +26,7 @@ if [ -n "$bats_hits" ]; then
 fi
 
 # AGENTS.md: name a companion directly, with no `command -v` gate and no escape clause.
-companions='caveman|ponytail|rtk|thermo|mattpocock|headroom|codebase-memory|graph tool'
+companions='caveman|ponytail|rtk|thermo|mattpocock|codebase-memory|graph tool'
 guard_re="command -v|if (it|the|that|a)[^.]{0,40}(is|are) (installed|wired|available|present)|(unavailable|not installed|absent|missing|without)[^.]{0,50}($companions)|($companions|graph)[^.]{0,50}(unavailable|not installed|absent|is missing|when absent)"
 guard_hits=$(grep -nEi "$guard_re" skills/*/SKILL.md lib/*.md)
 if [ -n "$guard_hits" ]; then

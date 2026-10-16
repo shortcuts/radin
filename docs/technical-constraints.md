@@ -34,8 +34,8 @@ question, because radin's skills cannot work on a half-installed stack and
 every skill below delegates to tools it assumes are there. The installer asks
 two questions. The first is execution behavior (sub-agent models), because it
 changes what a run does rather than what exists. The second is which package
-manager installs `rtk` and `headroom` (`brew`, `mise`, or each tool's own
-`curl`/`pipx` installer), because installing through a manager the user does
+manager installs `rtk` (`brew`, `mise`, or its own
+`curl` installer), because installing through a manager the user does
 not run adds one they never chose. `radin update` keeps the recorded answer.
 
 `install.sh` reaches each tool through an existing install path
