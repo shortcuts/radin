@@ -84,7 +84,7 @@ For each sub-task, in order:
      The skill asks you anything: drop it and name the question in the
      report. Non-interactive: name the question and stop, because
      `radin-batch`'s router owns the research arm
-     (`lib/radin-execute-clarify.md`) and appends the answer to this task.
+     (`lib/radin-batch-clarify.md`) and appends the answer to this task.
 4. Sketch the seam the change will be tested at: the highest existing one,
    and a new one only at the highest point available. Interactive: confirm it
    with the user. Non-interactive: write on.

@@ -24,13 +24,13 @@ lib radin-prompt-debug.md
 lib radin-prompt-factfind.md
 lib radin-leaf-contract.md
 lib radin-prioritization.md
-lib radin-execute-recovery.md
-lib radin-execute-reporting.md
-lib radin-execute-gate.md
-lib radin-execute-review.md
-lib radin-execute-clarify.md
-lib radin-execute-session.md
-lib radin-execute-resume.md
+lib radin-batch-recovery.md
+lib radin-batch-reporting.md
+lib radin-batch-gate.md
+lib radin-batch-review.md
+lib radin-batch-clarify.md
+lib radin-batch-session.md
+lib radin-batch-resume.md
 lib radin-run.md
 lib radin-review-core.md
 lib radin-cbm-hooks.sh
@@ -46,3 +46,10 @@ renamed skill radin-run
 retired skill radin-update
 retired lib radin-tui.sh
 retired lib radin-crg-hooks.sh
+retired lib radin-execute-recovery.md
+retired lib radin-execute-reporting.md
+retired lib radin-execute-gate.md
+retired lib radin-execute-review.md
+retired lib radin-execute-clarify.md
+retired lib radin-execute-session.md
+retired lib radin-execute-resume.md

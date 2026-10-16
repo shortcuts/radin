@@ -30,10 +30,10 @@ install_all_expected() {
 
 @test "exits 1 and reports MISSING for an absent on-demand lib file" {
   install_all_expected
-  rm "$TEST_HOME/.claude/.radin/lib/radin-execute-recovery.md"
+  rm "$TEST_HOME/.claude/.radin/lib/radin-batch-recovery.md"
   run env HOME="$TEST_HOME" bash "$CLI"
   [ "$status" -eq 1 ]
-  [[ "$output" == *"MISSING  radin-execute-recovery.md"* ]]
+  [[ "$output" == *"MISSING  radin-batch-recovery.md"* ]]
 }
 
 @test "exits 1 and reports MISSING for an absent skill" {

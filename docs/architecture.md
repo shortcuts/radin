@@ -139,13 +139,13 @@ Both `BACKLOG_STEPS.json` and `completed.json` JSONL (one compact object per lin
 
 `radin-batch` alone reads seven on-demand files, none of them inline in `SKILL.md`, because the skill body sits in the user's own context for the rest of the session. Each one be cold path — trigger fire, file get read, otherwise never:
 
-- `lib/radin-execute-recovery.md` — `recover` routing for tasks a dead session left `in_progress`, read only when `radin-state.sh stuck` exits 0. Most runs never load it.
-- `lib/radin-execute-reporting.md` — the one thing `state report` cannot do: the duplicate id/title scan. Read at Phase 5.
-- `lib/radin-execute-clarify.md` — `BLOCKED (FACT)`/`(DECISION)` routing, fact-finder handoff, `backlog append` labels, read when a sub-agent block. Run where nothing block never load it.
-- `lib/radin-execute-session.md` — how to ask and persist Phase 0.5's worktree/branch answers, read only when `session-get` exit 1. First run in repo, nothing after.
-- `lib/radin-execute-resume.md` — resume triage, `MAX_ATTEMPTS` exception, state-persistence contract, read only when `BACKLOG_STEPS.json` already exist at startup or compaction ate earlier turns.
-- `lib/radin-execute-gate.md` — the Phase 4.5 gate sub-agent prompt, read once per session that recorded a commit.
-- `lib/radin-execute-review.md` — the Phase 6 reviewer sub-agent prompt, read only when the user asked for a post-session review. Its findings go to `/radin-review`'s triage.
+- `lib/radin-batch-recovery.md` — `recover` routing for tasks a dead session left `in_progress`, read only when `radin-state.sh stuck` exits 0. Most runs never load it.
+- `lib/radin-batch-reporting.md` — the one thing `state report` cannot do: the duplicate id/title scan. Read at Phase 5.
+- `lib/radin-batch-clarify.md` — `BLOCKED (FACT)`/`(DECISION)` routing, fact-finder handoff, `backlog append` labels, read when a sub-agent block. Run where nothing block never load it.
+- `lib/radin-batch-session.md` — how to ask and persist Phase 0.5's worktree/branch answers, read only when `session-get` exit 1. First run in repo, nothing after.
+- `lib/radin-batch-resume.md` — resume triage, `MAX_ATTEMPTS` exception, state-persistence contract, read only when `BACKLOG_STEPS.json` already exist at startup or compaction ate earlier turns.
+- `lib/radin-batch-gate.md` — the Phase 4.5 gate sub-agent prompt, read once per session that recorded a commit.
+- `lib/radin-batch-review.md` — the Phase 6 reviewer sub-agent prompt, read only when the user asked for a post-session review. Its findings go to `/radin-review`'s triage.
 - `lib/radin-review-core.md` — the one review brief every level runs: `plan` (`radin-plan` Step 4), `diff` (the execution leaf's staged diff), `session` (Phase 6 and `/radin-review`'s sub-agent). `/radin-review` adds only the human triage.
 
 ## Why every entry point is a skill
@@ -281,13 +281,13 @@ radin/
     radin-prompt-factfind.md
     radin-leaf-contract.md
     radin-prioritization.md
-    radin-execute-recovery.md
-    radin-execute-reporting.md
-    radin-execute-gate.md
-    radin-execute-review.md
-    radin-execute-clarify.md
-    radin-execute-session.md
-    radin-execute-resume.md
+    radin-batch-recovery.md
+    radin-batch-reporting.md
+    radin-batch-gate.md
+    radin-batch-review.md
+    radin-batch-clarify.md
+    radin-batch-session.md
+    radin-batch-resume.md
     radin-run.md
     radin-review-core.md
     radin-cbm-hooks.sh
@@ -484,7 +484,7 @@ ships with the token intact invents its own answer.
 | Written as | Resolved to |
 | --- | --- |
 | `RADIN_CLI <subcommand>` in every `skills/*/SKILL.md` and shipped `lib/*.md` | bare `radin` when the `~/.local/bin` symlink is on PATH, else `"$HOME/.claude/.radin/bin/radin"` (`set_cli`) |
-| `RADIN_MODEL_<ROLE>` — `PLANNING`, `EXECUTION`, `DEBUG`, `FACTFIND` each in its own `lib/radin-prompt-<kind>.md`, `CHORE` on the execution template's `model-chore:` line, `REVIEW` in `lib/radin-execute-review.md` | the install-time pick (`set_role_models`), one per group: major (planning, execution, review, debug) defaults to sonnet, minor defaults to haiku. Minor holds two roles: fact-finding, since its prompt demands the evidence and the router can reject a wrong answer; and a `chore` task's execution, since it needs no design judgement and still meets the dirty-tree check and Phase 6's review |
+| `RADIN_MODEL_<ROLE>` — `PLANNING`, `EXECUTION`, `DEBUG`, `FACTFIND` each in its own `lib/radin-prompt-<kind>.md`, `CHORE` on the execution template's `model-chore:` line, `REVIEW` in `lib/radin-batch-review.md` | the install-time pick (`set_role_models`), one per group: major (planning, execution, review, debug) defaults to sonnet, minor defaults to haiku. Minor holds two roles: fact-finding, since its prompt demands the evidence and the router can reject a wrong answer; and a `chore` task's execution, since it needs no design judgement and still meets the dirty-tree check and Phase 6's review |
 | `RADIN_LIB/<doc>.md` in `skills/radin-batch/SKILL.md` | `$HOME/.claude/.radin/lib` (`set_lib`). The Read tool takes no `$HOME`, so the literal would leave the model expanding it before every on-demand doc read |
 
 A new sub-agent role needs a token and a `-e` clause in `set_role_models` that maps
@@ -524,7 +524,7 @@ The execution sub-agent's own checks are a separate cost. On a large repo the
 full suite was most of each task's time: 16 of 21 minutes in one measured
 task. So the leaf picks its tests from what its diff reaches in the code
 graph, and Phase 4.5 of `lib/radin-run.md` (which reads
-`lib/radin-execute-gate.md`) runs the full suite once at the tip of each
+`lib/radin-batch-gate.md`) runs the full suite once at the tip of each
 branch the session touched. There is no per-session choice: the leaf always
 verifies its own work, and the gate always runs.
 
@@ -583,7 +583,7 @@ criterion would measure the work against radin's own guess.
 
 Those criteria are also the bar for the one recovery branch no command can
 settle: `radin state recover` exiting 3 hands the router commits a dead
-sub-agent left behind, and `lib/radin-execute-recovery.md` accepts them only
+sub-agent left behind, and `lib/radin-batch-recovery.md` accepts them only
 when they meet every criterion the entry states. An entry stating none is a
 `recover-reject` and the user's look, never the router's reconstruction of what
 the task wanted.
@@ -611,7 +611,7 @@ warns when the enable fails, and `radin-doctor` reports such a plugin as
 
 What a future audit checks prose against, after the 2026-09 dedup pass:
 
-- **Two audiences, one statement each.** Skill/lib prose is read by the router or a human-thread skill; a verbatim fence in `lib/radin-prompt-<kind>.md` is read only by its sub-agent, which never sees the surrounding narration. A fence copy is a payload, not a duplicate; within one audience there is exactly one statement, and a pointer where a second place needs it. A rule every leaf prompt states lives in `lib/radin-leaf-contract.md`, and `radin-prompt.sh` writes it in at the `LEAF_CONTRACT` token. The gate fence in `lib/radin-execute-gate.md` keeps its own copy, because the router sends it verbatim. `scripts/check-prose.sh` fails on a new sentence of 8 or more words that `lib/*.md` and `skills/*/SKILL.md` state twice; its allow list holds the copies kept on purpose.
+- **Two audiences, one statement each.** Skill/lib prose is read by the router or a human-thread skill; a verbatim fence in `lib/radin-prompt-<kind>.md` is read only by its sub-agent, which never sees the surrounding narration. A fence copy is a payload, not a duplicate; within one audience there is exactly one statement, and a pointer where a second place needs it. A rule every leaf prompt states lives in `lib/radin-leaf-contract.md`, and `radin-prompt.sh` writes it in at the `LEAF_CONTRACT` token. The gate fence in `lib/radin-batch-gate.md` keeps its own copy, because the router sends it verbatim. `scripts/check-prose.sh` fails on a new sentence of 8 or more words that `lib/*.md` and `skills/*/SKILL.md` state twice; its allow list holds the copies kept on purpose.
 - **Deterministic behaviour is owned by the code that does it** — the usage comments in `lib/radin-backlog.sh` and `lib/radin-state.sh`. Prose names the verb and its exit codes, never what the verb computes.
 - **Formats and schemas are owned by `docs/domain-models.md`.** No installed prose file restates one.
 - **Cross-skill rules live in the `<!-- radin:begin -->` block `install.sh` writes into `~/.claude/CLAUDE.md`** (never hand-edit `.claude/.radin/`; never guess on a broad ask). It costs no file read and ships with the skills.

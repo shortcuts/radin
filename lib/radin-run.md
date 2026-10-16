@@ -54,7 +54,7 @@ you.
 ## Clarifying Ambiguity
 
 A sub-agent's `STATUS: BLOCKED` routes through
-`RADIN_LIB/radin-execute-clarify.md`: read it and follow it — it holds
+`RADIN_LIB/radin-batch-clarify.md`: read it and follow it — it holds
 the routing for both tags and for `clarify STUCK`, the fact-finder handoff, the research arm for a
 fact that lives outside this repo, and the `backlog append` labels that put a
 settled answer where planning and execution sub-agents read it.
@@ -100,7 +100,7 @@ already answered, so ask nothing and change nothing. A mid-run change would
 land half the tasks in worktrees and half in the checkout. Exit 1
 means no answer
 is recorded yet — only the first run in a repo — so read
-`RADIN_LIB/radin-execute-session.md` and follow it to ask and
+`RADIN_LIB/radin-batch-session.md` and follow it to ask and
 persist them.
 
 ## Phase 1: Read and Prioritize
@@ -126,7 +126,7 @@ persist them.
    Exit 1: nothing to recover, continue to step 4. Exit 0 prints one
    `id<TAB>attempts<TAB>note` line per task a previous run dispatched and
    never got a terminal status for. Never re-dispatch one blind: read
-   `RADIN_LIB/radin-execute-recovery.md` and follow it for
+   `RADIN_LIB/radin-batch-recovery.md` and follow it for
    each id. Most runs skip this file entirely.
 4. Ask the CLI whether a ranking pass is needed at all:
 
@@ -308,7 +308,7 @@ Execution sub-agents run only the checks their diffs reached, so the whole
 suite runs here once, every session. Skip it when the session recorded no
 commit.
 
-Read `RADIN_LIB/radin-execute-gate.md` and follow it to dispatch the gate.
+Read `RADIN_LIB/radin-batch-gate.md` and follow it to dispatch the gate.
 
 ## Phase 5: Final Summary
 
@@ -319,13 +319,13 @@ RADIN_CLI state report
 ```
 
 Print its output verbatim. Read
-`RADIN_LIB/radin-execute-reporting.md` for the two things it
+`RADIN_LIB/radin-batch-reporting.md` for the two things it
 cannot do.
 
 ## Phase 6: Review
 
 - **The user asked for a post-session review** (in the invoking prompt or
-  once the summary is out): read `RADIN_LIB/radin-execute-review.md` and follow
+  once the summary is out): read `RADIN_LIB/radin-batch-review.md` and follow
   it.
 - **They didn't**: no review. Close the summary with `To review this
   session's work, run /radin-review with scope: <commit hashes recorded in
@@ -335,7 +335,7 @@ cannot do.
 
 - **Resume, and recovery after a compaction**: `BACKLOG_STEPS.json` already
   exists at startup, or earlier turns got summarized away. Either way, read
-  `RADIN_LIB/radin-execute-resume.md` and follow it: it holds
+  `RADIN_LIB/radin-batch-resume.md` and follow it: it holds
   the resume triage, the `MAX_ATTEMPTS` exception, and the state-persistence
   contract that lets you continue from disk rather than memory. A run that
   starts clean and stays in context never loads it.

@@ -198,7 +198,7 @@ sub-agents, and all show up as hang -- run stops mid-task, task claimed
   sub-agent's turn ends with no `STATUS:` line either way.
 
 Consequence: when radin needs fact, it dispatches own synchronous read-only
-sub-agent (Fact-finding prompt in `lib/radin-execute-prompts.md`) -- never
+sub-agent (Fact-finding prompt in `lib/radin-prompt-factfind.md`) -- never
 third-party research skill. When radin needs decision, router asks user
 directly, or records entry `blocked` and moves on.
 
