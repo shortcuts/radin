@@ -2,7 +2,7 @@
 
 The review every radin level runs: a plan before execution, a staged diff
 before its commit, a session's commits after the run. `/radin-review` adds the
-human triage on top. Run it inline: a caller that reads this file is a leaf or
+human triage on top. Run it inline. A caller that reads this file is a leaf or
 an agent and reaches no user.
 
 ## Inputs
