@@ -25,7 +25,7 @@ It prints `id`/`title`/`task_file`/`plan_file` lines, plus a
 `plan<TAB><path>` line per plan the entry already has. Route on its exit code:
 
 - **0**: resolved and unplanned. Use it.
-- **1**: nothing matches. The task isn't in the backlog yet: classify it into
+- **1**: nothing matches. The task isn't in the backlog yet. Classify it into
   `feat` (new capability), `fix` (broken behavior), `chore` (maintenance:
   docs, tooling, cleanup) or `refactor` (structure only, no behavior change),
   create it without asking, then re-run `plan-target` on the printed id.
@@ -226,8 +226,8 @@ and says "read all three in full before reviewing". Non-interactive: read the
 core and run it inline.
 
 Relay the findings before editing anything, then fix each one by editing the
-plan file in place and re-run Step 3's lint. The backlog gains nothing:
-nobody has written this code yet.
+plan file in place and re-run Step 3's lint. The backlog gains nothing,
+because nobody has written this code yet.
 
 A finding that the approach itself is wrong, or that leaves a decision for
 the executor to invent, outruns an edit. Interactive: invoke
