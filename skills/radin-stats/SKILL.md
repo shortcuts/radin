@@ -8,7 +8,7 @@ disable-model-invocation: true
 # Stats Roundup
 
 Print each tool's own stats or gain command, back to back. Compute no merged
-total: the units differ (per-session tokens, benchmark medians, a per-repo
+total. The units differ (per-session tokens, benchmark medians, a per-repo
 ledger). Display each output as-is.
 
 ## Run every source
