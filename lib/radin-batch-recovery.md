@@ -1,7 +1,7 @@
 # Shared: radin-batch Crash Recovery
 
-`radin-batch` reads this file only when `RADIN_CLI state stuck` exits 0 —
-a previous run dispatched a task and never got a terminal status for it.
+`radin-batch` reads this file only when `RADIN_CLI state stuck` exits 0.
+A previous run dispatched a task and never got a terminal status for it.
 
 A stuck task's sub-agent died with the session, so what it left on disk is
 unknown. Never re-dispatch one blind. For each id `stuck` printed:
@@ -10,14 +10,14 @@ unknown. Never re-dispatch one blind. For each id `stuck` printed:
 RADIN_CLI state recover "<task id>"
 ```
 
-Exit 0: it already finished the recovery — print the
+Exit 0: it finished the recovery. Print the
 `recovered<TAB><id><TAB><what it did>` line it printed and move on.
 
 Exit 3: the one branch no command can settle. A dead sub-agent committed work
 on the task's branch but never reported, so it printed the `branch`,
 `worktree` and `branch_commit` lines. Read those commits (`git show`) against
-one bar, and never against your own reconstruction of what the task wanted —
-the bar is the criteria the entry states:
+one bar, and never against your own reconstruction of what the task wanted.
+The bar is the criteria the entry states:
 
 ```bash
 RADIN_CLI backlog meta "<task id>"
@@ -28,7 +28,7 @@ and none when it states none.
 
 - **There is at least one `acceptance` line and the commits meet every one of
   them**: `RADIN_CLI state task-done "<task id>" "<last hash>"`.
-- **Anything else** — a criterion the commits miss, a criterion you cannot
+- **Anything else**, such as a criterion the commits miss, a criterion you cannot
   settle without running the project's checks, or no `acceptance` line at all:
   `RADIN_CLI state recover-reject "<task id>"`. Partial work
   is the user's call, and the command blocks the entry naming the branch and
