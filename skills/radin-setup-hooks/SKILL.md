@@ -4,7 +4,7 @@ description: Wire codebase-memory-mcp into this repo when install.sh could not d
 ---
 # radin: Set Up Companion-Tool Hooks
 
-`install.sh` normally wires codebase-memory-mcp globally: it runs upstream's
+`install.sh` normally wires codebase-memory-mcp globally. It runs upstream's
 own configuration and restores whatever that write dropped. When it did,
 **there is nothing for this skill to do**.
 
@@ -49,7 +49,7 @@ merge-only path below.
 ## Report
 
 **Reply:** the script's output as-is, one `ADDED` or `PRESENT` line per write. A
-non-zero exit writes nothing and prints its own cause and remedy: relay that
+non-zero exit writes nothing and prints its own cause and remedy. Relay that
 line and add nothing to it. Then tell the user to restart Claude Code so the MCP
 server loads; the graph indexes itself on first connection (`install.sh` sets
 `auto_index`), and if a query reports no project, ask the agent to index the
