@@ -10,22 +10,22 @@ Route on it:
 - **`BLOCKED (FACT)`**: checkable, and the sub-agent already failed to verify
   it from the repo. Facts are never the user's job to hand over.
 
-  **Inside the working directory** — the repo, its lockfiles, its vendored
-  dependencies, its config: dispatch a fresh sub-agent with
+  **Inside the working directory.** This means the repo, its lockfiles, its vendored
+  dependencies and its config. Dispatch a fresh sub-agent with
   `RADIN_CLI prompt factfind "<task id>" "<the question>"`, which prints a
-  `model` and a `prompt` path to dispatch as Phase 4 does. Holding more than one at once, every one of those dispatches goes in
+  `model` and a `prompt` path to dispatch as Phase 4 does. With more than one, send every dispatch in
   the same message, and each `STATUS: FOUND` is appended to its own task's
   file.
 
-  **Outside the working directory** — third-party API or library behavior, a
-  spec, a service's own reference: you invoke `/mattpocock-skills:research`
+  **Outside the working directory.** This means third-party API or library behavior, a
+  spec, or a service's own reference. Invoke `/mattpocock-skills:research`
   yourself, once per question, all the invocations in the same message. If it
-  asks you anything: drop it, never wait on it, and
+  asks you anything, drop it, never wait on it, and
   treat the question as `STATUS: NOT FOUND` below. Otherwise give it the
   question plus these two demands.
 
-  - Investigate the question against **primary sources** — official docs,
-    source code, specs, first-party APIs — not a secondary write-up of them.
+  - Investigate the question against **primary sources**, such as official docs,
+    source code, specs and first-party APIs, not a secondary write-up of them.
     Follow every claim back to the source that owns it.
   - Write the findings to `<repo root>/.claude/.radin/state/facts/<task id>.md`, citing
     each claim's source.
@@ -37,7 +37,7 @@ Route on it:
   - `STATUS: FOUND`: append the finding to that task's file with
     `backlog append` (labels below), record a reported `state/facts/<id>.md`
     path with `backlog set-meta`, and re-run the task (Phase 4).
-    It stays scoped to the one task that needed it: never copy a
+    It stays scoped to the one task that needed it. Never copy a
     finding onto another entry, and never build a shared notes file.
   - `STATUS: NOT FOUND`: it has escalated into a decision. Fall through to
     `(DECISION)`, with its report as context.
