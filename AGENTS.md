@@ -23,6 +23,8 @@ radin is a Claude Code plugin of skills, a CLI, and install glue.
 | `~/.claude` ownership | `tests/install.bats` ("never overwrites a skill radin did not install"), `tests/bash-compat.bats` (`rm` allowlist) | Foreign content in the `CLAUDE.md` block and settings restore is untested. |
 | Companion install is advisory | `tests/install.bats` ("a failing companion tool and a missing claude CLI both warn, and the install completes") | None. |
 | One owner per delegation | `tests/skill-names.bats` (every name resolves) | Nothing for "one file per delegation" and graph tool names; review only. |
+| Name each companion directly, no guard or escape clause | `scripts/check-prose.sh` (guard phrases in `skills/*/SKILL.md` and `lib/*.md`), run by `make check` | A paraphrase escapes the phrase list. |
+| A test must be able to fail | `scripts/check-prose.sh` (bare `! cmd` mid-test in `tests/*.bats`), run by `make check` | Other vacuous patterns; review only. |
 | Critical-path-only tests ([policy](#test-suite-speed)) | None; review only | A new test that guards no install or TUI failure passes unnoticed. |
 
 Add a row with every new hard rule.
