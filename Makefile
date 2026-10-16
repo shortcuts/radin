@@ -1,4 +1,4 @@
-.PHONY: install update build run test bench-tui lint clean
+.PHONY: install update build run test bench-tui lint check clean
 
 install:
 	./install.sh
@@ -50,3 +50,9 @@ lint:
 	shellcheck $(SH_FILES)
 	shfmt -w $(SH_FILES)
 	markdownlint --fix '**/*.md' --ignore node_modules
+
+check:
+	bash -n $(SH_FILES)
+	shellcheck $(SH_FILES)
+	shfmt -d $(SH_FILES)
+	markdownlint '**/*.md' --ignore node_modules

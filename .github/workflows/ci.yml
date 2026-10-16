@@ -6,16 +6,18 @@ on:
     branches: [main]
 
 jobs:
-  lint:
+  check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: bash -n syntax check
-        run: bash -n install.sh
+      - name: install lint tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck shfmt
+          sudo npm install -g markdownlint-cli
 
-      - name: shellcheck (informational)
-        run: shellcheck install.sh || true
+      - run: make check
 
   test:
     runs-on: ubuntu-latest
@@ -25,5 +27,4 @@ jobs:
       - name: install bats-core
         run: sudo apt-get update && sudo apt-get install -y bats
 
-      - name: run install.sh test suite
-        run: bats tests/
+      - run: make test

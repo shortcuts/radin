@@ -4,8 +4,11 @@
 
 ```sh
 make lint
+make check
 make test
 ```
+
+`make lint` rewrites files. `make check` only reports, and CI runs it.
 
 ## Measure a TUI render change
 
