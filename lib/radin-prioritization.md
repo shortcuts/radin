@@ -12,7 +12,7 @@ One rule is left here:
 
 1. **A prioritization pass writes nothing.** Read a task's body only for an id
    `--rank-needed` printed; the title alone is never the task. No
-   `set-priority`, no `set-deps`: a set `priority` and a set `depends_on` are
+   `set-priority`, no `set-deps`. A set `priority` and a set `depends_on` are
    the human's, used verbatim. Whatever this pass concludes leaves as an
    `order` flag, which validates it, and never as an index write. The
    condition is a priority on every entry, not "both fields set": the CLI
@@ -21,16 +21,16 @@ One rule is left here:
 
 ### Weighted criteria for unset entries (in order of weight)
 
-- **Blocking issues** (bugs that prevent core functionality) → highest priority
-- **Security or data-loss risks** → very high priority
-- **High-impact features** with clear specifications → high priority
-- **Dependency order** (task A must precede task B) → infer one only where
+- **Blocking issues** (bugs that prevent core functionality): highest priority
+- **Security or data-loss risks**: very high priority
+- **High-impact features** with clear specifications: high priority
+- **Dependency order** (task A must precede task B): infer one only where
   the index has none, and only within these bounds: one entry's body must
   name a file, symbol or behaviour the *other* entry's body says it will
   **change** (naming the same area is not enough), and at most one inferred
   dependency per entry, the earlier-ranked entry being the dependency.
-- **Effort vs. value** (quick wins with high value) → prefer earlier
-- **Nice-to-haves and ideas** → lowest priority
+- **Effort vs. value** (quick wins with high value): prefer earlier
+- **Nice-to-haves and ideas**: lowest priority
 
 The pass produces two things and nothing else: the unset group in your order,
 as `order --rank <csv-of-ids>`, and one `order --infer-deps <id>=<csv>` flag
