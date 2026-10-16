@@ -9,8 +9,8 @@ description: |
 # Record to Backlog
 
 This captures what a human said; `radin-review` logs what a diff revealed. Every
-downstream reader -- `radin-plan`, `radin-batch`, the execution sub-agent it
-dispatches -- is a **cold start**: it sees the entry and nothing of this
+downstream reader, `radin-plan`, `radin-batch`, the execution sub-agent it
+dispatches, is a **cold start**: it sees the entry and nothing of this
 conversation.
 
 ## Step 1: Decide what to log
@@ -29,15 +29,15 @@ One raised thing can be several sequential pieces of work ("add rate limiting on
 top of new auth middleware" needs the middleware first). Log each piece as its
 own entry, sized as a **vertical slice**:
 
-- It cuts a narrow but COMPLETE path through every layer it touches -- vertical,
+- It cuts a narrow but COMPLETE path through every layer it touches, vertical,
   not a horizontal slice of one layer.
 - Landed, it is demoable or verifiable on its own.
 - It fits one fresh context window, the cold start it gets.
-- A **prefactor** -- the restructuring that makes the real change easy -- is its
+- A **prefactor**, the restructuring that makes the real change easy, is its
   own entry, which every entry needing it depends on.
 
-One mechanical change whose blast radius fans across the codebase -- rename a
-column, retype a shared symbol -- is the exception: no vertical slice of it
+One mechanical change whose blast radius fans across the codebase, such as renaming a
+column or retyping a shared symbol, is the exception: no vertical slice of it
 lands green, so log it as one entry per batch the change breaks, plus a final
 entry that puts the tree back green depending on every batch.
 
@@ -69,7 +69,7 @@ didn't settle. Tag each question:
 
 Name even one plausible guess (a threshold, a naming choice, keep-vs-remove) and
 the item has a Decision, so grill it. An item with no second reasonable way to do
-it skips this step, and so does a stub -- one deliberately deferred whole.
+it skips this step, and so does a stub, one deliberately deferred whole.
 
 If the user defers a question or stops answering, record the question itself as an
 open decision in the entry body, options and your recommendation included, so
@@ -93,7 +93,7 @@ from bare text and never invokes the skill the user chose.
 Does landing this item require another item in the batch (or an existing backlog
 task) to land first, by sharing a file/function/behavior or by an explicit
 build-on? Note the other entry's exact title for Step 5's `set-deps`, and say why
-it comes first in the dependent entry's description -- the `depends_on` field
+it comes first in the dependent entry's description. The `depends_on` field
 carries the ordering, the prose the reason.
 
 Classify into exactly one category (conventional-commit vocabulary):
@@ -112,14 +112,14 @@ real alternative.
 ## Step 5: Review, quiz the user on the batch, then append via the CLI
 
 An entry passes by carrying its decisions, or by naming what stays open. Literal
-content in the ask -- an error string, a path, a snippet, an explicit constraint
--- belongs in the `**Raised as:**` quote before anything is appended.
+content in the ask, such as an error string, a path, a snippet or an explicit constraint,
+belongs in the `**Raised as:**` quote before anything is appended.
 
 Present the batch as a numbered list, each item showing:
 
 - **Title**: the short descriptive name.
 - **Category**: from Step 4.
-- **Blocked by**: the entries that gate it, or "None -- can start immediately".
+- **Blocked by**: the entries that gate it, or "None, can start immediately".
 - **What it delivers**: the end-to-end behavior this entry makes work.
 - **Plan**: needed or not, with the one-line reason.
 
@@ -130,8 +130,8 @@ that produced exactly one entry with no dependencies. A generic ask always
 quizzes, single entry included, because a session scan is a guess about what the
 user wants captured.
 
-A cold start reads the body and nothing else, so quote rather than paraphrase --
-your paraphrase is the only version that survives. Name the behavior and each
+A cold start reads the body and nothing else, so quote rather than paraphrase.
+Your paraphrase is the only version that survives. Name the behavior and each
 file by its role, because the paths and snippets you would write yourself go
 stale within a commit or two. Two exceptions stay verbatim: the `**Raised as:**`
 quote, paths and snippets the user pasted included, and a snippet that encodes a
@@ -171,7 +171,7 @@ Flag each approved entry whose verdict is "needed":
 RADIN_CLI backlog set-meta <id> planning needed
 ```
 
-Once every approved item is added -- each `add` prints its id -- record Step 4's
+Once every `add` has printed its id, record Step 4's
 dependencies, one call per dependent entry, always after all the adds:
 
 ```bash
@@ -181,7 +181,7 @@ RADIN_CLI backlog set-deps <dependent-id> <csv-of-ids-it-depends-on>
 Each noted title is either an id an `add` just printed, or, for a task that already
 existed, `RADIN_CLI backlog field "<title>" TASK_ID`.
 
-Always append; never scan for near-duplicates or merge with an existing entry: a
+Always append. Never scan for near-duplicates or merge with an existing entry, because a
 false-positive merge silently drops something the user cared about, which is worse
 than an occasional repeat.
 
