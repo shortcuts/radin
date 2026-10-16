@@ -7,8 +7,8 @@ implementation step to a sub-agent, and record status. You never implement,
 and `/radin-plan` is the planner: a task whose entry carries a plan pointer
 goes to the sub-agent as-is, its approach already settled.
 
-Your context is the session's budget. Hold the backlog at low resolution —
-ids, titles, order, exit codes — and leave every zoom to a sub-agent: a task
+Your context is the session's budget. Hold the backlog at low resolution,
+as ids, titles, order and exit codes, and leave every zoom to a sub-agent: a task
 body, a plan file, a diff, and codebase exploration above all are what a leaf
 reads and hands back as one `STATUS:` line.
 
@@ -26,8 +26,8 @@ you.
   owns it next run.
 - **The user's answers are binding.** Carry each one forward exactly as given:
   the task selection, the worktree and branch preferences, and the
-  concurrency rule below are decisions, not hints. A `no` especially — nothing
-  you find later revises one, not a task file, not a plan, not a leftover
+  concurrency rule below are decisions, not hints. This holds most for a `no`.
+  Nothing you find later revises one, not a task file, not a plan, not a leftover
   `radin/<id>` branch.
   Leaving the task undone is the better outcome. The worktree/branch pair is enforced for you: it lives in
   `session.json`, and `RADIN_CLI state prepare` is the only thing that turns
@@ -45,7 +45,7 @@ you.
 - **Phase 0.5's worktree answer sets execution concurrency.** `yes`: execution
   sub-agents whose `task-next` `overlap` line reads `none` may go out in one
   message, since each lands in its own tree. Any other `overlap` value, or
-  `no`: dispatch the task alone — wait for every outstanding sub-agent's
+  `no`: dispatch the task alone. Wait for every outstanding sub-agent's
   `STATUS:` line and `task-report`, dispatch it, and wait for its own report
   before the next `task-next`. Parallel agents in one checkout corrupt each
   other's commits. Each task still gets its own `task-next`, its own dispatch,
@@ -54,7 +54,7 @@ you.
 ## Clarifying Ambiguity
 
 A sub-agent's `STATUS: BLOCKED` routes through
-`RADIN_LIB/radin-batch-clarify.md`: read it and follow it — it holds
+`RADIN_LIB/radin-batch-clarify.md`: read it and follow it. It holds
 the routing for both tags and for `clarify STUCK`, the fact-finder handoff, the research arm for a
 fact that lives outside this repo, and the `backlog append` labels that put a
 settled answer where planning and execution sub-agents read it.
@@ -83,7 +83,7 @@ RADIN_CLI backlog count
 ```
 
 On a non-zero count, continue to Phase 0.5. A count of `0` is not a
-stop here: Phase 1 step 1 owns that branch.
+stop here. Phase 1 step 1 owns that branch.
 
 ## Phase 0.5: Worktree/Branch Preference
 
@@ -99,7 +99,7 @@ Exit 0 prints `worktree<TAB><yes|no>` and `branch<TAB><yes|no>`: the repo has
 already answered, so ask nothing and change nothing. A mid-run change would
 land half the tasks in worktrees and half in the checkout. Exit 1
 means no answer
-is recorded yet — only the first run in a repo — so read
+is recorded yet, which happens only on the first run in a repo. Read
 `RADIN_LIB/radin-batch-session.md` and follow it to ask and
 persist them.
 
@@ -125,7 +125,7 @@ persist them.
 
    Exit 1: nothing to recover, continue to step 4. Exit 0 prints one
    `id<TAB>attempts<TAB>note` line per task a previous run dispatched and
-   never got a terminal status for. Never re-dispatch one blind: read
+   never got a terminal status for. Never re-dispatch one blind. Read
    `RADIN_LIB/radin-batch-recovery.md` and follow it for
    each id. Most runs skip this file entirely.
 4. Ask the CLI whether a ranking pass is needed at all:
@@ -134,8 +134,8 @@ persist them.
    RADIN_CLI backlog order --rank-needed
    ```
 
-   Exit 1: every entry carries a priority. No task body read, no criteria
-   pass, no dependency inference — go to Phase 2. Exit 0: it printed the ids
+   Exit 1: every entry carries a priority. Read no task body, run no criteria
+   pass, infer no dependency. Go to Phase 2. Exit 0: it printed the ids
    whose `priority` is unset. Read
    `RADIN_LIB/radin-prioritization.md` and apply its weighted
    criteria to those ids alone. It produces two things: the unset group in
@@ -210,7 +210,7 @@ RADIN_CLI backlog order --steps <Phase 1's flags> --defer "<ids Phase 2 excluded
 
 `--defer` takes the ids Phase 2 excluded; omit the flag entirely when nothing
 is deferred. Resolving that free text to ids is yours;
-filtering, renumbering and the `depends_on` precedence are not — every listed
+filtering, renumbering and the `depends_on` precedence are not. Every listed
 task keeps the `order` number the report printed.
 
 ## Phase 4: Task Execution Loop
@@ -227,7 +227,7 @@ RADIN_CLI state task-next
 Exit 1 means nothing is left to run, so go to Phase 4.5. Exit 0 prints, in
 order:
 
-- zero or more `blocked<TAB><id><TAB><why>` lines — tasks it skipped (an
+- zero or more `blocked<TAB><id><TAB><why>` lines for tasks it skipped (an
   unresolved dependency, an entry the backlog lost, `MAX_ATTEMPTS` reached).
   It already marked each one `blocked`. A `MAX_ATTEMPTS` line goes to
   Clarifying Ambiguity's `clarify STUCK` route; report each other as skipped.
@@ -237,7 +237,7 @@ order:
 
 `kind` is `planning` for an entry radin-record flagged as needing a plan that
 has none yet, else `execution`. A `planning` dispatch that reports
-`STATUS: PLANNED` skips `task-report`: re-run `task-next "<task id>"`, which
+`STATUS: PLANNED` skips `task-report`. Re-run `task-next "<task id>"`, which
 now hands out its execution prompt. `STATUS: BLOCKED (FACT|DECISION)`
 routes per Clarifying Ambiguity. Dispatch the prompt as one
 `Agent` call with exactly that model and this text, and nothing else:
@@ -246,7 +246,7 @@ routes per Clarifying Ambiguity. Dispatch the prompt as one
 Read <the prompt path> and follow it.
 ```
 
-Dispatch under the concurrency rule in Core Constraints — it reads the `overlap` line to decide whether
+Dispatch under the concurrency rule in Core Constraints. It reads the `overlap` line to decide whether
 this task's `Agent` call may share a message with another's. An `execution`
 task is already claimed, so Phase 1 step 3's stuck-recovery sees it if the
 session dies.
@@ -260,10 +260,10 @@ RADIN_CLI state task-report "<task id>" "<the sub-agent's STATUS: line>" --next
 ```
 
 Two dispatches hand back no such line. A last line that is not a `STATUS:`
-line — it asked something, hit an interactive skill, or died mid-turn — goes
+line, because the agent asked something, hit an interactive skill, or died mid-turn, goes
 in as `--no-status "<its final line>" --next` instead, an API or network error text
 included: the CLI sends that task back for a retry. A sub-agent with no content at
-all is still working, whatever the elapsed time suggests: wait, and if your
+all is still working, whatever the elapsed time suggests. Wait, and if your
 turn ends first, leave the entry `in_progress` for Phase 1's stuck-recovery.
 
 When the dispatch's completion notification carries a usage block (total tokens,
@@ -294,7 +294,7 @@ next task's dispatch and carry on. The loop stops only at a
 `clarify` waiting on the user, Phase 4.5, or Phase 5.
 
 Never verify a `SUCCESS` yourself: no per-task verification sub-agent, and no
-re-reading the diff — that read is the cost the leaf's own verify loop and
+re-reading the diff. That read is the cost the leaf's own verify loop and
 Phase 4.5's gate exist to avoid. A task is finished when `task-report` has recorded it,
 whatever the sub-agent's prose said.
 
@@ -335,7 +335,7 @@ cannot do.
 
 - **Resume, and recovery after a compaction**: `BACKLOG_STEPS.json` already
   exists at startup, or earlier turns got summarized away. Either way, read
-  `RADIN_LIB/radin-batch-resume.md` and follow it: it holds
+  `RADIN_LIB/radin-batch-resume.md` and follow it. It holds
   the resume triage, the `MAX_ATTEMPTS` exception, and the state-persistence
   contract that lets you continue from disk rather than memory. A run that
   starts clean and stays in context never loads it.
