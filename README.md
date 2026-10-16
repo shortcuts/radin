@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <em>Too cheap to pay full price for a whole AI tool stack — so it went shopping for you.</em>
+  <em>Too cheap to pay full price for a whole AI tool stack, so it went shopping for you.</em>
 </p>
 
 <p align="center">
@@ -33,13 +33,13 @@ gives you:
 curl -fsSL https://raw.githubusercontent.com/shortcuts/radin/main/install.sh | bash
 ```
 
-Needs `curl`, `tar`, `bash`, and the `claude` CLI. Two files are C -- the TUI and the
-JSON surgery behind `radin repair`: install builds both with `cc` (Xcode
+Needs `curl`, `tar`, `bash`, and the `claude` CLI. Two files are C, the TUI and the
+JSON surgery behind `radin repair`. Install builds both with `cc` (Xcode
 Command Line Tools on macOS, gcc on Linux) and skips each with a warning when
 no compiler is there. Companion tools pull their
 own stacks; one that fails is reported and skipped, and radin still installs.
 `rtk` and `headroom` install through Homebrew, mise, or their own
-installers -- the install asks which.
+installers. The install asks which.
 
 Install asks two questions: one about `radin-batch`'s sub-agent models,
 one naming the package manager for companion tools. Add `-s -- --yes` to take the defaults. Add `-s -- --verbose` to
@@ -57,25 +57,25 @@ companions that are missing. Re-run `install.sh` to update the companions too.
 | `/radin-plan` | Write a step-by-step plan for one task, touching no code |
 | `/radin-batch` | Work the backlog: prioritize, plan the tasks `/radin-record` flagged, implement, commit, one task per commit |
 | `/radin-do` | Record one ad-hoc prompt as a backlog entry, plan it when flagged, then execute just that task |
-| `/radin-review` | Two-axis pass over a scope — repo rubrics, plus the originating entry's spec; kept findings go to the backlog or straight to `/radin-do` |
+| `/radin-review` | Two-axis pass over a scope, repo rubrics plus the originating entry's spec; kept findings go to the backlog or straight to `/radin-do` |
 | `/radin-show` | Print the backlog |
 | `/radin-stats` | Every companion tool's own savings report, side by side |
 | `/radin-doctor` | Verify the install, report unreachable companions |
 | `/radin-setup-hooks` | Wire codebase-memory-mcp into this repo when `install.sh` could not do it globally |
 | `/radin-uninstall` | Remove what `install.sh` put in `~/.claude` |
-| `radin` | Full-screen backlog browser for humans: bare `radin` on a terminal is the human entry point. No agent involved; `?` lists keys. Off a terminal it prints the usage text and exits non-zero, so a skill or pipe never hangs in a full-screen app. `radin help` prints that text on purpose |
+| `radin` | Full-screen backlog browser for humans. Bare `radin` on a terminal is the human entry point. No agent involved; `?` lists keys. Off a terminal it prints the usage text and exits non-zero, so a skill or pipe never hangs in a full-screen app. `radin help` prints that text on purpose |
 
-Typical loop: record → (plan) → execute → review, whose findings feed the next
+Typical loop: record, plan (optional), execute, review. Review findings feed the next
 execute. Each skill runs in your own conversation, so it can ask you
 questions; only leaf work goes to sub-agents. `/radin-batch` confirms the
 order before it starts, and every task's state is on disk, so interrupting it
 costs nothing. Want your thread free? Dispatch it from `claude agents` or a
-second `claude` session — the worktree-per-task answer keeps concurrent runs
+second `claude` session. The worktree-per-task answer keeps concurrent runs
 off each other's checkout.
 
 ## Where things live
 
-One directory per repo: `<repo-root>/.claude/.radin/` — the backlog index, one
+One directory per repo, `<repo-root>/.claude/.radin/`, holds the backlog index, one
 markdown file per task, plans, reviews, and execution state. Commit it to
 share the backlog with your team, or gitignore it to keep it private. radin
 never touches your `.gitignore`.
@@ -103,9 +103,9 @@ unslop and technical-writing are fetched from cursor/plugins `main` on every
 install and update, unpinned. An upstream edit changes agent behavior without
 review.
 
-Two caveats: a graph answer is a pointer, never proof of absence — read the
-file before editing. And after `codebase-memory-mcp update`, run
-`radin repair`, because that update reruns a config write which
+Two caveats. A graph answer is a pointer, never proof of absence, so read the
+file before editing. After `codebase-memory-mcp update`, run
+`radin repair`, because that update reruns a config write that
 drops other tools' hooks. radin snapshots `~/.claude/settings.json` and
 `~/.claude.json` into `~/.claude/.radin/backups/` before that write and never
 deletes a snapshot; `codebase-memory-mcp uninstall` undoes upstream's own side.
