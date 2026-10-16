@@ -47,8 +47,8 @@ Ground rules, applying to every step below:
   their side is BLOCKED (DECISION) carrying exactly what unblocks you, with
   anything you touched reverted so the tree is clean; it is never FAILED or
   INCONCLUSIVE.
-- Never commit, revert, or otherwise touch anything under `.claude/.radin/` —
-  it is the router's state, not task work, except the `RADIN_CLI backlog
+- Never commit, revert, or otherwise touch anything under `.claude/.radin/`.
+  It is the router's state, not task work, except the `RADIN_CLI backlog
   append` call above.
 - Explore through `codebase-memory-mcp`'s MCP tools before Grep/Glob/Read: a
   graph hit is a pointer, so read the file before you cite or edit it, and
