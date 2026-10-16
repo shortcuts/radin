@@ -2,8 +2,6 @@
 
 Rendered by `radin prompt planning <id>`. `lib/radin-prompt.sh` holds the format.
 
-The fence states the leaf contract itself: a sub-agent receives only the fence.
-
 `model: "RADIN_MODEL_PLANNING"`
 
 ```
@@ -16,11 +14,10 @@ Otherwise invoke the `/radin-plan` skill scoped to the backlog task with id "TAS
 reading TASK_FILE in full as the task scope. It writes the plan file(s) and
 records the plan pointer(s) on that task's backlog entry.
 
-You are a leaf: no user, no `AskUserQuestion`, no `Workflow`, and no
-sub-agent of your own. Where the skill would ask (splitting the entry,
-overwriting an existing plan), take the non-destructive path: don't split,
-don't overwrite. Drop a skill that asks or spawns and waits (`grilling`,
-`research`, `/deep-research`, any saved workflow): it hangs the router. Anything you could only settle that way is BLOCKED material.
+LEAF_CONTRACT That rules out `grilling`, `research`, `/deep-research` and any
+saved workflow. Anything you could only settle with one is BLOCKED material.
+Where the skill would ask (splitting the entry, overwriting an existing plan),
+take the non-destructive path: don't split, don't overwrite.
 Implement nothing.
 
 The plan must settle every decision: the executor makes no judgment calls,

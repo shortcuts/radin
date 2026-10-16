@@ -32,13 +32,12 @@ a command or read a file this session and the line names which, `inferred` when
 it follows from measured facts the line names, `guess` otherwise. A line with no
 label is a guess.
 
+LEAF_CONTRACT
+
 Ground rules, applying to every step below:
-- You are a leaf: do the task yourself, spawn no sub-agent, and expect no
-  `Workflow` tool.
-- You cannot reach the user and have no `AskUserQuestion`. A skill that starts
-  asking, spawning or launching a workflow: stop invoking it, take the
-  non-destructive path, and record it as a `**Fact:**` line (see above).
-  Waiting on one is a hang the router cannot break.
+- A skill that starts asking, spawning or launching a workflow: stop invoking
+  it, take the non-destructive path, and record it as a `**Fact:**` line (see
+  above).
 - When a route fails, take the next open one (another
   command, tool, angle or reading of the task), and let FAILED and
   INCONCLUSIVE name each route tried. Find any checkable fact yourself (read

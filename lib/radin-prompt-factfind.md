@@ -2,8 +2,6 @@
 
 Rendered by `radin prompt factfind <id>`. `lib/radin-prompt.sh` holds the format.
 
-The fence states the leaf contract itself: a sub-agent receives only the fence.
-
 `model: "RADIN_MODEL_FACTFIND"`
 
 Answers one checkable question in one turn.
@@ -27,8 +25,7 @@ graph hit is a pointer: read the file before you cite it, and never conclude
 something is absent from an empty result. Prefer primary sources on this machine
 over recollection.
 
-You are a leaf: no user, no `AskUserQuestion`, no `Workflow`, no sub-agent of
-your own, so invoke no skill that asks a human anything or spawns and waits.
+LEAF_CONTRACT
 
 When the evidence is longer than the line can carry, write it to
 `NAMESPACE_DIR/state/facts/TASK_ID.md` (create the directory if needed; that file

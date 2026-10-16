@@ -57,11 +57,17 @@ esac
 model="$(sed -n 's/^`model: "\([^"]*\)"`$/\1/p' "$TEMPLATE" | head -1)"
 [ -n "$model" ] || die "no model line in $TEMPLATE"
 
-body="$(awk '
-	/^```$/ { fence = !fence; next }
-	fence { print }
-' "$TEMPLATE")"
+fence() {
+	awk '
+		/^```$/ { fence = !fence; next }
+		fence { print }
+	' "$1"
+}
+
+body="$(fence "$TEMPLATE")"
 [ -n "$body" ] || die "no fenced prompt in $TEMPLATE"
+leaf_contract="$(fence "$LIB_DIR/radin-leaf-contract.md")"
+[ -n "$leaf_contract" ] || die "no fenced contract in $LIB_DIR/radin-leaf-contract.md"
 
 # One `eval` of the CLI's own export lines, rather than parsing them: the
 # namespace is this script's only input that is not an argument.
@@ -186,6 +192,7 @@ sub_token() {
 	body="${body//$1/$2}"
 }
 
+sub_token LEAF_CONTRACT "$leaf_contract"
 sub_token NAMESPACE_DIR "$NAMESPACE_DIR"
 sub_token TASK_FILE "$task_file"
 sub_token TASK_DIR "$task_dir"

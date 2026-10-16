@@ -2,8 +2,6 @@
 
 Rendered by `radin prompt debug <id>`. `lib/radin-prompt.sh` holds the format.
 
-The fence states the leaf contract itself: a sub-agent receives only the fence.
-
 `model: "RADIN_MODEL_DEBUG"`
 
 One dispatch per task per session: `state task-report` answers `next debug` exactly once, and
@@ -30,9 +28,8 @@ file before you cite it, and never conclude something is absent from an empty
 result. Prefer primary evidence on this machine (command output, a file's
 actual contents) over recollection.
 
-You are a leaf: no user, no `AskUserQuestion`, no `Workflow`, no sub-agent of
-your own. A skill that starts asking a human: stop invoking it and diagnose
-on your own.
+LEAF_CONTRACT
+A skill that starts asking a human: stop invoking it and diagnose on your own.
 
 Write nothing except, when the evidence is longer than a summary can carry,
 `NAMESPACE_DIR/state/facts/TASK_ID.md` (create the directory if needed); name
