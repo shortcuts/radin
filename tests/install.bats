@@ -100,7 +100,7 @@ run_install_defaults() {
   [ -f "$TEMPLATE/home/.claude/.radin/manifest.json" ]
   [ -x "$TEMPLATE/home/.claude/.radin/bin/radin-tui" ]
   [ -x "$TEMPLATE/home/.claude/.radin/bin/radin-cbm-json" ]
-  # Agents read the backlog through the CLI; /radin-show is a human's command.
+  # Agents read the backlog through the CLI.
   grep -q 'what is pending: run `.* backlog show`' "$TEMPLATE/home/.claude/CLAUDE.md"
   ! grep -q '/radin-show' "$TEMPLATE/home/.claude/CLAUDE.md"
 }

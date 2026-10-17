@@ -44,7 +44,7 @@ This replaced the earlier `~/.claude/.radin/projects/<repo-slug>/` scheme. That 
 
 ## Namespace resolution and the backlog CLI
 
-Every one of `lib/radin-run.md` (the body of `radin-batch` and `radin-do`), `skills/radin-plan/SKILL.md`, `skills/radin-review/SKILL.md`, `skills/radin-record/SKILL.md`, `skills/radin-show/SKILL.md` goes through same shared CLI, `lib/radin-backlog.sh`, for every deterministic backlog op:
+Every one of `lib/radin-run.md` (the body of `radin-batch` and `radin-do`), `skills/radin-plan/SKILL.md`, `skills/radin-review/SKILL.md`, `skills/radin-record/SKILL.md` goes through same shared CLI, `lib/radin-backlog.sh`, for every deterministic backlog op:
 
 ```bash
 radin backlog <env|show|list|count|find|add|add-plan|append|meta|order|field|duplicates|plan-target|files|set-category|retitle|set-priority|set-deps|set-meta|remove|reconcile|epics|epic-add|epic-show|epic-move|epic-remove>   # dispatcher at ~/.claude/.radin/bin/radin, symlinked into ~/.local/bin
@@ -85,7 +85,7 @@ The subcommand is what switches the two modes apart, so no flag does. `radin <ve
 
 Point: offloading. Id assignment, task lookup, plan-pointer insertion, the execution order and its dependency fix, the ranking gate, prompt-field rendering, the duplicate scan. These are deterministic ops the model used to re-derive from prose rules every run. `lib/radin-prioritization.md` is left with the two things that are not computations: how to rank the unset-priority group, and when one entry's body implies a dependency on another's. CLI does them exact; agents/skills supply only judgment (what to log, how to classify, what to plan). Task's file path always read back from its index line's `file` field, never composed by a caller and never computed from stored line number, so nothing here goes stale as backlog shape changes.
 
-`install.sh` copies `lib/radin-namespace.sh`, `lib/radin-backlog.sh`, `lib/radin-state.sh` to `~/.claude/.radin/lib/`, and `bin/radin`, a dispatcher mapping `radin <backlog|tui|state|scope|hooks|wire|repair|update|doctor|uninstall>` to those scripts, to `~/.claude/.radin/bin/`, plus a `~/.local/bin/radin` symlink (an existing non-radin file there is named and left alone, and skills then get the full dispatcher path). `hooks`, `wire` and `repair` are umbrella verbs over `lib/radin-cbm-hooks.sh`, `lib/radin-cbm-config.sh install` and `lib/radin-cbm-config.sh repair`. The caller names no companion, even though codebase-memory-mcp is the only one either backs today. Consumer install never has this repo's `lib/` directly, so the scripts dist like any other radin file.
+`install.sh` copies `lib/radin-namespace.sh`, `lib/radin-backlog.sh`, `lib/radin-state.sh` to `~/.claude/.radin/lib/`, and `bin/radin`, a dispatcher mapping `radin <backlog|tui|state|scope|prompt|stats|hooks|wire|repair|update|doctor|uninstall>` to those scripts, to `~/.claude/.radin/bin/`, plus a `~/.local/bin/radin` symlink (an existing non-radin file there is named and left alone, and skills then get the full dispatcher path). `hooks`, `wire` and `repair` are umbrella verbs over `lib/radin-cbm-hooks.sh`, `lib/radin-cbm-config.sh install` and `lib/radin-cbm-config.sh repair`. The caller names no companion, even though codebase-memory-mcp is the only one either backs today. Consumer install never has this repo's `lib/` directly, so the scripts dist like any other radin file.
 
 Inside script:
 
@@ -155,7 +155,7 @@ radin-batch was an agent (`agents/radin-batch.md`) until it became a skill. Two 
 - `AskUserQuestion` removed from **every** sub-agent, foreground and background alike. Agent's Phase 2 gate asks user to confirm execution order, so as agent it could never actually ask. Every run fell back to ending its turn with question and waiting to be re-invoked.
 - Sub-agent's prose reaches only calling session, never user. So agent's own report needed re-summarizing by main thread, and every question had to be encoded as `blocked` backlog state instead of asked.
 
-`/radin-doctor`, `/radin-uninstall`, `/radin-stats` and `/radin-show` carry `disable-model-invocation: true`: only a human types them, and a model-invoked skill's description loads into every session and every sub-agent. An agent that needs the backlog runs `radin backlog show` itself; the `~/.claude/CLAUDE.md` block says so. `tests/skill-names.bats` caps every model-invoked description at 40 words.
+`/radin-uninstall` and `/radin-stats` carry `disable-model-invocation: true`: only a human types them, and a model-invoked skill's description loads into every session and every sub-agent. An agent that needs the backlog runs `radin backlog show` itself; the `~/.claude/CLAUDE.md` block says so. `tests/skill-names.bats` caps every model-invoked description at 40 words.
 
 As a skill, radin-batch runs in the user's own thread. It asks directly, accepts interruption and resumes from disk. Sub-agents stay one layer down as leaf workers. Context isolation pays off there (planning's codebase exploration, execution's edits, review's diff read), and each returns a single `STATUS:` line. SOTA skill collections use the same split: orchestrate in the main thread, isolate leaf work.
 
@@ -196,12 +196,12 @@ Non-destructive by construction: the installer only `cp`s radin's own files, plu
 
 Entries are compared deep-equal, so re-running restores nothing and reports `INTACT`. A failed upstream install still gets step 3, because its configuration pass is transactional per client, not per file. `radin repair` runs steps 3-4 alone against the newest snapshot, which is what to use after `codebase-memory-mcp update` reruns the same write. `install.sh` captures that whole trace into `~/.claude/.radin/cbm-config.log` rather than relaying it, and surfaces only one line: success, or the `PARTIAL` case, where upstream failed after configuring Claude Code. Every JSON read and write on this path is the compiled helper `lib/radin-cbm-json.c` (built into `~/.claude/.radin/bin/radin-cbm-json`), so `radin-cbm-config.sh` holds no JSON knowledge of its own: it snapshots with `cp`, stashes with `mv`, runs upstream, and calls the helper three times. A C compiler is therefore required for this path; without one `install.sh` skips upstream's configuration and falls back to the merge-only wiring, on the grounds that running a destructive write with no restore is worse than a smaller install.
 
-`lib/radin-cbm-hooks.sh` (dispatched as `radin hooks <claude-md|mcp|all>`, driven by the `radin-setup-hooks` skill) is the fallback for the no-compiler path, and for anyone who ran `codebase-memory-mcp uninstall` but kept radin. Two writes, merge-only, skipping anything already defined:
+`lib/radin-cbm-hooks.sh` (dispatched as `radin hooks <claude-md|mcp|all>`) is the fallback for the no-compiler path, and for anyone who ran `codebase-memory-mcp uninstall` but kept radin. Two writes, merge-only, skipping anything already defined:
 
 - the `codebase-memory-mcp` MCP-tools section in `~/.claude/CLAUDE.md`
 - `mcpServers.codebase-memory-mcp` in `<repo-root>/.mcp.json`, pointing at the resolved binary path, written by the same `radin-cbm-json` helper (`ensure-mcp`), so with no compiler only `claude-md` runs and `mcp` prints the entry to paste by hand
 
-A later companion tool that needs wiring extends this script and the `radin-setup-hooks` skill, rather than getting a script of its own.
+A later companion tool that needs wiring extends this script, rather than getting a script of its own.
 
 It writes no `settings.json` hook of radin's own: `auto_index` indexes a project on first connection and the background watcher keeps it current, so a `PostToolUse` reindex would pay for nothing. The graph itself lives in `~/.cache/codebase-memory-mcp/`, outside both `~/.claude` and the consumer's repo.
 
@@ -256,13 +256,7 @@ radin/
       SKILL.md
     radin-review/
       SKILL.md
-    radin-setup-hooks/
-      SKILL.md
-    radin-show/
-      SKILL.md
     radin-stats/
-      SKILL.md
-    radin-doctor/
       SKILL.md
     radin-uninstall/
       SKILL.md
@@ -293,6 +287,7 @@ radin/
     radin-cbm-hooks.sh
     radin-cbm-config.sh
     radin-update.sh
+    radin-stats.sh
     radin-doctor.sh
     radin-uninstall.sh
   # END tree

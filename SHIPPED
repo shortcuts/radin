@@ -5,10 +5,7 @@ skill radin-do
 skill radin-plan
 skill radin-record
 skill radin-review
-skill radin-setup-hooks
-skill radin-show
 skill radin-stats
-skill radin-doctor
 skill radin-uninstall
 lib radin-namespace.sh
 lib radin-json.sh
@@ -36,6 +33,7 @@ lib radin-review-core.md
 lib radin-cbm-hooks.sh
 lib radin-cbm-config.sh
 lib radin-update.sh
+lib radin-stats.sh
 lib radin-doctor.sh
 lib radin-uninstall.sh
 # Tombstones: names an older radin shipped. Uninstall still removes them.
@@ -44,6 +42,9 @@ renamed skill radin-execute
 renamed skill radin-implement
 renamed skill radin-run
 retired skill radin-update
+retired skill radin-show
+retired skill radin-doctor
+retired skill radin-setup-hooks
 retired lib radin-tui.sh
 retired lib radin-crg-hooks.sh
 retired lib radin-execute-recovery.md

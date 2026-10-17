@@ -35,7 +35,7 @@ entry that puts the tree back green depending on every batch.
 
 An item too fuzzy to phrase as a sharp question is a **stub** ("figure out
 caching at some point"): log one stub over the whole area, its body saying what
-is unspecified and what is known, rather than pre-slicing it. Step 2 
+is unspecified and what is known, rather than pre-slicing it. Step 2
 sharpens it later. A question you *can* state precisely is an ordinary entry,
 blocked or not.
 

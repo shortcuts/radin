@@ -38,10 +38,10 @@ install_all_expected() {
 
 @test "exits 1 and reports MISSING for an absent skill" {
   install_all_expected
-  rm -rf "$TEST_HOME/.claude/skills/radin-doctor"
+  rm -rf "$TEST_HOME/.claude/skills/radin-stats"
   run env HOME="$TEST_HOME" bash "$CLI"
   [ "$status" -eq 1 ]
-  [[ "$output" == *"MISSING  radin-doctor"* ]]
+  [[ "$output" == *"MISSING  radin-stats"* ]]
 }
 
 @test "exits 1 and reports INVALID for a lib script with bad syntax" {

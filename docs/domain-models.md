@@ -203,7 +203,7 @@ JSONL, one compact object per line:
   "claude_md_guidance": false,
   "cbm_agent_config": false,
   "cli_on_path": true,
-  "skills": ["radin-batch", "radin-plan", "radin-record", "radin-review", "radin-setup-hooks", "radin-show", "radin-stats", "radin-doctor", "radin-uninstall", "thermo-nuclear"],
+  "skills": ["radin-batch", "radin-plan", "radin-record", "radin-review", "radin-stats", "radin-uninstall", "thermo-nuclear"],
   "lib": ["radin-namespace.sh", "radin-backlog.sh", "radin-state.sh", "radin-prioritization.md", "radin-cbm-hooks.sh", "radin-cbm-config.sh", "radin-update.sh", "radin-doctor.sh", "radin-uninstall.sh"],
   "companion_tools": {
     "rtk": true,

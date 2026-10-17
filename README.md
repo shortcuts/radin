@@ -58,10 +58,7 @@ companions that are missing. Re-run `install.sh` to update the companions too.
 | `/radin-batch` | Work the backlog: prioritize, plan the tasks `/radin-record` flagged, implement, commit, one task per commit |
 | `/radin-do` | Record one ad-hoc prompt as a backlog entry, plan it when flagged, then execute just that task |
 | `/radin-review` | Two-axis pass over a scope, repo rubrics plus the originating entry's spec; kept findings go to the backlog or straight to `/radin-do` |
-| `/radin-show` | Print the backlog |
 | `/radin-stats` | Every companion tool's own savings report, side by side |
-| `/radin-doctor` | Verify the install, report unreachable companions |
-| `/radin-setup-hooks` | Wire codebase-memory-mcp into this repo when `install.sh` could not do it globally |
 | `/radin-uninstall` | Remove what `install.sh` put in `~/.claude` |
 | `radin` | Full-screen backlog browser for humans. Bare `radin` on a terminal is the human entry point. No agent involved; `?` lists keys. Off a terminal it prints the usage text and exits non-zero, so a skill or pipe never hangs in a full-screen app. `radin help` prints that text on purpose |
 
