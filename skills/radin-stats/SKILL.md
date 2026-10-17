@@ -13,7 +13,7 @@ ledger). Display each output as-is.
 
 ## Run every source
 
-Run all five without probing. A source that is not installed fails visibly;
+Run all four without probing. A source that is not installed fails visibly;
 that failure is the skip, so do not retry it.
 
 - **`/caveman:caveman-stats`** -- measured: real per-session token usage and
@@ -22,8 +22,6 @@ that failure is the skip, so do not retry it.
   Not this session, and not this repo.
 - **`/ponytail:ponytail-debt`** -- measured: ponytail's per-repo ledger of
   deferred shortcuts, if the repo has one.
-- **`rtk gain`** -- measured: rtk's token-savings ledger (pass `-p` to scope it
-  to the current project).
-- **`radin stats`** -- measured: skill, slash-command and sub-agent use on this device, per vendor, plus each radin repo's journal totals. Read from Claude Code transcripts, so it covers every companion.
+- **`radin stats`** -- measured: skill, slash-command and sub-agent use on this device, per vendor, plus each radin repo's journal totals. Read from Claude Code transcripts, so it covers every companion. It also prints `rtk gain` and `caveman-stats.js --all`.
 
 **Reply:** each source's output as-is, in the order listed, with no merged total.

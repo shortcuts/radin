@@ -5,11 +5,11 @@
 # ~/.claude/.radin/lib/radin-stats.sh by install.sh.
 # Must stay bash-3.2-compatible (macOS /bin/bash).
 #
-#   radin-stats.sh [--since YYYY-MM-DD] [--repos-root DIR] [--no-transcripts] [--no-repos]
+#   radin-stats.sh [--since YYYY-MM-DD] [--repos-root DIR] [--no-transcripts] [--no-repos] [--no-companions]
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-since="" repos_root="$HOME/Documents" do_tx=1 do_repos=1
+since="" repos_root="$HOME/Documents" do_tx=1 do_repos=1 do_comp=1
 while [ $# -gt 0 ]; do
 	case "$1" in
 	--since)
@@ -22,8 +22,9 @@ while [ $# -gt 0 ]; do
 		;;
 	--no-transcripts) do_tx=0 ;;
 	--no-repos) do_repos=0 ;;
+	--no-companions) do_comp=0 ;;
 	*)
-		printf 'usage: radin stats [--since YYYY-MM-DD] [--repos-root DIR] [--no-transcripts] [--no-repos]\n' >&2
+		printf 'usage: radin stats [--since YYYY-MM-DD] [--repos-root DIR] [--no-transcripts] [--no-repos] [--no-companions]\n' >&2
 		exit 1
 		;;
 	esac
@@ -45,7 +46,7 @@ transcripts() {
 	# The grep prefilter keeps awk off the other 99% of a multi-hundred-MB corpus.
 	# "./" keeps the dash-leading project dir names from reading as options.
 	# Attachment lines embed escaped copies of the tool list; skip them.
-	(cd "$root" && find . -maxdepth 2 -name '*.jsonl' -print0 |
+	(cd "$root" && find . -name '*.jsonl' -print0 |
 		xargs -0 grep -H -E '"name":"(Skill|Agent)","input":|<command-name>/|<task-notification>|"type":"hook_' 2>/dev/null |
 		grep -v -E '"attachment":\{"type":"([^h]|h[^o])' || true) |
 		awk -v since="$since" -v out="$OUT_DIR" '
@@ -57,13 +58,14 @@ function vendor(n) {
 function day(l,   t) { if (match(l, /"timestamp":"[0-9-]+/)) return substr(l, RSTART + 13, RLENGTH - 13); return "" }
 {
 	i = index($0, ":"); f = substr($0, 1, i - 1); l = substr($0, i + 1)
-	split(f, p, "/"); proj = p[2]
+	split(f, p, "/"); proj = p[2]; sid = p[3]; sub(/\.jsonl$/, "", sid)
 	d = day(l)
 	if (since != "" && d != "" && d < since) next
 	if (d != "") { if (mn == "" || d < mn) mn = d; if (d > mx) mx = d }
 	if (match(l, /"attachment":\{"type":"hook_[a-z_]+"/)) {
 		ht = substr(l, RSTART + 22, RLENGTH - 23)
 		hn = "-"; if (match(l, /"hookName":"[^"]+"/)) hn = substr(l, RSTART + 12, RLENGTH - 13)
+		sub(/^SubagentStart:.*/, "SubagentStart", hn)
 		hid = ""; if (match(l, /"toolUseID":"[^"]+"/)) hid = substr(l, RSTART + 14, RLENGTH - 15)
 		lab = "(no output)"
 		if (ht == "hook_cancelled") { if (match(l, /"command":"[^"]+"/)) lab = substr(l, RSTART + 11, RLENGTH - 12) }
@@ -77,7 +79,7 @@ function day(l,   t) { if (match(l, /"timestamp":"[0-9-]+/)) return substr(l, RS
 		if (!((hid, key, ht) in seen)) {
 			seen[hid, key, ht] = 1; hooks[key] = 1
 			hs[key, ht == "hook_cancelled" ? "cancel" : (ht == "hook_non_blocking_error" ? "err" : "ok")]++
-			hf[key, f] = 1; if (d > hlast[key]) hlast[key] = d
+			hf[key, sid] = 1; if (d > hlast[key]) hlast[key] = d
 		}
 		next
 	}
@@ -85,12 +87,12 @@ function day(l,   t) { if (match(l, /"timestamp":"[0-9-]+/)) return substr(l, RS
 		s = substr(l, RSTART, RLENGTH); id = s; sub(/^"id":"/, "", id); sub(/".*/, "", id)
 		if (!(id in seen)) {
 			seen[id] = 1; sub(/.*"skill":"/, "", s); sub(/"$/, "", s)
-			sk[s, "tool"]++; names[s] = 1; sf[s, f] = 1; sp[s, proj] = 1; if (d > last[s]) last[s] = d
+			sk[s, "tool"]++; names[s] = 1; sf[s, sid] = 1; sp[s, proj] = 1; if (d > last[s]) last[s] = d
 		}
 	}
 	if (match(l, /<command-name>\/[A-Za-z0-9:_.-]+<\/command-name>/)) {
 		s = substr(l, RSTART + 15, RLENGTH - 30)
-		sk[s, "typed"]++; names[s] = 1; sf[s, f] = 1; sp[s, proj] = 1; if (d > last[s]) last[s] = d
+		sk[s, "typed"]++; names[s] = 1; sf[s, sid] = 1; sp[s, proj] = 1; if (d > last[s]) last[s] = d
 	}
 	if (match(l, /"id":"toolu_[A-Za-z0-9]+","name":"Agent","input":/)) {
 		id = substr(l, RSTART + 6, RLENGTH); sub(/".*/, "", id)
@@ -238,4 +240,23 @@ fi
 if [ "$do_repos" -eq 1 ]; then
 	repos | table "radin repos under $repos_root"
 	outcomes | table "Task outcomes (refixed = a fix:/revert: commit that is not itself a radin task touched the same non-markdown files within 14 days of the task commit)"
+fi
+
+# Companions that keep their own deterministic ledger. Each is named directly;
+# a missing one prints its failure and the run continues.
+companions() {
+	local cav
+	printf '\n== rtk gain\n'
+	rtk gain 2>&1 || printf 'radin stats: rtk gain failed\n'
+	cav="$(find "$HOME/.claude/plugins/cache/caveman/caveman" -path '*/src/hooks/caveman-stats.js' 2>/dev/null | sort | tail -n 1)"
+	printf '\n== caveman-stats --all (counts only sessions that ran /caveman-stats)\n'
+	if [ -n "$cav" ]; then
+		node "$cav" --all 2>&1 || printf 'radin stats: caveman-stats failed\n'
+	else
+		printf 'radin stats: caveman-stats.js not found under ~/.claude/plugins/cache/caveman\n'
+	fi
+}
+
+if [ "$do_comp" -eq 1 ]; then
+	companions
 fi
