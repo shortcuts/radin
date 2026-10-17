@@ -240,7 +240,10 @@ has none yet, else `execution`. A `planning` dispatch that reports
 `STATUS: PLANNED` skips `task-report`. Re-run `task-next "<task id>"`, which
 now hands out its execution prompt. `STATUS: BLOCKED (FACT|DECISION)`
 routes per Clarifying Ambiguity. Dispatch the prompt as one
-`Agent` call with exactly that model and this text, and nothing else:
+`Agent` call with exactly that model, `name: "radin-<kind>-<task id>"`
+(`kind` is `planning`, `execution`, `debug` or `factfind`), and this text,
+and nothing else. The name lets a usage report show which task and role cost
+the most:
 
 ```
 Read <the prompt path> and follow it.

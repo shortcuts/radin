@@ -2,7 +2,7 @@
 
 `radin-batch` reads this file at Phase 4.5, once per session that recorded a commit.
 
-Dispatch one gate sub-agent (`model: "RADIN_MODEL_EXECUTION"`) with exactly:
+Dispatch one gate sub-agent (`model: "RADIN_MODEL_EXECUTION"`, `name: "radin-gate"`) with exactly:
 
 ```
 Run this repo's full check suite (lint, tests, format), as its own docs or CI

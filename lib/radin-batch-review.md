@@ -3,7 +3,7 @@
 `radin-batch` reads this file at Phase 6, only when the user asked for a
 post-session review.
 
-Reviewer sub-agent (`model: "RADIN_MODEL_REVIEW"`). Send exactly:
+Reviewer sub-agent (`model: "RADIN_MODEL_REVIEW"`, `name: "radin-review"`). Send exactly:
 
 ```
 Read RADIN_LIB/radin-review-core.md and follow it at level session, scoped to

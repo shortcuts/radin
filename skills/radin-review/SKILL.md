@@ -89,7 +89,7 @@ Work these rungs in order and stop at the first that yields a spec:
 When the invoking prompt hands over a core review's findings for this scope,
 skip the dispatch and relay those.
 
-Dispatch one sub-agent with a self-contained brief:
+Dispatch one sub-agent (`name: "radin-review"`) with a self-contained brief:
 
 - `Read RADIN_LIB/radin-review-core.md and follow it at level session` (level
   `diff` for a `staged` scope).
