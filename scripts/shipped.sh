@@ -16,7 +16,7 @@ names() { # kind ("skill", "lib", "renamed skill", ...) -> its names, one per li
 # Each script gets only the lists it reads, so shellcheck sees no unused one.
 vars_for() {
 	case "$1" in
-	install.sh) echo "SHIPPED_SKILLS SHIPPED_LIB RENAMED_SKILLS" ;;
+	install.sh) echo "SHIPPED_SKILLS SHIPPED_LIB RENAMED_SKILLS RETIRED_SKILLS" ;;
 	lib/radin-doctor.sh) echo "SHIPPED_SKILLS SHIPPED_LIB" ;;
 	*) echo "SHIPPED_SKILLS SHIPPED_LIB RENAMED_SKILLS RETIRED_SKILLS RETIRED_LIB" ;;
 	esac

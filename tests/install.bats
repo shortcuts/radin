@@ -196,7 +196,7 @@ run_install_defaults() {
 }
 
 @test "install removes the skills radin renamed and keeps a foreign one of that name" {
-  for s in radin-execute radin-implement; do
+  for s in radin-execute radin-implement radin-show; do
     mkdir -p "$TEST_HOME/.claude/skills/$s"
     printf -- '---\nname: %s\n---\n' "$s" >"$TEST_HOME/.claude/skills/$s/SKILL.md"
   done
@@ -206,6 +206,7 @@ run_install_defaults() {
   [ "$status" -eq 0 ]
   [ ! -e "$TEST_HOME/.claude/skills/radin-execute" ]
   [ ! -e "$TEST_HOME/.claude/skills/radin-implement" ]
+  [ ! -e "$TEST_HOME/.claude/skills/radin-show" ]
   [ -f "$TEST_HOME/.claude/skills/radin-run/SKILL.md" ]
   [ -f "$TEST_HOME/.claude/skills/radin-batch/SKILL.md" ]
 }

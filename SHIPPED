@@ -37,7 +37,7 @@ lib radin-stats.sh
 lib radin-doctor.sh
 lib radin-uninstall.sh
 # Tombstones: names an older radin shipped. Uninstall still removes them.
-# A renamed skill is also removed by install, only while its SKILL.md names it.
+# A renamed or retired skill is also removed by install, only while its SKILL.md names it.
 renamed skill radin-execute
 renamed skill radin-implement
 renamed skill radin-run

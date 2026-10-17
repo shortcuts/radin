@@ -160,6 +160,7 @@ mkdir -p "$HOME/.claude/skills" "$HOME/.claude/.radin/lib"
 SHIPPED_SKILLS="radin-batch radin-do radin-plan radin-record radin-review radin-stats radin-uninstall"
 SHIPPED_LIB="radin-namespace.sh radin-json.sh radin-backlog.sh radin-tui.c radin-cbm-json.c radin-state.sh radin-scope.sh radin-prompt.sh radin-prompt-planning.md radin-prompt-execution.md radin-prompt-debug.md radin-prompt-factfind.md radin-leaf-contract.md radin-prioritization.md radin-batch-recovery.md radin-batch-reporting.md radin-batch-gate.md radin-batch-review.md radin-batch-clarify.md radin-batch-session.md radin-batch-resume.md radin-run.md radin-review-core.md radin-cbm-hooks.sh radin-cbm-config.sh radin-update.sh radin-stats.sh radin-doctor.sh radin-uninstall.sh"
 RENAMED_SKILLS="radin-execute radin-implement radin-run"
+RETIRED_SKILLS="radin-update radin-show radin-doctor radin-setup-hooks"
 # END shipped
 for f in $SHIPPED_LIB; do
 	cp "$RADIN_ROOT/lib/$f" "$HOME/.claude/.radin/lib/"
@@ -169,7 +170,7 @@ for s in $SHIPPED_SKILLS; do
 done
 
 # Only a dir whose SKILL.md still names itself is radin's own to remove.
-for s in $RENAMED_SKILLS; do
+for s in $RENAMED_SKILLS $RETIRED_SKILLS; do
 	if grep -qx "name: $s" "$HOME/.claude/skills/$s/SKILL.md" 2>/dev/null; then
 		rm -rf "$HOME/.claude/skills/$s"
 	fi
