@@ -17,7 +17,7 @@
 #                                               # the fourth field is optional and defaults to pending; also writes state/baseline.json
 #   radin-state.sh task-next [<id>]  # pick, gate, claim and write the prompt in one call; an entry flagged planning=needed with no plan gets a planning prompt that counts against MAX_ATTEMPTS; exit 1 when nothing is left
 # an execution task also prints "overlap<TAB>none|unclear|<id>[,<id>...]": other live tasks sharing plan files
-#   radin-state.sh task-report <id> <the sub-agent's STATUS: line (SUCCESS|FAILED|INCONCLUSIVE|BLOCKED)> [--next] [--usage "<kind> <tokens> <tool_uses> <duration_ms>"]...  # verify the tree, record the outcome (a SUCCESS line's text after its first ";" is journaled as a summary event for report), then a final "next<TAB>continue|debug|clarify FACT|clarify DECISION|clarify STUCK" line
+#   radin-state.sh task-report <id> <the sub-agent's STATUS: line (SUCCESS|FAILED|INCONCLUSIVE|BLOCKED)> [--next] [--usage "<kind> <tokens> <tool_uses> <duration_ms>"]...  # verify the tree, record the outcome (a SUCCESS line's text after its first ";" is journaled as a summary event for report; it also journals an unproven event per acceptance criterion no **Fact:** [measured] line names, shown by report), then a final "next<TAB>continue|debug|clarify FACT|clarify DECISION|clarify STUCK" line
 #   radin-state.sh task-report <id> --no-status <last line> [--next] [--usage "<kind> <tokens> <tool_uses> <duration_ms>"]...  # the same, for a sub-agent that ended with no STATUS: line
 #                                               # --next: when the final line is "next<TAB>continue", also run task-next and print its output after; exit is task-next's
 #   radin-state.sh task-diagnosis <id>          # stdin becomes a **Root cause:** line on the task file, status untouched
@@ -1056,12 +1056,37 @@ task-report)
 	if [ "$word" = "SUCCESS" ]; then
 		hash="$(printf '%s\n' "$detail" | grep -oE '[0-9a-f]{7,40}' | head -1 || true)"
 		if [ -n "$hash" ]; then
+			# Read the Fact lines now: task-done deletes the task file.
+			unproven=""
+			tf="$(cd "$repo_root" && bash "$LIB_DIR/radin-backlog.sh" field "$id" TASK_FILE 2>/dev/null || true)"
+			facts_m=""
+			[ -f "$tf" ] && facts_m="$(grep -F '**Fact:** [measured] ' "$tf" || true)"
+			tab="$(printf '\t')"
+			while IFS= read -r l; do
+				case "$l" in "acceptance$tab"*) ;; *) continue ;; esac
+				crit="${l#acceptance"$tab"}"
+				found=""
+				while IFS= read -r fl; do
+					case "$fl" in "**Fact:** [measured] $crit"*) found=1 ;; esac
+				done <<EOF
+$facts_m
+EOF
+				[ -n "$found" ] || unproven="$unproven$crit
+"
+			done <<EOF
+$(cd "$repo_root" && bash "$LIB_DIR/radin-backlog.sh" meta "$id" 2>/dev/null || true)
+EOF
 			if done_out="$(bash "$LIB_DIR/radin-state.sh" task-done "$id" "$hash" 2>&1)"; then
 				printf '%s\n' "$done_out"
 				# What the leaf built, chose and left open: everything after the hash
 				# field, shown per task in `report`.
 				summary="$(printf '%s' "$detail" | sed -n 's/^[^;]*; *//p')"
 				[ -z "$summary" ] || journal "$ns/state" "summary" "$id" "$summary"
+				while IFS= read -r crit; do
+					[ -z "$crit" ] || journal "$ns/state" "unproven" "$id" "$crit"
+				done <<EOF
+$unproven
+EOF
 				printf 'next\tcontinue\n'
 				exit 0
 			fi
@@ -1159,6 +1184,7 @@ report)
 	dropped_block=""
 	usage_block=""
 	outplan_block=""
+	unproven_block=""
 	if [ -s "$state_dir/journal.jsonl" ]; then
 		from="$(grep -n '"event":"steps-init"' "$state_dir/journal.jsonl" | tail -n1 | cut -d: -f1)"
 		stash_block="$(tail -n "+${from:-1}" "$state_dir/journal.jsonl" |
@@ -1172,6 +1198,8 @@ report)
 			sed -nE 's/.*"event":"summary","id":"([^"]+)","detail":"(.*)"\}$/\1 \2/p')"
 		outplan_block="$(tail -n "+${from:-1}" "$state_dir/journal.jsonl" |
 			sed -nE 's/.*"event":"out-of-plan","id":"([^"]+)","detail":"(.*)"\}$/- \1 — out-of-plan: \2/p' | awk '!seen[$0]++')"
+		unproven_block="$(tail -n "+${from:-1}" "$state_dir/journal.jsonl" |
+			sed -nE 's/.*"event":"unproven","id":"([^"]+)","detail":"(.*)"\}$/- \1 — \2/p' | awk '!seen[$0]++')"
 		# One journaled usage event per dispatch, summed per kind.
 		usage_block="$(tail -n "+${from:-1}" "$state_dir/journal.jsonl" |
 			sed -nE 's/.*"event":"usage","id":"[^"]*","detail":"([a-z]+) ([0-9]+) ([0-9]+) ([0-9]+)"\}$/\1 \2 \3 \4/p' |
@@ -1258,6 +1286,7 @@ report)
 	[ -z "$deferred" ] || printf '\nDeferred at your request (left in the backlog):%s\n' "$deferred"
 	[ -z "$stash_block" ] || printf '\nStashes created this session:\n%s\n' "$stash_block"
 	[ -z "$outplan_block" ] || printf '\nOut-of-plan files (commit touched paths its plan'"'"'s Changes does not list):\n%s\n' "$outplan_block"
+	[ -z "$unproven_block" ] || printf '\nAcceptance criteria with no measured Fact line (SUCCESS recorded anyway):\n%s\n' "$unproven_block"
 	[ -z "$dropped_block" ] || printf '\nSkills dropped as unrunnable by a sub-agent (run them yourself):\n%s\n' "$dropped_block"
 	[ -z "$usage_block" ] || printf '\nSub-agent usage this session:\n%s\n' "$usage_block"
 	;;
