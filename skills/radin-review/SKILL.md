@@ -239,6 +239,11 @@ printf '<task id or empty>\t<class>\t<plan path or none>[\t<section>]\n...' |
 - The origin rollup, `review-findings`' output verbatim (for example
   `12 findings: 9 plan (3 tasks), 2 executor, 1 none`, then one line per
   task).
+- Run `RADIN_CLI state finding-classes`. When it exits 0 and its `recurring`
+  line lists sections, name each one and suggest the user add a check for it
+  to the `skills/radin-plan/SKILL.md` Step 4 brief or `plan-lint`
+  ([how](CONTRIBUTING.md#tune-the-plan-review-from-recurring-findings)). Edit
+  nothing. Exit 1 or `recurring: none`: print nothing.
 - Three counts, no detail: findings the user discarded, dropped as out of
   scope, and dropped for having no in-scope line.
 - One line each, finding and reason, for every Dismissed group, so the user
