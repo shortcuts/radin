@@ -60,8 +60,7 @@ load helpers/tui
   bl epic-move needs-dep ctx-epic >/dev/null
   bl set-deps needs-dep dep-target >/dev/null
   bl set-priority needs-dep 8 >/dev/null
-  mkdir -p "$NS/plans"
-  printf 'plan body line\n' >"$NS/plans/needs-dep.md"
+  write_plan "$NS/plans/needs-dep.md" "plan body line"
   bl add-plan needs-dep "$NS/plans/needs-dep.md" >/dev/null
   snapshot
   run tui "j|j|v|q"

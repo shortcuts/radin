@@ -126,12 +126,24 @@ long_body() {
   awk 'BEGIN{for(i=1;i<=60;i++)printf "line %02d\n", i}' >"$TASKS/dark-mode.md"
 }
 
+# A plan that passes plan-lint. $1 is the path, $2 the Outcome line.
+write_plan() {
+  mkdir -p "$(dirname "$1")"
+  {
+    printf '## Outcome\n%s\n' "$2"
+    for s in Decisions "Alternatives rejected"; do printf '## %s\nn/a: test\n' "$s"; done
+    printf '## Changes\n- `a.txt` - edit\n  You see: a\n'
+    for s in "Reach and reuse" "Rubrics triggered" "Modes and states" Order; do printf '## %s\nn/a: test\n' "$s"; done
+    printf '## Testing\n- [ ] run it\n- [ ] Live: run it\n'
+    for s in Risks "Out of scope"; do printf '## %s\nn/a: test\n' "$s"; done
+  } >"$1"
+}
+
 # A plan file plus the pointer that makes `backlog meta` report it. $1 is the
 # task id, $2 the plan slug, $3 the line the plan body carries.
 planned_body() {
-  mkdir -p "$NS/plans"
-  printf '%s\n' "$3" >"$NS/plans/$2.md"
-  bl add-plan "$1" "plans/$2.md" >/dev/null
+  write_plan "$NS/plans/$2.md" "$3"
+  bl add-plan "$1" "$NS/plans/$2.md" >/dev/null
 }
 
 # The external write runs from inside $EDITOR: the TUI is parked in a key

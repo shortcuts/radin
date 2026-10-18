@@ -97,13 +97,8 @@ For each sub-task, in order:
 6. Save the plan at the `plan_file` path Step 1 printed. For a sub-task from a
    split, re-run `plan-target "<id>" "<sub-task short title>"` and use the
    `plan_file` it prints.
-7. Lint it and fix every line it prints, until it exits 0:
-
-   ```bash
-   RADIN_CLI backlog plan-lint "<the plan_file path>"
-   ```
-
-8. Insert the pointer:
+7. Insert the pointer. `add-plan` runs `plan-lint` first. On a non-zero exit it
+   records nothing and prints one line per defect: fix each, then run it again.
 
    ```bash
    RADIN_CLI backlog add-plan "<id>" "<the plan_file path>"

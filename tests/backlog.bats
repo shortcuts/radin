@@ -19,6 +19,19 @@ cli() {
   (cd "$WORK/proj" && bash "$CLI" "$@")
 }
 
+# A plan that passes plan-lint. $1 is the path, $2 the Outcome line.
+write_plan() {
+  mkdir -p "$(dirname "$1")"
+  {
+    printf '## Outcome\n%s\n' "$2"
+    for s in Decisions "Alternatives rejected"; do printf '## %s\nn/a: test\n' "$s"; done
+    printf '## Changes\n- `a.txt` - edit\n  You see: a\n'
+    for s in "Reach and reuse" "Rubrics triggered" "Modes and states" Order; do printf '## %s\nn/a: test\n' "$s"; done
+    printf '## Testing\n- [ ] run it\n- [ ] Live: run it\n'
+    for s in Risks "Out of scope"; do printf '## %s\nn/a: test\n' "$s"; done
+  } >"$1"
+}
+
 @test "add creates an index line and a task file" {
   run cli add fix "broken auth" <<<"Auth times out after 5s."
   [ "$status" -eq 0 ]
@@ -56,6 +69,7 @@ cli() {
 @test "add-plan puts the pointer on the task's own entry only, never in a body" {
   cli add feat "planned thing" <<<"the body"
   cli add feat "next thing" <<<"other body"
+  write_plan "$WORK/proj/.claude/.radin/plans/planned-thing.md" "x"
   run cli add-plan "planned thing" ".claude/.radin/plans/planned-thing.md"
   [ "$status" -eq 0 ]
   run grep -F '"id":"planned-thing"' "$INDEX"
@@ -65,6 +79,17 @@ cli() {
   # The body keeps the prose and nothing else.
   run cat "$TASKS/planned-thing.md"
   [ "$output" = "the body" ]
+}
+
+@test "add-plan refuses a plan that fails plan-lint and records no pointer" {
+  cli add feat "bad plan" <<<"body"
+  mkdir -p "$WORK/proj/.claude/.radin/plans"
+  printf '## Outcome\nonly this\n' >"$WORK/proj/.claude/.radin/plans/bad-plan.md"
+  run cli add-plan "bad plan" ".claude/.radin/plans/bad-plan.md"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"missing or out of order: ## Decisions"* ]]
+  run grep -F '"id":"bad-plan"' "$INDEX"
+  [[ "$output" != *'"plan"'* ]]
 }
 
 @test "remove deletes the task file and its index line" {
@@ -350,6 +375,7 @@ IDX
 @test "list --planned appends P for planned tasks and empty for unplanned" {
   cli add feat "planned one" <<<"body"
   cli add feat "unplanned one" <<<"body"
+  write_plan "$WORK/proj/.claude/.radin/plans/planned-one.md" "x"
   cli add-plan planned-one ".claude/.radin/plans/planned-one.md" >/dev/null
   run cli list --planned
   [ "$status" -eq 0 ]

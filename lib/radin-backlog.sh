@@ -27,7 +27,7 @@
 #   radin-backlog.sh find <id-or-title>          # print matching "id<TAB>category<TAB>title<TAB>file<TAB>priority<TAB>depends-on-csv" line(s)
 #   radin-backlog.sh count                       # print the number of entries (0 without an index)
 #   radin-backlog.sh add <category> <title> [--skill <name>]...  # create task, body read from stdin, prints its id
-#   radin-backlog.sh add-plan <id-or-title> <path>  # add one plan pointer to the task's entry, and record HEAD in plans/<id>.head
+#   radin-backlog.sh add-plan <id-or-title> <path>  # plan-lint the file, then add one plan pointer to the task's entry, and record HEAD in plans/<id>.head
 #   radin-backlog.sh append <id-or-title>        # append text from stdin to the task's file
 #   radin-backlog.sh plan-target <id-or-title> [<sub-task title>]  # resolve one task for planning: "id"/"title"/"task_file"/"plan_file" TAB lines plus a "facts<TAB><path>" line when set and one "plan<TAB><path>" per existing pointer; exit 1 no match, 2 several (candidates on stderr), 3 already planned
 #   radin-backlog.sh files <id-or-title|plan-file>  # print the paths in the `## Changes` section of every plan the task points at (or of the one plan file given), one per line, deduplicated; exit 1 with nothing when there is no plan or no path
@@ -700,6 +700,47 @@ PRIORITY_SCALE="1 2 3 5 8 13 21"
 # checks them, and radin-state.sh FINDING_SECTIONS names the same sections.
 PLAN_SECTIONS="Outcome|Decisions|Alternatives rejected|Changes|Reach and reuse|Rubrics triggered|Modes and states|Order|Testing|Risks|Out of scope"
 
+# One line per plan-template defect on stdout; non-zero when any. `plan-lint`
+# prints it and `add-plan` refuses on it, so no pointer reaches a bad plan.
+plan_lint_file() {
+	awk -v want="$PLAN_SECTIONS" '
+		function close_change() { if (chg != "" && !seen_you) print "changes: `" chg "` has no You see: line"; chg = "" }
+		/^```/ { fence = !fence; next }
+		fence { next }
+		/^## / {
+			close_change()
+			sec = substr($0, 4); sub(/[ \t]+$/, "", sec)
+			got[++n] = sec; body[sec] = 0
+			next
+		}
+		sec != "" && NF { body[sec]++ }
+		sec == "Changes" && /^- `[^`]+`/ { close_change(); chg = $0; sub(/^- `/, "", chg); sub(/`.*/, "", chg); seen_you = 0; nchg++ }
+		sec == "Changes" && /^[ \t]+You see: / { seen_you = 1 }
+		sec == "Testing" && /^- \[ \] / { box++ }
+		sec == "Testing" && /^- \[ \] Live: / { live++ }
+		END {
+			close_change()
+			m = split(want, w, "|"); i = 1
+			for (k = 1; k <= m; k++) {
+				j = i
+				while (j <= n && got[j] != w[k]) j++
+				if (j > n) print "missing or out of order: ## " w[k]
+				else i = j
+				if (j <= n && body[w[k]] == 0) print "empty: ## " w[k] " (write n/a: <reason>)"
+			}
+			if (nchg == 0) print "changes: no `path` entry"
+			if (box == 0) print "testing: no - [ ] check box"
+			if (live == 0) print "testing: no - [ ] Live: box"
+		}
+	' "$1" | {
+		out="$(cat)"
+		[ -z "$out" ] || {
+			printf '%s\n' "$out"
+			exit 1
+		}
+	}
+}
+
 require_priority() {
 	case " $PRIORITY_SCALE " in
 	*" $1 "*) ;;
@@ -1095,6 +1136,9 @@ add-plan)
 	require_index
 	entry="$(single_match "$query")"
 	require_meta_value plan "$plan_path"
+	[ -f "$plan_path" ] || die "add-plan: no plan file at $plan_path"
+	plan_defects="$(plan_lint_file "$plan_path")" || die "add-plan: plan-lint rejects $plan_path
+$plan_defects"
 	# Append semantics: a split plan points at several files, in order.
 	plan_list=()
 	while IFS= read -r pline || [ -n "$pline" ]; do
@@ -1189,42 +1233,7 @@ plan-lint)
 	# The plan template's shape, checked by code so no reviewer spends tokens
 	# on it: the review agent keeps only the judgment calls.
 	[ -f "${2:-}" ] || usage_die plan-lint "plan-lint needs a plan file"
-	awk -v want="$PLAN_SECTIONS" '
-		function close_change() { if (chg != "" && !seen_you) print "changes: `" chg "` has no You see: line"; chg = "" }
-		/^```/ { fence = !fence; next }
-		fence { next }
-		/^## / {
-			close_change()
-			sec = substr($0, 4); sub(/[ \t]+$/, "", sec)
-			got[++n] = sec; body[sec] = 0
-			next
-		}
-		sec != "" && NF { body[sec]++ }
-		sec == "Changes" && /^- `[^`]+`/ { close_change(); chg = $0; sub(/^- `/, "", chg); sub(/`.*/, "", chg); seen_you = 0; nchg++ }
-		sec == "Changes" && /^[ \t]+You see: / { seen_you = 1 }
-		sec == "Testing" && /^- \[ \] / { box++ }
-		sec == "Testing" && /^- \[ \] Live: / { live++ }
-		END {
-			close_change()
-			m = split(want, w, "|"); i = 1
-			for (k = 1; k <= m; k++) {
-				j = i
-				while (j <= n && got[j] != w[k]) j++
-				if (j > n) print "missing or out of order: ## " w[k]
-				else i = j
-				if (j <= n && body[w[k]] == 0) print "empty: ## " w[k] " (write n/a: <reason>)"
-			}
-			if (nchg == 0) print "changes: no `path` entry"
-			if (box == 0) print "testing: no - [ ] check box"
-			if (live == 0) print "testing: no - [ ] Live: box"
-		}
-	' "$2" | {
-		out="$(cat)"
-		[ -z "$out" ] || {
-			printf '%s\n' "$out"
-			exit 1
-		}
-	}
+	plan_lint_file "$2"
 	;;
 
 set-category)
