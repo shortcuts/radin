@@ -62,3 +62,21 @@ skill_tokens() {
     false
   }
 }
+
+# The Skill tool refuses a model-side call to a skill with
+# `disable-model-invocation`, so no other skill may tell the model to run one.
+@test "no skill invokes a disable-model-invocation skill" {
+  cd "$REPO_ROOT"
+  hits=""
+  for f in $(grep -l '^disable-model-invocation: true' skills/*/SKILL.md); do
+    name="$(basename "$(dirname "$f")")"
+    for g in skills/*/SKILL.md; do
+      [ "$g" = "$f" ] && continue
+      grep -qE "invoke \`/$name\`" "$g" && hits="$hits $g->$name"
+    done
+  done
+  [ -z "$hits" ] || {
+    echo "model-side invocation of a user-only skill:$hits"
+    false
+  }
+}

@@ -209,7 +209,7 @@ reads the original plan's decisions.
 Act on each agreed group in the order presented, and on nothing the user
 discarded:
 
-- **Add to backlog**:
+- **Add to backlog** (also the first half of **Tackle now**):
 
   ```bash
   RADIN_CLI backlog add <fix|refactor> "<short title>" <<'EOF'
@@ -221,9 +221,10 @@ discarded:
   For a group, `location` is the first member's citation. Flag the entry
   `RADIN_CLI backlog set-meta <id> planning needed` unless its remedy touches
   one or two files with one obvious approach.
-- **Tackle now**: invoke `/radin-do` with the body as its prompt, one group at
-  a time, each to its Phase 5 summary before the next. `/radin-do` records the
-  entry itself, so run no `add`.
+- **Tackle now**: add every agreed group as above, journal the findings (next
+  paragraph), then invoke `/radin-batch` once, naming the new task ids as its
+  scope. One session runs one Phase 4.5 gate and one Phase 5 report for the
+  whole set.
 
 After the last group, journal the agreed findings in one call (skip it when
 nothing was agreed) and keep its output for Step 6. Write one row per member
@@ -241,8 +242,7 @@ printf '<task id or empty>\t<class>\t<plan path or none>[\t<section>]\n...' |
 **Reply:**
 
 - The resolved scope, and the spec path or `no spec available`.
-- One line per agreed group: how many findings it covers, and the backlog id
-  or the `/radin-do` outcome.
+- One line per agreed group: how many findings it covers, and the backlog id.
 - The origin rollup, `review-findings`' output verbatim (for example
   `12 findings: 9 plan (3 tasks), 2 executor, 1 none`, then one line per
   task).
