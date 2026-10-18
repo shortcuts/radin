@@ -6,8 +6,9 @@
 # Usage: radin-scope.sh [arg]
 #        radin-scope.sh --in-scope [arg]   # classify "path:line" lines on stdin
 #        radin-scope.sh --commits [arg]    # the scope's commits, "<hash> <subject>"
-#        radin-scope.sh --specs [arg]      # candidate specs, "id created branch commit source", oldest first
+#        radin-scope.sh --specs [arg]      # candidate specs, "id created branch commit source role", oldest first
 #        radin-scope.sh --attribute [arg]  # map "path:line" lines on stdin to task + plan
+#        radin-scope.sh --bucket           # bucket finding lines on stdin, no scope
 #
 # No arg: the current branch's diff against its merge-base with main/master.
 # With arg: a commit-ish, a PR reference (#123, 123, GitHub PR URL), a
@@ -31,6 +32,14 @@
 # <TAB><plan path|none>` per stdin citation in input order. The cited line is
 # blamed; it maps only when the blamed commit is one of the scope's commits,
 # joined through `radin state trace`. Anything else prints `none` twice.
+# --specs `role` is `follow-up` when a plan of the task (or the task file of a
+# pending one) holds a `**Finding:**` or `**Severity:**` line, else `feature`.
+# --bucket reads review finding lines `<severity> <path:line> — <claim>
+# [<rung>: <evidence>]` on stdin and prints `<bucket><TAB><line>` in input
+# order. A nit is `noted`. A critical or warning is `act-on` with rung traced
+# or ran, or with evidence that quotes a spec line (a double quote) or cites
+# AGENTS.md, CLAUDE.md or CONTRIBUTING.md; any other one is `consider`. A line
+# with no known severity or no rung is `unparsed`. `dismissed` stays a judgment.
 # Exit: 0 resolved (--in-scope, --commits, --specs and --attribute too, even when they print nothing);
 # 1 unrecognized; 2 ambiguous (each candidate reading printed to stderr).
 # Must stay bash-3.2-compatible (macOS /bin/bash).
@@ -164,6 +173,14 @@ if [ "${1:-}" = "--specs" ]; then
 	[ -z "$branch" ] || reflog="$(git reflog show --format=%H "$branch" 2>/dev/null || true)"
 	rows=""
 	done_ids=" "
+	# `follow-up` when any given file holds a review-finding label.
+	role_of() {
+		if [ "$#" -gt 0 ] && grep -qsE '\*\*(Finding|Severity):\*\*' "$@"; then
+			printf follow-up
+		else
+			printf feature
+		fi
+	}
 	# ponytail: one `completed-show` fork per completed task; batch it if the
 	# completed log ever grows past a few hundred lines.
 	while IFS="$TAB" read -r id c; do
@@ -184,19 +201,47 @@ if [ "${1:-}" = "--specs" ]; then
 		fi
 		[ -n "$source" ] || continue
 		shown="$(bash "$LIB_DIR/radin-state.sh" completed-show "$id" 2>/dev/null || true)"
-		rows="$rows$id$TAB$(printf '%s\n' "$shown" | sed -n "s/^created$TAB//p")$TAB$(printf '%s\n' "$shown" | sed -n "s/^branch$TAB//p")$TAB$c$TAB$source
+		plans="$(printf '%s\n' "$shown" | sed -n "s/^plan$TAB//p" | tr ',' '\n' | sed 's/^ *//;s/ *$//')"
+		# Plan paths hold no spaces or globs; word splitting is the intent.
+		# shellcheck disable=SC2086
+		role="$(role_of $plans)"
+		rows="$rows$id$TAB$(printf '%s\n' "$shown" | sed -n "s/^created$TAB//p")$TAB$(printf '%s\n' "$shown" | sed -n "s/^branch$TAB//p")$TAB$c$TAB$source$TAB$role
 "
 	done < <(bash "$LIB_DIR/radin-state.sh" completed-list 2>/dev/null || true)
 	if [ -n "$branch" ]; then
 		while IFS="$TAB" read -r id created b; do
 			[ -n "$id" ] || continue
 			case "$done_ids" in *" $id "*) continue ;; esac
-			rows="$rows$id$TAB$created$TAB$b$TAB${TAB}pending
+			plans="$(bash "$LIB_DIR/radin-backlog.sh" meta "$id" 2>/dev/null | sed -n "s/^plan$TAB//p" || true)"
+			tf="$(bash "$LIB_DIR/radin-backlog.sh" field "$id" TASK_FILE 2>/dev/null || true)"
+			# shellcheck disable=SC2086
+			role="$(role_of $plans $tf)"
+			rows="$rows$id$TAB$created$TAB$b$TAB${TAB}pending$TAB$role
 "
 		done < <(bash "$LIB_DIR/radin-backlog.sh" stamps "$branch" 2>/dev/null || true)
 	fi
 	[ -z "$rows" ] || printf '%s' "$rows" | sort -s -t "$TAB" -k2,2
 	exit 0
+fi
+
+if [ "${1:-}" = "--bucket" ]; then
+	exec awk '
+		$0 == "" { next }
+		{
+			sev = $1; rung = ""; ev = ""
+			if (match($0, /\[[a-z]+: .*\]$/)) {
+				t = substr($0, RSTART + 1, RLENGTH - 2)
+				rung = t; sub(/:.*/, "", rung)
+				ev = t; sub(/^[a-z]+: /, "", ev)
+			}
+			if (sev != "critical" && sev != "warning" && sev != "nit") b = "unparsed"
+			else if (rung == "") b = "unparsed"
+			else if (sev == "nit") b = "noted"
+			else if (rung == "traced" || rung == "ran") b = "act-on"
+			else if (ev ~ /"/ || ev ~ /(AGENTS|CLAUDE|CONTRIBUTING)\.md/) b = "act-on"
+			else b = "consider"
+			print b "\t" $0
+		}'
 fi
 
 if [ "${1:-}" = "--attribute" ]; then

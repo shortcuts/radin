@@ -53,7 +53,7 @@ Work these rungs in order and stop at the first that yields a spec:
    RADIN_CLI scope --specs [<the same scope arg as Step 1>]
    ```
 
-   It prints one `id`, `created`, `branch`, `commit`, `source` line per
+   It prints one `id`, `created`, `branch`, `commit`, `source`, `role` line per
    candidate, oldest first. `source` says how the entry joined: `commit` (the
    task's commit is in scope), `reflog` (a squash or rebase rewrote that
    commit, and the review branch's reflog still lists it) or `pending` (an
@@ -69,12 +69,8 @@ Work these rungs in order and stop at the first that yields a spec:
    against in its `plan` line, comma-separated. `RADIN_CLI state trace "<id>"`
    adds the file its `facts` line names to the entry.
 
-   Sort the entries into two roles by reading each plan:
-
-   - **Follow-up**: the plan answers a review finding (it quotes a
-     `**Finding:**`, a `**Severity:**` or a `review` origin) or fixes work an
-     earlier entry shipped. These are **decisions**.
-   - **Feature**: every other entry. These are the **spec**.
+   `role` is `follow-up` or `feature`. Follow-ups are **decisions**; features
+   are the **spec**.
 
    When every entry is a follow-up, there is no spec, only decisions, and
    Step 6 reports `no spec available`.
@@ -157,12 +153,11 @@ A group takes `fix` when any member is `fix`, and the highest member severity.
 Sort each group into a bucket, each with a one-line reason. A group takes its
 highest member's bucket.
 
-- **Act on**: `critical` or `warning`, with a `traced` or `ran` rung, a quoted
-  spec line or a cited rubric.
-- **Consider**: `critical` or `warning`, with only a `cited` rung or a
-  "possible <name>" label.
-- **Noted**: a `nit`. When every survivor is Noted, Step 6 says the code is
-  fine.
+Pipe each group member's finding line, as the review returned it, through
+`RADIN_CLI scope --bucket`. It prints `act-on`, `consider`, `noted` or
+`unparsed` before each line. Settle an `unparsed` line by hand. When every
+survivor is Noted, Step 6 says the code is fine. Dismissed is your call:
+
 - **Dismissed**: a finding asking for an interface, config or generalisation
   with one caller or one value (premature abstraction), or one that cites no
   rubric, quotes no spec line and shows no incorrect behavior ("I would have
