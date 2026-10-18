@@ -342,6 +342,4 @@ cannot do.
   the resume triage, the `MAX_ATTEMPTS` exception, and the state-persistence
   contract that lets you continue from disk rather than memory. A run that
   starts clean and stays in context never loads it.
-- **Leave `.claude/.radin/` out of every commit.** Whether to commit or
-  ignore radin's namespace is the repo owner's call.
 - **Every commit traces to a backlog entry.**

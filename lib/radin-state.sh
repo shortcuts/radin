@@ -21,7 +21,7 @@
 #   radin-state.sh task-report <id> --no-status <last line> [--next] [--usage "<kind> <tokens> <tool_uses> <duration_ms>"]...  # the same, for a sub-agent that ended with no STATUS: line
 #                                               # --next: when the final line is "next<TAB>continue", also run task-next and print its output after; exit is task-next's
 #   radin-state.sh task-diagnosis <id>          # stdin becomes a **Root cause:** line on the task file, status untouched
-#   radin-state.sh task-done <id> <commit-hash> # record completion, copy the entry's **Fact:** lines to state/facts/<id>.md, remove backlog and steps entries, in crash-safe order; exit 3 when the hash does not validate
+#   radin-state.sh task-done <id> <commit-hash> # record completion, copy the entry's **Fact:** lines to state/facts/<id>.md, remove backlog and steps entries, in crash-safe order; exit 3 when the hash does not validate or the commit changes a file under .claude/.radin/
 #                                               # also journals an out-of-plan event naming commit files its plan's ## Changes omits (test paths exempt), shown by report
 #   radin-state.sh set-status <id> <pending|in_progress|failed|blocked> [note]
 #   radin-state.sh answered <id>                # the user answered a waiting task: back to pending, attempts 0, debugged kept
@@ -690,6 +690,11 @@ task-done)
 	fi
 	if ! git -C "$dir" merge-base --is-ancestor "$hash" "$ref" >/dev/null 2>&1; then
 		printf 'task-done: %s is not reachable from %s in %s\n' "$hash" "$ref" "$dir" >&2
+		exit 3
+	fi
+	# radin's namespace is the repo owner's call to track, never a task commit's.
+	if git -C "$dir" diff-tree --no-commit-id --name-only -r --root "$hash" 2>/dev/null | grep -q '^\.claude/\.radin/'; then
+		printf 'task-done: %s changes a file under .claude/.radin/\n' "$hash" >&2
 		exit 3
 	fi
 	# Resolved before the backlog entry goes away: nothing else records them.
