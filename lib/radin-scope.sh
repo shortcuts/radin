@@ -19,7 +19,7 @@
 #   type    commit|pr|dir|branch-diff|range|staged
 #   scope   <normalized scope>
 #   command <the diff/read command to run>
-#   passes  <the ponytail skill(s) this scope type adds to the core's; empty unless dir>
+#   passes  <the ponytail skill(s) this scope type adds beyond the core's; empty unless dir>
 # --in-scope resolves the same scope, then prints one `in<TAB>path:line` /
 # `out<TAB>path:line` line per stdin citation in input order, then one final
 # `dropped<TAB><n>`. A citation is `in` when the scope introduced that line:
