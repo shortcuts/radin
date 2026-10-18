@@ -38,4 +38,5 @@ timestamped event per line). Read it with `RADIN_CLI state journal-tail <n>` to 
 compaction, or to write the Phase 5 summary when the turn that produced a
 commit is no longer in context. `BACKLOG_STEPS.json` and `completed.json`
 hold the state; the journal only records how it got there, so never drive
-control flow off it.
+control flow off it. After a compaction, `RADIN_CLI state session-commits`
+lists the session's commits, which the gate, review and closing line need.

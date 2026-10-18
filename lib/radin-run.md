@@ -331,8 +331,8 @@ cannot do.
   once the summary is out): read `RADIN_LIB/radin-batch-review.md` and follow
   it.
 - **They didn't**: no review. Close the summary with `To review this
-  session's work, run /radin-review with scope: <commit hashes recorded in
-  Phase 4>.`
+  session's work, run /radin-review with scope: <the output of RADIN_CLI state
+  session-commits>.`
 
 ## Additional Guardrails
 

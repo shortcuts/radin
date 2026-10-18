@@ -39,6 +39,8 @@
 #   radin-state.sh trace <id|commit|branch>     # print "task|commit|branch|worktree|plan|facts|status<TAB>value" per matching task; exit 1 no match, 2 ambiguous
 #   radin-state.sh completed-show <id>          # print "id|commit|title|branch|worktree|plan|ts<TAB>value" lines, exit 1 if absent
 #   radin-state.sh completed-list               # print "id<TAB>commit" per completion, exit 1 if none (the TUI's Done view)
+#   radin-state.sh session-commits              # print this session's commits, oldest first, one hash per line: task-done commits past the baseline, then gate fixes; exit 1 if none
+#   radin-state.sh gate-fix <hash>...           # record the gate's fix commits (state/gate-fixes) so session-commits lists them
 #   radin-state.sh deps-check <id>              # print "dep<TAB>hash" per dependency, exit 1 naming the first unresolved one (radin-prompt.sh)
 #   radin-state.sh task-dir <id>                # print the task's worktree if it exists, else the repo root (radin-prompt.sh)
 #   radin-state.sh journal-tail [n]             # last n journal events (default 20)
@@ -446,9 +448,46 @@ steps-init)
 		completed_count="$(grep -c . "$state_dir/completed.json" 2>/dev/null || true)"
 		printf '{"backlog_count":%s,"completed_count":%s}\n' \
 			"${backlog_count:-0}" "${completed_count:-0}" >"$state_dir/baseline.json"
+		rm -f "$state_dir/gate-fixes"
 	fi
 	journal "$state_dir" "steps-init" "" "$n entries"
 	printf 'steps-init: wrote %d entries to %s\n' "$n" "$file"
+	;;
+
+session-commits)
+	state_dir="$ns/state"
+	base_completed=0
+	if [ -s "$state_dir/baseline.json" ]; then
+		base_completed="$(num_field "$(cat "$state_dir/baseline.json")" completed_count)"
+	fi
+	out=""
+	n_ok=0
+	if [ -s "$completed" ]; then
+		while IFS= read -r line || [ -n "$line" ]; do
+			[ -n "$line" ] || continue
+			n_ok=$((n_ok + 1))
+			[ "$n_ok" -gt "$base_completed" ] || continue
+			out="${out:+$out$'\n'}$(json_get commit "$line")"
+		done <"$completed"
+	fi
+	[ ! -s "$state_dir/gate-fixes" ] || out="${out:+$out$'\n'}$(cat "$state_dir/gate-fixes")"
+	[ -n "$out" ] || exit 1
+	# A gate re-run after a resume records the same fix twice.
+	printf '%s\n' "$out" | awk '!seen[$0]++'
+	;;
+
+gate-fix)
+	shift
+	[ "$#" -gt 0 ] || die "usage: gate-fix <hash>..."
+	[ -d "$ns/state" ] || die "no state dir: $ns/state"
+	fixes=""
+	for rev in "$@"; do
+		# Verify, then store the 12-character form: a typo never reaches the reviewer's scope.
+		short="$(git -C "$repo_root" rev-parse --verify --quiet --short=12 "$rev^{commit}")" || die "not a commit: $rev"
+		fixes="${fixes:+$fixes$'\n'}$short"
+	done
+	printf '%s\n' "$fixes" >>"$ns/state/gate-fixes"
+	journal "$ns/state" "gate-fix" "" "$*"
 	;;
 
 deps-check)
@@ -1407,6 +1446,6 @@ finding-classes)
 	;;
 
 *)
-	die "unknown command: ${cmd:-<none>} (steps-init|task-next|task-report|task-diagnosis|task-done|set-status|stuck|recover|recover-reject|report|session-set|session-get|prepare|dirty-check|trace|completed-show|completed-list|deps-check|task-dir|journal-tail|plan-covers|review-findings|finding-classes)"
+	die "unknown command: ${cmd:-<none>} (steps-init|task-next|task-report|task-diagnosis|task-done|set-status|stuck|recover|recover-reject|report|session-set|session-get|prepare|dirty-check|trace|completed-show|completed-list|session-commits|gate-fix|deps-check|task-dir|journal-tail|plan-covers|review-findings|finding-classes)"
 	;;
 esac

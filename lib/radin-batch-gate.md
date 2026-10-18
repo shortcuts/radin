@@ -13,7 +13,7 @@ under `.claude/.radin/`, and leave each checkout on the branch it started on.
 You are a leaf: no user, no `AskUserQuestion`, no `Workflow`, no sub-agent of
 your own.
 
-The session's commits, oldest first: <commit hashes recorded in Phase 4>.
+The session's commits, oldest first: <the output of RADIN_CLI state session-commits>.
 
 Green: report `STATUS: SUCCESS — suite green at <tip hash(es)>`.
 
@@ -29,6 +29,6 @@ The LAST line is exactly one of:
 `STATUS: INCONCLUSIVE — <check that could not run, and why>`
 ```
 
-Carry each fix hash into Phase 6's commit list. A `FAILED` or `INCONCLUSIVE` line, or a last
+Run `RADIN_CLI state gate-fix <hash>...` for every hash after `fixed in` in a `STATUS: SUCCESS` line. A `FAILED` or `INCONCLUSIVE` line, or a last
 line that is not a `STATUS:` line, goes to the user after the Phase 5 summary,
 verbatim.

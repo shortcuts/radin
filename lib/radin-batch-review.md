@@ -7,7 +7,7 @@ Reviewer sub-agent (`model: "RADIN_MODEL_REVIEW"`, `name: "radin-review"`). Send
 
 ```
 Read RADIN_LIB/radin-review-core.md and follow it at level session, scoped to
-the commit(s) made this session: <list of commit hashes recorded in Phase 4>.
+the commit(s) made this session: <the output of RADIN_CLI state session-commits>.
 Extra review instructions from the invoking prompt: <instructions, or "none">.
 Return every finding in your reply.
 ```
