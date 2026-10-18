@@ -145,19 +145,16 @@ persist them.
    nothing else.
 5. Resolve the **scope**, only when the invoking prompt names one (an epic id,
    a task id or a task title). No name, no scope: skip this step.
-   - An epic: the name is one line of `RADIN_CLI backlog epics`. Its tasks are
-     the rows of `RADIN_CLI backlog list --order created` whose `file` field
-     begins `tasks/<epic>/`. Keep their ids.
-   - A task: `RADIN_CLI backlog find "<name>"` returns one line. Keep its id.
-   - No match, or several: show the user the epic ids and ask which one they
-     meant, via one `AskUserQuestion`. Never guess.
 
-   Then add every task the scope depends on, transitively: the
-   depends-on csv (field 6) of each `list` row you kept names ids still in the
-   backlog, and each of those joins the scope with its own dependencies. A
-   task cannot run before its dependencies, so they run too.
+   ```bash
+   RADIN_CLI backlog scope "<name>"
+   ```
 
-   The ids you keep are the scope.
+   Exit 0: line 1 is `ids<TAB><csv>`, the scope with every transitive
+   dependency. Keep that csv as the scope. Line 2, when present, is
+   `dependencies<TAB><csv>`, the tasks the closure added. Exit 1 or 2: show the
+   user `RADIN_CLI backlog epics` and any `candidate` lines, and ask which one
+   they meant, via one `AskUserQuestion`. Never guess.
 
 ## Phase 2: Print Order, Select Tasks
 
@@ -187,30 +184,28 @@ questions a prompt may pre-answer.
    Write nothing to `BACKLOG_STEPS.json` and launch no sub-agent before the
    answer arrives.
 3. The answers are routed independently, and each is routed once.
-   - **Task selection** decides Phase 3's `--defer` value, and nothing else:
-     - **A scope from Phase 1**: `--defer` every backlog id outside the scope.
-       Name the scope, the dependencies it pulled in, and the deferred count
-       in the run summary, so the user sees what the run adds and leaves
-       out.
-     - **All of them**: no `--defer` flag.
-     - **Just the first one**: `--defer` every id but `order` 1's.
+   - **Task selection** decides Phase 3's selection flag, and nothing else:
+     - **A scope from Phase 1**: `--only <the scope csv>`. Name the scope, the
+       dependencies it pulled in, and the deferred count in the run summary, so
+       the user sees what the run adds and leaves out.
+     - **All of them**: no flag.
+     - **Just the first one**: `--first`.
      - **Only the ones I name** (or "Other" text): read the selection off the
        free text (order numbers, titles, or ids). Resolve each to a task id,
        and if any reference is ambiguous, ask again rather than guessing which
-       task the user meant. `--defer` the ids the user did not name.
+       task the user meant. `--only <the named ids>`.
 
 ## Phase 3: Persist Execution Plan
 
 The order is persisted by exactly this pipe:
 
 ```bash
-RADIN_CLI backlog order --steps <Phase 1's flags> --defer "<ids Phase 2 excluded>" |
+RADIN_CLI backlog order --steps <Phase 1's flags> <Phase 2's selection flag> |
   RADIN_CLI state steps-init
 ```
 
-`--defer` takes the ids Phase 2 excluded; omit the flag entirely when nothing
-is deferred. Resolving that free text to ids is yours;
-filtering, renumbering and the `depends_on` precedence are not. Every listed
+Omit the selection flag when Phase 2 chose all of them. Resolving free text
+to ids is yours; the deferred set, renumbering and the `depends_on` precedence are not. Every listed
 task keeps the `order` number the report printed.
 
 ## Phase 4: Task Execution Loop

@@ -389,6 +389,46 @@ IDX
   [[ "$output" != *"dependency override"* ]]
 }
 
+@test "scope returns an epic's tasks plus their outside dependencies, and exits 1 on no match, 2 on several" {
+  mkdir -p "$TASKS/ep"
+  cat >"$INDEX" <<'IDX'
+{"id":"out","category":"feat","title":"outside dep","file":"tasks/out.md"}
+{"id":"a","category":"feat","title":"alpha thing","file":"tasks/ep/a.md","depends_on":["out"]}
+{"id":"b","category":"feat","title":"beta thing","file":"tasks/ep/b.md"}
+{"id":"c","category":"feat","title":"gamma thing","file":"tasks/c.md"}
+IDX
+  run cli scope ep
+  [ "$status" -eq 0 ]
+  [ "${lines[0]}" = "ids"$'\t'"out,a,b" ]
+  [ "${lines[1]}" = "dependencies"$'\t'"out" ]
+  run cli scope c
+  [ "$status" -eq 0 ]
+  [ "$output" = "ids"$'\t'"c" ]
+  run cli scope nothing-here
+  [ "$status" -eq 1 ]
+  run cli scope thing
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"candidate"$'\t'"a"* ]]
+}
+
+@test "order --first and --only derive the deferred set; two selectors are refused" {
+  prioritized_backlog
+  run cli order --steps --first
+  [ "$status" -eq 0 ]
+  [ "${lines[0]}" = "high"$'\t'"1"$'\t\t'"pending" ]
+  [ "${lines[1]}" = "mid-a"$'\t'"2"$'\t\t'"deferred" ]
+  [ "${lines[3]}" = "low"$'\t'"4"$'\t\t'"deferred" ]
+  run cli order --steps --only mid-b,low
+  [ "$status" -eq 0 ]
+  [ "${lines[0]}" = "high"$'\t'"1"$'\t\t'"deferred" ]
+  [ "${lines[2]}" = "mid-b"$'\t'"3"$'\t\t'"pending" ]
+  [ "${lines[3]}" = "low"$'\t'"4"$'\t\t'"pending" ]
+  run cli order --steps --only nope
+  [ "$status" -ne 0 ]
+  run cli order --steps --only low --first
+  [ "$status" -ne 0 ]
+}
+
 @test "list --planned appends P for planned tasks and empty for unplanned" {
   cli add feat "planned one" <<<"body"
   cli add feat "unplanned one" <<<"body"

@@ -16,7 +16,7 @@ One index line:
 
 `add` also stamps `"created":"<UTC ISO instant>"` and `"branch":"<branch>"` (key left out on a detached HEAD) onto the line. They are provenance, not human judgment: no verb rewrites them, and a line written before they existed reads as unknown (`radin backlog stamps` prints empty fields). The commit is not stamped: an open entry has none yet, and the completing commit lives in `completed.json`.
 
-Two optional keys carry human judgment that must survive a run. They are also `radin backlog order`'s only inputs besides its own `--rank` / `--infer-deps` / `--defer` flags:
+Two optional keys carry human judgment that must survive a run. They are also `radin backlog order`'s only inputs besides its own `--rank` / `--infer-deps` / `--defer` / `--only` / `--first` flags:
 
 ```json
 {"id":"add-route-exports","category":"feat","title":"Add route exports","file":"tasks/add-route-exports.md","priority":70,"depends_on":["split-router"]}
@@ -112,7 +112,8 @@ Exit 0 resolved, 1 unrecognized, 2 ambiguous (each candidate reading on stderr).
   ```
 
   `<N>` is the *dependent's* priority, or the literal `unset`. The report emits the line only when at least one entry of the pair carries a human priority. Otherwise the move overrode no decision. The violated edges are recorded against the pre-move priority order, so the report can never drift from the reordering.
-- `--steps` prints `id<TAB>order<TAB>depends-on-csv<TAB>pending|deferred`, one line per task in final order, with `order` running `1..n`. The format is identical to the stdin format of `radin state steps-init`, so the two pipe together. The csv is the entry's index `depends_on` when it has one and the `--infer-deps` value otherwise. That precedence lives only here. `--defer <csv-of-ids>` makes the fourth field `deferred`.
+- `--steps` prints `id<TAB>order<TAB>depends-on-csv<TAB>pending|deferred`, one line per task in final order, with `order` running `1..n`. The format is identical to the stdin format of `radin state steps-init`, so the two pipe together. The csv is the entry's index `depends_on` when it has one and the `--infer-deps` value otherwise. That precedence lives only here. `--defer <csv-of-ids>` makes the fourth field `deferred`. `--only <csv-of-ids>` defers every id outside the csv, and `--first` every id but the one at order 1 (judged after the dependency fix). The three flags are mutually exclusive.
+- `radin backlog scope <epic|id|title>` prints `ids<TAB><csv>` (the scope plus its transitive `depends_on`, index order) and, when the closure added any, `dependencies<TAB><csv>`.
 
 The fix moves a dependency **up**, to immediately before its dependent, and leaves every other relative position alone. The priority order is the human's ranking and a dependency is its one permitted override, so the fix never reorders a task that has no dependency relation.
 

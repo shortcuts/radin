@@ -38,13 +38,14 @@
 #   radin-backlog.sh set-deps <id-or-title> <csv-of-ids|--none>   # set/clear depends_on (rejects an unknown id and any cycle)
 #   radin-backlog.sh set-meta <id-or-title> <plan|skills|acceptance|facts|location|planning> <value>...|--none  # set/clear one index-line field (skills takes skill names; facts, location and planning take exactly one value; planning takes only "needed")
 #   radin-backlog.sh meta <id-or-title>          # print "plan<TAB><path>" / "skill<TAB><instruction>" / "acceptance<TAB><criterion>" / "facts<TAB><path>" / "location<TAB><path:line>" / "planning<TAB>needed" lines from the task's entry
-#   radin-backlog.sh order <--rank-needed|--report|--steps> [--rank <csv-of-ids>] [--infer-deps <id>=<csv>]... [--defer <csv-of-ids>]  # the execution order: the priority order with the topological dependency fix applied (--rank-needed: print every unset-priority id, exit 1 when there are none; --report: "<order>. <title> (id: <id>)" plus one "dependency override:" line per violated edge; --steps: "id<TAB>order<TAB>depends-on-csv<TAB>pending|deferred", which is `radin state steps-init`'s stdin format)
+#   radin-backlog.sh order <--rank-needed|--report|--steps> [--rank <csv-of-ids>] [--infer-deps <id>=<csv>]... [--defer <csv-of-ids>|--only <csv-of-ids>|--first]  # the execution order: the priority order with the topological dependency fix applied (--rank-needed: print every unset-priority id, exit 1 when there are none; --report: "<order>. <title> (id: <id>)" plus one "dependency override:" line per violated edge; --steps: "id<TAB>order<TAB>depends-on-csv<TAB>pending|deferred", which is `radin state steps-init`'s stdin format; --only defers every id outside the csv, --first every id but the one at order 1)
 #   radin-backlog.sh field <id-or-title> <TASK_FILE|TASK_BODY|EPIC_CONTEXT|TASK_ID|CATEGORY|PLAN_PATHS|SKILLS|SKILLS_DROPPED|ACCEPTANCE|FACTS|LOCATION|PLANNING>  # one Execution-prompt placeholder, rendered ready to substitute
 #   radin-backlog.sh duplicates                  # print "id<TAB><value><TAB><ids>" / "title<TAB><value><TAB><ids>" per duplicated value, exit 1 when there are none
 #   radin-backlog.sh stamps [<branch>]           # print "id<TAB>created<TAB>branch" per entry in index order (only the entries recorded on <branch> when given); a field an old entry lacks prints empty
 #   radin-backlog.sh remove <id-or-title>        # delete task file + index entry (exact single match required)
 #   radin-backlog.sh reconcile                  # drop backlog entries whose id is already in completed.json
 #   radin-backlog.sh epics                       # print every epic id, one per line
+#   radin-backlog.sh scope <epic-id|id-or-title>  # print "ids<TAB><csv>" (the epic's tasks or the one task, plus every task they transitively depend on) and, when the closure added any, "dependencies<TAB><csv>"; exit 1 no match, 2 several tasks (candidates on stderr)
 #   radin-backlog.sh epic-add <epic-id>          # create the epic dir + DESCRIPTION.md (body from stdin when piped)
 #   radin-backlog.sh epic-show <epic-id>         # print the epic's DESCRIPTION.md
 #   radin-backlog.sh epic-move <id-or-title> <epic-id|--none>  # move a task into/out of an epic
@@ -287,7 +288,8 @@ function cyc(v, state,   j, m, d) {
   state[v] = 2
   return 0 }
 BEGIN { mode = ENVIRON["RADIN_MODE"]; rankcsv = ENVIRON["RADIN_RANK"]
-        infer = ENVIRON["RADIN_INFER"]; defer = ENVIRON["RADIN_DEFER"]; n = 0 }
+        infer = ENVIRON["RADIN_INFER"]; defer = ENVIRON["RADIN_DEFER"]
+        only = ENVIRON["RADIN_ONLY"]; first = ENVIRON["RADIN_FIRST"]; n = 0 }
 $0 == "" { next }
 { n++; id[n] = jstr($0, "id"); title[n] = jstr($0, "title")
   prio[n] = jraw($0, "priority"); deps[n] = depscsv(jraw($0, "depends_on"))
@@ -385,6 +387,18 @@ END {
     # each pass strictly shrinks the violated-edge set.
   }
 
+  # Evaluated after the fix: order 1 then has no unmet dependency, so
+  # deferring the rest never strands it.
+  if (first != "") for (k = 2; k <= n; k++) isdef[id[L[k]]] = 1
+  if (only != "") {
+    m = split(only, ov, ",")
+    for (j = 1; j <= m; j++) {
+      v = ov[j]; gsub(/[ \t]/, "", v)
+      if (v == "") continue
+      if (!(v in pos)) fail("--only: no such task id: " v)
+      keep[v] = 1 }
+    for (k = 1; k <= n; k++) if (!(id[k] in keep)) isdef[id[k]] = 1 }
+
   if (mode == "report") {
     for (k = 1; k <= n; k++) printf("%d. %s (id: %s)\n", k, title[L[k]], id[L[k]])
     for (v = 1; v <= nv; v++) {
@@ -401,6 +415,28 @@ END {
              (id[L[k]] in isdef ? "deferred" : "pending"))
     exit 0 }
   fail("unknown mode: " mode) }
+'
+
+# `scope`: the seed ids (RADIN_SEEDS, csv) plus every id they transitively
+# depend on, in index order. Index `depends_on` only: --infer-deps is session
+# state this verb never sees.
+# shellcheck disable=SC2016  # $0 is awk's record, not a shell expansion
+AWK_SCOPE='
+$0 == "" { next }
+{ n++; id[n] = jstr($0, "id"); deps[n] = depscsv(jraw($0, "depends_on")); pos[id[n]] = n }
+END {
+  m = split(ENVIRON["RADIN_SEEDS"], sd, ",")
+  for (j = 1; j <= m; j++) if (sd[j] in pos) { in_[sd[j]] = 1; seed[sd[j]] = 1 }
+  do { grew = 0
+    for (i = 1; i <= n; i++) if (id[i] in in_) {
+      c = split(deps[i], d, ",")
+      for (t = 1; t <= c; t++) if (d[t] in pos && !(d[t] in in_)) { in_[d[t]] = 1; grew = 1 } } } while (grew)
+  for (i = 1; i <= n; i++) if (id[i] in in_) {
+    all = all (all == "" ? "" : ",") id[i]
+    if (!(id[i] in seed)) extra = extra (extra == "" ? "" : ",") id[i] }
+  if (all == "") exit 1
+  print "ids" TAB all
+  if (extra != "") print "dependencies" TAB extra }
 '
 
 # `duplicates`: one pass counting both keyed fields. It flags, it never guesses
@@ -1001,6 +1037,8 @@ order)
 	RADIN_RANK=""
 	RADIN_INFER=""
 	RADIN_DEFER=""
+	RADIN_ONLY=""
+	RADIN_FIRST=""
 	while [ $# -gt 0 ]; do
 		case "$1" in
 		--rank-needed | --report | --steps)
@@ -1024,6 +1062,15 @@ order)
 			RADIN_DEFER="$2"
 			shift 2
 			;;
+		--only)
+			[ -n "${2:-}" ] || usage_die order "--only needs a csv of task ids"
+			RADIN_ONLY="$2"
+			shift 2
+			;;
+		--first)
+			RADIN_FIRST=1
+			shift
+			;;
 		*) usage_die order "unknown order option: $1" ;;
 		esac
 	done
@@ -1031,7 +1078,10 @@ order)
 	# does) is a trap for a caller routing on exit codes.
 	[ -n "$RADIN_MODE" ] ||
 		usage_die order "order needs one of --rank-needed, --report, --steps"
-	export RADIN_MODE RADIN_RANK RADIN_INFER RADIN_DEFER
+	case "${RADIN_DEFER:+x}${RADIN_ONLY:+x}${RADIN_FIRST:+x}" in
+	xx*) usage_die order "order takes at most one of --only, --first, --defer" ;;
+	esac
+	export RADIN_MODE RADIN_RANK RADIN_INFER RADIN_DEFER RADIN_ONLY RADIN_FIRST
 	awk "$AWK_JSON$AWK_ORDER" "$BACKLOG_INDEX"
 	;;
 
@@ -1429,6 +1479,29 @@ epics)
 		d="${d%/}"
 		printf '%s\n' "${d##*/}"
 	done
+	;;
+
+scope)
+	[ -n "${2:-}" ] || usage_die scope "scope needs an epic id, task id or title"
+	[ $# -le 2 ] || usage_die scope "scope takes one argument, got: $3"
+	require_index
+	# An epic id never equals a task id (`epic-add` refuses it), so a directory
+	# under tasks/ settles which kind of name this is.
+	if [ -d "$BACKLOG_TASKS_DIR/$2" ]; then
+		seeds="$(RADIN_Q="$2" awk "$AWK_JSON"'$0 != "" && fepic(jstr($0, "file")) == ENVIRON["RADIN_Q"] { print jstr($0, "id") }' "$BACKLOG_INDEX" | paste -sd, -)"
+	else
+		found="$(matches "$2")"
+		if [ "$(printf '%s\n' "$found" | grep -c '.')" -gt 1 ]; then
+			printf 'radin-backlog: "%s" matches several entries:\n' "$2" >&2
+			printf '%s\n' "$found" | fmt_lines | sed 's/^/candidate\t/' >&2
+			exit 2
+		fi
+		seeds="$(printf '%s\n' "$found" | fmt_lines | cut -f1)"
+	fi
+	if [ -z "$seeds" ] || ! RADIN_SEEDS="$seeds" awk "$AWK_JSON$AWK_SCOPE" "$BACKLOG_INDEX"; then
+		printf 'radin-backlog: no entry matches: %s\n' "$2" >&2
+		exit 1
+	fi
 	;;
 
 epic-add)
