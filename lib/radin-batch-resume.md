@@ -12,8 +12,14 @@ RADIN_CLI state steps-list
 
 It prints one `id<TAB>order<TAB>status<TAB>attempts<TAB>note` line per entry
 still in the plan; completed tasks are already gone. Triage `in_progress`
-entries per Phase 1 step 3, treat `failed` and `blocked` entries as `pending`
-for retry, and continue.
+entries per Phase 1 step 3, treat `failed` entries as `pending` for retry,
+and continue.
+
+Run `RADIN_CLI state steps-waiting`. It prints the id of each `blocked` entry
+that holds an unanswered question. Route each one through `clarify DECISION`
+(`lib/radin-batch-clarify.md`), append the answer, and run
+`RADIN_CLI state answered "<task id>"` before it returns to `pending`. Treat every other
+`blocked` entry as `pending` for retry.
 
 One exception: a `blocked` entry whose `note` says it hit `MAX_ATTEMPTS` stays
 blocked. It needs the user to look, not another retry.

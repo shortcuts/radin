@@ -78,7 +78,7 @@ Then re-run the task (Phase 4).
 
 Deferral happens only when the user explicitly says so; silence, "not sure"
 or an unrelated reply is asked again. A deferred entry keeps its
-`failed`/`blocked` status (`set-status ... blocked` with `note` holding the
+`failed`/`blocked` status (`set-status ... blocked` with a `note` that starts `deferred:` and holds the
 question, the options and the recommendation, for an entry that has none).
 Report `⏸️ Task <order> '<title>' deferred: <question>. Continuing to next
 task.` and continue. Deferred entries surface in the Phase 5 summary, and

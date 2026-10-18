@@ -26,6 +26,7 @@
 #   radin-state.sh set-status <id> <pending|in_progress|failed|blocked> [note]
 #   radin-state.sh answered <id>                # the user answered a waiting task: back to pending, attempts 0, debugged kept
 #   radin-state.sh stuck                        # print "id<TAB>attempts<TAB>note" per in_progress entry, exit 1 if none
+#   radin-state.sh steps-waiting                # print the id of each blocked entry whose note holds an unanswered question, exit 1 if none
 #   radin-state.sh steps-list                   # print "id<TAB>order<TAB>status<TAB>attempts<TAB>note" per entry, exit 1 if none
 #   radin-state.sh recover <id>                 # recover a task a dead session left in_progress; exit 3 prints commits only the model can judge
 #   radin-state.sh recover-reject <id>          # those commits do not satisfy the task: block the entry naming them
@@ -494,6 +495,23 @@ steps-list)
 		printf '%s\t%s\t%s\t%s\t%s\n' "$(json_get id "$line")" "$(num_field "$line" order)" \
 			"$(json_get status "$line")" "$(num_field "$line" attempts)" "$(json_get note "$line")"
 	done <"$steps"
+	;;
+
+steps-waiting)
+	# A blocked entry whose note is a deferral or an inconclusive report waits
+	# on the user; a MAX_ATTEMPTS block needs a look, not an answer.
+	[ -s "$steps" ] || exit 1
+	found=1
+	while IFS= read -r line || [ -n "$line" ]; do
+		[ "$(json_get status "$line")" = "blocked" ] || continue
+		case "$(json_get note "$line")" in
+		"deferred:"* | "inconclusive:"*)
+			printf '%s\n' "$(json_get id "$line")"
+			found=0
+			;;
+		esac
+	done <"$steps"
+	exit "$found"
 	;;
 
 stuck)
