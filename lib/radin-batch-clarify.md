@@ -40,8 +40,6 @@ Route on it:
     `state/facts/<id>.md` path. A research report has no fixed line: append its
     finding with `backlog append` (labels below) and `backlog set-meta`. Then
     re-run the task (Phase 4).
-    It stays scoped to the one task that needed it. Never copy a
-    finding onto another entry, and never build a shared notes file.
   - `STATUS: NOT FOUND`: it has escalated into a decision. Fall through to
     `(DECISION)`, with its report as context.
 - **`BLOCKED (DECISION)`**: a judgment call, a confirmation or a human action
@@ -73,7 +71,8 @@ settled judgment call, `**Fact:**` for a fact-finder's answer, `**Root
 cause:**` for a diagnosis. The long form of any of them is a file the entry
 points at, recorded with
 `RADIN_CLI backlog set-meta "<task id>" facts "<path>"`. Every one of them is
-task-scoped. A hand-appended `**Fact:**` line keeps the `[measured]` or
+task-scoped: never copy one onto another entry, and never build a shared
+notes file. A hand-appended `**Fact:**` line keeps the `[measured]` or
 `[inferred]` token of its source, copied after the label; a line with no token
 is a guess.
 

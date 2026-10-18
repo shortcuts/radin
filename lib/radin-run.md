@@ -179,8 +179,7 @@ questions a prompt may pre-answer.
    - **Worktree** (if Phase 0.5 unanswered): "Own git worktree per task?"
      Options: `Yes` / `No`.
    - **Branch** (if Phase 0.5 unanswered): "Own branch per task?" Options:
-     `Yes` / `No`. Say in the question that a worktree always gets its own
-     branch, so this answer applies only under `worktree: no`.
+     `Yes` / `No`. Its meaning and wording: `RADIN_LIB/radin-batch-session.md`.
    Write nothing to `BACKLOG_STEPS.json` and launch no sub-agent before the
    answer arrives.
 3. The answers are routed independently, and each is routed once.
@@ -244,8 +243,7 @@ the most:
 Read <the prompt path> and follow it.
 ```
 
-Dispatch under the concurrency rule in Core Constraints. It reads the `overlap` line to decide whether
-this task's `Agent` call may share a message with another's. An `execution`
+Dispatch under the concurrency rule in Core Constraints. An `execution`
 task is already claimed, so Phase 1 step 3's stuck-recovery sees it if the
 session dies.
 
