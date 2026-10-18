@@ -88,7 +88,7 @@ TAB-separated key/value lines, one call per review:
 | `type` | `commit`, `pr`, `dir`, `branch-diff`, `range` or `staged` |
 | `scope` | the normalized scope (`#123`, `HEAD~3..HEAD`, a directory path, `staged`) |
 | `command` | the diff or read command that yields the scope's content |
-| `passes` | the `/ponytail:*` skill(s) this type calls for: `ponytail-audit` plus `ponytail-debt` for `dir`, `ponytail-review` otherwise |
+| `passes` | the `/ponytail:*` skill(s) this type calls for: `ponytail-audit` plus `ponytail-debt` for `dir`, empty otherwise (the review core already runs `ponytail-review`) |
 
 Exit 0 resolved, 1 unrecognized, 2 ambiguous (each candidate reading on stderr).
 

@@ -19,7 +19,7 @@
 #   type    commit|pr|dir|branch-diff|range|staged
 #   scope   <normalized scope>
 #   command <the diff/read command to run>
-#   passes  <the ponytail skill(s) this scope type calls for>
+#   passes  <the ponytail skill(s) this scope type adds to the core's two; empty unless dir>
 # --in-scope resolves the same scope, then prints one `in<TAB>path:line` /
 # `out<TAB>path:line` line per stdin citation in input order, then one final
 # `dropped<TAB><n>`. A citation is `in` when the scope introduced that line:
@@ -44,14 +44,13 @@ die() {
 }
 
 emit() {
-	# The type-dependent ponytail passes are named here, not in the skill:
-	# mapping type -> pass was the last thing radin-review computed from this
-	# script's own output. thermo-nuclear is unconditional, so it stays named
-	# in the skill -- there is no mapping to own.
+	# The type-dependent ponytail passes are named here, not in the skill.
+	# Non-dir scopes add none: radin-review-core already runs ponytail-review
+	# and thermo-nuclear on every scope, and a repeat reviews the diff twice.
 	local passes
 	case "$1" in
 	dir) passes='/ponytail:ponytail-audit /ponytail:ponytail-debt' ;;
-	*) passes='/ponytail:ponytail-review' ;;
+	*) passes='' ;;
 	esac
 	printf 'type\t%s\nscope\t%s\ncommand\t%s\npasses\t%s\n' "$1" "$2" "$3" "$passes"
 }
