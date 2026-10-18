@@ -19,7 +19,14 @@ Read the spec in full before reading the scope.
 
 ## Review
 
-Invoke `/thermo-nuclear` and `/ponytail:ponytail-review` against the scope.
+Invoke the passes for the level against the scope:
+
+| Level | Passes |
+| --- | --- |
+| `plan` | none |
+| `diff` | `/ponytail:ponytail-review` |
+| `session` | `/thermo-nuclear`, `/ponytail:ponytail-review` |
+
 Then report:
 
 1. **Spec coverage.** Every acceptance criterion, `**Raised as:**` requirement
@@ -34,7 +41,7 @@ Then report:
    - `diff`: every staged file outside the plan's `## Changes`.
 3. **Simplest native solution.** Every place the scope is more code, more
    abstraction or less native than the spec needs, and every structural
-   finding the two passes raise. A documented repo rubric (`AGENTS.md`,
+   finding a pass raises. A documented repo rubric (`AGENTS.md`,
    `CLAUDE.md`, `CONTRIBUTING.md`) overrides a pass's generic judgment; a
    pass finding without one stays labeled "possible <name>".
 4. **Repo rubrics.** Every rule the scope breaks, citing the file and rule.

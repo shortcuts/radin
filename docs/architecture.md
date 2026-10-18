@@ -147,7 +147,7 @@ Both `BACKLOG_STEPS.json` and `completed.json` are JSONL (one compact object per
 - `lib/radin-batch-resume.md` holds resume triage, the `MAX_ATTEMPTS` exception and the state-persistence contract. The router reads it only when `BACKLOG_STEPS.json` already exists at startup or compaction dropped earlier turns.
 - `lib/radin-batch-gate.md` is the Phase 4.5 gate sub-agent prompt. The router reads it once per session that recorded a commit.
 - `lib/radin-batch-review.md` is the Phase 6 reviewer sub-agent prompt. The router reads it only when the user asked for a post-session review. Its findings go to `/radin-review`'s triage.
-- `lib/radin-review-core.md` is the one review brief every level runs: `plan` (`radin-plan` Step 4), `diff` (the execution leaf's staged diff), `session` (Phase 6 and `/radin-review`'s sub-agent). `/radin-review` adds only the human triage.
+- `lib/radin-review-core.md` is the one review brief every level runs: `plan` (`radin-plan` Step 4), `diff` (the execution leaf's staged diff), `session` (Phase 6 and `/radin-review`'s sub-agent). Companion passes: none at `plan`, ponytail-review at `diff`, both at `session`. `/radin-review` adds only the human triage.
 
 ## Why every entry point is a skill
 
@@ -548,10 +548,11 @@ The pass that moved earlier instead is `radin-plan`'s Step 4, which reviews the
 plan on two axes: Standards against the repo's rubrics, Spec against the entry
 the plan came from. `radin-review` runs one pass over code. It costs two
 sub-agents per plan and catches a missing acceptance criterion or a contradicted
-`**Decision:**` line while the fix is still one edit to a Markdown file. A
-planning sub-agent's Standards pass runs `/ponytail:ponytail-review` alone:
-`/thermo-nuclear`'s body was about a third of each planning dispatch, and
-`/radin-review` still runs it over the resulting code. Its
+`**Decision:**` line while the fix is still one edit to a Markdown file. The
+`plan` level runs no companion pass and the `diff` level runs
+`/ponytail:ponytail-review`. `/thermo-nuclear` runs once at `session`:
+its body was about a third of each planning dispatch, and a plan has no code
+for it to judge. Its
 findings stay in the plan file. A backlog entry about code nobody has written
 yet would come back to `radin-batch` as work.
 
