@@ -25,3 +25,29 @@ teardown() {
   [ "$status" -eq 3 ]
   [[ "$output" == *".claude/.radin/"* ]]
 }
+
+state() { (cd "$P" && bash "$REPO_ROOT/lib/radin-state.sh" "$@"); }
+
+@test "task-fact keeps the evidence token and records the long-form path" {
+  state task-fact t-one "STATUS: FOUND — [measured] lib/x.sh sets A=1; long form: /p/state/facts/t-one.md"
+  run bash -c "cd '$P' && cat .claude/.radin/backlog/tasks/*t-one.md; bash '$REPO_ROOT/lib/radin-backlog.sh' meta t-one"
+  [[ "$output" == *"**Fact:** [measured] lib/x.sh sets A=1"* ]]
+  [[ "$output" != *"long form"* ]]
+  [[ "$output" == *$'facts\t/p/state/facts/t-one.md'* ]]
+}
+
+@test "task-fact labels a tokenless answer a guess, and NOT FOUND exits non-zero" {
+  state task-fact t-one "STATUS: FOUND — no token here"
+  run bash -c "cd '$P' && cat .claude/.radin/backlog/tasks/*t-one.md"
+  [[ "$output" == *"**Fact:** [guess] no token here"* ]]
+  run state task-fact t-one "STATUS: NOT FOUND — looked"
+  [ "$status" -ne 0 ]
+}
+
+@test "task-diagnosis records a Root cause from the DIAGNOSED line; NOT DIAGNOSED exits non-zero" {
+  state task-diagnosis t-one "STATUS: DIAGNOSED — [inferred] off by one in f; no siblings"
+  run bash -c "cd '$P' && cat .claude/.radin/backlog/tasks/*t-one.md"
+  [[ "$output" == *"**Root cause:** [inferred] off by one in f; no siblings"* ]]
+  run state task-diagnosis t-one "STATUS: NOT DIAGNOSED — nothing"
+  [ "$status" -ne 0 ]
+}

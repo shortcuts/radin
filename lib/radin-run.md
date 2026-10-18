@@ -283,13 +283,11 @@ claims it again and bumps `attempts`, so the cap still ends it.
 | `next` | Do |
 | --- | --- |
 | `continue` | Recorded on disk, and the lines after it are `task-next`'s output for the next task: report any `blocked` lines, then dispatch it as above. Exit 1 after `next continue` means nothing is left, so go to Phase 4.5. |
-| `debug` | This task still has its one debug pass. `RADIN_CLI prompt debug "<task id>" "<the reason from the STATUS: line>"` prints a `model` and a `prompt` path: dispatch it the same way. `STATUS: DIAGNOSED`: record it, then re-run the task. `STATUS: NOT DIAGNOSED`: re-run `task-report` with the same line and `--next`, which routes to `clarify STUCK` this time. |
+| `debug` | This task still has its one debug pass. `RADIN_CLI prompt debug "<task id>" "<the reason from the STATUS: line>"` prints a `model` and a `prompt` path: dispatch it the same way. `STATUS: DIAGNOSED`: record it as below, then re-run the task. `STATUS: NOT DIAGNOSED`: re-run `task-report` with the same line and `--next`, which routes to `clarify STUCK` this time. |
 | `clarify FACT` / `clarify DECISION` / `clarify STUCK` | Route per Clarifying Ambiguity. Once settled, re-run the task. |
 
 ```bash
-RADIN_CLI state task-diagnosis "<task id>" <<'EOF'
-<the diagnosis>
-EOF
+RADIN_CLI state task-diagnosis "<task id>" "<the STATUS: DIAGNOSED line>"
 ```
 
 A task report is not a stopping point: send it in the same message as the

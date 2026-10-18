@@ -34,9 +34,12 @@ Route on it:
   each name the source that owns them is `STATUS: FOUND`; one citing a
   secondary write-up, or nothing, is `STATUS: NOT FOUND`.
 
-  - `STATUS: FOUND`: append the finding to that task's file with
-    `backlog append` (labels below), record a reported `state/facts/<id>.md`
-    path with `backlog set-meta`, and re-run the task (Phase 4).
+  - `STATUS: FOUND`: a fact-finder's line goes to
+    `RADIN_CLI state task-fact "<task id>" "<the STATUS: line>"`, which appends
+    the `**Fact:**` line with its token and records a reported
+    `state/facts/<id>.md` path. A research report has no fixed line: append its
+    finding with `backlog append` (labels below) and `backlog set-meta`. Then
+    re-run the task (Phase 4).
     It stays scoped to the one task that needed it. Never copy a
     finding onto another entry, and never build a shared notes file.
   - `STATUS: NOT FOUND`: it has escalated into a decision. Fall through to
@@ -70,9 +73,9 @@ settled judgment call, `**Fact:**` for a fact-finder's answer, `**Root
 cause:**` for a diagnosis. The long form of any of them is a file the entry
 points at, recorded with
 `RADIN_CLI backlog set-meta "<task id>" facts "<path>"`. Every one of them is
-task-scoped. A `**Fact:**` or `**Root cause:**` line keeps the `[measured]` or
-`[inferred]` token its sub-agent's `STATUS:` line opened with, copied after the
-label; a line with no token is a guess.
+task-scoped. A hand-appended `**Fact:**` line keeps the `[measured]` or
+`[inferred]` token of its source, copied after the label; a line with no token
+is a guess.
 
 Then re-run the task (Phase 4).
 

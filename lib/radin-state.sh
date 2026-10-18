@@ -20,7 +20,8 @@
 #   radin-state.sh task-report <id> <the sub-agent's STATUS: line (SUCCESS|FAILED|INCONCLUSIVE|BLOCKED)> [--next] [--usage "<kind> <tokens> <tool_uses> <duration_ms>"]...  # verify the tree, record the outcome (a SUCCESS line's text after its first ";" is journaled as a summary event for report; it also journals an unproven event per acceptance criterion no **Fact:** [measured] line names, shown by report), then a final "next<TAB>continue|debug|clarify FACT|clarify DECISION|clarify STUCK" line
 #   radin-state.sh task-report <id> --no-status <last line> [--next] [--usage "<kind> <tokens> <tool_uses> <duration_ms>"]...  # the same, for a sub-agent that ended with no STATUS: line
 #                                               # --next: when the final line is "next<TAB>continue", also run task-next and print its output after; exit is task-next's
-#   radin-state.sh task-diagnosis <id>          # stdin becomes a **Root cause:** line on the task file, status untouched
+#   radin-state.sh task-fact <id> "<STATUS: FOUND line>"  # becomes a **Fact:** line (token kept, else [guess]); a long form path goes to set-meta facts; any other line exits 1
+#   radin-state.sh task-diagnosis <id> "<STATUS: DIAGNOSED line>"  # the same, as a **Root cause:** line; status untouched
 #   radin-state.sh task-done <id> <commit-hash> # record completion, copy the entry's **Fact:** lines to state/facts/<id>.md, remove backlog and steps entries, in crash-safe order; exit 3 when the hash does not validate or the commit changes a file under .claude/.radin/
 #                                               # also journals an out-of-plan event naming commit files its plan's ## Changes omits (test paths exempt), shown by report
 #   radin-state.sh set-status <id> <pending|in_progress|failed|blocked> [note]
@@ -385,6 +386,32 @@ deps_check() {
 			return 1
 		fi
 	done
+}
+
+# A leaf's "STATUS: <word> — [measured|inferred] <text>[; long form: <path>]" line
+# becomes a labeled backlog line, so the router copies no token by hand. Any
+# other line, the NOT form included, exits 1 for the router to route.
+record_status_line() {
+	local word="$1" label="$2" id="$3" line="$4" body longform=""
+	case "$line" in
+	"STATUS: $word — "*) body="${line#"STATUS: $word — "}" ;;
+	*) die "not a 'STATUS: $word' line: $line" ;;
+	esac
+	case "$body" in
+	*"; long form: "*)
+		longform="${body##*"; long form: "}"
+		body="${body%"; long form: "*}"
+		;;
+	esac
+	case "$body" in
+	"[measured] "* | "[inferred] "*) ;;
+	*) body="[guess] $body" ;;
+	esac
+	printf '**%s:** %s\n' "$label" "$body" |
+		(cd "$repo_root" && bash "$LIB_DIR/radin-backlog.sh" append "$id" >/dev/null)
+	[ -z "$longform" ] ||
+		(cd "$repo_root" && bash "$LIB_DIR/radin-backlog.sh" set-meta "$id" facts "$longform" >/dev/null)
+	RECORDED="$body"
 }
 
 cmd="${1:-}"
@@ -953,17 +980,21 @@ task-next)
 	done
 	;;
 
+task-fact)
+	id="${2:-}"
+	[ -n "$id" ] && [ -n "${3:-}" ] || die "usage: task-fact <id> \"<the STATUS: FOUND line>\""
+	record_status_line FOUND Fact "$id" "$3"
+	printf 'task-fact: recorded on %s\n' "$id"
+	;;
+
 task-diagnosis)
 	id="${2:-}"
-	[ -n "$id" ] || die "usage: task-diagnosis <id>  (diagnosis text on stdin)"
-	text="$(cat)"
-	[ -n "$text" ] || die "diagnosis text is empty (pass it on stdin)"
+	[ -n "$id" ] && [ -n "${3:-}" ] || die "usage: task-diagnosis <id> \"<the STATUS: DIAGNOSED line>\""
 	# The only place the **Root cause:** label is written. Status is left
 	# alone: the entry is still in_progress, and the retry's claim bumps
 	# attempts, so MAX_ATTEMPTS still ends the loop.
-	printf '**Root cause:** %s\n' "$text" |
-		(cd "$repo_root" && bash "$LIB_DIR/radin-backlog.sh" append "$id" >/dev/null)
-	journal "$ns/state" "diagnosis" "$id" "$text"
+	record_status_line DIAGNOSED "Root cause" "$id" "$3"
+	journal "$ns/state" "diagnosis" "$id" "$RECORDED"
 	printf 'task-diagnosis: recorded on %s\n' "$id"
 	;;
 
@@ -1446,6 +1477,6 @@ finding-classes)
 	;;
 
 *)
-	die "unknown command: ${cmd:-<none>} (steps-init|task-next|task-report|task-diagnosis|task-done|set-status|stuck|recover|recover-reject|report|session-set|session-get|prepare|dirty-check|trace|completed-show|completed-list|session-commits|gate-fix|deps-check|task-dir|journal-tail|plan-covers|review-findings|finding-classes)"
+	die "unknown command: ${cmd:-<none>} (steps-init|task-next|task-report|task-fact|task-diagnosis|task-done|set-status|stuck|recover|recover-reject|report|session-set|session-get|prepare|dirty-check|trace|completed-show|completed-list|session-commits|gate-fix|deps-check|task-dir|journal-tail|plan-covers|review-findings|finding-classes)"
 	;;
 esac

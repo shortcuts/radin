@@ -56,7 +56,7 @@ Two stores, split by whether a parser reads the value. A path, id, hash or enum,
 | Body label | Written when | Written by |
 | --- | --- | --- |
 | `**Decision:** <answer>` | user settled a `BLOCKED (DECISION)` | `radin-batch` |
-| `**Fact:** [measured\|inferred\|guess] <answer>` | a fact-finder returned `STATUS: FOUND`, or an execution sub-agent recorded a plan deviation, a skipped skill or a test's red-green proof | `radin-batch`, execution sub-agent |
+| `**Fact:** [measured\|inferred\|guess] <answer>` | a fact-finder returned `STATUS: FOUND` (`radin state task-fact`), or an execution sub-agent recorded a plan deviation, a skipped skill or a test's red-green proof | `radin-batch`, execution sub-agent |
 | `**Root cause:** [measured\|inferred] <cause + fix direction + sibling sites>` | debug sub-agent returned `STATUS: DIAGNOSED` | `radin state task-diagnosis` |
 | `**Raised as:** <verbatim ask>` | the triggering text, quoted | `radin-record` |
 | `**Scope:** <what was reviewed>` | the review surface | `radin-review` |
