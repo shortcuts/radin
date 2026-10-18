@@ -584,7 +584,8 @@ criterion would measure the work against radin's own guess.
 Those criteria are also the bar for the one recovery branch no command can
 settle: `radin state recover` exiting 3 hands the router commits a dead
 sub-agent left behind, and `lib/radin-batch-recovery.md` accepts them only
-when they meet every criterion the entry states. An entry stating none is a
+when they meet every criterion the entry states. A read-only review sub-agent
+reads the commits, so a large diff never enters the router's context. An entry stating none is a
 `recover-reject` and the user's look, never the router's reconstruction of what
 the task wanted.
 

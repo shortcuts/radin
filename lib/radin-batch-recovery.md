@@ -15,9 +15,7 @@ Exit 0: it finished the recovery. Print the
 
 Exit 3: the one branch no command can settle. A dead sub-agent committed work
 on the task's branch but never reported, so it printed the `branch`,
-`worktree` and `branch_commit` lines. Read those commits (`git show`) against
-one bar, and never against your own reconstruction of what the task wanted.
-The bar is the criteria the entry states:
+`worktree` and `branch_commit` lines. The bar is the criteria the entry states:
 
 ```bash
 RADIN_CLI backlog meta "<task id>"
@@ -26,10 +24,16 @@ RADIN_CLI backlog meta "<task id>"
 It prints one `acceptance<TAB><criterion>` line per criterion the entry states,
 and none when it states none.
 
-- **There is at least one `acceptance` line and the commits meet every one of
-  them**: `RADIN_CLI state task-done "<task id>" "<last hash>"`.
-- **Anything else**, such as a criterion the commits miss, a criterion you cannot
-  settle without running the project's checks, or no `acceptance` line at all:
-  `RADIN_CLI state recover-reject "<task id>"`. Partial work
-  is the user's call, and the command blocks the entry naming the branch and
-  worktree to inspect. An entry stating no criteria always lands here.
+- **No `acceptance` line**: `RADIN_CLI state recover-reject "<task id>"`.
+  Partial work is the user's call, and the command blocks the entry naming the
+  branch and worktree to inspect. It needs no read of the commits.
+- **At least one `acceptance` line**: never run `git show` yourself, because
+  a large commit would fill the session's context. Dispatch one read-only
+  sub-agent (`model: "RADIN_MODEL_REVIEW"`, `name: "radin-recover-<task id>"`).
+  Send it the `branch_commit` hashes, the `worktree` path and the criteria,
+  and ask it to read the commits against every criterion without editing
+  anything. It ends with `STATUS: SUCCESS — <last hash>` when the commits meet
+  every criterion, else `STATUS: FAILED — <the missed criterion>`.
+  - **SUCCESS**: `RADIN_CLI state task-done "<task id>" "<last hash>"`.
+  - **FAILED**, a criterion it cannot settle without running the project's
+    checks, or no `STATUS:` line: `RADIN_CLI state recover-reject "<task id>"`.
