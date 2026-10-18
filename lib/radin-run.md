@@ -237,7 +237,7 @@ order:
 
 `kind` is `planning` for an entry radin-record flagged as needing a plan that
 has none yet, else `execution`. A `planning` dispatch that reports
-`STATUS: PLANNED` skips `task-report`. Re-run `task-next "<task id>"`, which
+`STATUS: PLANNED` skips `task-report`. A planning leaf with no `STATUS:` line goes in as `--no-status` like any other; it retries until `MAX_ATTEMPTS`, then `task-next` blocks it and you answer `clarify STUCK`. Re-run `task-next "<task id>"`, which
 now hands out its execution prompt. `STATUS: BLOCKED (FACT|DECISION)`
 routes per Clarifying Ambiguity. Dispatch the prompt as one
 `Agent` call with exactly that model, `name: "radin-<kind>-<task id>"`

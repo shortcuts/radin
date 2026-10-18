@@ -15,7 +15,7 @@
 #   radin-state.sh steps-init                    # write BACKLOG_STEPS.json from "id<TAB>order<TAB>depends-on-csv<TAB>pending|deferred" lines on stdin
 #                                               # each entry's depends_on comes from its index line; the stdin csv is used only where the index has none
 #                                               # the fourth field is optional and defaults to pending; also writes state/baseline.json
-#   radin-state.sh task-next [<id>]  # pick, gate, claim and write the prompt in one call; an entry flagged planning=needed with no plan gets a planning prompt; exit 1 when nothing is left
+#   radin-state.sh task-next [<id>]  # pick, gate, claim and write the prompt in one call; an entry flagged planning=needed with no plan gets a planning prompt that counts against MAX_ATTEMPTS; exit 1 when nothing is left
 # an execution task also prints "overlap<TAB>none|unclear|<id>[,<id>...]": other live tasks sharing plan files
 #   radin-state.sh task-report <id> <the sub-agent's STATUS: line (SUCCESS|FAILED|INCONCLUSIVE|BLOCKED)> [--next] [--usage "<kind> <tokens> <tool_uses> <duration_ms>"]...  # verify the tree, record the outcome (a SUCCESS line's text after its first ";" is journaled as a summary event for report), then a final "next<TAB>continue|debug|clarify FACT|clarify DECISION|clarify STUCK" line
 #   radin-state.sh task-report <id> --no-status <last line> [--next] [--usage "<kind> <tokens> <tool_uses> <duration_ms>"]...  # the same, for a sub-agent that ended with no STATUS: line
@@ -235,8 +235,8 @@ overlap_hint() {
 	printf '%s' "${hits:-none}"
 }
 
-# Claims task $1: in_progress, attempts bumped. Returns 2, with the entry
-# marked blocked, once it passes MAX_ATTEMPTS.
+# Claims task $1: attempts bumped, status $2 (default in_progress), note $3.
+# Returns 2, with the entry marked blocked, once it passes MAX_ATTEMPTS.
 claim() {
 	local entry attempts
 	entry="$(entry_line "$steps" "$1")"
@@ -246,7 +246,7 @@ claim() {
 		write_entry "$steps" "$1" "blocked" "$((attempts - 1))" "dispatched $MAX_ATTEMPTS times without a terminal status (MAX_ATTEMPTS) -- needs a human look before another retry"
 		return 2
 	fi
-	write_entry "$steps" "$1" "in_progress" "$attempts" ""
+	write_entry "$steps" "$1" "${2:-in_progress}" "$attempts" "${3:-}"
 }
 
 # Prints task $1's recorded commit hash, returns 1 if it has none.
@@ -856,15 +856,26 @@ task-next)
 			continue
 		fi
 		kind=execution
-		# Planning claims nothing: the task is still pending when its plan
-		# lands, so the next call hands out its execution prompt. radin-record
-		# flags the entries that need one while the user can confirm it.
+		# A planning dispatch counts against MAX_ATTEMPTS but stays pending, so
+		# stuck-recovery ignores it and a dead planning leaf cannot loop forever.
+		# radin-record flags the entries that need one while the user can confirm it.
 		if field PLANNING >/dev/null && ! field PLAN_PATHS >/dev/null; then
 			kind=planning
 		fi
-		if [ "$kind" = execution ] && ! claim "$pid"; then
-			skip "dispatched $MAX_ATTEMPTS times without a terminal status (MAX_ATTEMPTS), marked blocked"
-			continue
+		entry="$(entry_line "$steps" "$pid")"
+		if [ "$kind" = planning ]; then
+			n="$(num_field "$entry" attempts)"
+			if ! claim "$pid" pending "planning dispatch $((n + 1)) of $MAX_ATTEMPTS"; then
+				skip "dispatched $MAX_ATTEMPTS times without a terminal status (MAX_ATTEMPTS), marked blocked"
+				continue
+			fi
+		else
+			# The plan landed: execution keeps its full MAX_ATTEMPTS.
+			[[ "$(json_get note "$entry")" != "planning dispatch"* ]] || write_entry "$steps" "$pid" pending 0 ""
+			if ! claim "$pid"; then
+				skip "dispatched $MAX_ATTEMPTS times without a terminal status (MAX_ATTEMPTS), marked blocked"
+				continue
+			fi
 		fi
 		if [ "$kind" = execution ] && dropped="$(field SKILLS_DROPPED)"; then
 			title="$(task_title "$repo_root" "$pid")"
@@ -948,6 +959,14 @@ task-report)
 	done
 	if [ "$third" = "--no-status" ]; then
 		ot="$(order_title "$id")"
+		# A planning leaf with no STATUS made nothing: retry until claim's cap blocks it.
+		if [[ "$(json_get note "$entry")" == "planning dispatch"* ]]; then
+			write_entry "$steps" "$id" pending "$(num_field "$entry" attempts)" "$(json_get note "$entry")"
+			printf "⚠️ Task %s '%s': planning sub-agent returned no STATUS line (attempt %s of %s). Back to pending for a retry.\n" \
+				"${ot%%	*}" "${ot#*	}" "$(num_field "$entry" attempts)" "$MAX_ATTEMPTS"
+			printf 'next\tcontinue\n'
+			exit 0
+		fi
 		# A sub-agent the API or network killed did nothing wrong: back to
 		# pending, and the next pick retries it. claim's MAX_ATTEMPTS bounds
 		# the retries.
