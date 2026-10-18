@@ -125,7 +125,7 @@ run_install_defaults() {
 @test "writes a model into every sub-agent role, leaving no marker behind" {
   run_install_defaults
   run ! grep -rq --exclude=radin-doctor.sh 'RADIN_MODEL_' "$TEST_HOME/.claude/skills" "$TEST_HOME/.claude/.radin/lib"
-  grep -q 'model: "sonnet"' "$TEST_HOME/.claude/.radin/lib/radin-batch-gate.md"
+  grep -q 'model: "sonnet"' "$TEST_HOME/.claude/.radin/lib/radin-prompt-gate.md"
   grep -q 'model: "haiku"' "$TEST_HOME/.claude/.radin/lib/radin-prompt-factfind.md"
   grep -q 'model-chore: "haiku"' "$TEST_HOME/.claude/.radin/lib/radin-prompt-execution.md"
 }
@@ -139,7 +139,7 @@ run_install_defaults() {
   grep -q '"model_planning": "opus"' "$TEST_HOME/.claude/.radin/manifest.json"
   grep -q '"model_chore": "fable"' "$TEST_HOME/.claude/.radin/manifest.json"
   run ! grep -rq --exclude=radin-doctor.sh 'RADIN_MODEL_' "$TEST_HOME/.claude/skills" "$TEST_HOME/.claude/.radin/lib"
-  grep -q 'model: "opus"' "$TEST_HOME/.claude/.radin/lib/radin-batch-gate.md"
+  grep -q 'model: "opus"' "$TEST_HOME/.claude/.radin/lib/radin-prompt-gate.md"
   grep -q 'model: "fable"' "$TEST_HOME/.claude/.radin/lib/radin-prompt-factfind.md"
   grep -q 'model-chore: "fable"' "$TEST_HOME/.claude/.radin/lib/radin-prompt-execution.md"
 }

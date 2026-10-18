@@ -19,6 +19,7 @@ lib radin-prompt-planning.md
 lib radin-prompt-execution.md
 lib radin-prompt-debug.md
 lib radin-prompt-factfind.md
+lib radin-prompt-gate.md
 lib radin-leaf-contract.md
 lib radin-prioritization.md
 lib radin-batch-recovery.md

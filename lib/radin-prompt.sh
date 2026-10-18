@@ -9,6 +9,7 @@
 #   radin-prompt.sh execution <id>
 #   radin-prompt.sh debug     <id> <failure reason>
 #   radin-prompt.sh factfind  <id> <question>
+#   radin-prompt.sh gate
 #
 # Writes the prompt to <namespace>/state/prompts/<id>-<kind>.md and prints
 # `model<TAB><name>` and `prompt<TAB><path>`. The router dispatches the path,
@@ -38,11 +39,12 @@ LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 kind="${1:-}"
 id="${2:-}"
 extra="${3:-}"
-[ -n "$kind" ] && [ -n "$id" ] ||
-	die "usage: radin-prompt.sh <planning|execution|debug|factfind> <id> [<failure|question>]"
+if [ -z "$kind" ] || { [ -z "$id" ] && [ "$kind" != gate ]; }; then
+	die "usage: radin-prompt.sh <planning|execution|debug|factfind> <id> [<failure|question>] | gate"
+fi
 
 case "$kind" in
-planning | execution | debug | factfind) ;;
+planning | execution | debug | factfind | gate) ;;
 *) die "unknown prompt kind: $kind" ;;
 esac
 TEMPLATE="$LIB_DIR/radin-prompt-$kind.md"
@@ -72,6 +74,26 @@ leaf_contract="$(fence "$LIB_DIR/radin-leaf-contract.md")"
 # One `eval` of the CLI's own export lines, rather than parsing them: the
 # namespace is this script's only input that is not an argument.
 eval "$(bash "$LIB_DIR/radin-backlog.sh" env --export)"
+
+# Placeholder substitution, longest name first where one contains another.
+sub_token() {
+	# $1 token, $2 value: parameter expansion, so a multi-line value (the
+	# ACCEPTANCE block) lands whole and no sed metacharacter is special.
+	body="${body//$1/$2}"
+}
+
+# The gate belongs to the session, not a task: no id, no task fields, no guards.
+if [ "$kind" = gate ]; then
+	commits="$(cd "$REPO_ROOT" && bash "$LIB_DIR/radin-state.sh" session-commits)" ||
+		die "no session commits, so no gate is due"
+	sub_token LEAF_CONTRACT "$leaf_contract"
+	sub_token SESSION_COMMITS "$(printf '%s\n' "$commits" | awk 'NF { printf "%s%s", sep, $0; sep = " " } END { print "" }')"
+	mkdir -p "$NAMESPACE_DIR/state/prompts"
+	out="$NAMESPACE_DIR/state/prompts/session-gate.md"
+	printf '%s\n' "$body" >"$out"
+	printf 'model\t%s\nprompt\t%s\n' "$model" "$out"
+	exit 0
+fi
 
 field() {
 	(cd "$REPO_ROOT" && bash "$LIB_DIR/radin-backlog.sh" field "$id" "$1" 2>/dev/null)
@@ -184,13 +206,6 @@ body="$(printf '%s\n' "$body" | awk -v active="$active" '
 	$0 == "<!-- end -->" { skip = 0; next }
 	!skip { print }
 ')"
-
-# Placeholder substitution, longest name first where one contains another.
-sub_token() {
-	# $1 token, $2 value: parameter expansion, so a multi-line value (the
-	# ACCEPTANCE block) lands whole and no sed metacharacter is special.
-	body="${body//$1/$2}"
-}
 
 sub_token LEAF_CONTRACT "$leaf_contract"
 sub_token NAMESPACE_DIR "$NAMESPACE_DIR"
