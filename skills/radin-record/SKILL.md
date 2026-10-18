@@ -14,8 +14,8 @@ The instruction sets the scope:
 
 - **Specific**: "add the auth timeout bug", "fix this issue", "work on adding that feature"
 - **Generic**: "add the findings", "record everything", "we should probably": scan the whole
-    session for anything a reasonable person calls a bug,follow-up, idea, or feedback.
-    Each distinct item becomes its own entry.
+  session for anything a reasonable person calls a bug, follow-up, idea, or feedback.
+  Each distinct item becomes its own entry.
 
 Log the entry worded close to how it was raised.
 
