@@ -132,7 +132,7 @@ trimmed to the decision-rich part.
 For each approved item:
 
 ```bash
-RADIN_CLI backlog add <category> "<short title>" [--skill <skill-name>] <<'EOF'
+RADIN_CLI backlog add <category> "<short title>" [--skill <skill-name>] [--acceptance "<criterion>"] [--planning needed] <<'EOF'
 <the description: what was being worked on, the item close to how the user
 stated it, why it matters>
 
@@ -144,23 +144,17 @@ open facts or deferred decisions in plain prose.>
 EOF
 ```
 
+Each `add` prints the bare id on stdout.
+
 Pass Step 3's skill(s) as `--skill <skill-name>` (repeatable). The CLI composes
 the canonical instruction sentence itself; never write it by hand. Omit the
 flag when no skill applies.
 
-Acceptance criteria live on the entry, not in the body: one call per entry
-whose session already stated a checkable outcome, each criterion as bare text
+Acceptance criteria live on the entry, not in the body: pass each criterion the
+session already stated as `--acceptance "<criterion>"` (repeatable), as bare text
 with no bullet and no checkbox. Never ask for criteria, never synthesise one.
 
-```bash
-RADIN_CLI backlog set-meta <id> acceptance "<criterion>" "<criterion>"
-```
-
-Flag each approved entry whose verdict is "needed":
-
-```bash
-RADIN_CLI backlog set-meta <id> planning needed
-```
+Pass `--planning needed` on each approved entry whose verdict is "needed".
 
 Once every `add` has printed its id, record Step 4's
 dependencies, one call per dependent entry, always after all the adds:

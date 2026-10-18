@@ -26,7 +26,7 @@
 #   radin-backlog.sh list [--order created|priority] [--planned] [--meta]  # print "id<US>category<US>title<US>file<US>priority<US>depends-on-csv" (US = \037), priority-descending by default, unset priorities last (--order created gives index order; --planned appends a P/empty field; --meta appends the `meta` lines joined by RS = \036, so one fork reads every entry's fields)
 #   radin-backlog.sh find <id-or-title>          # print matching "id<TAB>category<TAB>title<TAB>file<TAB>priority<TAB>depends-on-csv" line(s)
 #   radin-backlog.sh count                       # print the number of entries (0 without an index)
-#   radin-backlog.sh add <category> <title> [--skill <name>]...  # create task, body read from stdin, prints its id
+#   radin-backlog.sh add <category> <title> [--skill <name>]... [--acceptance <criterion>]... [--planning needed] [--location <path:line>] [--deps <csv>]  # create task, body read from stdin, prints its bare id on stdout (the human sentence goes to stderr)
 #   radin-backlog.sh add-plan <id-or-title> <path>  # plan-lint the file, then add one plan pointer to the task's entry, and record HEAD in plans/<id>.head
 #   radin-backlog.sh append <id-or-title>        # append text from stdin to the task's file
 #   radin-backlog.sh plan-target <id-or-title> [<sub-task title>]  # resolve one task for planning: "id"/"title"/"task_file"/"plan_file" TAB lines plus a "facts<TAB><path>" line when set and one "plan<TAB><path>" per existing pointer; exit 1 no match, 2 several (candidates on stderr), 3 already planned
@@ -906,11 +906,35 @@ add)
 	esac
 	shift 3
 	skill_list=()
+	accept_list=()
+	add_planning=""
+	add_location=""
+	add_deps=""
 	while [ $# -gt 0 ]; do
 		case "$1" in
 		--skill)
 			[ -n "${2:-}" ] || usage_die add "--skill needs a name"
 			skill_list[${#skill_list[@]}]="$(skill_instruction "$2")"
+			shift 2
+			;;
+		--acceptance)
+			[ -n "${2:-}" ] || usage_die add "--acceptance needs a criterion"
+			accept_list[${#accept_list[@]}]="$2"
+			shift 2
+			;;
+		--planning)
+			[ -n "${2:-}" ] || usage_die add "--planning needs a value"
+			add_planning="$2"
+			shift 2
+			;;
+		--location)
+			[ -n "${2:-}" ] || usage_die add "--location needs a path:line"
+			add_location="$2"
+			shift 2
+			;;
+		--deps)
+			[ -n "${2:-}" ] || usage_die add "--deps needs a csv of ids"
+			add_deps="$(printf '%s' "$2" | tr ',' ' ')"
 			shift 2
 			;;
 		*) usage_die add "unknown add option: $1" ;;
@@ -920,6 +944,12 @@ add)
 	BODY="$(cat)"
 	[ -n "$BODY" ] || die "entry body is empty (pass it on stdin)"
 	require_no_moved_label "$BODY"
+	# Validated before the task file exists, so a bad flag leaves no entry.
+	for v in ${accept_list[@]+"${accept_list[@]}"}; do require_meta_value acceptance "$v"; done
+	[ -z "$add_planning" ] || require_meta_value planning "$add_planning"
+	[ -z "$add_location" ] || require_meta_value location "$add_location"
+	# shellcheck disable=SC2086
+	[ -z "$add_deps" ] || require_known_ids $add_deps
 	id="$(slugify "$title")"
 	[ -n "$id" ] || die "title produced an empty id: $title"
 	base="$id"
@@ -940,7 +970,13 @@ add)
 	branch="$(git -C "$REPO_ROOT" symbolic-ref --short -q HEAD 2>/dev/null || true)"
 	compose_line "$id" "$category" "$title" "$rel" "$skills_array" \
 		"$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$branch" >>"$BACKLOG_INDEX"
-	printf 'added "%s" (id: %s) under %s in %s\n' "$title" "$id" "$category" "$BACKLOG_INDEX"
+	[ "${#accept_list[@]}" -eq 0 ] || set_index_field "$id" acceptance "$(json_array "${accept_list[@]}")"
+	[ -z "$add_planning" ] || set_index_field "$id" planning "$(json_string "$add_planning")"
+	[ -z "$add_location" ] || set_index_field "$id" location "$(json_string "$add_location")"
+	# shellcheck disable=SC2086
+	[ -z "$add_deps" ] || set_index_field "$id" depends_on "$(json_array $add_deps)"
+	printf 'added "%s" (id: %s) under %s in %s\n' "$title" "$id" "$category" "$BACKLOG_INDEX" >&2
+	printf '%s\n' "$id"
 	;;
 
 count)

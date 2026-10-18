@@ -1489,6 +1489,11 @@ static void mutate(const char *verb, const char *a, const char *b, const char *s
 	char *out = cli(BACKLOG, &ok, 1, stdin_path, (char *)verb, (char *)a, (char *)b, NULL);
 	chomp(out);
 	if (ok) {
+		/* `add` prints the sentence on stderr and the bare id on stdout. */
+		if (!strcmp(verb, "add")) {
+			char *nl = strchr(out, '\n');
+			if (nl) *nl = 0;
+		}
 		setmsg("%s", out);
 		load();
 	} else {

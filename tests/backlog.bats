@@ -32,10 +32,27 @@ write_plan() {
   } >"$1"
 }
 
+@test "add writes meta flags with the entry and rejects a bad one whole" {
+  cli add fix base <<<b >/dev/null 2>&1
+  id="$(cli add feat t --acceptance "a" --acceptance "b" --planning needed --location x.c:3 --deps base 2>/dev/null <<<body)"
+  [ "$id" = t ]
+  run cli meta t
+  [[ "$output" == *$'acceptance\ta'* ]]
+  [[ "$output" == *$'acceptance\tb'* ]]
+  [[ "$output" == *$'location\tx.c:3'* ]]
+  [[ "$output" == *$'planning\tneeded'* ]]
+  run cli list
+  [[ "$output" == *"base"* ]]
+  run cli add fix bad --deps nope <<<b
+  [ "$status" -ne 0 ]
+  [ "$(cli count)" -eq 2 ]
+}
+
 @test "add creates an index line and a task file" {
   run cli add fix "broken auth" <<<"Auth times out after 5s."
   [ "$status" -eq 0 ]
   [[ "$output" == *"id: broken-auth"* ]]
+  [ "$(cli add fix "broken auth" 2>/dev/null <<<"again")" = "broken-auth-2" ]
   run cat "$INDEX"
   [[ "$output" == *'"id":"broken-auth"'* ]]
   [[ "$output" == *'"category":"fix"'* ]]
