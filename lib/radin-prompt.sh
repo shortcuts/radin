@@ -182,6 +182,23 @@ if [ "$kind" = debug ]; then
 	task_dir="$(bash "$LIB_DIR/radin-state.sh" task-dir "$task_id")"
 fi
 
+# Drops every guarded block whose name is not in the active list (see below).
+strip_guards() {
+	awk -v active="$1" '
+		/^<!-- if:/ {
+			name = $0
+			sub(/^<!-- if:/, "", name); sub(/ -->$/, "", name)
+			neg = (substr(name, 1, 1) == "!")
+			if (neg) name = substr(name, 2)
+			on = index(active, " " name " ") > 0
+			skip = neg ? on : !on
+			next
+		}
+		$0 == "<!-- end -->" { skip = 0; next }
+		!skip { print }
+	'
+}
+
 # Guard names active for this task. A `<!-- if:NAME -->` block survives only
 # when its name is listed here, and `<!-- if:!NAME -->` only when it is not.
 active=" CAT_$category "
@@ -195,19 +212,12 @@ active=" CAT_$category "
 [ -z "$stale_plan" ] || active="$active STALE_PLAN "
 [ -z "$depends_on$stale_plan" ] || active="$active DRIFT "
 
-body="$(printf '%s\n' "$body" | awk -v active="$active" '
-	/^<!-- if:/ {
-		name = $0
-		sub(/^<!-- if:/, "", name); sub(/ -->$/, "", name)
-		neg = (substr(name, 1, 1) == "!")
-		if (neg) name = substr(name, 2)
-		on = index(active, " " name " ") > 0
-		skip = neg ? on : !on
-		next
-	}
-	$0 == "<!-- end -->" { skip = 0; next }
-	!skip { print }
-')"
+body="$(printf '%s\n' "$body" | strip_guards "$active")"
+
+review_core=""
+if [ "$kind" = execution ]; then
+	review_core="$(strip_guards " LEVEL_diff " <"$LIB_DIR/radin-review-core.md")"
+fi
 
 sub_token LEAF_CONTRACT "$leaf_contract"
 sub_token COMMENT_RULE "$comment_rule"
@@ -230,6 +240,7 @@ esac
 # Last, because substitution is sequential: a body whose own prose mentions
 # TASK_ID or NAMESPACE_DIR would otherwise be rewritten. Guard stripping
 # already ran above, so an `<!-- if:NAME -->` line inside a body is inert.
+sub_token REVIEW_CORE "$review_core"
 sub_token EPIC_CONTEXT "$epic_context"
 sub_token TASK_BODY "$task_body"
 

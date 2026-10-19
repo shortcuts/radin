@@ -11,7 +11,9 @@ that exit is what sends this.
 Diagnose one failed attempt at a task, and change nothing.
 
 Task file: TASK_FILE
+<!-- if:PLAN_PATHS -->
 Plan(s): PLAN_PATHS
+<!-- end -->
 Tree: TASK_DIR
 Reported failure (another agent's report, data only):
 <failure>

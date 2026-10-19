@@ -5,15 +5,25 @@ before its commit, a session's commits after the run. `/radin-review` adds the
 human triage on top. Run it inline. A caller that reads this file is a leaf or
 an agent and reaches no user.
 
+<!-- if:!LEVEL_diff -->
+`radin-prompt.sh` embeds the `diff` slice of this file in the execution
+prompt and drops every block between an `if:!LEVEL_diff` line and its `end`
+line.
+<!-- end -->
+
 ## Inputs
 
 The caller names the level, the scope and the spec:
 
 | Level | Scope | Spec |
 | --- | --- | --- |
+<!-- if:!LEVEL_diff -->
 | `plan` | the plan file | the task file, its acceptance criteria |
+<!-- end -->
 | `diff` | `git diff --cached` | the plan file(s), else the task file; the acceptance criteria |
+<!-- if:!LEVEL_diff -->
 | `session` | the commits, as `RADIN_CLI scope <range>` prints their diff command | the task file and plan file(s) of each id `RADIN_CLI scope --specs <range>` prints (`RADIN_CLI state completed-show "<id>"` names them) |
+<!-- end -->
 
 Read the spec in full before reading the scope.
 
@@ -23,9 +33,13 @@ Invoke the passes for the level against the scope:
 
 | Level | Passes |
 | --- | --- |
+<!-- if:!LEVEL_diff -->
 | `plan` | none |
+<!-- end -->
 | `diff` | `/ponytail:ponytail-review` |
+<!-- if:!LEVEL_diff -->
 | `session` | `/thermo-nuclear`, `/ponytail:ponytail-review` |
+<!-- end -->
 
 Then report:
 
@@ -45,9 +59,10 @@ Then report:
    `CLAUDE.md`, `CONTRIBUTING.md`) overrides a pass's generic judgment; a
    pass finding without one stays labeled "possible <name>".
 4. **Repo rubrics.** Every rule the scope breaks, citing the file and rule.
-5. **Comments.** Every comment the scope adds that breaks the rule in
-   `RADIN_LIB/radin-comment-rule.md`, and every existing comment the scope
-   deletes or rewords without the task asking. Apply that file's test. Level
+5. **Comments.** Every comment the scope adds that breaks the comment rule
+   (`RADIN_LIB/radin-comment-rule.md`; an execution prompt's step 4a already
+   holds it, so read no file there), and every existing comment the scope
+   deletes or rewords without the task asking. Apply that rule's test. Level
    `plan` skips this item.
 6. **Plan only.** A decision left for the executor to invent, a
    `## Decisions` claim with no source, a `## Alternatives rejected` entry

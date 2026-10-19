@@ -195,8 +195,8 @@ COMMENT_RULE
    test that still passes when the code under test returns nothing pins
    nothing: assert literal expected values.
    Fix what the checks surface before step 6.
-5a. Stage your task's files (`git add <paths>`, never `.claude/.radin/`), read
-   `RADIN_LIB/radin-review-core.md`, and follow it at level `diff`: spec the
+5a. Stage your task's files (`git add <paths>`, never `.claude/.radin/`) and
+   follow the review brief at the end of this prompt at level `diff`: spec the
    plan(s) above, else this task, plus its acceptance criteria. Fix every
    `critical` and `warning` finding in the tree, re-run step 5's checks,
    restage and review again. Two rounds at most: a `critical` still standing
@@ -210,4 +210,8 @@ COMMENT_RULE
    investigating, e.g. formatter/linter auto-fixes), either commit it as part of this
    task's commit or a separate scoped commit. Never leave the working tree dirty when
    you report back.
+
+Review brief (step 5a):
+
+REVIEW_CORE
 ```

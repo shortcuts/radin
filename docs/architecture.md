@@ -151,7 +151,7 @@ Both `BACKLOG_STEPS.json` and `completed.json` are JSONL (one compact object per
 - `lib/radin-batch-resume.md` holds resume triage, the `MAX_ATTEMPTS` exception and the state-persistence contract. The router reads it only when `BACKLOG_STEPS.json` already exists at startup or compaction dropped earlier turns.
 - `lib/radin-batch-gate.md` tells the router at Phase 4.5 to dispatch `radin prompt gate`, once per session that recorded a commit. `lib/radin-prompt-gate.md` holds the prompt.
 - `lib/radin-batch-review.md` is the Phase 6 reviewer sub-agent prompt. The router reads it only when the user asked for a post-session review. Its findings go to `/radin-review`'s triage.
-- `lib/radin-review-core.md` is the one review brief every level runs: `plan` (`radin-plan` Step 4), `diff` (the execution leaf's staged diff), `session` (Phase 6 and `/radin-review`'s sub-agent). Companion passes: none at `plan`, ponytail-review at `diff`, both at `session`. `/radin-review` adds only the human triage.
+- `lib/radin-review-core.md` is the one review brief every level runs: `plan` (`radin-plan` Step 4), `diff` (the execution leaf's staged diff, embedded in its prompt at the `REVIEW_CORE` token with the other levels' `if:!LEVEL_diff` blocks dropped, so the leaf reads no file), `session` (Phase 6 and `/radin-review`'s sub-agent). Companion passes: none at `plan`, ponytail-review at `diff`, both at `session`. `/radin-review` adds only the human triage.
 
 ## Why every entry point is a skill
 
