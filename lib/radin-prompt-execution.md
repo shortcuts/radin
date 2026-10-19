@@ -161,7 +161,11 @@ ACCEPTANCE
    work around.
    For each such test, record a `**Fact:**` line: `test <name>: failed before
    (<its failure>), passes now`.
-4a. Build in small units: one change, run its check, then the next. A unit
+4a. Comments in the code you write follow this rule:
+
+COMMENT_RULE
+
+4b. Build in small units: one change, run its check, then the next. A unit
    that turns a check red is the one to fix before you move on.
 5. Choose the checks from what your diff reaches: ask `codebase-memory-mcp`
    for the symbols your working-tree diff changes and their callers. Run the

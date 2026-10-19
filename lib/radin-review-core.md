@@ -45,7 +45,11 @@ Then report:
    `CLAUDE.md`, `CONTRIBUTING.md`) overrides a pass's generic judgment; a
    pass finding without one stays labeled "possible <name>".
 4. **Repo rubrics.** Every rule the scope breaks, citing the file and rule.
-5. **Plan only.** A decision left for the executor to invent, a
+5. **Comments.** Every comment the scope adds that breaks the rule in
+   `RADIN_LIB/radin-comment-rule.md`, and every existing comment the scope
+   deletes or rewords without the task asking. Apply that file's test. Level
+   `plan` skips this item.
+6. **Plan only.** A decision left for the executor to invent, a
    `## Decisions` claim with no source, a `## Alternatives rejected` entry
    missing for a real fork, and an approach the repo contradicts.
 

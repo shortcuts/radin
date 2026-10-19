@@ -70,6 +70,8 @@ body="$(fence "$TEMPLATE")"
 [ -n "$body" ] || die "no fenced prompt in $TEMPLATE"
 leaf_contract="$(fence "$LIB_DIR/radin-leaf-contract.md")"
 [ -n "$leaf_contract" ] || die "no fenced contract in $LIB_DIR/radin-leaf-contract.md"
+comment_rule="$(fence "$LIB_DIR/radin-comment-rule.md")"
+[ -n "$comment_rule" ] || die "no fenced rule in $LIB_DIR/radin-comment-rule.md"
 
 # One `eval` of the CLI's own export lines, rather than parsing them: the
 # namespace is this script's only input that is not an argument.
@@ -208,6 +210,7 @@ body="$(printf '%s\n' "$body" | awk -v active="$active" '
 ')"
 
 sub_token LEAF_CONTRACT "$leaf_contract"
+sub_token COMMENT_RULE "$comment_rule"
 sub_token NAMESPACE_DIR "$NAMESPACE_DIR"
 sub_token TASK_FILE "$task_file"
 sub_token TASK_DIR "$task_dir"

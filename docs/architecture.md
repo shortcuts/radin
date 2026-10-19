@@ -280,6 +280,7 @@ radin/
     radin-prompt-factfind.md
     radin-prompt-gate.md
     radin-leaf-contract.md
+    radin-comment-rule.md
     radin-prioritization.md
     radin-batch-recovery.md
     radin-batch-reporting.md
@@ -614,7 +615,7 @@ warns when the enable fails, and `radin-doctor` reports such a plugin as
 
 What a future audit checks prose against, after the 2026-09 dedup pass:
 
-- **Two audiences, one statement each.** Skill/lib prose is read by the router or a human-thread skill; a verbatim fence in `lib/radin-prompt-<kind>.md` is read only by its sub-agent, which never sees the surrounding narration. A fence copy is a payload, not a duplicate; within one audience there is exactly one statement, and a pointer where a second place needs it. A rule every leaf prompt states lives in `lib/radin-leaf-contract.md`, and `radin-prompt.sh` writes it in at the `LEAF_CONTRACT` token. `scripts/check-prose.sh` fails on a new sentence of 8 or more words that `lib/*.md` and `skills/*/SKILL.md` state twice; its allow list holds the copies kept on purpose.
+- **Two audiences, one statement each.** Skill/lib prose is read by the router or a human-thread skill; a verbatim fence in `lib/radin-prompt-<kind>.md` is read only by its sub-agent, which never sees the surrounding narration. A fence copy is a payload, not a duplicate; within one audience there is exactly one statement, and a pointer where a second place needs it. A rule every leaf prompt states lives in `lib/radin-leaf-contract.md`, and `radin-prompt.sh` writes it in at the `LEAF_CONTRACT` token. `scripts/check-prose.sh` fails on a new sentence of 8 or more words that `lib/*.md` and `skills/*/SKILL.md` state twice; its allow list holds the copies kept on purpose. The comment rule lives in `lib/radin-comment-rule.md`: `radin-prompt.sh` writes it into the execution prompt at the `COMMENT_RULE` token, and `lib/radin-review-core.md` names the file for the review item.
 - **The code that does it owns deterministic behaviour.** Those owners are the usage comments in `lib/radin-backlog.sh` and `lib/radin-state.sh`. Prose names the verb and its exit codes, never what the verb computes.
 - **Formats and schemas are owned by `docs/domain-models.md`.** No installed prose file restates one.
 - **Cross-skill rules live in the `<!-- radin:begin -->` block `install.sh` writes into `~/.claude/CLAUDE.md`** (never hand-edit `.claude/.radin/`; never guess on a broad ask). It costs no file read and ships with the skills.
