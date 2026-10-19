@@ -14,7 +14,7 @@
 # missing; upstream's own entries stay, and radin adds none of its own. The
 # pre-existing entries go back first, upstream's after, so relative order
 # inside each hook event survives.
-# Scope limits (full list in docs/technical-constraints.md): this covers Claude
+# Scope limits (full list in docs/DECISIONS.md): this covers Claude
 # Code's two files only, while upstream configures 45 client surfaces; it
 # restores rather than rolls back, so it cannot undo the configuration
 # (`codebase-memory-mcp uninstall` does); and `repair` reads the newest

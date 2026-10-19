@@ -789,7 +789,7 @@ static int prune_dead(JVal *hooks)
  * prune above, not a ~/ rewrite: Claude Code posix_spawns a single-word hook
  * command directly, and a lone `~/.local/bin/codebase-memory-mcp` then dies
  * with `ENOENT ... posix_spawn`. Only a command with further words reaches a
- * shell that would expand the tilde (docs/technical-constraints.md), so every
+ * shell that would expand the tilde (docs/DECISIONS.md), so every
  * hook command gets an absolute path here, unquoted -- including the ~/ form
  * radin itself wrote before this was understood. Re-quoting also drops
  * upstream's quotes around a lone absolute path: a single-word command is
@@ -988,7 +988,7 @@ static void restore_mcp_servers(const char *snap)
  * absolute path stays: Claude Code posix_spawns an mcpServers command instead
  * of running it through a shell, so a leading ~ is a literal directory name
  * and the server fails with ENOENT (verified -- see
- * docs/technical-constraints.md). Detecting a stale path is the only fix
+ * docs/DECISIONS.md). Detecting a stale path is the only fix
  * available here; don't retry the ~/ rewrite the hook commands get. */
 static int stale(JVal *entry)
 {

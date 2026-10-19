@@ -1,0 +1,142 @@
+# Decisions and constraints
+
+This file holds what the code cannot say: a constraint, a decision, and the reason.
+Structure, verbs, formats and layout live in the code:
+
+- **Flow:** [lifecycle diagrams](lifecycle.md).
+- **Who calls what:** the codebase-memory-mcp graph (`search_graph`, `trace_path`, `get_architecture`).
+- **CLI verbs and exit codes:** the usage comments in `lib/radin-backlog.sh`, `lib/radin-state.sh` and `lib/radin-scope.sh`, and `radin help`.
+- **Shipped files:** `SHIPPED`.
+- **Plan template:** `skills/radin-plan/SKILL.md`. **Plan shape check:** `PLAN_SECTIONS` in `lib/radin-backlog.sh`.
+
+A new rule goes here as one bullet: the rule, then `**Why:**`.
+
+## Platform and install
+
+- **macOS and Linux only.** No Windows.
+- **Never branch on `uname`.** Resolve tools with `command -v` or `brew shellenv`. Branch only where a tool differs (`md5` versus `md5sum`).
+- **Stay bash 3.2.** macOS freezes `/bin/bash` at 3.2. No `declare -A`, no `mapfile`, no `${var,,}`. A newer bash on `PATH` hides a violation, so test against `/bin/bash` or grep. `tests/bash-compat.bats` pins it.
+- **The stack is opinionated, and each companion install is advisory.** Installing radin installs every companion, with no per-tool question. **Why:** a skill that delegates to a missing tool cannot work. A failed companion install warns and the run continues.
+- **The installer asks two questions.** The first is the sub-agent models, because it changes what a run does. The second is the package manager for `rtk` (`brew`, `mise` or `curl`), because installing through a manager the user does not run adds one they never chose. `--yes` skips both. A new question must be recorded in `manifest.json`, or `radin update` resets it.
+- **Never vendor or fork a companion.** `install.sh` reaches each tool through an existing install path.
+- **`~/.claude` is not ours.** Rules and exceptions are in `AGENTS.md`.
+- **`unslop` and `technical-writing` are fetched unpinned from cursor/plugins `main`.** **Why:** upstream edits should reach the agents. The cost is that they change agent behavior without review. Three guards: the download must start with `---` frontmatter, a skill directory that `manifest.json` does not record as radin's is skipped, and a failure only warns.
+- **`SHIPPED` is the one list of shipped files.** `make gen` writes it into marked blocks of `install.sh`, `radin-doctor.sh` and `radin-uninstall.sh`. **Why:** the installed scripts read no list at run time, so `curl | bash` works and uninstall still acts on a broken install.
+- **`radin-doctor.sh` and `radin-uninstall.sh` check the filesystem and never trust `manifest.json`.** **Why:** a stale manifest must never produce a false OK or delete the wrong file. The manifest is a snapshot for external tools.
+- **Three things no shipped file may state literally.** `install.sh` writes each one in and exits non-zero if its token survives.
+  - `RADIN_CLI`: bare `radin` when the symlink is on `PATH`, else `"$HOME/.claude/.radin/bin/radin"`.
+  - `RADIN_MODEL_<ROLE>`: the install-time pick. Major roles (planning, execution, review, debug) default to sonnet. Minor roles (fact-finding, and a `chore` task's execution) default to haiku. A new role needs a token and a `-e` clause in `set_role_models`.
+  - `RADIN_LIB`: `$HOME/.claude/.radin/lib`. **Why:** the Read tool takes no `$HOME`.
+- **`radin update` is the one update path and needs no model.** A dev clone runs `git pull --ff-only` and refuses on a dirty tree. Any other install downloads the newest `install.sh` from `main`. `--update` skips reinstalling a companion that is present but still configures it.
+- **Edit `skills/*/SKILL.md` in this repo, never the installed copy.** `thermo-nuclear`, `unslop` and `technical-writing` are not in this repo.
+- **Install the whole companion, then bracket its destructive write.** `codebase-memory-mcp` installs with `--skip-config`. `radin-cbm-config.sh install` then runs upstream's configuration between a snapshot and a restore. **Why:** upstream [#1200](https://github.com/DeusData/codebase-memory-mcp/issues/1200) replaces the whole `SessionStart` array in `settings.json` and drops other tools' hooks. Leave the bracket in place after the fix. It then prints `INTACT` and covers the next regression. Apply the same test to any future companion.
+
+### Limits of the codebase-memory-mcp bracket
+
+Read these before you change `lib/radin-cbm-config.sh` or tell a user they are covered.
+
+- **Two files, one client.** The snapshot covers `~/.claude/settings.json` and `~/.claude.json`. Every other client upstream configures takes its write unbracketed. Never claim radin protects a config it did not copy.
+- **Restore, not rollback.** It adds back entries the snapshot had and the file now lacks. It never deletes an upstream entry. `codebase-memory-mcp uninstall` does that.
+- **Upstream's own entries are never restored.** An entry naming `codebase-memory-mcp` or a `cbm-*` shim is upstream's. Upstream rewrites those spellings between versions, and restoring the old one pins a dead path in `SessionStart`.
+- **A hook command naming a missing path is pruned, whoever wrote it.** A `~/.claude` shared between machines carries the other machine's `$HOME`. A bare shim name is never pruned, because it resolves against Claude Code's `PATH`.
+- **Upstream's `cbm-*` hook scripts are moved, never deleted.** They bake in an absolute `BIN=` path. `install` moves them to `~/.claude/.radin/backups/hooks.<stamp>/` so upstream writes them again for this machine.
+- **A stale `mcpServers` command is replaced.** `adopt_staged_mcp` overwrites an entry whose `command` path does not exist.
+- **A hook `command` must be an absolute, unquoted path.** Measured on Claude Code 2.1.236 and 2.1.24x. A single-word command is `posix_spawn`ed verbatim, so `~/...` and a quoted path die with `ENOENT`. Only a command with further words reaches a shell. `normalize_cbm` rewrites `cbm-*` hook commands and leaves other tools' alone.
+- **Newest snapshot wins.** `repair` reads the newest `*.bak` pair. That is right after an upstream `update` and wrong for rebuilding a much older config.
+- **The compiled JSON helper gates the path.** `lib/radin-cbm-json.c` does every JSON read and write. With no compiler, `install.sh` skips upstream's configuration and falls back to merge-only wiring. **Why:** a destructive write with no restore is worse than a smaller install.
+- **Snapshots are the user's data.** They can hold `env` values. radin never deletes one, and `radin-uninstall.sh` names the directory.
+- **Uninstall is asymmetric.** `/radin-uninstall` removes radin's files. Upstream's skill, agents and hooks are upstream's to remove.
+- **`radin hooks mcp` writes a machine-specific binary path.** Say so when a user asks about committing `.mcp.json`.
+- **A symlinked `~/.claude` is handled, not covered.** Upstream refuses to write under one and exits 0 ([#1722](https://github.com/DeusData/codebase-memory-mcp/issues/1722)). radin resolves the link, passes it as `CLAUDE_CONFIG_DIR`, and adopts the staged MCP entry. A user's own `CLAUDE_CONFIG_DIR` is left alone.
+- **Upstream's PATH step exits 1 under fish or bash.** `run_upstream` passes `SHELL=/bin/sh` so the run does not end `PARTIAL`.
+- **An upstream exit 0 does not prove configuration.** `cbm_wired` checks for a `cbm-*` hook and the MCP entry by name. An upstream rename reads as absent until the check is updated.
+- **MCP tool names exist in one file.** `lib/radin-cbm-hooks.sh` names them, and each must exist in upstream's MCP Tools table. `semantic_query` is a `search_graph` parameter, not a tool. Every skill and prompt names the server, never its verbs. **Why:** a wrong name costs a failed call in every sub-agent. No test pins this, so review does.
+
+## Skills and sub-agents
+
+- **Every entry point is a skill.** **Why:** Claude Code removes `AskUserQuestion` from every sub-agent, and a sub-agent's prose reaches only the calling session. As an agent, radin-batch's Phase 2 gate could never ask. As a skill it runs in the user's thread, asks, accepts interruption and resumes from disk.
+- **A sub-agent is a leaf.** It has no prose channel to the user, no `AskUserQuestion`, and no `Workflow`. A prompt that sends one into a skill that asks in prose (`/grilling`), launches a workflow (`/deep-research`) or spawns a background agent and waits (`/research`) ends its turn with no `STATUS:` line. The task then hangs `in_progress`.
+  - Needing a fact: dispatch radin's own synchronous fact-finder, never a third-party research skill.
+  - Needing a decision: the router asks the user, or records the entry `blocked`.
+  - `radin backlog field SKILLS` drops user-named skills of those classes. The Phase 5 summary names each one dropped.
+- **Background sub-agents keep a smaller built-in tool set.** `Agent` is not cut from it, so a depth-1 background sub-agent still delegates. Do not read its absence from the second filter's list as removal.
+- **No prompt tells a model to set `run_in_background`.** Fork mode (v2.1.232+) removes the parameter. A background leaf's result arrives as a notification in a later turn. The router waits, and treats a dispatch that returns nothing as unfinished.
+- **radin ships no background agent.** `claude agents` or `/bg` runs `/radin-batch` unchanged in a full background session. The worktree-per-task answer keeps concurrent sessions apart.
+- **`radin-plan` is a skill that runs in whichever context calls it.** A planning sub-agent invokes it non-interactively. Where it would ask, it takes the non-destructive path (no split, no overwrite). On real ambiguity it marks the task `blocked`.
+- **`/radin-uninstall` and `/radin-stats` carry `disable-model-invocation: true`.** **Why:** a model-invoked description loads into every session and sub-agent. `tests/skill-names.bats` caps every model-invoked description at 40 words.
+- **The router holds the backlog at low resolution.** It carries ids, titles, order and exit codes. Every zoom (a task body, a plan, a diff, code exploration) belongs to a leaf, which hands back one `STATUS:` line.
+- **Delegation names are pinned.** `tests/skill-names.bats` pins every `/<name>` in `skills/**/SKILL.md` and `lib/*.md` to a shipped or installed skill. A new companion needs its plugin prefix in that test's list.
+- **The execution prompt names `/ponytail:ponytail` and never invokes it.** Ponytail's SubagentStart hook injects the ladder, and invoking it loaded the text twice. The hook is therefore load-bearing: `install.sh` enables a companion plugin found disabled, and `radin-doctor` reports `disabled`.
+- **Cold paths live in on-demand files.** `lib/radin-batch-*.md` are read only when a trigger fires (stuck tasks, a block, the first run in a repo, a resume, the gate, a requested review). **Why:** `SKILL.md` sits in the user's context for the whole session.
+- **The leaf prompt is assembled, then dispatched by path.** The router sends `Read <path> and follow it.`, never the text. **Why:** echoing a 6KB prompt as an `Agent` argument costs output tokens on every dispatch. The prompt carries the task body inline so the leaf spends no read on it.
+
+### One rule, one file
+
+What an audit checks prose against:
+
+- **One statement per audience.** Skill and lib prose is read by a router or a human-thread skill. A verbatim fence in `lib/radin-prompt-<kind>.md` is read only by its sub-agent, so a fence copy is a payload, not a duplicate. A rule every leaf prompt states lives in `lib/radin-leaf-contract.md` (the `LEAF_CONTRACT` token). The comment rule lives in `lib/radin-comment-rule.md` (the `COMMENT_RULE` token). `scripts/check-prose.sh` fails on a new sentence of 8 or more words stated twice, with an allow list for copies kept on purpose.
+- **The code owns deterministic behavior.** Prose names the verb and its exit codes, never what the verb computes.
+- **Cross-skill rules live in the `<!-- radin:begin -->` block** that `install.sh` writes into `~/.claude/CLAUDE.md`. It costs no file read.
+- **Reporting your own actions is not orchestration.** The bar is deriving data from CLI output: filtering, sorting, joining, counting, subtracting. A skill naming the entries it just added needs no verb.
+- **The caller declares non-interactivity.** The dispatching prompt says the sub-agent cannot reach the user. The skill states only the branch defaults a reader cannot derive.
+
+## State and data
+
+- **State lives in the consumer repo at `<repo-root>/.claude/.radin/`.** Outside a git repo, `$PWD` takes the repo root's place. **Why:** the earlier `~/.claude/.radin/projects/<slug>/` scheme made the agent trust an opaque hashed mapping. Old data is not migrated. Committing or ignoring the directory is the consumer's call, and radin never touches `.gitignore`.
+- **All state is JSON Lines, one compact object per line.** This holds for `index.jsonl`, `BACKLOG_STEPS.json`, `completed.json` and `journal.jsonl`. **Why:** bash 3.2 has no JSON parser and the project has no `jq`, so each CLI op stays a grep or sed one-liner. An edit to one entry never risks another.
+- **One file per task.** No agent addresses backlog content by line number. A task's path is always read back from its index line's `file` field, never composed or cached.
+- **An epic is one directory level and nothing else.** It gets no index line and no category. **Why:** `list` feeds `radin-batch`, and an epic row would be dispatched as a task. No epics inside epics. Task ids stay globally unique across epics.
+- **A task `id` never changes.** `retitle` and `set-category` rewrite one field. **Why:** `depends_on`, plan pointers, `prepare` and the `radin/<id>` branch all key off it.
+- **A value a parser reads is a key on the index line, not a `**Label:**` line in the body.** This covers `plan`, `skills`, `acceptance`, `facts`, `location`, `planning`, `priority` and `depends_on`. **Why:** a markdown parser fails silently. A label with its colon outside the bold markers once yielded nothing and told no caller, so a leaf ran with no criteria and reported success. Sorting must also not cost one file read per task. Every key is validated on write.
+- **A sentence written for a model is a `**Label:**` line in the body** (`Decision`, `Fact`, `Root cause`, `Raised as`, `Scope`, `Finding`, `Severity`, `Evidence`, `Preferred remedy`). Each binds the next sub-agent that reads the task. A `Fact` or `Root cause` labeled `guess`, or unlabeled, is a lead to check. `measured` means the author ran it. `inferred` follows from measured facts the line names.
+- **`priority` is a human decision.** It is one of the Fibonacci values `1 2 3 5 8 13 21`, and `21` is most important. **Why:** seven choices are a smaller decision for an agent than an unbounded integer. An absent key means unset, and no verb ever defaults it, so "did a human decide this?" stays answerable. Validation runs on write only, so a legacy `"priority":70` still loads.
+- **`list` orders by priority, descending, with unset last.** That is an ordering contract. The TUI uses `--order created` so no mutation moves a row. `list` separates fields with the unit separator, because a tab collapses under `IFS=$TAB read` when `priority` is empty.
+- **`order` composes the execution order and stores nothing.** An inferred rank or dependency arrives as a flag it validates, never as `set-priority` or `set-deps`, so the index stays the human's. A dependency moves up, never a dependent down (see `AGENTS.md`). The index `depends_on` wins over an `--infer-deps` value, and that precedence lives only in `order --steps`.
+- **`set-deps` rejects an unknown id, a self-reference and a cycle.** **Why:** an unresolvable dependency stalls `deps-check` instead of failing it. `remove` prunes the id from every other entry.
+- **`add` stamps `created` and `branch`.** They are provenance, and no verb rewrites them. A line from before the stamps reads as unknown.
+- **Acceptance criteria sit on the index line and add nothing when absent.** **Why:** a synthesized criterion would measure the work against radin's own guess. They are also the only bar for `radin state recover` exit 3. An entry with no criteria gets `recover-reject`, never the router's reconstruction of what the task wanted.
+- **The CLI owns every deterministic operation; skills supply judgment.** Id assignment, lookup, ordering, prompt-field rendering and the duplicate scan are computed by code. **Why:** the model used to re-derive them from prose every run. `lib/radin-prioritization.md` holds only the two non-computations: ranking the unset group and inferring a dependency.
+- **A state verb answers one step a caller takes.** Claiming, stashing, the debug flag and the completion write are functions, not verbs. **Why:** a verb nobody calls is one more thing a model can reach for.
+- **Every verb resolves the namespace from the current directory.** No caller passes a path. A worktree that `prepare` made resolves to the checkout that made it. **Why:** a router that carried `$NAMESPACE_DIR` re-sourced the environment on every call, and one run wrote its own script to do it.
+- **`task-report` ends in one `next` line and the router routes on that line alone.** It checks the tree first. A dirty tree fails the task whatever the `STATUS:` claimed.
+- **`task-next` is the only claim.** It sets `in_progress` and bumps `attempts`. Past `MAX_ATTEMPTS` (3) the entry goes `blocked`. **Why:** a crash loop must not burn tokens forever. `attempts` resets when a plan lands.
+- **An entry's absence from `BACKLOG_STEPS.json` means the task is complete.** `deferred` is written only by `steps-init`, and `set-status` refuses it. **Why:** the excluded set must not have to survive in context between Phase 2 and Phase 5.
+- **The one Debug pass is a `debugged` flag on the steps entry, not a router counter.** **Why:** a counter cannot survive a resume or a compaction. The flag has the lifetime of `attempts`, because `steps-init` rewrites the file every run.
+- **`task-done` validates the hash first.** It must be a commit reachable from the branch `prepare` recorded. **Why:** the hash comes from a sub-agent's free-text `STATUS:` line, so nothing else checks it. The crash-safe order is: append facts, write `completed.json`, then drop the entries. `completed.json` stores the title and provenance because completion deletes the backlog entry.
+- **`prepare` is the only place the worktree and branch answers become git commands.** It also records the branch it read from git. **Why:** a model that sees the answers can talk itself past a `no`. A dirty tree is stashed first, so no leaf commits or reverts work it did not write.
+- **A task worktree is `<repo-root>-<id>` on `radin/<id>`.**
+- **The journal is forensics, never control flow.** Every state mutation appends one event. radin never truncates it. **Why:** an agent whose context compacted can rebuild what the session did (`journal-tail`).
+- **A task's long evidence goes to `state/facts/<id>.md`, and `task-done` appends the entry's `Fact` lines there.** **Why:** deleting the entry would otherwise lose them. There is no shared notes file. A leaf gets its own task's material and nothing more.
+- **A plan has a fixed eleven-section shape, checked by code.** `plan-lint` runs in `add-plan` and refuses a bad plan, so the plan review spends no tokens on shape. `plan-target` is the only place the `plans/<id>.md` path convention lives. `add-plan` records `HEAD` in `plans/<id>.head`, so a stale plan gets a warning block in the execution prompt. `## Changes` entries must keep the `- \`<path>\` — ...` shape, because `backlog files` parses them.
+- **`radin scope` resolves a review scope to `type`, `scope`, `command` and `passes` lines.** Its flags (`--in-scope`, `--commits`, `--specs`, `--attribute`, `--bucket`) each took a branch out of the review skill. `--in-scope` screens fresh citations with no backlog entry yet. The `location` key records where an existing entry's finding sits. They are not one thing.
+- **`radin state report` prints the whole Phase 5 summary.** The router prints it verbatim. It reads `baseline.json` to scope "this session".
+- **`manifest.json` is rewritten wholesale on every install.** Only `install.sh --update` reads it: `package_manager`, and the `unslop` and `technical-writing` booleans as the ownership record.
+
+## The run loop
+
+- **The router does no per-task verification.** A `SUCCESS` goes straight to bookkeeping. **Why:** a per-task refuter cost an extra sub-agent per success. The leaf verifies its own work, and Phase 4.5 gates the session. Do not reintroduce a refuter, and do not have the router re-read the diff.
+- **`out-of-plan` is not verification.** `task-done` compares the commit's files with the plan's `## Changes` paths (tests exempt). It costs no tokens and changes no status. The leaf's `test <name>: failed before, passes now` line is evidence for the human, not a gate.
+- **The leaf picks its checks from what its diff reaches in the code graph.** **Why:** on a large repo the full suite was 16 of 21 minutes in one measured task. Phase 4.5 runs the full suite once at the tip of each branch the session touched. There is no per-session choice.
+- **A failed check is re-run for three rounds, then `FAILED`.** A stuck task never loops. The leaf's verify loop comes from the MIT-licensed [cursor/plugins pstack](https://github.com/cursor/plugins/tree/main/pstack) principles `prove-it-works`, `sequence-verifiable-units` and `test-behavior-not-implementation`.
+- **The leaf reviews its own staged diff before it commits** (Step 5a, `radin scope staged`, two rounds at most). **Why:** the skill holds the repo's rubrics and the context is warm. The cost is that the same agent that wrote the diff reviews it. Phase 6's fresh-eyes review stays available on request. The skill writes no backlog entry for an agent caller, so a `nit` costs nothing.
+- **`radin-review`'s plan level reviews on two axes, Standards and Spec.** It costs two sub-agents per plan. **Why:** a missing criterion or a contradicted `Decision` is one markdown edit before any code exists. `/thermo-nuclear` runs once at `session`. **Why:** its body was a third of each planning dispatch, and a plan has no code to judge. Plan-review findings stay in the plan file, because a backlog entry about code nobody has written would come back as work.
+- **Planning is unconditional and just in time.** A task with no plan gets a planning leaf, because the router cannot size a task without reading the code. Planning is not batched ahead. **Why:** a wave plan describes a tree that earlier commits then change.
+- **Whether a task needs a plan is decided at record time.** `radin-record` flags `planning needed` while the user can confirm.
+- **`radin-batch` and `radin-do` share one body, `lib/radin-run.md`.** **Why:** a change to the loop is a one-file edit, and the two cannot drift.
+- **Execution concurrency is derived, never asked.** The worktree answer from Phase 0.5 decides it. **Why:** parallel agents in one checkout corrupt each other's commits, so a second question could only restate or contradict the first. `task-next`'s `overlap` line comes from plan `## Changes` paths, and the router parallelizes only `none`. Planning, debug and fact-finding dispatches write no repo code, so they run in parallel.
+- **A sub-agent never spawns a sub-agent.** `lib/radin-leaf-contract.md` states that one flat rule. Prompts carry no concurrency rule.
+
+## The human TUI
+
+- **It draws and dispatches keys, nothing else.** Every mutation shells out to `radin-backlog.sh`. A key that needs a missing operation means a new CLI subcommand, never a write to `index.jsonl`.
+- **Raw ANSI only.** No ncurses, `tput`, `dialog`, `gum` or `fzf`. Zero dependencies matches the rest of radin.
+- **It is written in C.** **Why:** a bash frame cost a fork per row and about 150 ms per keypress, and the 43 pty tests were a third of the suite's runtime. The build is advisory, so a box with no compiler keeps every other subcommand.
+- **A frame is diffed by row and sent in one `write()`** inside DEC mode 2026. Full repaints happen only on the first frame, after a resize, and after a prompt, help or `$EDITOR`/`$PAGER` drew outside the buffer.
+- **The tree is in creation order.** Only `Shift-A`, `Shift-P`, `Shift-C` and `Shift-T` reorder it, for one session, and the header shows which. **Why:** `c`, `p`, `r` and `D` reload, and nothing may move a row under the cursor. k9s is the reference for any later keybinding question.
+- **`o` pages `backlog order --report` verbatim.** **Why:** `Shift-P` sorts by priority, which is not the order `radin-batch` runs, and a human can create that conflict with nothing on screen to show it. The other `order`, `field` and `duplicates` outputs stay LLM-facing and unbound.
+- **The detail pane shows facts that are not a sort key.** The list row carries only priority and category, because those two order it. The pane switches between the body and the plan with `l` and `h`. There is no focus concept and no `Tab`. `ctrl-d` and `ctrl-u` scroll the pane and never move the selection.
+- **Markdown in the pane is a deliberate subset.** There is no fenced-code state. Lines wrap at build time by display column, not byte, so one buffer entry is one screen line and the scroll offset needs no map.
+- **Under 100 columns the pane is not drawn and `enter` opens the renderer full-screen.** **Why:** people read this on a phone.
+- **An idle TUI polls `index.jsonl`'s `st_mtime` and `st_size` every 5 seconds.** **Why:** an agent in another terminal writes the same index. It uses seconds and a size because the nanosecond `stat` field needs a platform branch. `RADIN_TUI_POLL_MS` shortens the interval for tests.
+- **`NO_COLOR` keeps attributes and drops colors.** Priority colors use an absolute value map, so no other task's number moves a row's color. Every other color is structural, so nothing reads as a priority.
+- **It is not a skill, and no agent invokes it.** Bare `radin` on a terminal runs it. Off a terminal it prints usage and exits non-zero. **Why:** a skill or pipe trapped in a full-screen app would hang the loop until a timeout.

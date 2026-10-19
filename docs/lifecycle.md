@@ -9,6 +9,9 @@ To re-render after an edit:
 make diagrams
 ```
 
+To read them with a light and dark theme, run `make serve-diagrams` and open <http://localhost:4173>.
+The page re-renders on refresh, so it also previews an edited `.mmd`.
+
 ## 1. Skills
 
 You talk to the skills. Each skill reads and writes the backlog through the `radin backlog` CLI.

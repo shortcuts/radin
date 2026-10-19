@@ -692,7 +692,7 @@ meta_of_line() {
 
 # Skills an execution sub-agent cannot run: it has no user to ask, no
 # sub-agent of its own, no `Workflow` tool, and a radin entry point would
-# recurse (docs/technical-constraints.md has the why for each).
+# recurse (docs/DECISIONS.md has the why for each).
 # Written with the leading slash a user would type, so tests/skill-names.bats
 # pins each one to a skill radin or a companion actually ships.
 SKILL_DENY="/mattpocock-skills:grilling /mattpocock-skills:research /deep-research /radin-batch /radin-plan /radin-review"

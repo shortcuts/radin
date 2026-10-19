@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # Usage: scripts/shipped.sh gen|check
 # SHIPPED is the one list of files radin ships. `gen` writes it into the marked
-# blocks of install.sh, doctor, uninstall and the architecture tree, so the
+# blocks of install.sh, doctor and uninstall, so the
 # installed scripts stay self-contained and uninstall works with no registry.
 # `check` fails, naming the fix, when anything disagrees.
 # Must stay bash-3.2-compatible (macOS /bin/bash).
 set -euo pipefail
 cd "$(dirname "$0")/.."
-TARGETS="install.sh lib/radin-doctor.sh lib/radin-uninstall.sh docs/architecture.md"
+TARGETS="install.sh lib/radin-doctor.sh lib/radin-uninstall.sh"
 
 names() { # kind ("skill", "lib", "renamed skill", ...) -> its names, one per line
 	awk -v k="$1" '(NF == 2 && $1 == k) || (NF == 3 && $1 " " $2 == k) { print $NF }' SHIPPED
@@ -34,14 +34,6 @@ kind_of() {
 
 render() {
 	local v
-	if [ "$1" = docs/architecture.md ]; then
-		printf '  # BEGIN tree (generated from SHIPPED; run make gen)\n  skills/\n'
-		names skill | awk '{ printf "    %s/\n      SKILL.md\n", $1 }'
-		printf '  lib/\n'
-		names lib | awk '{ printf "    %s\n", $1 }'
-		printf '  # END tree\n'
-		return
-	fi
 	printf '# BEGIN shipped (generated from SHIPPED by scripts/shipped.sh; run make gen, never edit)\n'
 	for v in $(vars_for "$1"); do
 		printf '%s="%s"\n' "$v" "$(names "$(kind_of "$v")" | tr '\n' ' ' | sed 's/ $//')"
@@ -51,8 +43,8 @@ render() {
 
 splice() { # file, block file -> stdout
 	awk -v blk="$2" '
-		/^ *# BEGIN (shipped|tree)/ { while ((getline l < blk) > 0) print l; skip = 1; next }
-		/^ *# END (shipped|tree)/ { skip = 0; next }
+		/^ *# BEGIN shipped/ { while ((getline l < blk) > 0) print l; skip = 1; next }
+		/^ *# END shipped/ { skip = 0; next }
 		!skip { print }' "$1"
 }
 
@@ -70,7 +62,7 @@ fail() {
 case "${1:-}" in
 gen)
 	for f in $TARGETS; do
-		grep -qE '^ *# BEGIN (shipped|tree)' "$f" || die "$f has no BEGIN/END marker pair: add one where the list belongs"
+		grep -qE '^ *# BEGIN shipped' "$f" || die "$f has no BEGIN/END marker pair: add one where the list belongs"
 		render "$f" >"$BLK"
 		splice "$f" "$BLK" >"$f.new" && cat "$f.new" >"$f" && rm -f "$f.new"
 	done

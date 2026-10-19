@@ -1,4 +1,4 @@
-.PHONY: install update build run test bench-tui lint check gen diagrams clean
+.PHONY: install update build run test bench-tui lint check gen diagrams serve-diagrams clean
 
 install:
 	./install.sh
@@ -69,3 +69,8 @@ diagrams:
 	npm i --no-save --no-package-lock pele@1.6.0
 	node docs/lifecycle/render.mjs
 	rm -rf node_modules
+
+# Reads the .mmd files on every request: edit one, refresh the browser.
+serve-diagrams:
+	npm i --no-save --no-package-lock pele@1.6.0
+	trap 'rm -rf node_modules' EXIT; node docs/lifecycle/serve.mjs

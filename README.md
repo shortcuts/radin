@@ -106,7 +106,7 @@ drops other tools' hooks. radin snapshots `~/.claude/settings.json` and
 `~/.claude.json` into `~/.claude/.radin/backups/` before that write and never
 deletes a snapshot; `codebase-memory-mcp uninstall` undoes upstream's own side.
 Full list in
-[docs/technical-constraints.md](docs/technical-constraints.md).
+[docs/DECISIONS.md](docs/DECISIONS.md).
 
 Hacking on radin itself? [AGENTS.md](AGENTS.md),
 [CONTRIBUTING.md](CONTRIBUTING.md).
