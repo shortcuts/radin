@@ -29,6 +29,7 @@ radin is a Claude Code plugin of skills, a CLI, and install glue.
 | A test must be able to fail | `scripts/check-prose.sh` bare `! cmd` lint | Other vacuous patterns; review only. |
 | Same checks locally and in CI | `make check` and `make test` in `.github/workflows/ci.yml` | Linux run unverified. |
 | Deterministic work lives in the CLI | None | Review only. |
+| Lifecycle diagrams match the skills and the run loop | None; `make diagrams` regenerates the SVGs | Review only. |
 | Critical-path-only tests ([policy](#test-suite-speed)) | None; review only | A new test that guards no install or TUI failure passes unnoticed. |
 
 Add a row with every new hard rule.
@@ -41,6 +42,7 @@ Add a row with every new hard rule.
 | Anything deterministic (install, update, doctor, uninstall, backlog, state, TUI) | A `bin/radin` subcommand in `lib/`, never a skill. |
 | Backlog loop of `radin-batch` and `radin-do` | `lib/radin-run.md`. |
 | Rare-need part of `radin-batch` | `lib/radin-batch-*.md`, read on demand. |
+| A skill's flow, a `radin-run.md` phase, a leaf step, or a task status | `docs/lifecycle/*.mmd`, then `make diagrams` ([diagrams](docs/lifecycle.md)). Commit the `.mmd` and `.svg` together. |
 | What ships, a renamed or removed skill or lib file | `SHIPPED`, then `make gen` ([how](docs/architecture.md#one-list-of-shipped-files)). |
 | Sub-agent model, CLI invocation | Nothing. Write a token and `install.sh` resolves it ([how](docs/architecture.md#install-time-substitution)). |
 
@@ -128,7 +130,7 @@ The graph tool name lives in one file and must exist in the upstream table ([whi
   - Every tree-only test replays one recorded `install.sh` run. A live run serves only install-time behavior.
   - The mock command is `tests/helpers/mock.c`, one compiled binary, because `/bin/sh` startup costs 20 ms per stub call.
   - No test makes a network request.
-- Update the docs in the same commit: `docs/architecture.md` (layout, namespace resolution), `docs/domain-models.md` (format), the README (a new skill or companion).
+- Update the docs in the same commit: `docs/architecture.md` (layout, namespace resolution), `docs/domain-models.md` (format), `docs/lifecycle/*.mmd` (a changed skill flow, run-loop phase, leaf step or task status), the README (a new skill or companion).
 
 ## Test suite speed
 

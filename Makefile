@@ -1,4 +1,4 @@
-.PHONY: install update build run test bench-tui lint check gen clean
+.PHONY: install update build run test bench-tui lint check gen diagrams clean
 
 install:
 	./install.sh
@@ -62,3 +62,10 @@ check:
 
 gen:
 	scripts/shipped.sh gen
+
+# Pinned so a pele release never reshuffles the committed SVGs. node_modules is
+# removed after the run: radin ships no JS and tracks no lockfile.
+diagrams:
+	npm i --no-save --no-package-lock pele@1.6.0
+	node docs/lifecycle/render.mjs
+	rm -rf node_modules

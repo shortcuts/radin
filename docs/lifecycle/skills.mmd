@@ -1,0 +1,12 @@
+flowchart LR
+  idea([Bug, idea or follow-up]) --> record["/radin-record<br/>log entries"]
+  record --> backlog[(Backlog<br/>.claude/.radin)]
+  backlog --> flag{Entry flagged<br/>planning needed?}
+  flag -- yes --> plan["/radin-plan<br/>write plan file"]
+  plan --> backlog
+  flag -- no --> run
+  backlog --> run["/radin-batch or /radin-do<br/>run loop"]
+  run --> commits[One commit<br/>per task]
+  commits --> review["/radin-review<br/>triage findings"]
+  review -- agreed findings --> record
+  review --> done([Done])

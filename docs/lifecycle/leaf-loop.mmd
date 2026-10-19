@@ -1,0 +1,20 @@
+flowchart TD
+  s1[1. Read task and facts] --> s1a[1a. state prepare<br/>tree is chosen for you]
+  s1a --> plan{Plan file?}
+  plan -- yes --> s2[2. Follow the plan]
+  plan -- no --> s2b[2. Work from entry text]
+  s2 --> s3
+  s2b --> s3[3. Category skill<br/>fix, refactor, feat, chore]
+  s3 --> s4[4. Write test<br/>fails before, passes after]
+  s4 --> s5[5. Run checks the diff reaches]
+  s5 --> green{Green?}
+  green -- no, under 3 rounds --> s5
+  green -- no, 3 rounds --> failed([STATUS: FAILED])
+  green -- yes --> s5a[5a. Stage and self-review<br/>max 2 rounds]
+  s5a --> crit{Critical left?}
+  crit -- yes --> failed
+  crit -- no --> s6[6. caveman-commit, commit]
+  s6 --> s7[7. dirty-check]
+  s7 --> ok([STATUS: SUCCESS])
+  s2 -. plan contradicts code .-> blocked([STATUS: BLOCKED])
+  s5 -. check cannot run .-> inc([STATUS: INCONCLUSIVE])
