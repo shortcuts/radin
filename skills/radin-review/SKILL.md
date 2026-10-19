@@ -171,7 +171,10 @@ location and clause.
 Then gate on one `AskUserQuestion` with two single-select questions:
 
 - Which groups: **Recommended only** (the Act on groups) or **All** (Act on
-  and Consider).
+  and Consider). Each option's `description` lists its groups as number,
+  severity, location and the finding in a clause, one per line. **Why:** the
+  printed list scrolls out of view behind the dialog, so the user cannot choose
+  from it.
 - What to do with them: **Add to backlog** or **Tackle now**.
 
 A free-text answer names the numbers you printed, Noted and Dismissed ones
