@@ -15,7 +15,7 @@ flowchart TD
   route -- continue --> next
   route -- debug --> debug[[Debug leaf, once]]
   debug --> next
-  route -- clarify --> user[/Ask the user<br/>FACT, DECISION or STUCK/]
+  route -- clarify --> user[/Ask the user<br/>FACT or DECISION/]
   user --> next
   p45 --> p5[Phase 5<br/>state report]
   p5 --> p6[Phase 6<br/>review offer]

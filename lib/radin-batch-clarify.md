@@ -1,8 +1,7 @@
 # Shared: radin-batch Blocked-Task Routing
 
 `radin-batch` reads this file when a sub-agent reports `STATUS: BLOCKED`, at
-any of the phases that can produce one, and when `task-report` answers
-`next clarify STUCK`.
+any of the phases that can produce one.
 
 A sub-agent's `STATUS: BLOCKED` always carries a `(FACT)` or `(DECISION)` tag.
 Route on it:
@@ -48,15 +47,6 @@ Route on it:
   the user as the action to take, and the result they report is what you
   append. `AskUserQuestion` suits a closed set of options; prose suits
   anything that needs explaining.
-- **`clarify STUCK`**: the task ended with no commit and no tagged question
-  (failed after its debug pass, inconclusive, a dirty tree, no `STATUS:`
-  line, or `MAX_ATTEMPTS` reached). Put it to the user: the task, the reason
-  from the report line (and the entry's `**Root cause:**` line when it has
-  one; for a dirty tree, the stash recovery command in the entry's note), and
-  the options: a hint or a different approach, a human action to perform, or
-  defer this task. Name your recommendation first. Once settled, append the
-  answer as a `**Decision:**` line (below), run
-  `RADIN_CLI state answered "<task id>"`, then re-run the task (Phase 4).
 
 Once settled, append the resolution to the task's file:
 

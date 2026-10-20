@@ -55,7 +55,7 @@ you.
 
 A sub-agent's `STATUS: BLOCKED` routes through
 `RADIN_LIB/radin-batch-clarify.md`: read it and follow it. It holds
-the routing for both tags and for `clarify STUCK`, the fact-finder handoff, the research arm for a
+the routing for both tags, the fact-finder handoff, the research arm for a
 fact that lives outside this repo, and the `backlog append` labels that put a
 settled answer where planning and execution sub-agents read it.
 
@@ -223,15 +223,14 @@ order:
 
 - zero or more `blocked<TAB><id><TAB><why>` lines for tasks it skipped (an
   unresolved dependency, an entry the backlog lost, `MAX_ATTEMPTS` reached).
-  It already marked each one `blocked`. A `MAX_ATTEMPTS` line goes to
-  Clarifying Ambiguity's `clarify STUCK` route; report each other as skipped.
+  It already marked each one `blocked`. Report each as skipped. The entry stays on the backlog with a `**Progress:**` note, and any work is a wip commit.
 - `id`, `order`, `kind`, `model` and `prompt` lines for the task to run now,
   then, for an `execution` task, an `overlap` line: `none`, `unclear`, or the
   ids of live tasks sharing its plan files or a `depends_on` edge.
 
 `kind` is `planning` for an entry radin-record flagged as needing a plan that
 has none yet, else `execution`. A `planning` dispatch that reports
-`STATUS: PLANNED` skips `task-report`. A planning leaf with no `STATUS:` line goes in as `--no-status` like any other; it retries until `MAX_ATTEMPTS`, then `task-next` blocks it and you answer `clarify STUCK`. Re-run `task-next "<task id>"`, which
+`STATUS: PLANNED` skips `task-report`. A planning leaf with no `STATUS:` line goes in as `--no-status` like any other; it retries until `MAX_ATTEMPTS`, then `task-next` blocks it. Re-run `task-next "<task id>"`, which
 now hands out its execution prompt. `STATUS: BLOCKED (FACT|DECISION)`
 routes per Clarifying Ambiguity. Dispatch the prompt as one
 `Agent` call with exactly that model, `name: "radin-<kind>-<task id>"`
@@ -276,8 +275,8 @@ claims it again and bumps `attempts`, so the cap still ends it.
 | `next` | Do |
 | --- | --- |
 | `continue` | Recorded on disk, and the lines after it are `task-next`'s output for the next task: report any `blocked` lines, then dispatch it as above. Exit 1 after `next continue` means nothing is left, so go to Phase 4.5. |
-| `debug` | This task still has its one debug pass. `RADIN_CLI prompt debug "<task id>" "<the reason from the STATUS: line>"` prints a `model` and a `prompt` path: dispatch it the same way. `STATUS: DIAGNOSED`: record it as below, then re-run the task. `STATUS: NOT DIAGNOSED`: re-run `task-report` with the same line and `--next`, which routes to `clarify STUCK` this time. |
-| `clarify FACT` / `clarify DECISION` / `clarify STUCK` | Route per Clarifying Ambiguity. Once settled, re-run the task. |
+| `debug` | This task still has its one debug pass. `RADIN_CLI prompt debug "<task id>" "<the reason from the STATUS: line>"` prints a `model` and a `prompt` path: dispatch it the same way. `STATUS: DIAGNOSED`: record it as below, then re-run the task. `STATUS: NOT DIAGNOSED`: re-run `task-report` with the same line and `--next`, which records the failure on the entry and returns `continue`. |
+| `clarify FACT` / `clarify DECISION` | Route per Clarifying Ambiguity. Once settled, re-run the task. |
 
 ```bash
 RADIN_CLI state task-diagnosis "<task id>" "<the STATUS: DIAGNOSED line>"

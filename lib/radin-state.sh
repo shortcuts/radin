@@ -17,7 +17,7 @@
 #                                               # the fourth field is optional and defaults to pending; also writes state/baseline.json
 #   radin-state.sh task-next [<id>]  # pick, gate, claim and write the prompt in one call; an entry flagged planning=needed with no plan gets a planning prompt that counts against MAX_ATTEMPTS; exit 1 when nothing is left
 # an execution task also prints "overlap<TAB>none|unclear|<id>[,<id>...]": other live tasks sharing plan files
-#   radin-state.sh task-report <id> <the sub-agent's STATUS: line (SUCCESS|FAILED|INCONCLUSIVE|BLOCKED)> [--next] [--usage "<kind> <tokens> <tool_uses> <duration_ms>"]...  # verify the tree, record the outcome (a SUCCESS line's text after its first ";" is journaled as a summary event for report; it also journals an unproven event per acceptance criterion no **Fact:** [measured] line names, shown by report), then a final "next<TAB>continue|debug|clarify FACT|clarify DECISION|clarify STUCK" line
+#   radin-state.sh task-report <id> <the sub-agent's STATUS: line (SUCCESS|FAILED|INCONCLUSIVE|BLOCKED)> [--next] [--usage "<kind> <tokens> <tool_uses> <duration_ms>"]...  # verify the tree, record the outcome (a SUCCESS line's text after its first ";" is journaled as a summary event for report; it also journals an unproven event per acceptance criterion no **Fact:** [measured] line names, shown by report), then a final "next<TAB>continue|debug|clarify FACT|clarify DECISION" line
 #   radin-state.sh task-report <id> --no-status <last line> [--next] [--usage "<kind> <tokens> <tool_uses> <duration_ms>"]...  # the same, for a sub-agent that ended with no STATUS: line
 #                                               # --next: when the final line is "next<TAB>continue", also run task-next and print its output after; exit is task-next's
 #   radin-state.sh task-fact <id> "<STATUS: FOUND line>"  # becomes a **Fact:** line (token kept, else [guess]); a long form path goes to set-meta facts; any other line exits 1
@@ -248,6 +248,7 @@ claim() {
 	attempts=$(($(num_field "$entry" attempts) + 1))
 	if [ "$attempts" -gt "$MAX_ATTEMPTS" ]; then
 		write_entry "$steps" "$1" "blocked" "$((attempts - 1))" "dispatched $MAX_ATTEMPTS times without a terminal status (MAX_ATTEMPTS) -- needs a human look before another retry"
+		entry_note "$1" "dispatched $MAX_ATTEMPTS times without finishing. Any work is committed as wip on its branch."
 		return 2
 	fi
 	write_entry "$steps" "$1" "${2:-in_progress}" "$attempts" "${3:-}"
@@ -293,6 +294,20 @@ stash_tree() {
 	printf 'stash@{0}\n'
 }
 
+# Commits everything in tree $1 except .claude/.radin as unfinished work of task
+# $2 and prints the short hash. --no-verify: a failing hook must not strand work.
+wip_commit() {
+	git -C "$1" add -A -- . ':(exclude).claude/.radin'
+	git -C "$1" commit --no-verify -q -m "wip($2): unfinished work, task not complete" -m "$3" >/dev/null
+	git -C "$1" rev-parse --short HEAD
+}
+
+# Records on task $1's backlog entry why it stopped. The steps file is rewritten
+# every run, so this note is what the next session sees.
+entry_note() {
+	(cd "$repo_root" && printf '**Progress:** %s\n' "$2" | bash "$LIB_DIR/radin-backlog.sh" append "$1") >/dev/null 2>&1 || true
+}
+
 # Stashes tree $1 when dirty, before task $2 starts in it. Uncommitted work
 # there may be the user's own, so it is never left for a leaf to commit or
 # revert. `prepare` calls it before any checkout, so the work stays on the
@@ -336,26 +351,29 @@ task_fail() {
 		note="$2 (a diagnosis was recorded on the task file under **Root cause:**)"
 	fi
 	write_entry "$steps" "$1" failed "$(num_field "$entry" attempts)" "$note"
-	printf "❌ Task %s '%s' failed: %s. Asking you how to proceed.\n" "${ot%%	*}" "${ot#*	}" "$2"
+	entry_note "$1" "failed after its debug pass: $note"
+	printf "❌ Task %s '%s' failed: %s. Kept on the backlog with a note, moving on.\n" "${ot%%	*}" "${ot#*	}" "$2"
 }
 
-# Stashes and fails task $1 when its tree is dirty, whatever status word $2
-# the sub-agent reported. Returns 1 when the tree is clean.
+# Commits task $1's dirty tree as a wip commit, whatever status word $2 the
+# sub-agent reported, and sends the task back to pending for a retry that builds
+# on it. claim's MAX_ATTEMPTS bounds the retries. Returns 1 when the tree is clean.
 dirty_recover() {
-	local dir ot order title ref entry
+	local dir ot order title hash entry
 	dir="$(task_dir "$1")"
 	[ -n "$(dirty_files "$dir")" ] || return 1
 	ot="$(order_title "$1")"
 	order="${ot%%	*}"
 	title="${ot#*	}"
-	ref="$(stash_tree "$dir" "radin-batch: task $order '$title' left uncommitted (sub-agent reported $2)")"
+	hash="$(wip_commit "$dir" "$1" "Left uncommitted by the sub-agent (reported $2). The task is not complete.")" ||
+		hash="(commit failed, the work stays in the tree)"
 	entry="$(entry_line "$steps" "$1")"
-	write_entry "$steps" "$1" failed "$(num_field "$entry" attempts)" \
-		"sub-agent left uncommitted changes in $dir, stashed as $ref. Run 'git -C $dir stash show -p $ref' to inspect, 'git -C $dir stash pop' to recover."
-	journal "$ns/state" "stash" "$1" \
-		"$ref in $dir -- task $order '$title' left uncommitted. Recover: git -C $dir stash pop"
-	printf "⚠️ Task %s '%s': sub-agent reported %s but left a dirty tree. Stashed as %s, treated as failed.\n" \
-		"$order" "$title" "$2" "$ref"
+	write_entry "$steps" "$1" pending "$(num_field "$entry" attempts)" \
+		"retrying: sub-agent left work uncommitted, saved as wip commit $hash in $dir"
+	entry_note "$1" "an earlier attempt left unfinished work, saved as wip commit $hash. Build on it, verify it, and commit the rest."
+	journal "$ns/state" "wip" "$1" "$hash in $dir -- task $order '$title' left uncommitted"
+	printf "⚠️ Task %s '%s': sub-agent reported %s but left a dirty tree. Committed as wip %s, back to pending for a retry.\n" \
+		"$order" "$title" "$2" "$hash"
 }
 
 # Prints "dep<TAB>hash" per dependency of task $1. Returns 1, naming the first
@@ -1070,12 +1088,19 @@ task-report)
 			printf 'next\tcontinue\n'
 			exit 0
 		fi
+		# A leaf that staged its work and stopped before the commit and the
+		# STATUS line: save the work, then retry.
+		if dirty_recover "$id" "no STATUS line"; then
+			printf 'next\tcontinue\n'
+			exit 0
+		fi
 		# No debug pass ever: there is no failure reason to debug against.
-		write_entry "$steps" "$id" failed "$(num_field "$entry" attempts)" \
-			"sub-agent returned no STATUS line, likely an interactive skill or a spawned background task; last words: ${4:-}"
-		printf "❌ Task %s '%s' failed: %s. Asking you how to proceed.\n" \
-			"${ot%%	*}" "${ot#*	}" "sub-agent returned no STATUS line"
-		printf 'next\tclarify STUCK\n'
+		# Back to pending: claim's MAX_ATTEMPTS ends the retries.
+		write_entry "$steps" "$id" pending "$(num_field "$entry" attempts)" \
+			"retrying: sub-agent returned no STATUS line; last words: ${4:-}"
+		printf "⚠️ Task %s '%s': sub-agent returned no STATUS line (attempt %s of %s). Back to pending for a retry.\n" \
+			"${ot%%	*}" "${ot#*	}" "$(num_field "$entry" attempts)" "$MAX_ATTEMPTS"
+		printf 'next\tcontinue\n'
 		exit 0
 	fi
 	line="$third"
@@ -1098,7 +1123,7 @@ task-report)
 	# task and nothing else runs.
 	if dirty="$(dirty_recover "$id" "$word")"; then
 		printf '%s\n' "$dirty"
-		printf 'next\tclarify STUCK\n'
+		printf 'next\tcontinue\n'
 		exit 0
 	fi
 	# Everything after the em dash (or the ASCII fallback) is the detail the
@@ -1118,9 +1143,10 @@ task-report)
 		# `blocked` keeps it out of next_pending and in the report.
 		write_entry "$steps" "$id" blocked "$(num_field "$entry" attempts)" "inconclusive: $detail"
 		ot="$(order_title "$id")"
-		printf "⚠️ Task %s '%s' inconclusive: %s. Not counted as a pass. Asking you how to proceed.\n" \
+		entry_note "$id" "inconclusive: $detail"
+		printf "⚠️ Task %s '%s' inconclusive: %s. Not counted as a pass. Kept on the backlog with a note, moving on.\n" \
 			"${ot%%	*}" "${ot#*	}" "$detail"
-		printf 'next\tclarify STUCK\n'
+		printf 'next\tcontinue\n'
 		exit 0
 	fi
 	if [ "$word" = "SUCCESS" ]; then
@@ -1171,7 +1197,7 @@ EOF
 	fi
 	if fail_out="$(task_fail "$id" "$detail")"; then
 		printf '%s\n' "$fail_out"
-		printf 'next\tclarify STUCK\n'
+		printf 'next\tcontinue\n'
 		exit 0
 	fi
 	# Return 3 from task_fail: this task still has its one debug pass.
@@ -1212,11 +1238,11 @@ recover)
 		printf 'recovered\t%s\tnothing left behind, back to pending\n' "$id"
 		exit 0
 	fi
-	ref="$(stash_tree "$dir" "radin-batch: crash recovery for task $id")"
-	set_status "$id" pending "tree stashed as $ref in $dir before retry"
-	journal "$ns/state" "stash" "$id" \
-		"$ref in $dir -- crash recovery for task $id. Recover: git -C $dir stash pop"
-	printf 'recovered\t%s\tstashed %s, back to pending\n' "$id" "$ref"
+	hash="$(wip_commit "$dir" "$id" "Left behind by a crashed session. The task is not complete.")"
+	set_status "$id" pending "wip commit $hash in $dir before retry"
+	entry_note "$id" "a crashed session left unfinished work, saved as wip commit $hash. Build on it, verify it, and commit the rest."
+	journal "$ns/state" "wip" "$id" "$hash in $dir -- crash recovery for task $id"
+	printf 'recovered\t%s\tcommitted wip %s, back to pending\n' "$id" "$hash"
 	;;
 
 recover-reject)

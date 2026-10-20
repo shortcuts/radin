@@ -2,9 +2,9 @@ stateDiagram-v2
   [*] --> pending: backlog add
   pending --> in_progress: task-next claims, attempts + 1
   in_progress --> [*]: STATUS SUCCESS, recorded, entry removed
-  in_progress --> failed: STATUS FAILED
+  in_progress --> failed: STATUS FAILED, debug pass used, loop moves on
   in_progress --> blocked: STATUS BLOCKED
-  in_progress --> pending: no STATUS line, retry
+  in_progress --> pending: no STATUS line or dirty tree (wip commit), retry
   failed --> in_progress: debug pass, then re-run
   blocked --> in_progress: user settles the question
   pending --> blocked: dependency unresolved or MAX_ATTEMPTS
