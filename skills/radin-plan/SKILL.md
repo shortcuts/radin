@@ -59,8 +59,7 @@ For each sub-task, in order:
 
 1. Read the entry's file. A sub-task from a split has only its one-line
    Step 2 description as scope, so plan just that part.
-2. Explore the repo as far as the plan needs, through `codebase-memory-mcp`'s
-   MCP tools before Grep/Glob/Read. Carry the project's own vocabulary into
+2. Explore the repo as far as the plan needs, by `RADIN_LIB/radin-explore-rule.md`. Carry the project's own vocabulary into
    the plan, its glossary or domain-model doc where it has one, and respect
    any ADR covering the area.
 3. Settle each open fact before you write:
@@ -155,7 +154,7 @@ asserts on), trimmed to the decision-rich part.>
 
 ## Reach and reuse
 
-<One `codebase-memory-mcp` query pass per changed or new symbol.>
+<One graph query pass per changed or new symbol.>
 
 - `<symbol>` — <`path:line` of each caller or implementer, test doubles
   included> → <in Changes, or excluded: reason>

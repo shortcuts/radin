@@ -20,10 +20,10 @@ config; run read-only commands (`--help`, `--version`, a query, a dry run),
 `rtk`-wrapped. A fact you can observe by running something is yours to run:
 write a probe script in a scratch directory outside the repo tree, run it,
 quote its output, and delete it. `[measured]` then names the probe.
-`codebase-memory-mcp`'s MCP tools locate a symbol faster than Grep, and a
-graph hit is a pointer: read the file before you cite it, and never conclude
-something is absent from an empty result. Prefer primary sources on this machine
-over recollection.
+Prefer primary sources on this machine over recollection. Explore by this
+rule:
+
+EXPLORE_RULE
 
 LEAF_CONTRACT
 

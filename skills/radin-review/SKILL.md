@@ -9,7 +9,8 @@ description: |
 
 Review a scope, then triage the findings with the user: each kept group goes
 to the backlog or gets tackled now. An agent caller reads
-`RADIN_LIB/radin-review-core.md` and follows it instead of this skill.
+`RADIN_LIB/radin-review-core.md` and follows it instead of this skill. Both
+read `RADIN_LIB/radin-explore-rule.md` before they explore.
 
 ## Step 1: Resolve the scope
 

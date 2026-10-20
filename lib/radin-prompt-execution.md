@@ -50,10 +50,10 @@ Ground rules, applying to every step below:
 - Never commit, revert, or otherwise touch anything under `.claude/.radin/`.
   It is the router's state, not task work, except the `RADIN_CLI backlog
   append` call above.
-- Explore through `codebase-memory-mcp`'s MCP tools before Grep/Glob/Read: a
-  graph hit is a pointer, so read the file before you cite or edit it, and
-  never conclude something is absent from an empty result. Wrap commands in
-  `rtk`, for the token savings.
+- Explore by this rule:
+
+EXPLORE_RULE
+
 - Your only stops are the `STATUS:` lines above. Work beyond the task that you think would help goes
   in a `**Fact:**` line, not in the diff.
 
@@ -167,7 +167,7 @@ COMMENT_RULE
 
 4b. Build in small units: one change, run its check, then the next. A unit
    that turns a check red is the one to fix before you move on.
-5. Choose the checks from what your diff reaches: ask `codebase-memory-mcp`
+5. Choose the checks from what your diff reaches: ask the graph
    for the symbols your working-tree diff changes and their callers. Run the
    typecheck and the tests that exercise those callers as you go, widening to
    the whole suite only when the blast radius covers most of the repo. Once

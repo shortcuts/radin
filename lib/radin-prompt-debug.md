@@ -24,10 +24,12 @@ Invoke `/mattpocock-skills:diagnosing-bugs` and follow its loop rather than
 improvising one. Reproduce read-only: rerun the failing check or command
 (`rtk`-wrapped), read the code and config
 around it. Find the root cause, not the symptom — a shared function that looks
-wrong gets its other callers checked before you name it, through
-`codebase-memory-mcp`'s MCP tools, where a graph hit is a pointer: read the
-file before you cite it, and never conclude something is absent from an empty
-result. Prefer primary evidence on this machine (command output, a file's
+wrong gets its other callers checked before you name it. Explore
+by this rule:
+
+EXPLORE_RULE
+
+Prefer primary evidence on this machine (command output, a file's
 actual contents) over recollection.
 
 LEAF_CONTRACT

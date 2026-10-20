@@ -80,8 +80,7 @@ rung it reached:
 
 - `cited`: you pointed at the line.
 - `traced`: you followed a caller or data path and showed the bad case
-  happens. Find callers through `codebase-memory-mcp`'s MCP tools, read the
-  file before you cite it, and confirm an empty graph result with Grep.
+  happens. Find callers by the explore rule.
 - `ran`: you executed the changed path and saw it fail. Every `critical` at
   `diff` or `session` level reaches `ran`.
 
