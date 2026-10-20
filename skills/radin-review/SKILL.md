@@ -98,7 +98,10 @@ Dispatch one sub-agent (`name: "radin-review"`) with a self-contained brief:
 - The skills Step 1's `passes` line names, as extra passes to invoke after
   the core's two.
 
-Relay its report before any triage, in the order the sub-agent gave it.
+Print its full report as your own reply text before any triage, in the order
+the sub-agent gave it. **Why:** the user sees only a truncated one-line summary
+of a sub-agent's result, so a findings list you do not print is invisible and
+the Step 4 gate has nothing to answer. A summary sentence is not the report.
 
 ## Step 4: Filter, classify, triage
 
@@ -166,7 +169,7 @@ survivor is Noted, Step 6 says the code is fine. Dismissed is your call:
 Print the groups as a numbered list in the order Act on, Consider, Noted,
 Dismissed: number, bucket and reason, category, severity, location, the
 finding in a clause. A group lists each member on a lettered sub-line with its
-location and clause.
+location and clause. Print it as reply text before the dialog opens.
 
 Then gate on one `AskUserQuestion` with two single-select questions:
 
