@@ -185,13 +185,17 @@ EOF
 }
 
 # hook-augment prints nothing once it runs past its 2000 ms default, and on a
-# big graph (metis, 248 MB) every run does. The settings hook timeout is 5 s.
-@test "install sets a hook deadline under the hook timeout, keeping the user's own" {
-  stub_cbm
+# big graph (metis, 248 MB) every run does. Upstream writes a 5 s hook timeout,
+# which that graph also overruns, so install raises it to 10 s.
+@test "install raises cbm hook timeouts and sets a deadline under them, keeping the user's own" {
+  stub_cbm '{"hooks": {"SessionStart": [{"matcher": "", "hooks": [{"type": "command", "command": "cbm-session-reminder", "timeout": 5}]}], "PostToolUse": [{"matcher": "Read", "hooks": [{"type": "command", "command": "cbm-hook-augment", "timeout": 20}, {"type": "command", "command": "other-tool", "timeout": 5}]}]}}'
   echo '{"env": {"A": "1"}}' > "$TEST_HOME/.claude/settings.json"
   run bash "$CLI" install
   [ "$status" -eq 0 ]
-  grep -q '"CBM_HOOK_DEADLINE_MS": "4000"' "$TEST_HOME/.claude/settings.json"
+  [ "$(grep -c '"timeout": 10' "$TEST_HOME/.claude/settings.json")" -eq 1 ]
+  [ "$(grep -c '"timeout": 20' "$TEST_HOME/.claude/settings.json")" -eq 1 ]
+  [ "$(grep -c '"timeout": 5' "$TEST_HOME/.claude/settings.json")" -eq 1 ]
+  grep -q '"CBM_HOOK_DEADLINE_MS": "8000"' "$TEST_HOME/.claude/settings.json"
   grep -q '"A": "1"' "$TEST_HOME/.claude/settings.json"
   echo '{"env": {"CBM_HOOK_DEADLINE_MS": "3000"}}' > "$TEST_HOME/.claude/settings.json"
   run bash "$CLI" install

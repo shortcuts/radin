@@ -1124,6 +1124,60 @@ bad:
 	return 1;
 }
 
+/* Raises, never lowers: upstream writes 5 s on every hook, which a big graph
+ * overruns, and a timeout the user set higher stays. A hook with no timeout
+ * key keeps Claude Code's own default. */
+static int ensure_hook_timeout(const char *path, const char *name, int secs)
+{
+	int err, changed = 0;
+	JMem *m;
+	JVal *root = parse_file(path, &err), *hooks;
+	char num[16];
+
+	if (err == 2 || (root && root->kind != J_OBJ))
+		goto bad;
+	if (!root)
+		return 0;
+	cbm = name;
+	hooks = obj_get(root, "hooks");
+	if (!hooks || hooks->kind != J_OBJ)
+		return 0;
+	snprintf(num, sizeof num, "%d", secs);
+	for (m = hooks->head; m; m = m->next) {
+		JVal *entries = m->val;
+		int i, j;
+		if (!entries || entries->kind != J_ARR)
+			continue;
+		for (i = 0; i < entries->n; i++) {
+			JVal *entry = entries->items[i], *hs;
+			hs = (entry && entry->kind == J_OBJ) ? obj_get(entry, "hooks") : NULL;
+			if (!hs || hs->kind != J_ARR)
+				continue;
+			for (j = 0; j < hs->n; j++) {
+				JVal *h = hs->items[j], *t;
+				if (h->kind != J_OBJ || !is_cbm_entry(h))
+					continue;
+				t = obj_get(h, "timeout");
+				if (!t || t->kind != J_LIT || atoi(t->raw) >= secs)
+					continue;
+				t->raw = xstrdup(num);
+				changed = 1;
+			}
+		}
+	}
+	if (changed) {
+		write_file(path, root);
+		printf("RAISED   %s (hook timeout %d s)\n", path, secs);
+	}
+	return 0;
+bad:
+	fprintf(stderr,
+	        "radin-cbm-json: %s is not valid JSON -- fix it first, "
+	        "nothing written\n",
+	        path);
+	return 1;
+}
+
 static int usage(void)
 {
 	fprintf(stderr,
@@ -1132,7 +1186,8 @@ static int usage(void)
 	        "       radin-cbm-json adopt-mcp <staged_claude_json> <claude_json>\n"
 	        "       radin-cbm-json wired <settings> <claude_json> <cbm>\n"
 	        "       radin-cbm-json ensure-mcp <mcp_json> <name> <command>\n"
-	        "       radin-cbm-json ensure-env <settings> <key> <value>\n");
+	        "       radin-cbm-json ensure-env <settings> <key> <value>\n"
+	        "       radin-cbm-json ensure-hook-timeout <settings> <cbm> <seconds>\n");
 	return 1;
 }
 
@@ -1157,6 +1212,8 @@ int main(int argc, char **argv)
 		return ensure_mcp_entry(argv[2], argv[3], argv[4]);
 	if (!strcmp(argv[1], "ensure-env") && argc == 5)
 		return ensure_env(argv[2], argv[3], argv[4]);
+	if (!strcmp(argv[1], "ensure-hook-timeout") && argc == 5)
+		return ensure_hook_timeout(argv[2], argv[3], atoi(argv[4]));
 	if (!strcmp(argv[1], "wired") && argc == 5) {
 		settings_path = argv[2];
 		claude_json_path = argv[3];

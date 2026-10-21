@@ -194,8 +194,11 @@ cmd_install() {
 	restore "${SNAP_SETTINGS:-}" "${SNAP_CLAUDE_JSON:-}"
 	adopt_staged_mcp
 	# Its hooks print nothing past a 2000 ms deadline, which a big graph always
-	# exceeds. 4000 stays under the 5 s timeout upstream writes on each hook.
-	"$CBM_JSON" ensure-env "$SETTINGS" CBM_HOOK_DEADLINE_MS 4000 || true
+	# exceeds. Upstream writes a 5 s timeout on each hook, which that graph
+	# also overruns (the hook gets cancelled), so raise it to 10 s and keep the
+	# 8000 ms deadline under it.
+	"$CBM_JSON" ensure-hook-timeout "$SETTINGS" "$CBM_NAME" 10 || true
+	"$CBM_JSON" ensure-env "$SETTINGS" CBM_HOOK_DEADLINE_MS 8000 || true
 	# An exit 0 that wired nothing is what makes install.sh claim the tool is
 	# ready when it is not, so end non-zero and let its fallback branch run.
 	cbm_wired || die "$CBM_NAME exited 0 but configured no Claude Code hooks or MCP entry -- your own hooks are untouched. Use 'radin hooks all' for the merge-only wiring."
