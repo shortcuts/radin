@@ -1,9 +1,10 @@
 flowchart TD
   p0[Phase 0<br/>find backlog] --> p05[Phase 0.5<br/>worktree and branch answers]
-  p05 --> p1[Phase 1<br/>reconcile, recover stuck, rank]
+  p05 --> p1[Phase 1<br/>reconcile, recover stuck, settle waiting questions, rank]
   p1 --> p2[Phase 2<br/>print order, user picks tasks]
   p2 --> p3[Phase 3<br/>persist BACKLOG_STEPS.json]
-  p3 --> next{{task-next}}
+  p3 --> p35[Phase 3.5<br/>refine leaves find decisions, one grilling]
+  p35 --> next{{task-next}}
   next -- exit 1, nothing left --> p45[Phase 4.5<br/>session gate: full suite]
   next -- exit 0 --> kind{kind}
   kind -- planning --> leafP[[Planning leaf]]

@@ -49,18 +49,11 @@ No MCP or API access: log from the ask alone, and continue.
 
 Settle judgment calls here, while the user is present;
 
-For each item, list what a cold start would have to decide that the conversation
-didn't settle. Tag each question:
-
-- **Fact**: checkable against the repo, docs, or an API. Never ask the user for
-  these; note each in the entry body as an open fact to verify.
-- **Decision**: a judgment call only the user can make (tradeoff, scope boundary,
-  behavior choice). Invoke `/mattpocock-skills:grilling` on this item's decisions
-  now, before the next item. Keep every settled answer for Step 5's body.
-
-Name even one plausible guess (a threshold, a naming choice, keep-vs-remove) and
-the item has a Decision, so grill it. An item with no second reasonable way to do
-it skips this step, and so does a stub, one deliberately deferred whole.
+Apply `RADIN_LIB/radin-open-decisions.md` to each item. Note each Fact in the entry
+body as an open fact to verify. Invoke `/mattpocock-skills:grilling` on this
+item's Decisions now, before the next item. Keep every settled answer for Step
+5's body. An item with no Decision skips the grilling, and so does a stub, one
+deliberately deferred whole.
 
 If the user defers a question or stops answering, record the question itself as an
 open decision in the entry body, options and your recommendation included, so

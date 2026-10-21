@@ -128,7 +128,23 @@ persist them.
    never got a terminal status for. Never re-dispatch one blind. Read
    `RADIN_LIB/radin-batch-recovery.md` and follow it for
    each id. Most runs skip this file entirely.
-4. Ask the CLI whether a ranking pass is needed at all:
+4. Settle the questions a previous run left open. `steps-init` rewrites
+   `BACKLOG_STEPS.json` in Phase 3, so a waiting entry that stays unanswered
+   restarts without its decision:
+
+   ```bash
+   RADIN_CLI state steps-waiting
+   ```
+
+   Exit 1: nothing waits, continue to step 5. Exit 0 prints the id of each
+   entry that holds an unanswered question. Read each entry's `note` with
+   `RADIN_CLI state steps-list`. Invoke `/mattpocock-skills:grilling` once for
+   all of them, one question at a time, your recommendation first. Append each
+   answer per `RADIN_LIB/radin-batch-clarify.md`, then run
+   `RADIN_CLI state answered "<task id>"`. An entry the user explicitly defers
+   again keeps its `blocked` status and its `deferred:` note.
+
+5. Ask the CLI whether a ranking pass is needed at all:
 
    ```bash
    RADIN_CLI backlog order --rank-needed
@@ -143,7 +159,7 @@ persist them.
    `--infer-deps <id>=<csv>` flag per entry you inferred a dependency for.
    Carry those flags into every later `order` call this session; carry
    nothing else.
-5. Resolve the **scope**, only when the invoking prompt names one (an epic id,
+6. Resolve the **scope**, only when the invoking prompt names one (an epic id,
    a task id or a task title). No name, no scope: skip this step.
 
    ```bash
@@ -158,7 +174,7 @@ persist them.
 
 ## Phase 2: Print Order, Select Tasks
 
-Phase 0.5's preferences and the scope from Phase 1 step 5 are the only
+Phase 0.5's preferences and the scope from Phase 1 step 6 are the only
 questions a prompt may pre-answer.
 
 1. Print this verbatim, and compose nothing of your own:
@@ -207,6 +223,30 @@ Omit the selection flag when Phase 2 chose all of them. Resolving free text
 to ids is yours; the deferred set, renumbering and the `depends_on` precedence are not. Every listed
 task keeps the `order` number the report printed.
 
+## Phase 3.5: Refine
+
+The selected tasks' open decisions are settled now, so execution runs without
+the user. Read the selected ids:
+
+```bash
+RADIN_CLI state steps-list
+```
+
+For each `pending` line, run `RADIN_CLI prompt refine "<task id>"`, which prints
+a `model` and a `prompt` path. Dispatch every one in a single message as a
+read-only dispatch (no `state prepare`, no `task-report`), `name:
+"radin-refine-<task id>"`, with the Phase 4 dispatch text. Collect every
+`STATUS: BLOCKED (DECISION)` line, none from a `STATUS: REFINED — none`. A
+reply with no `STATUS:` line counts as none, because execution still blocks on
+a decision it meets.
+
+No question left: go to Phase 4. Otherwise invoke
+`/mattpocock-skills:grilling` once for all of them, one question at a time,
+your recommendation first. Append each settled answer per
+`RADIN_LIB/radin-batch-clarify.md`. A question the user explicitly defers
+stays unsettled: append it as an open decision in the entry body, options and
+recommendation included, so the leaf blocks on it. Continue to Phase 4.
+
 ## Phase 4: Task Execution Loop
 
 One call does everything between two dispatches: it picks the next
@@ -234,7 +274,7 @@ has none yet, else `execution`. A `planning` dispatch that reports
 now hands out its execution prompt. `STATUS: BLOCKED (FACT|DECISION)`
 routes per Clarifying Ambiguity. Dispatch the prompt as one
 `Agent` call with exactly that model, `name: "radin-<kind>-<task id>"`
-(`kind` is `planning`, `execution`, `debug` or `factfind`), and this text,
+(`kind` is `planning`, `execution`, `debug`, `factfind` or `refine`), and this text,
 and nothing else. The name lets a usage report show which task and role cost
 the most:
 

@@ -21,10 +21,11 @@ take the non-destructive path: don't split, don't overwrite.
 Implement nothing.
 
 The plan must settle every decision: the executor makes no judgment calls,
-and a vague plan step is a defect. Before reporting BLOCKED, ask whether this
-is a fact you could go find (read more of the repo, check a config, run a
-read-only command) or a judgment call only the user can make. Find the fact
-yourself; block only on the judgment call.
+and a vague plan step is a defect. Before reporting BLOCKED, apply this rule:
+
+OPEN_DECISIONS_RULE
+
+Find each Fact yourself; block only on a Decision.
 
 Your final message is exactly one of these lines, and nothing else:
 `STATUS: PLANNED — <plan file path(s), or "none needed: <reason>">`

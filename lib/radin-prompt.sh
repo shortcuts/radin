@@ -9,6 +9,7 @@
 #   radin-prompt.sh execution <id>
 #   radin-prompt.sh debug     <id> <failure reason>
 #   radin-prompt.sh factfind  <id> <question>
+#   radin-prompt.sh refine    <id>
 #   radin-prompt.sh gate
 #
 # Writes the prompt to <namespace>/state/prompts/<id>-<kind>.md and prints
@@ -40,11 +41,11 @@ kind="${1:-}"
 id="${2:-}"
 extra="${3:-}"
 if [ -z "$kind" ] || { [ -z "$id" ] && [ "$kind" != gate ]; }; then
-	die "usage: radin-prompt.sh <planning|execution|debug|factfind> <id> [<failure|question>] | gate"
+	die "usage: radin-prompt.sh <planning|execution|debug|factfind|refine> <id> [<failure|question>] | gate"
 fi
 
 case "$kind" in
-planning | execution | debug | factfind | gate) ;;
+planning | execution | debug | factfind | refine | gate) ;;
 *) die "unknown prompt kind: $kind" ;;
 esac
 TEMPLATE="$LIB_DIR/radin-prompt-$kind.md"
@@ -74,6 +75,8 @@ comment_rule="$(fence "$LIB_DIR/radin-comment-rule.md")"
 [ -n "$comment_rule" ] || die "no fenced rule in $LIB_DIR/radin-comment-rule.md"
 explore_rule="$(fence "$LIB_DIR/radin-explore-rule.md")"
 [ -n "$explore_rule" ] || die "no fenced rule in $LIB_DIR/radin-explore-rule.md"
+open_decisions_rule="$(fence "$LIB_DIR/radin-open-decisions.md")"
+[ -n "$open_decisions_rule" ] || die "no fenced rule in $LIB_DIR/radin-open-decisions.md"
 
 # One `eval` of the CLI's own export lines, rather than parsing them: the
 # namespace is this script's only input that is not an argument.
@@ -224,6 +227,7 @@ fi
 sub_token LEAF_CONTRACT "$leaf_contract"
 sub_token COMMENT_RULE "$comment_rule"
 sub_token EXPLORE_RULE "$explore_rule"
+sub_token OPEN_DECISIONS_RULE "$open_decisions_rule"
 sub_token NAMESPACE_DIR "$NAMESPACE_DIR"
 sub_token TASK_FILE "$task_file"
 sub_token TASK_DIR "$task_dir"
