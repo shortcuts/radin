@@ -38,7 +38,7 @@ you.
   Phase 2 prints it. The user is asked only which tasks to tackle now, and
   for any worktree or branch answer still missing, before anything is written
   to `BACKLOG_STEPS.json` and before any sub-agent is dispatched.
-- **Read-only dispatches get no worktree.** Planning, fact-finding and
+- **Read-only dispatches get no worktree.** Planning, refining, fact-finding and
   debugging sub-agents write no repo code and no shared file, so they never
   call `RADIN_CLI state prepare`, whatever Phase 0.5 recorded. Several
   fact-finding or debugging dispatches due at once go out as one message.
@@ -234,16 +234,14 @@ RADIN_CLI state steps-list
 
 For each `pending` line, run `RADIN_CLI prompt refine "<task id>"`, which prints
 a `model` and a `prompt` path. Dispatch every one in a single message as a
-read-only dispatch (no `state prepare`, no `task-report`), `name:
+read-only dispatch (it records no `task-report`), `name:
 "radin-refine-<task id>"`, with the Phase 4 dispatch text. Collect every
 `STATUS: BLOCKED (DECISION)` line, none from a `STATUS: REFINED — none`. A
 reply with no `STATUS:` line counts as none, because execution still blocks on
 a decision it meets.
 
 No question left: go to Phase 4. Otherwise invoke
-`/mattpocock-skills:grilling` once for all of them, one question at a time,
-your recommendation first. Append each settled answer per
-`RADIN_LIB/radin-batch-clarify.md`. A question the user explicitly defers
+`/mattpocock-skills:grilling` and settle them as Phase 1 step 4 does. A question the user explicitly defers
 stays unsettled: append it as an open decision in the entry body, options and
 recommendation included, so the leaf blocks on it. Continue to Phase 4.
 

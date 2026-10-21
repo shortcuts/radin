@@ -21,8 +21,7 @@ FAILURE
 </failure>
 
 Invoke `/mattpocock-skills:diagnosing-bugs` and follow its loop rather than
-improvising one. Reproduce read-only: rerun the failing check or command
-(`rtk`-wrapped), read the code and config
+improvising one. Reproduce read-only: rerun the failing check or command, read the code and config
 around it. Find the root cause, not the symptom — a shared function that looks
 wrong gets its other callers checked before you name it. Explore
 by this rule:

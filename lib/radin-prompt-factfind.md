@@ -16,8 +16,7 @@ QUESTION
 Context: the task at TASK_FILE was blocked on it.
 
 Investigate: read the repo, its lockfiles, its vendored dependencies, and its
-config; run read-only commands (`--help`, `--version`, a query, a dry run),
-`rtk`-wrapped. A fact you can observe by running something is yours to run:
+config; run read-only commands (`--help`, `--version`, a query, a dry run). A fact you can observe by running something is yours to run:
 write a probe script in a scratch directory outside the repo tree, run it,
 quote its output, and delete it. `[measured]` then names the probe.
 Prefer primary sources on this machine over recollection. Explore by this
