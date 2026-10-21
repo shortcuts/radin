@@ -99,10 +99,8 @@ Dispatch one sub-agent (`name: "radin-review"`) with a self-contained brief:
 - The skills Step 1's `passes` line names, as extra passes to invoke after
   the core's two.
 
-Print its full report as your own reply text before any triage, in the order
-the sub-agent gave it. **Why:** the user sees only a truncated one-line summary
-of a sub-agent's result, so a findings list you do not print is invisible and
-the Step 4 gate has nothing to answer. A summary sentence is not the report.
+Keep its report whole, in the order the sub-agent gave it. Step 4 carries it
+to the user.
 
 ## Step 4: Filter, classify, triage
 
@@ -170,15 +168,17 @@ survivor is Noted, Step 6 says the code is fine. Dismissed is your call:
 Print the groups as a numbered list in the order Act on, Consider, Noted,
 Dismissed: number, bucket and reason, category, severity, location, the
 finding in a clause. A group lists each member on a lettered sub-line with its
-location and clause. Print it as reply text before the dialog opens.
+location and clause.
 
 Then gate on one `AskUserQuestion` with two single-select questions:
 
 - Which groups: **Recommended only** (the Act on groups) or **All** (Act on
-  and Consider). Each option's `description` lists its groups as number,
-  severity, location and the finding in a clause, one per line. **Why:** the
-  printed list scrolls out of view behind the dialog, so the user cannot choose
-  from it.
+  and Consider). The question text is the whole numbered list above, Noted
+  and Dismissed groups included. Each option's `description` lists its groups
+  as number, severity, location and the finding in a clause, one per line.
+  **Why:** the user sees only a truncated one-line summary of a sub-agent's
+  result and of long reply text, so only the dialog is sure to show the
+  findings. Printing the list as well is optional.
 - What to do with them: **Add to backlog** or **Tackle now**.
 
 A free-text answer names the numbers you printed, Noted and Dismissed ones
