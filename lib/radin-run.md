@@ -38,7 +38,7 @@ you.
   Phase 2 prints it. The user is asked only which tasks to tackle now, and
   for any worktree or branch answer still missing, before anything is written
   to `BACKLOG_STEPS.json` and before any sub-agent is dispatched.
-- **Read-only dispatches get no worktree.** Planning, refining, fact-finding and
+- **Read-only dispatches get no worktree.** Planning, fact-finding and
   debugging sub-agents write no repo code and no shared file, so they never
   call `RADIN_CLI state prepare`, whatever Phase 0.5 recorded. Several
   fact-finding or debugging dispatches due at once go out as one message.
@@ -223,27 +223,17 @@ Omit the selection flag when Phase 2 chose all of them. Resolving free text
 to ids is yours; the deferred set, renumbering and the `depends_on` precedence are not. Every listed
 task keeps the `order` number the report printed.
 
-## Phase 3.5: Refine
-
-The selected tasks' open decisions are settled now, so execution runs without
-the user. Read the selected ids:
+## Phase 3.5: Settle Open Decisions
 
 ```bash
-RADIN_CLI state steps-list
+RADIN_CLI state steps-open
 ```
 
-For each `pending` line, run `RADIN_CLI prompt refine "<task id>"`, which prints
-a `model` and a `prompt` path. Dispatch every one in a single message as a
-read-only dispatch (it records no `task-report`), `name:
-"radin-refine-<task id>"`, with the Phase 4 dispatch text. Collect every
-`STATUS: BLOCKED (DECISION)` line, none from a `STATUS: REFINED — none`. A
-reply with no `STATUS:` line counts as none, because execution still blocks on
-a decision it meets.
-
-No question left: go to Phase 4. Otherwise invoke
-`/mattpocock-skills:grilling` and settle them as Phase 1 step 4 does. A question the user explicitly defers
-stays unsettled: append it as an open decision in the entry body, options and
-recommendation included, so the leaf blocks on it. Continue to Phase 4.
+Exit 1 with no output: go to Phase 4. Exit 0 prints `id<TAB>question` for each
+open decision of a selected task. Settle them as Phase 1 step 4 does, and
+append each answer per `RADIN_LIB/radin-batch-clarify.md`. A question the user explicitly
+defers stays open: append it again as `**Open decision:** <question>, <options>,
+<your recommendation>`, so the leaf blocks on it. Continue to Phase 4.
 
 ## Phase 4: Task Execution Loop
 
@@ -272,7 +262,7 @@ has none yet, else `execution`. A `planning` dispatch that reports
 now hands out its execution prompt. `STATUS: BLOCKED (FACT|DECISION)`
 routes per Clarifying Ambiguity. Dispatch the prompt as one
 `Agent` call with exactly that model, `name: "radin-<kind>-<task id>"`
-(`kind` is `planning`, `execution`, `debug`, `factfind` or `refine`), and this text,
+(`kind` is `planning`, `execution`, `debug` or `factfind`), and this text,
 and nothing else. The name lets a usage report show which task and role cost
 the most:
 

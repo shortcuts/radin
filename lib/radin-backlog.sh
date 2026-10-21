@@ -30,6 +30,7 @@
 #   radin-backlog.sh add-plan <id-or-title> <path>  # plan-lint the file, then add one plan pointer to the task's entry, and record HEAD in plans/<id>.head
 #   radin-backlog.sh append <id-or-title>        # append text from stdin to the task's file
 #   radin-backlog.sh plan-target <id-or-title> [<sub-task title>]  # resolve one task for planning: "id"/"title"/"task_file"/"plan_file" TAB lines plus a "facts<TAB><path>" line when set and one "plan<TAB><path>" per existing pointer; exit 1 no match, 2 several (candidates on stderr), 3 already planned
+#   radin-backlog.sh open-decisions <id-or-title>  # print the question of each `**Open decision:**` line after the task file's last `**Decision:**` line, one per line; exit 1 with nothing when none is open
 #   radin-backlog.sh files <id-or-title|plan-file>  # print the paths in the `## Changes` section of every plan the task points at (or of the one plan file given), one per line, deduplicated; exit 1 with nothing when there is no plan or no path
 #   radin-backlog.sh plan-lint <plan-file>      # print one line per plan-template defect (missing, out-of-order or empty section, a Changes entry with no "You see:" line, no Testing box, no "Live:" box); exit 1 when any
 #   radin-backlog.sh set-category <id-or-title> <category>  # move a task to another category
@@ -1213,6 +1214,21 @@ append)
 	require_no_moved_label "$BODY"
 	printf '\n%s\n' "$BODY" >>"$(entry_path "$entry")"
 	printf 'appended to "%s"\n' "$(json_get title "$entry")"
+	;;
+
+open-decisions)
+	[ -n "${2:-}" ] || usage_die open-decisions "open-decisions needs an id or title"
+	require_index
+	entry="$(single_match "$2")"
+	open=""
+	while IFS= read -r line || [ -n "$line" ]; do
+		case "$line" in
+		'**Decision:**'*) open="" ;;
+		'**Open decision:**'*) open="$open${line#'**Open decision:**'}"$'\n' ;;
+		esac
+	done <"$(entry_path "$entry")"
+	[ -n "$open" ] || exit 1
+	printf '%s' "$open" | sed 's/^ //'
 	;;
 
 add-plan)

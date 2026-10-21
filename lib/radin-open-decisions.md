@@ -1,7 +1,7 @@
 # Open-decisions rule
 
 The one rule for what a cold start must decide before it can work. `lib/radin-prompt.sh`
-writes the fence into the planning and refine prompts at the `OPEN_DECISIONS_RULE`
+writes the fence into the planning prompt at the `OPEN_DECISIONS_RULE`
 token. `radin-record` Step 2 reads this file.
 
 ```

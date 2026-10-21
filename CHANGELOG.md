@@ -2,7 +2,6 @@
 
 ## [2.0.0](https://github.com/shortcuts/radin/compare/v1.0.1...v2.0.0) (2026-10-19)
 
-
 ### ⚠ BREAKING CHANGES
 
 * **install:** `install.sh --force` and `make install-force` are gone; a plain install upgrades every companion. `radin update` runs no companion installer and asks the model question again.
@@ -95,7 +94,6 @@
 * **tui:** split the detail into a markdown right pane ([2c927ec](https://github.com/shortcuts/radin/commit/2c927ecbd69225a7e98ed124b23a29ebff6f6d88))
 * **tui:** switch the detail pane between task body and plan ([60e4f46](https://github.com/shortcuts/radin/commit/60e4f46c2ba49c7958b0ec7c66562d5c86160071))
 
-
 ### Bug Fixes
 
 * backlog per worktree ([6295e5b](https://github.com/shortcuts/radin/commit/6295e5bcffdc72a025b3a4012071c68b6de48eb2))
@@ -136,7 +134,6 @@
 * unbloat conditional load skill ([bf7827a](https://github.com/shortcuts/radin/commit/bf7827a9ec2c0301ef732952569a3d044bb1d6d4))
 * update path ([b2bc59f](https://github.com/shortcuts/radin/commit/b2bc59f4e8b67e8aa38b990a0e125feb8e5a557c))
 
-
 ### Performance Improvements
 
 * **backlog:** one awk pass per read verb instead of a fork per JSON field ([01c6758](https://github.com/shortcuts/radin/commit/01c67584a815087367a308af39918352606ebb8a))
@@ -152,7 +149,6 @@
 * **tui:** diff frames by row, flush in one sync write ([fa4d211](https://github.com/shortcuts/radin/commit/fa4d211b5fd4f0ac0b0c93271840f4d210d4dabb))
 * **tui:** one frame per held-key burst instead of one per keypress ([f942acc](https://github.com/shortcuts/radin/commit/f942accbd13efa9f08cfc3fe8ddd04b58215e9d5))
 * **tui:** read meta once per load, cache built detail ([606a1c0](https://github.com/shortcuts/radin/commit/606a1c04bc7c424925a222807c031532664c38c5))
-
 
 ### Code Refactoring
 

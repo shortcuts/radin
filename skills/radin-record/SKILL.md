@@ -55,9 +55,9 @@ item's Decisions now, before the next item. Keep every settled answer for Step
 5's body. An item with no Decision skips the grilling, and so does a stub, one
 deliberately deferred whole.
 
-If the user defers a question or stops answering, record the question itself as an
-open decision in the entry body, options and your recommendation included, so
-`radin-batch` blocks on it explicitly instead of guessing.
+If the user defers a question or stops answering, record it as one body line,
+`**Open decision:** <question>, <options>, <your recommendation>`, so
+`radin-batch` asks it before execution instead of guessing.
 
 ## Step 3: Note any skill invoked for this item
 

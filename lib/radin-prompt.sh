@@ -9,7 +9,6 @@
 #   radin-prompt.sh execution <id>
 #   radin-prompt.sh debug     <id> <failure reason>
 #   radin-prompt.sh factfind  <id> <question>
-#   radin-prompt.sh refine    <id>
 #   radin-prompt.sh gate
 #
 # Writes the prompt to <namespace>/state/prompts/<id>-<kind>.md and prints
@@ -41,11 +40,11 @@ kind="${1:-}"
 id="${2:-}"
 extra="${3:-}"
 if [ -z "$kind" ] || { [ -z "$id" ] && [ "$kind" != gate ]; }; then
-	die "usage: radin-prompt.sh <planning|execution|debug|factfind|refine> <id> [<failure|question>] | gate"
+	die "usage: radin-prompt.sh <planning|execution|debug|factfind> <id> [<failure|question>] | gate"
 fi
 
 case "$kind" in
-planning | execution | debug | factfind | refine | gate) ;;
+planning | execution | debug | factfind | gate) ;;
 *) die "unknown prompt kind: $kind" ;;
 esac
 TEMPLATE="$LIB_DIR/radin-prompt-$kind.md"

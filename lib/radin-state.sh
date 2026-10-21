@@ -28,6 +28,7 @@
 #   radin-state.sh answered <id>                # the user answered a waiting task: back to pending, attempts 0, debugged kept
 #   radin-state.sh stuck                        # print "id<TAB>attempts<TAB>note" per in_progress entry, exit 1 if none
 #   radin-state.sh steps-waiting                # print the id of each blocked entry whose note holds an unanswered question, exit 1 if none
+#   radin-state.sh steps-open                   # print "id<TAB>question" per open decision of a pending entry, exit 1 if none
 #   radin-state.sh steps-list                   # print "id<TAB>order<TAB>status<TAB>attempts<TAB>note" per entry, exit 1 if none
 #   radin-state.sh recover <id>                 # recover a task a dead session left in_progress; exit 3 prints commits only the model can judge
 #   radin-state.sh recover-reject <id>          # those commits do not satisfy the task: block the entry naming them
@@ -579,6 +580,23 @@ steps-list)
 		printf '%s\t%s\t%s\t%s\t%s\n' "$(json_get id "$line")" "$(num_field "$line" order)" \
 			"$(json_get status "$line")" "$(num_field "$line" attempts)" "$(json_get note "$line")"
 	done <"$steps"
+	;;
+
+steps-open)
+	# What the user must settle before execution: questions recorded as
+	# `**Open decision:**` in a pending task's file. Empty output means none.
+	[ -s "$steps" ] || exit 1
+	found=1
+	while IFS= read -r line || [ -n "$line" ]; do
+		[ "$(json_get status "$line")" = "pending" ] || continue
+		id="$(json_get id "$line")"
+		qs="$(cd "$repo_root" && bash "$LIB_DIR/radin-backlog.sh" open-decisions "$id" 2>/dev/null)" || continue
+		while IFS= read -r q; do
+			printf '%s\t%s\n' "$id" "$q"
+			found=0
+		done <<<"$qs"
+	done <"$steps"
+	exit "$found"
 	;;
 
 steps-waiting)
