@@ -169,8 +169,9 @@ COMMENT_RULE
    that turns a check red is the one to fix before you move on.
 5. Choose the checks from what your diff reaches: ask the graph
    for the symbols your working-tree diff changes and their callers. Run the
-   typecheck and the tests that exercise those callers as you go, widening to
-   the whole suite only when the blast radius covers most of the repo. Once
+   typecheck and the tests that exercise those callers as you go. Run the whole
+   suite (`make test`, `go test ./...`) only when you judge this task needs it,
+   as when the blast radius covers most of the repo. Phase 4.5 runs it once. Once
    before committing, run lint and format scoped to the packages or
    directories you touched.
    A check counts only when it ran and exercised the change: a syntax-only
