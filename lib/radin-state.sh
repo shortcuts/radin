@@ -26,6 +26,7 @@
 #                                               # also journals an out-of-plan event naming commit files its plan's ## Changes omits (test paths exempt), shown by report
 #   radin-state.sh set-status <id> <pending|in_progress|failed|blocked> [note]
 #   radin-state.sh answered <id>                # the user answered a waiting task: back to pending, attempts 0, debugged kept
+#   radin-state.sh retry <id>                   # a human looked at a MAX_ATTEMPTS-blocked task: back to pending, attempts 0, debugged cleared
 #   radin-state.sh stuck                        # print "id<TAB>attempts<TAB>note" per in_progress entry, exit 1 if none
 #   radin-state.sh steps-waiting                # print the id of each blocked entry whose note holds an unanswered question, exit 1 if none
 #   radin-state.sh steps-open                   # print "id<TAB>question" per open decision of a pending entry, exit 1 if none
@@ -569,6 +570,18 @@ answered)
 	# its count over; debugged stays, a second failure asks again.
 	write_entry "$steps" "$id" pending 0 ""
 	journal "$ns/state" "answered" "$id" ""
+	;;
+
+retry)
+	id="${2:-}"
+	[ -n "$id" ] || die "usage: retry <id>"
+	[ -f "$steps" ] || die "no state file: $steps"
+	entry="$(entry_line "$steps" "$id")"
+	[ -n "$entry" ] || die "no entry with id: $id"
+	# The cap exists to stop a crash loop; this is the human's explicit
+	# override, so the debug pass is also available again.
+	write_entry "$steps" "$id" pending 0 "" 0
+	journal "$ns/state" "retry" "$id" ""
 	;;
 
 steps-list)

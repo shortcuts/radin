@@ -251,7 +251,7 @@ order:
 
 - zero or more `blocked<TAB><id><TAB><why>` lines for tasks it skipped (an
   unresolved dependency, an entry the backlog lost, `MAX_ATTEMPTS` reached).
-  It already marked each one `blocked`. Report each as skipped. The entry stays on the backlog with a `**Progress:**` note, and any work is a wip commit.
+  It already marked each one `blocked`. Report each as skipped. The entry stays on the backlog with a `**Progress:**` note, and any work is a wip commit. When the user asks to retry one that hit `MAX_ATTEMPTS`, run `RADIN_CLI state retry "<task id>"`.
 - `id`, `order`, `kind`, `model` and `prompt` lines for the task to run now,
   then, for an `execution` task, an `overlap` line: `none`, `unclear`, or the
   ids of live tasks sharing its plan files or a `depends_on` edge.
