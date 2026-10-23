@@ -47,13 +47,24 @@ No MCP or API access: log from the ask alone, and continue.
 
 ## Step 2: Chart each item's open decisions
 
-Settle judgment calls here, while the user is present;
+Settle judgment calls here, while the user is present.
 
 Apply `RADIN_LIB/radin-open-decisions.md` to each item. Note each Fact in the entry
-body as an open fact to verify. Invoke `/mattpocock-skills:grilling` on this
-item's Decisions now, before the next item. Keep every settled answer for Step
-5's body. An item with no Decision skips the grilling, and so does a stub, one
-deliberately deferred whole.
+body as an open fact to verify. Ask the item's Decisions now, before the next item
+and before Step 5's batch list. Keep every settled answer for Step 5's body. An
+item with no Decision asks nothing, and so does a stub, one deliberately deferred
+whole.
+
+Pick the channel by the Decisions:
+
+- **Up to 4 Decisions, each with discrete options:** one `AskUserQuestion` call.
+  Put your recommendation first, marked "(Recommended)".
+- **More than 4, open-ended answers, or answers that depend on each other:** invoke
+  `/mattpocock-skills:grilling` on them.
+
+**The test:** does Step 5's list show a question for the user to answer? Then it
+belongs here. Step 5 asks only whether the split, the dependencies and the plan
+verdicts are right.
 
 If the user defers a question or stops answering, record it as one body line,
 `**Open decision:** <question>, <options>, <your recommendation>`, so
