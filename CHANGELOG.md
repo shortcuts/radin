@@ -1,5 +1,24 @@
 # Changelog
 
+## [2.1.0](https://github.com/shortcuts/radin/compare/v2.0.0...v2.1.0) (2026-10-23)
+
+
+### Features
+
+* **batch:** refine selected tasks before execution ([e84a0c1](https://github.com/shortcuts/radin/commit/e84a0c1de2376ba118fafbccb6b85bac3a9d5d50))
+
+
+### Bug Fixes
+
+* commit stalled task work as wip and move on ([168dff5](https://github.com/shortcuts/radin/commit/168dff54358f9c20b8e8f2322092754c19eb7669))
+* install raises codebase-memory hook timeouts to 10 s ([f9372a5](https://github.com/shortcuts/radin/commit/f9372a55bef27341e7f9c578c9762b516624249a))
+* leaf runs the full suite only when its task needs it ([be8fe11](https://github.com/shortcuts/radin/commit/be8fe11e842be2f1ca429c50c55f5d25d65041ac))
+* prevent stalled agents ([cc3fc63](https://github.com/shortcuts/radin/commit/cc3fc63587ce434f9a29124ccd063f89ecbfeabd))
+* record askuserquestion ([13655bd](https://github.com/shortcuts/radin/commit/13655bde32f3c357a4e5d8c5ed17dbf2d243a585))
+* retry attempt ([a0de400](https://github.com/shortcuts/radin/commit/a0de4006ef4b8605894674bd1163c5a9b8cf5c30))
+* review ([39d4790](https://github.com/shortcuts/radin/commit/39d479084e819498d16ea5e5d7472e1ea3692b84))
+* **review:** show triage list in the gate dialog ([f9f9a53](https://github.com/shortcuts/radin/commit/f9f9a538996ea209bdc117e0cff0375337fdbd94))
+
 ## [2.0.0](https://github.com/shortcuts/radin/compare/v1.0.1...v2.0.0) (2026-10-19)
 
 ### ⚠ BREAKING CHANGES
