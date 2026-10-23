@@ -286,7 +286,9 @@ Two dispatches hand back no such line. A last line that is not a `STATUS:`
 line, because the agent asked something, hit an interactive skill, or died mid-turn, goes
 in as `--no-status "<its final line>" --next` instead, an API or network error text
 included: the CLI sends that task back for a retry. A sub-agent with no content at
-all is still working, whatever the elapsed time suggests. Wait, and if your
+all may be idle, so run `ListAgents`. A running one is working: wait. An idle one
+with no `STATUS:` line gets one `SendMessage`: "Finish, then end with a `STATUS:` line."
+Idle again after that, record `--no-status "idle, no STATUS" --next`. If your
 turn ends first, leave the entry `in_progress` for Phase 1's stuck-recovery.
 
 When the dispatch's completion notification carries a usage block (total tokens,
