@@ -118,8 +118,13 @@ Present the batch as a numbered list, each item showing:
 - **What it delivers**: the end-to-end behavior this entry makes work.
 - **Plan**: needed or not, with the one-line reason.
 
-Then ask whether the granularity, the dependencies, the split and the plan
-verdicts are right.
+Then call `AskUserQuestion` with one question: "Are the granularity, the dependencies,
+the split and the plan verdicts right?" Offer two options, "Yes, log them
+(Recommended)" and "No, I want changes". Never ask this as plain text.
+
+**Why:** a plain-text question scrolls past, and a user who closes the window logs nothing.
+
+On "No", ask what to change, revise the list, and call `AskUserQuestion` again.
 Iterate until the user approves the batch. One run skips the gate: a specific ask
 that produced exactly one entry with no dependencies. A generic ask always
 quizzes, single entry included, because a session scan is a guess about what the
