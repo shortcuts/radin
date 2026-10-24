@@ -238,6 +238,7 @@ run_install_defaults() {
   [ "$(grep -c '<!-- radin:begin -->' "$claude_md")" -eq 1 ]
   [ "$(grep -c '<!-- radin:end -->' "$claude_md")" -eq 1 ]
   grep -q '/radin-record' "$claude_md"
+  [ "$(cat "$TEST_HOME/.claude/.ponytail-band")" = off ]
   grep -q '"claude_md_guidance": true' "$TEST_HOME/.claude/.radin/manifest.json"
   # A re-run must not grow the file by one blank line each time.
   [ "$(wc -l < "$claude_md")" -eq "$before" ]

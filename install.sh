@@ -760,6 +760,11 @@ install_plugin "caveman" "caveman@caveman" "JuliusBrussee/caveman"
 
 # ponytail ships as a Claude Code plugin too -- same marketplace flow.
 install_plugin "ponytail" "ponytail@ponytail" "DietrichGebert/ponytail"
+# ponytail shows a band above the prompt unless this flag says "off". Write it
+# only when absent, so a band the user turned on by hand stays on until reinstall.
+[ -e "$HOME/.claude/.ponytail-band" ] || {
+	mkdir -p "$HOME/.claude" && printf 'off' >"$HOME/.claude/.ponytail-band"
+}
 
 # mattpocock-skills ships from Anthropic's own official marketplace, not a
 # third-party repo. radin-plan invokes its /grilling and /research skills

@@ -81,6 +81,7 @@ else
 fi
 printf '  %-20s advisory install, remove with: claude plugin uninstall caveman@caveman\n' "caveman"
 printf '  %-20s advisory install, remove with: claude plugin uninstall ponytail@ponytail\n' "ponytail"
+printf '  %-20s %s\n' "" "$CLAUDE_DIR/.ponytail-band stays -- run /ponytail band on to show the band again"
 printf '  %-20s advisory install, remove with: claude plugin uninstall mattpocock-skills@claude-plugins-official\n' "mattpocock-skills"
 printf '  %s\n' "Any <repo-root>/.claude/.radin/ backlog directory -- your data, your call"
 # The guidance block is inside a file radin doesn't own, so it is named, not
