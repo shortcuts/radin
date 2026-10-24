@@ -43,6 +43,7 @@
 #   radin-state.sh completed-show <id>          # print "id|commit|title|branch|worktree|plan|ts<TAB>value" lines, exit 1 if absent
 #   radin-state.sh completed-list               # print "id<TAB>commit" per completion, exit 1 if none (the TUI's Done view)
 #   radin-state.sh session-commits              # print this session's commits, oldest first, one hash per line: task-done commits past the baseline, then gate fixes; exit 1 if none
+#   radin-state.sh merge-list                   # print "base<TAB>branch", then "id<TAB>branch<TAB>hash" per session task branch not yet in the base; exit 1 if none
 #   radin-state.sh gate-fix <hash>...           # record the gate's fix commits (state/gate-fixes) so session-commits lists them
 #   radin-state.sh deps-check <id>              # print "dep<TAB>hash" per dependency, exit 1 naming the first unresolved one (radin-prompt.sh)
 #   radin-state.sh task-dir <id>                # print the task's worktree if it exists, else the repo root (radin-prompt.sh)
@@ -493,8 +494,17 @@ steps-init)
 	if [ -d "$state_dir" ]; then
 		backlog_count="$( (cd "$repo_root" 2>/dev/null && bash "$LIB_DIR/radin-backlog.sh" count 2>/dev/null) || printf '0')"
 		completed_count="$(grep -c . "$state_dir/completed.json" 2>/dev/null || true)"
-		printf '{"backlog_count":%s,"completed_count":%s}\n' \
-			"${backlog_count:-0}" "${completed_count:-0}" >"$state_dir/baseline.json"
+		# The branch `merge-list` merges into. A resume that finds the checkout
+		# on a task branch keeps the earlier value.
+		base_branch="$(git -C "$repo_root" rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
+		case "$base_branch" in
+		radin/* | HEAD | "")
+			base_branch=""
+			[ ! -s "$state_dir/baseline.json" ] || base_branch="$(json_get base_branch "$(cat "$state_dir/baseline.json")")"
+			;;
+		esac
+		printf '{"backlog_count":%s,"completed_count":%s,"base_branch":"%s"}\n' \
+			"${backlog_count:-0}" "${completed_count:-0}" "$(json_escape "$base_branch")" >"$state_dir/baseline.json"
 		rm -f "$state_dir/gate-fixes"
 	fi
 	journal "$state_dir" "steps-init" "" "$n entries"
@@ -521,6 +531,35 @@ session-commits)
 	[ -n "$out" ] || exit 1
 	# A gate re-run after a resume records the same fix twice.
 	printf '%s\n' "$out" | awk '!seen[$0]++'
+	;;
+
+merge-list)
+	# One line per session task whose radin/<id> branch still holds a commit
+	# the base branch lacks. Exit 1 when nothing is left to merge.
+	state_dir="$ns/state"
+	[ -s "$state_dir/baseline.json" ] || exit 1
+	baseline="$(cat "$state_dir/baseline.json")"
+	base_completed="$(num_field "$baseline" completed_count)"
+	base_branch="$(json_get base_branch "$baseline")"
+	[ -n "$base_branch" ] || exit 1
+	[ -s "$completed" ] || exit 1
+	out=""
+	n_ok=0
+	while IFS= read -r line || [ -n "$line" ]; do
+		[ -n "$line" ] || continue
+		n_ok=$((n_ok + 1))
+		[ "$n_ok" -gt "$base_completed" ] || continue
+		cid="$(json_get id "$line")"
+		chash="$(json_get commit "$line")"
+		pfile="$state_dir/prepared/$cid.json"
+		[ -s "$pfile" ] || continue
+		pbranch="$(json_get branch "$(cat "$pfile")")"
+		case "$pbranch" in radin/*) ;; *) continue ;; esac
+		git -C "$repo_root" merge-base --is-ancestor "$chash" "$base_branch" >/dev/null 2>&1 && continue
+		out="${out:+$out$'\n'}$cid	$pbranch	$chash"
+	done <"$completed"
+	[ -n "$out" ] || exit 1
+	printf 'base\t%s\n%s\n' "$base_branch" "$out"
 	;;
 
 gate-fix)
@@ -1534,6 +1573,6 @@ finding-classes)
 	;;
 
 *)
-	die "unknown command: ${cmd:-<none>} (steps-init|task-next|task-report|task-fact|task-diagnosis|task-done|set-status|stuck|recover|recover-reject|report|session-set|session-get|prepare|dirty-check|trace|completed-show|completed-list|session-commits|gate-fix|deps-check|task-dir|journal-tail|plan-covers|review-findings|finding-classes)"
+	die "unknown command: ${cmd:-<none>} (steps-init|task-next|task-report|task-fact|task-diagnosis|task-done|set-status|stuck|recover|recover-reject|report|session-set|session-get|prepare|dirty-check|trace|completed-show|completed-list|session-commits|merge-list|gate-fix|deps-check|task-dir|journal-tail|plan-covers|review-findings|finding-classes)"
 	;;
 esac

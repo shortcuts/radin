@@ -345,6 +345,12 @@ Print its output verbatim. Read
 `RADIN_LIB/radin-batch-reporting.md` for the two things it
 cannot do.
 
+## Phase 5.5: Merge
+
+Skip it when `RADIN_CLI state session-get` prints `worktree<TAB>no` and `branch<TAB>no`.
+
+Read `RADIN_LIB/radin-batch-merge.md` and follow it to offer the merge of this session's task branches.
+
 ## Phase 6: Review
 
 - **The user asked for a post-session review** (in the invoking prompt or

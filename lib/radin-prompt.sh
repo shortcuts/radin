@@ -10,6 +10,7 @@
 #   radin-prompt.sh debug     <id> <failure reason>
 #   radin-prompt.sh factfind  <id> <question>
 #   radin-prompt.sh gate
+#   radin-prompt.sh merge
 #
 # Writes the prompt to <namespace>/state/prompts/<id>-<kind>.md and prints
 # `model<TAB><name>` and `prompt<TAB><path>`. The router dispatches the path,
@@ -39,12 +40,12 @@ LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 kind="${1:-}"
 id="${2:-}"
 extra="${3:-}"
-if [ -z "$kind" ] || { [ -z "$id" ] && [ "$kind" != gate ]; }; then
-	die "usage: radin-prompt.sh <planning|execution|debug|factfind> <id> [<failure|question>] | gate"
+if [ -z "$kind" ] || { [ -z "$id" ] && [ "$kind" != gate ] && [ "$kind" != merge ]; }; then
+	die "usage: radin-prompt.sh <planning|execution|debug|factfind> <id> [<failure|question>] | gate | merge"
 fi
 
 case "$kind" in
-planning | execution | debug | factfind | gate) ;;
+planning | execution | debug | factfind | gate | merge) ;;
 *) die "unknown prompt kind: $kind" ;;
 esac
 TEMPLATE="$LIB_DIR/radin-prompt-$kind.md"
@@ -96,6 +97,21 @@ if [ "$kind" = gate ]; then
 	sub_token SESSION_COMMITS "$(printf '%s\n' "$commits" | awk 'NF { printf "%s%s", sep, $0; sep = " " } END { print "" }')"
 	mkdir -p "$NAMESPACE_DIR/state/prompts"
 	out="$NAMESPACE_DIR/state/prompts/session-gate.md"
+	printf '%s\n' "$body" >"$out"
+	printf 'model\t%s\nprompt\t%s\n' "$model" "$out"
+	exit 0
+fi
+
+# Like the gate, the merge belongs to the session. `merge-list` names the base
+# branch and the task branches, so the leaf never derives either from git.
+if [ "$kind" = merge ]; then
+	list="$(cd "$REPO_ROOT" && bash "$LIB_DIR/radin-state.sh" merge-list)" ||
+		die "no session branch is left to merge"
+	sub_token LEAF_CONTRACT "$leaf_contract"
+	sub_token MERGE_BASE "$(printf '%s\n' "$list" | sed -n 's/^base\t//p')"
+	sub_token MERGE_BRANCHES "$(printf '%s\n' "$list" | awk -F'\t' '$1 != "base" { printf "%s%s (%s)", sep, $2, $3; sep = ", " } END { print "" }')"
+	mkdir -p "$NAMESPACE_DIR/state/prompts"
+	out="$NAMESPACE_DIR/state/prompts/session-merge.md"
 	printf '%s\n' "$body" >"$out"
 	printf 'model\t%s\nprompt\t%s\n' "$model" "$out"
 	exit 0

@@ -19,4 +19,7 @@ flowchart TD
   route -- clarify --> user[/Ask the user<br/>FACT or DECISION/]
   user --> next
   p45 --> p5[Phase 5<br/>state report]
-  p5 --> p6[Phase 6<br/>review offer]
+  p5 --> p55[Phase 5.5<br/>offer merge of task branches]
+  p55 -- merge all --> leafM[[Merge leaf]]
+  p55 -- skip or no branches --> p6
+  leafM --> p6[Phase 6<br/>review offer]

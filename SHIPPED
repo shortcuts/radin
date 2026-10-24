@@ -20,6 +20,7 @@ lib radin-prompt-execution.md
 lib radin-prompt-debug.md
 lib radin-prompt-factfind.md
 lib radin-prompt-gate.md
+lib radin-prompt-merge.md
 lib radin-leaf-contract.md
 lib radin-comment-rule.md
 lib radin-explore-rule.md
@@ -28,6 +29,7 @@ lib radin-prioritization.md
 lib radin-batch-recovery.md
 lib radin-batch-reporting.md
 lib radin-batch-gate.md
+lib radin-batch-merge.md
 lib radin-batch-review.md
 lib radin-batch-clarify.md
 lib radin-batch-session.md
