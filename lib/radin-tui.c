@@ -126,6 +126,9 @@ static int FULL = 1; /* the next frame repaints every row, not just the changed 
  * cannot reorder an index-ordered list, so no row moves under the cursor.
  * Session-only on purpose: no state file. */
 static char SORT = 'A';
+/* The worktree and branch answers of state/session.json: 1 yes, 0 no, -1 not
+ * answered yet. The batch run reads them once at its start. */
+static int WT = -1, BR = -1;
 /* index.jsonl as of the last load(), so another shell's write is spotted with
  * two syscalls and an idle TUI does no work at all. POLL_MS is how long a key
  * wait blocks before that check; the tests shorten it. */
@@ -753,12 +756,43 @@ static int index_changed(void) {
 	return mt != IDX_MT || sz != IDX_SZ;
 }
 
+static void load_session(void) {
+	int ok;
+	char *out = cli(STATE, &ok, 0, NULL, "session-get", NULL);
+	WT = BR = -1;
+	if (ok) {
+		WT = strstr(out, "worktree\tyes") != NULL;
+		BR = strstr(out, "branch\tyes") != NULL;
+	}
+	free(out);
+}
+
+/* An unanswered side reads as "no", so the first toggle flips it to yes. */
+static void toggle_session(int branch) {
+	int wt = WT > 0, br = BR > 0, ok;
+	if (branch) br = !br;
+	else wt = !wt;
+	char *out = cli(STATE, &ok, 1, NULL, "session-set", wt ? "yes" : "no",
+		br ? "yes" : "no", NULL);
+	if (!ok) {
+		chomp(out);
+		setmsg("%s", out);
+	} else {
+		WT = wt;
+		BR = br;
+		setmsg("%s: %s", branch ? "branch" : "worktree",
+			(branch ? br : wt) ? "yes" : "no");
+	}
+	free(out);
+}
+
 /* --order created: index order, so no mutation moves a row. sort_tasks() then
  * applies whatever Shift- key the user pressed this session. */
 static void load(void) {
 	int ok;
 	/* Stamped before the read, so a write racing it is seen on the next poll. */
 	index_stamp(&IDX_MT, &IDX_SZ);
+	load_session();
 	char *out =
 		cli(BACKLOG, &ok, 0, NULL, "list", "--order", "created", "--planned", "--meta", NULL);
 	for (int i = 0; i < TASK_N; i++) free(T[i].meta);
@@ -1176,6 +1210,9 @@ static void draw(void) {
 	if (N)
 		snprintf(header + strlen(header), sizeof header - strlen(header), "  [%d/%d]",
 			SEL + 1, N);
+	/* Last, so a narrow terminal cuts this before the [sel/total] position. */
+	snprintf(header + strlen(header), sizeof header - strlen(header),
+		"  wt:%s br:%s", WT < 0 ? "?" : WT ? "yes" : "no", BR < 0 ? "?" : BR ? "yes" : "no");
 
 	frame_begin();
 	bar(header, 0, BAR_HEAD);
@@ -2019,6 +2056,8 @@ static void help_screen(void) {
 		"  A / P / C / T sort by creation order / priority / category / title.\n"
 		"                Creation order is the default every start returns to, and\n"
 		"                the order no edit reshuffles\n"
+		"  w / b         toggle the worktree / branch answer radin-batch reads at\n"
+		"                its start (wt and br in the header, ? = not answered)\n"
 		"  R             reload from disk\n"
 		"  q             quit\n\n"
 		"The priority column is coloured by a fixed map: 21/13 red, 8/5 yellow,\n"
@@ -2199,6 +2238,8 @@ int main(int argc, char **argv) {
 		case 'D': if ((ti = sel_task()) >= 0) edit_deps_task(ti); break;
 		case 'm': if ((ti = sel_task()) >= 0) move_epic_task(ti); break;
 		case 'E': new_epic(); break;
+		case 'w': toggle_session(0); break;
+		case 'b': toggle_session(1); break;
 		/* k9s binds Shift-<column initial> per column; radin follows it. */
 		case 'A':
 		case 'P':

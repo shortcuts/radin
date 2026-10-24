@@ -154,3 +154,15 @@ load helpers/tui
   [[ "$output" == *"3 task(s)"* ]]
 }
 
+
+@test "w and b persist the worktree and branch answers" {
+  seed
+  run tui "w|q"
+  [ "$status" -eq 0 ]
+  run cat "$NS/state/session.json"
+  [ "$output" = '{"worktree":"yes","branch":"no"}' ]
+  run tui "b|w|q"
+  [ "$status" -eq 0 ]
+  run cat "$NS/state/session.json"
+  [ "$output" = '{"worktree":"no","branch":"yes"}' ]
+}

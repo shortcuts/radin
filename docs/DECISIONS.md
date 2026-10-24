@@ -144,5 +144,6 @@ What an audit checks prose against:
 - **Markdown in the pane is a deliberate subset.** There is no fenced-code state. Lines wrap at build time by display column, not byte, so one buffer entry is one screen line and the scroll offset needs no map.
 - **Under 100 columns the pane is not drawn and `enter` opens the renderer full-screen.** **Why:** people read this on a phone.
 - **An idle TUI polls `index.jsonl`'s `st_mtime` and `st_size` every 5 seconds.** **Why:** an agent in another terminal writes the same index. It uses seconds and a size because the nanosecond `stat` field needs a platform branch. `RADIN_TUI_POLL_MS` shortens the interval for tests.
+- **`w` and `b` write the worktree and branch answers through `radin state session-set`.** **Why:** `state/session.json` stays the one owner of the answers, and `radin-batch` reads it once at its start, so a toggle never splits a run. An unanswered side counts as `no`.
 - **`NO_COLOR` keeps attributes and drops colors.** Priority colors use an absolute value map, so no other task's number moves a row's color. Every other color is structural, so nothing reads as a priority.
 - **It is not a skill, and no agent invokes it.** Bare `radin` on a terminal runs it. Off a terminal it prints usage and exits non-zero. **Why:** a skill or pipe trapped in a full-screen app would hang the loop until a timeout.
