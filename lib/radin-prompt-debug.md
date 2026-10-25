@@ -49,5 +49,4 @@ Your final message is exactly one of these lines, and nothing else:
 `[measured]` means you reproduced it or read the code that causes it and the
 sentence names which; `[inferred]` means it follows from what you measured.
 Anything less is NOT DIAGNOSED.
-Use NOT DIAGNOSED only after you have looked.
 ```
