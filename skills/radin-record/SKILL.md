@@ -104,6 +104,9 @@ execution sub-agent then implements from the entry alone. Anything else needs
 a plan: more files, a new module boundary or data shape, or an approach with a
 real alternative.
 
+Size each entry that needs no plan by `RADIN_LIB/radin-complexity-rule.md`. The
+planner sizes an entry that needs a plan.
+
 ## Step 5: Review, quiz the user on the batch, then append via the CLI
 
 An entry passes by carrying its decisions, or by naming what stays open. Literal
@@ -116,7 +119,7 @@ Present the batch as a numbered list, each item showing:
 - **Category**: from Step 4.
 - **Blocked by**: the entries that gate it, or "None, can start immediately".
 - **What it delivers**: the end-to-end behavior this entry makes work.
-- **Plan**: needed or not, with the one-line reason.
+- **Plan**: needed or not, with the one-line reason. When not needed, the complexity.
 
 Then call `AskUserQuestion` with one question: "Are the granularity, the dependencies,
 the split and the plan verdicts right?" Offer two options, "Yes, log them
@@ -141,7 +144,7 @@ trimmed to the decision-rich part.
 For each approved item:
 
 ```bash
-RADIN_CLI backlog add <category> "<short title>" [--skill <skill-name>] [--acceptance "<criterion>"] [--planning needed] <<'EOF'
+RADIN_CLI backlog add <category> "<short title>" [--skill <skill-name>] [--acceptance "<criterion>"] [--planning needed] [--complexity low|high] <<'EOF'
 <the description: what was being worked on, the item close to how the user
 stated it, why it matters>
 
@@ -163,7 +166,8 @@ Acceptance criteria live on the entry, not in the body: pass each criterion the
 session already stated as `--acceptance "<criterion>"` (repeatable), as bare text
 with no bullet and no checkbox. Never ask for criteria, never synthesise one.
 
-Pass `--planning needed` on each approved entry whose verdict is "needed".
+Pass `--planning needed` on each approved entry whose verdict is "needed", and
+`--complexity <low|high>` on every other entry.
 
 Once every `add` has printed its id, record Step 4's
 dependencies, one call per dependent entry, always after all the adds:

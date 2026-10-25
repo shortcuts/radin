@@ -1,5 +1,5 @@
 flowchart LR
-  idea([Bug, idea or follow-up]) --> record["/radin-record<br/>log entries"]
+  idea([Bug, idea or follow-up]) --> record["/radin-record<br/>log and size entries"]
   record --> backlog[(Backlog<br/>.claude/.radin)]
   backlog --> flag{Entry flagged<br/>planning needed?}
   flag -- yes --> plan["/radin-plan<br/>write plan file"]

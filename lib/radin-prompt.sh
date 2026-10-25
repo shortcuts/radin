@@ -77,6 +77,8 @@ explore_rule="$(fence "$LIB_DIR/radin-explore-rule.md")"
 [ -n "$explore_rule" ] || die "no fenced rule in $LIB_DIR/radin-explore-rule.md"
 open_decisions_rule="$(fence "$LIB_DIR/radin-open-decisions.md")"
 [ -n "$open_decisions_rule" ] || die "no fenced rule in $LIB_DIR/radin-open-decisions.md"
+complexity_rule="$(fence "$LIB_DIR/radin-complexity-rule.md")"
+[ -n "$complexity_rule" ] || die "no fenced rule in $LIB_DIR/radin-complexity-rule.md"
 
 # One `eval` of the CLI's own export lines, rather than parsing them: the
 # namespace is this script's only input that is not an argument.
@@ -226,8 +228,6 @@ strip_guards() {
 # when its name is listed here, and `<!-- if:!NAME -->` only when it is not.
 active=" CAT_$category "
 [ -z "$plan_paths" ] || active="$active PLAN_PATHS "
-# A planning dispatch for an unflagged or already-planned entry only sizes it.
-[ -n "$plan_paths" ] || ! field PLANNING >/dev/null || active="$active NEEDS_PLAN "
 [ -z "$skills" ] || active="$active SKILLS "
 [ -z "$acceptance" ] || active="$active ACCEPTANCE "
 [ -z "$facts" ] || active="$active FACTS "
@@ -248,6 +248,7 @@ sub_token LEAF_CONTRACT "$leaf_contract"
 sub_token COMMENT_RULE "$comment_rule"
 sub_token EXPLORE_RULE "$explore_rule"
 sub_token OPEN_DECISIONS_RULE "$open_decisions_rule"
+sub_token COMPLEXITY_RULE "$complexity_rule"
 sub_token NAMESPACE_DIR "$NAMESPACE_DIR"
 sub_token TASK_FILE "$task_file"
 sub_token TASK_DIR "$task_dir"

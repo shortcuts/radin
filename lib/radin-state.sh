@@ -1036,9 +1036,7 @@ task-next)
 		# A planning dispatch counts against MAX_ATTEMPTS but stays pending, so
 		# stuck-recovery ignores it and a dead planning leaf cannot loop forever.
 		# radin-record flags the entries that need one while the user can confirm it.
-		# An unsized entry gets one too, so the execution model is picked from
-		# a read of the code; entries recorded before sizing existed land here.
-		if { field PLANNING >/dev/null && ! field PLAN_PATHS >/dev/null; } || ! field COMPLEXITY >/dev/null; then
+		if field PLANNING >/dev/null && ! field PLAN_PATHS >/dev/null; then
 			kind=planning
 		fi
 		entry="$(entry_line "$steps" "$pid")"

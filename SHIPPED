@@ -25,6 +25,7 @@ lib radin-leaf-contract.md
 lib radin-comment-rule.md
 lib radin-explore-rule.md
 lib radin-open-decisions.md
+lib radin-complexity-rule.md
 lib radin-prioritization.md
 lib radin-batch-recovery.md
 lib radin-batch-reporting.md
