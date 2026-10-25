@@ -79,6 +79,8 @@ open_decisions_rule="$(fence "$LIB_DIR/radin-open-decisions.md")"
 [ -n "$open_decisions_rule" ] || die "no fenced rule in $LIB_DIR/radin-open-decisions.md"
 complexity_rule="$(fence "$LIB_DIR/radin-complexity-rule.md")"
 [ -n "$complexity_rule" ] || die "no fenced rule in $LIB_DIR/radin-complexity-rule.md"
+planning_rule="$(fence "$LIB_DIR/radin-planning-rule.md")"
+[ -n "$planning_rule" ] || die "no fenced rule in $LIB_DIR/radin-planning-rule.md"
 
 # One `eval` of the CLI's own export lines, rather than parsing them: the
 # namespace is this script's only input that is not an argument.
@@ -249,6 +251,7 @@ sub_token COMMENT_RULE "$comment_rule"
 sub_token EXPLORE_RULE "$explore_rule"
 sub_token OPEN_DECISIONS_RULE "$open_decisions_rule"
 sub_token COMPLEXITY_RULE "$complexity_rule"
+sub_token PLANNING_RULE "$planning_rule"
 sub_token NAMESPACE_DIR "$NAMESPACE_DIR"
 sub_token TASK_FILE "$task_file"
 sub_token TASK_DIR "$task_dir"

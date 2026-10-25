@@ -7,8 +7,9 @@ Rendered by `radin prompt planning <id>`. `lib/radin-prompt.sh` holds the format
 ```
 Read TASK_FILE first.
 
-When the task touches one or two files and has one obvious approach, it
-needs no plan: skip `/radin-plan` and go to the sizing step.
+PLANNING_RULE
+
+When the task needs no plan, skip `/radin-plan` and go to the sizing step.
 
 Otherwise invoke the `/radin-plan` skill scoped to the backlog task with id "TASK_ID",
 reading TASK_FILE in full as the task scope. It writes the plan file(s) and

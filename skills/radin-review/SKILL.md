@@ -220,7 +220,7 @@ discarded:
   ```
 
   For a group, `location` is the first member's citation. Pass `--planning needed`
-  unless its remedy touches one or two files with one obvious approach. Size an
+  unless `RADIN_LIB/radin-planning-rule.md` says the remedy needs no plan. Size an
   entry with no `--planning needed` by `RADIN_LIB/radin-complexity-rule.md` and
   pass `--complexity <low|high>`.
 - **Tackle now**: add every agreed group as above, journal the findings (next

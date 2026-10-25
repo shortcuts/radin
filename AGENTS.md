@@ -25,7 +25,7 @@ radin is a Claude Code plugin of skills, a CLI, and install glue.
 | One list of shipped files | `scripts/shipped.sh check`, run by `make check` | README row text is hand-written. |
 | Companion install is advisory | `tests/install.bats` ("a failing companion tool...") | None. |
 | One owner per delegation | `tests/skill-names.bats` (every name resolves) | Nothing for "one file per delegation" and graph tool names; review only. |
-| One owner per prose rule | `LEAF_CONTRACT`, `EXPLORE_RULE` and `OPEN_DECISIONS_RULE` tokens, `scripts/check-prose.sh` (new verbatim sentence copy) | A paraphrase or contradiction; review only. |
+| One owner per prose rule | `LEAF_CONTRACT`, `EXPLORE_RULE`, `OPEN_DECISIONS_RULE` and `PLANNING_RULE` tokens, `scripts/check-prose.sh` (new verbatim sentence copy) | A paraphrase or contradiction; review only. |
 | Name each companion directly, no guard or escape clause | `scripts/check-prose.sh` guard phrases | A paraphrase escapes the phrase list. |
 | A test must be able to fail | `scripts/check-prose.sh` bare `! cmd` lint | Other vacuous patterns; review only. |
 | Same checks locally and in CI | `make check` and `make test` in `.github/workflows/ci.yml` | Linux run unverified. |

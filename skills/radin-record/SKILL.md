@@ -98,11 +98,7 @@ Classify into exactly one category (conventional-commit vocabulary):
 - **chore**: a maintenance follow-up (docs, tooling, cleanup).
 - **refactor**: structure should change without behavior change.
 
-Then judge whether the item needs a plan before execution. It needs none when
-the change touches one or two files and has one obvious approach: an
-execution sub-agent then implements from the entry alone. Anything else needs
-a plan: more files, a new module boundary or data shape, or an approach with a
-real alternative.
+Then judge whether the item needs a plan before execution. Judge by `RADIN_LIB/radin-planning-rule.md`. An entry that needs no plan goes to an execution sub-agent, which implements from the entry alone.
 
 Size each entry that needs no plan by `RADIN_LIB/radin-complexity-rule.md`. The
 planner sizes an entry that needs a plan.
