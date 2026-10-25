@@ -26,7 +26,7 @@
 #   radin-backlog.sh list [--order created|priority] [--planned] [--meta]  # print "id<US>category<US>title<US>file<US>priority<US>depends-on-csv" (US = \037), priority-descending by default, unset priorities last (--order created gives index order; --planned appends a P/empty field; --meta appends the `meta` lines joined by RS = \036, so one fork reads every entry's fields)
 #   radin-backlog.sh find <id-or-title>          # print matching "id<TAB>category<TAB>title<TAB>file<TAB>priority<TAB>depends-on-csv" line(s)
 #   radin-backlog.sh count                       # print the number of entries (0 without an index)
-#   radin-backlog.sh add <category> <title> [--skill <name>]... [--acceptance <criterion>]... [--planning needed] [--complexity low|high] [--location <path:line>] [--deps <csv>]  # create task, body read from stdin, prints its bare id on stdout (the human sentence goes to stderr)
+#   radin-backlog.sh add <category> <title> [--skill <name>]... [--acceptance <criterion>]... [--planning needed] [--complexity low|high] [--location <path:line>] [--deps <csv-of-ids-or-titles>]  # create task, body read from stdin, prints its bare id on stdout (the human sentence goes to stderr)
 #   radin-backlog.sh add-plan <id-or-title> <path>  # plan-lint the file, then add one plan pointer to the task's entry, and record HEAD in plans/<id>.head
 #   radin-backlog.sh append <id-or-title>        # append text from stdin to the task's file
 #   radin-backlog.sh fact <id-or-title> <measured|inferred|guess> <line> [--long <path>]  # append "**Fact:** [<label>] <line>" to the task's file; --long also records <path> as its facts pointer (set-meta facts)
@@ -37,7 +37,7 @@
 #   radin-backlog.sh set-category <id-or-title> <category>  # move a task to another category
 #   radin-backlog.sh retitle <id-or-title> <title>  # change a task's title (its id never changes)
 #   radin-backlog.sh set-priority <id-or-title> <1|2|3|5|8|13|21|--none>  # set/clear the priority (higher wins)
-#   radin-backlog.sh set-deps <id-or-title> <csv-of-ids|--none>   # set/clear depends_on (rejects an unknown id and any cycle)
+#   radin-backlog.sh set-deps <id-or-title> <csv-of-ids-or-titles|--none>   # set/clear depends_on (each item resolves like `find`; rejects a cycle)
 #   radin-backlog.sh set-meta <id-or-title> <plan|skills|acceptance|facts|location|planning|complexity> <value>...|--none  # set/clear one index-line field (skills takes skill names; facts, location, planning and complexity take exactly one value; planning takes only "needed", complexity "low" or "high")
 #   radin-backlog.sh meta <id-or-title>          # print "plan<TAB><path>" / "skill<TAB><instruction>" / "acceptance<TAB><criterion>" / "facts<TAB><path>" / "location<TAB><path:line>" / "planning<TAB>needed" / "complexity<TAB>low|high" lines from the task's entry
 #   radin-backlog.sh order <--rank-needed|--report|--steps> [--rank <csv-of-ids>] [--infer-deps <id>=<csv>]... [--defer <csv-of-ids>|--only <csv-of-ids-orders-or-titles>|--first]  # the execution order: the priority order with the topological dependency fix applied (--rank-needed: print every unset-priority id, exit 1 when there are none; --report: "<order>. <title> (id: <id>)" plus one "dependency override:" line per violated edge; --steps: "id<TAB>order<TAB>depends-on-csv<TAB>pending|deferred", which is `radin state steps-init`'s stdin format; --only defers every id outside the csv, --first every id but the one at order 1)
@@ -791,14 +791,23 @@ require_priority() {
 	esac
 }
 
-# Every id in "$@" must already exist. A missing index just has no known ids,
-# so `add`'s first task still reports the unknown id rather than the index.
-require_known_ids() {
-	local d
-	for d in "$@"; do
-		grep -qF "\"id\":\"$d\"" "$BACKLOG_INDEX" 2>/dev/null ||
-			die "no such task id: $d"
-	done
+# Sets RESOLVED_IDS to the space-separated ids for the csv of ids or titles in
+# $1. Each item resolves like `find`: exactly one entry must match. Resolved per
+# item, because a title holds spaces. Sets a variable, not stdout: a command
+# substitution does not inherit set -e, so its die would not stop the caller.
+resolve_deps() {
+	local ref entry
+	RESOLVED_IDS=""
+	while IFS= read -r ref; do
+		ref="$(printf '%s' "$ref" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+		[ -n "$ref" ] || continue
+		# A missing index has no entries, so `add`'s first task reports the item, not awk's error.
+		[ -s "$BACKLOG_INDEX" ] || die "no entry matches: $ref"
+		entry="$(single_match "$ref")"
+		RESOLVED_IDS="$RESOLVED_IDS $(json_get id "$entry")"
+	done <<EOF
+$(printf '%s' "$1" | tr ',' '\n')
+EOF
 }
 
 # True when target $1 is reachable from the ids in "$@". The seen list is what
@@ -982,8 +991,8 @@ add)
 			shift 2
 			;;
 		--deps)
-			[ -n "${2:-}" ] || usage_die add "--deps needs a csv of ids"
-			add_deps="$(printf '%s' "$2" | tr ',' ' ')"
+			[ -n "${2:-}" ] || usage_die add "--deps needs a csv of ids or titles"
+			add_deps="$2"
 			shift 2
 			;;
 		*) usage_die add "unknown add option: $1" ;;
@@ -998,8 +1007,8 @@ add)
 	[ -z "$add_planning" ] || require_meta_value planning "$add_planning"
 	[ -z "$add_complexity" ] || require_meta_value complexity "$add_complexity"
 	[ -z "$add_location" ] || require_meta_value location "$add_location"
-	# shellcheck disable=SC2086
-	[ -z "$add_deps" ] || require_known_ids $add_deps
+	resolve_deps "$add_deps"
+	add_deps="$RESOLVED_IDS"
 	id="$(slugify "$title")"
 	[ -n "$id" ] || die "title produced an empty id: $title"
 	base="$id"
@@ -1460,11 +1469,10 @@ set-deps)
 	if [ "$value" = "--none" ]; then
 		dep_array=""
 	else
-		deps="$(printf '%s' "$value" | tr ',' ' ')"
+		resolve_deps "$value"
+		deps="$RESOLVED_IDS"
 		# Validation lives here, not in a skill: an unknown id or a cycle
 		# makes `radin state deps-check` wait forever instead of failing.
-		# shellcheck disable=SC2086
-		require_known_ids $deps
 		# shellcheck disable=SC2086
 		deps_reaches "$id" $deps &&
 			die "depends_on would create a cycle through $id"

@@ -173,11 +173,13 @@ Once every `add` has printed its id, record Step 4's
 dependencies, one call per dependent entry, always after all the adds:
 
 ```bash
-RADIN_CLI backlog set-deps <dependent-id> <csv-of-ids-it-depends-on>
+RADIN_CLI backlog set-deps <dependent-id-or-title> <csv-of-ids-or-titles-it-depends-on>
 ```
 
-Each noted title is either an id an `add` just printed, or, for a task that already
-existed, `RADIN_CLI backlog field "<title>" TASK_ID`.
+Each item is an id an `add` just printed, or the title of a task that already
+existed. A title that matches several entries fails the call. Pass its id instead.
+A new entry whose dependencies all exist may pass `--deps <csv-of-ids-or-titles>`
+on its `add` instead.
 
 Always append. Never scan for near-duplicates or merge with an existing entry, because a
 false-positive merge silently drops something the user cared about, which is worse

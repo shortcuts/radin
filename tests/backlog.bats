@@ -283,6 +283,26 @@ nest_task() {
   [ "$(cat "$INDEX")" = "$before" ]
 }
 
+@test "set-deps and add --deps resolve titles, and refuse no match or several" {
+  cli add fix "Broken Auth" <<<"b"
+  cli add feat "three" <<<"b"
+  run cli set-deps three "Broken Auth"
+  [ "$status" -eq 0 ]
+  [[ "$(cat "$INDEX")" == *'"depends_on":["broken-auth"]'* ]]
+  run cli add feat "four" --deps "Broken Auth" <<<"b"
+  [ "$status" -eq 0 ]
+  [[ "$(grep '"id":"four"' "$INDEX")" == *'"depends_on":["broken-auth"]'* ]]
+  run cli add feat "five" --deps ghost <<<"b"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"no entry matches: ghost"* ]]
+  cli add fix "Broken Auth" <<<"b"
+  before="$(cat "$INDEX")"
+  run cli set-deps three "Broken Auth"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"matches 2 entries"* ]]
+  [ "$(cat "$INDEX")" = "$before" ]
+}
+
 @test "remove prunes the removed id from other entries' depends_on" {
   cli add feat "keeper" <<<"b"
   cli add feat "doomed" <<<"b"
