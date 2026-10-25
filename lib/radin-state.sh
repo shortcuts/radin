@@ -44,6 +44,7 @@
 #   radin-state.sh completed-list               # print "id<TAB>commit" per completion, exit 1 if none (the TUI's Done view)
 #   radin-state.sh session-commits              # print this session's commits, oldest first, one hash per line: task-done commits past the baseline, then gate fixes; exit 1 if none
 #   radin-state.sh merge-list                   # print "base<TAB>branch", then "id<TAB>branch<TAB>hash" per session task branch not yet in the base; exit 1 if none
+#   radin-state.sh merge                        # merge each merge-list branch that merges cleanly into the base, drop its worktree and branch; exit 3 when a branch conflicts (printed as "conflict<TAB>branch")
 #   radin-state.sh gate-fix <hash>...           # record the gate's fix commits (state/gate-fixes) so session-commits lists them
 #   radin-state.sh deps-check <id>              # print "dep<TAB>hash" per dependency, exit 1 naming the first unresolved one (radin-prompt.sh)
 #   radin-state.sh task-dir <id>                # print the task's worktree if it exists, else the repo root (radin-prompt.sh)
@@ -560,6 +561,38 @@ merge-list)
 	done <"$completed"
 	[ -n "$out" ] || exit 1
 	printf 'base\t%s\n%s\n' "$base_branch" "$out"
+	;;
+
+merge)
+	state_dir="$ns/state"
+	list="$(bash "$LIB_DIR/radin-state.sh" merge-list)" || exit 0
+	base="$(printf '%s\n' "$list" | sed -n '1s/^base\t//p')"
+	git -C "$repo_root" checkout "$base" >&2 || die "cannot check out $base"
+	merged=""
+	conflicts=""
+	while IFS=$'\t' read -r mid mbranch mhash; do
+		if ! git -C "$repo_root" merge --no-edit "$mbranch" >&2; then
+			git -C "$repo_root" merge --abort >&2 || true
+			printf 'conflict\t%s\n' "$mbranch"
+			conflicts="${conflicts:+$conflicts,}$mbranch"
+			continue
+		fi
+		printf 'merged\t%s\t%s\n' "$mbranch" "$mhash"
+		merged="${merged:+$merged,}$mbranch"
+		wt=""
+		[ ! -s "$state_dir/prepared/$mid.json" ] || wt="$(json_get worktree "$(cat "$state_dir/prepared/$mid.json")")"
+		if [ -n "$wt" ] && [ -d "$wt" ]; then
+			git -C "$repo_root" worktree remove "$wt" >&2 || {
+				printf 'merge: kept %s, worktree %s would not remove\n' "$mbranch" "$wt" >&2
+				continue
+			}
+		fi
+		git -C "$repo_root" branch -d "$mbranch" >&2 || true
+	done <<EOF2
+$(printf '%s\n' "$list" | sed 1d)
+EOF2
+	journal "$state_dir" "merge" "" "merged=$merged conflict=$conflicts"
+	[ -z "$conflicts" ] || exit 3
 	;;
 
 gate-fix)
@@ -1594,6 +1627,6 @@ finding-classes)
 	;;
 
 *)
-	die "unknown command: ${cmd:-<none>} (steps-init|task-next|task-report|task-fact|task-diagnosis|task-done|set-status|stuck|recover|recover-reject|report|session-set|session-get|prepare|dirty-check|trace|completed-show|completed-list|session-commits|merge-list|gate-fix|deps-check|task-dir|journal-tail|plan-covers|review-findings|finding-classes)"
+	die "unknown command: ${cmd:-<none>} (steps-init|task-next|task-report|task-fact|task-diagnosis|task-done|set-status|stuck|recover|recover-reject|report|session-set|session-get|prepare|dirty-check|trace|completed-show|completed-list|session-commits|merge-list|merge|gate-fix|deps-check|task-dir|journal-tail|plan-covers|review-findings|finding-classes)"
 	;;
 esac

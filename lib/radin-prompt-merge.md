@@ -11,6 +11,8 @@ Merge each task branch below into MERGE_BASE, in the listed order, with
 MERGE_BASE`. Touch nothing under `.claude/.radin/`.
 LEAF_CONTRACT
 
+The branches are ones `radin state merge` could not merge cleanly.
+
 The branches, as `branch (task commit)`: MERGE_BRANCHES.
 
 A clean merge: continue with the next branch.
