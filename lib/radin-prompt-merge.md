@@ -28,7 +28,7 @@ from `git worktree list`) and delete it with `git branch -d`. `-d` refuses an
 unmerged branch: never use `-D`. Leave an unmerged branch and its worktree in
 place. Leave the checkout on MERGE_BASE with a clean tree.
 
-The LAST line is exactly one of:
+Your final message is exactly one of these lines, and nothing else:
 `STATUS: SUCCESS — merged <branch list> into MERGE_BASE at <tip hash>`
 `STATUS: BLOCKED (DECISION) — <branch>: <the two behaviors in conflict>; merged <branch list, or "none">`
 `STATUS: FAILED — <branch>, <why the merge or its checks failed>; merged <branch list, or "none">`

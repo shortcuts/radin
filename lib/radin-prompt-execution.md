@@ -10,7 +10,7 @@ A task whose entry carries `complexity low` runs on the `model-low:` line instea
 ```
 Execute the task below.
 
-Report back the LAST line of your response as exactly one of:
+Your final message is exactly one of these lines, and nothing else:
 `STATUS: SUCCESS — <commit hash(es), or "no new commit, already satisfied by <existing
 hash>">; built: <what now works, one clause>; chose: <each judgment call you
 made and why, or "none">; open: <decisions left for the user, or "none">`
@@ -21,8 +21,7 @@ API/library behavior local code and repo exploration can't settle>`
 `STATUS: BLOCKED (DECISION) — <what you need from the user (a decision, a confirmation,
 guidance or a human action), the options, and your recommendation>`
 This line is mandatory whether the task was implemented, found already done, or
-blocked. The router acts on this line alone, and your final message is exactly
-this one line.
+blocked. The router acts on this line alone.
 
 Before you report, record each item below with one call per line:
 `RADIN_CLI backlog fact "TASK_ID" <measured|inferred|guess> "<the line>"`. On SUCCESS, `task-done` keeps these lines in the task's facts

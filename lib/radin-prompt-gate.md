@@ -22,7 +22,7 @@ running only that check, then `git bisect reset`. Fix forward on that branch
 through `/caveman:surgical-patch`, commit through `/caveman:caveman-commit`
 naming the culprit commit, and re-run the full suite. Leave the tree clean.
 
-The LAST line is exactly one of:
+Your final message is exactly one of these lines, and nothing else:
 `STATUS: SUCCESS — <"suite green at <hash>", or "fixed in <hash(es)>, culprit <hash(es)>">`
 `STATUS: FAILED — <failing check>, culprit <hash>, <why no fix landed>`
 `STATUS: INCONCLUSIVE — <check that could not run, and why>`
