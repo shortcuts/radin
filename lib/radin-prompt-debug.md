@@ -32,7 +32,6 @@ Prefer primary evidence on this machine (command output, a file's
 actual contents) over recollection.
 
 LEAF_CONTRACT
-A skill that starts asking a human: stop invoking it and diagnose on your own.
 
 Write nothing except, when the evidence is longer than a summary can carry,
 `NAMESPACE_DIR/state/facts/TASK_ID.md`; name
