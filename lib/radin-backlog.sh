@@ -29,6 +29,7 @@
 #   radin-backlog.sh add <category> <title> [--skill <name>]... [--acceptance <criterion>]... [--planning needed] [--complexity low|high] [--location <path:line>] [--deps <csv>]  # create task, body read from stdin, prints its bare id on stdout (the human sentence goes to stderr)
 #   radin-backlog.sh add-plan <id-or-title> <path>  # plan-lint the file, then add one plan pointer to the task's entry, and record HEAD in plans/<id>.head
 #   radin-backlog.sh append <id-or-title>        # append text from stdin to the task's file
+#   radin-backlog.sh fact <id-or-title> <measured|inferred|guess> <line> [--long <path>]  # append "**Fact:** [<label>] <line>" to the task's file; --long also records <path> as its facts pointer (set-meta facts)
 #   radin-backlog.sh plan-target <id-or-title> [<sub-task title>]  # resolve one task for planning: "id"/"title"/"task_file"/"plan_file" TAB lines plus a "facts<TAB><path>" line when set and one "plan<TAB><path>" per existing pointer; exit 1 no match, 2 several (candidates on stderr), 3 already planned
 #   radin-backlog.sh open-decisions <id-or-title>  # print the question of each `**Open decision:**` line after the task file's last `**Decision:**` line, one per line; exit 1 with nothing when none is open
 #   radin-backlog.sh files <id-or-title|plan-file>  # print the paths in the `## Changes` section of every plan the task points at (or of the one plan file given), one per line, deduplicated; exit 1 with nothing when there is no plan or no path
@@ -1228,6 +1229,32 @@ append)
 	require_no_moved_label "$BODY"
 	printf '\n%s\n' "$BODY" >>"$(entry_path "$entry")"
 	printf 'appended to "%s"\n' "$(json_get title "$entry")"
+	;;
+
+fact)
+	[ -n "${2:-}" ] && [ -n "${3:-}" ] || usage_die fact "fact needs an id or title, a label and the line"
+	case "$3" in
+	measured | inferred | guess) ;;
+	*) usage_die fact "label must be measured|inferred|guess, got: $3" ;;
+	esac
+	[ -n "${4:-}" ] || die "fact line is empty (pass it as the fourth argument)"
+	long=""
+	case "${5:-}" in
+	"") ;;
+	--long)
+		[ -n "${6:-}" ] || usage_die fact "--long needs a path"
+		long="$6"
+		;;
+	*) usage_die fact "unknown argument: $5" ;;
+	esac
+	require_index
+	entry="$(single_match "$2")"
+	text="**Fact:** [$3] $4"
+	require_no_moved_label "$text"
+	[ -z "$long" ] || require_meta_value facts "$long"
+	printf '\n%s\n' "$text" >>"$(entry_path "$entry")"
+	[ -z "$long" ] || set_index_field "$(json_get id "$entry")" facts "$(json_string "$long")"
+	printf 'fact recorded on "%s"\n' "$(json_get title "$entry")"
 	;;
 
 open-decisions)

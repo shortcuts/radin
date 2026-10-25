@@ -36,9 +36,9 @@ Route on it:
   - `STATUS: FOUND`: a fact-finder's line goes to
     `RADIN_CLI state task-fact "<task id>" "<the STATUS: line>"`, which appends
     the `**Fact:**` line with its token and records a reported
-    `state/facts/<id>.md` path. A research report has no fixed line: append its
-    finding with `backlog append` (labels below) and `backlog set-meta`. Then
-    re-run the task (Phase 4).
+    `state/facts/<id>.md` path. A research report has no fixed line: record its
+    finding with `RADIN_CLI backlog fact "<task id>" <label> "<finding>" --long "<path>"`,
+    where `<path>` is the `state/facts/<id>.md` file. Then re-run the task (Phase 4).
   - `STATUS: NOT FOUND`: it has escalated into a decision. Fall through to
     `(DECISION)`, with its report as context.
 - **`BLOCKED (DECISION)`**: a judgment call, a confirmation or a human action
@@ -56,15 +56,14 @@ RADIN_CLI backlog append "<task id>" <<'EOF'
 EOF
 ```
 
-Same command, one label per kind of appended material: `**Decision:**` for a
-settled judgment call, `**Fact:**` for a fact-finder's answer, `**Root
-cause:**` for a diagnosis. The long form of any of them is a file the entry
+`append` takes `**Decision:**` for a settled judgment call and `**Root
+cause:**` for a diagnosis. `fact` takes a fact-finder's answer:
+`RADIN_CLI backlog fact "<task id>" <measured|inferred|guess> "<the line>"`,
+with the label the source gave. The long form of any of them is a file the entry
 points at, recorded with
-`RADIN_CLI backlog set-meta "<task id>" facts "<path>"`. Every one of them is
-task-scoped: never copy one onto another entry, and never build a shared
-notes file. A hand-appended `**Fact:**` line keeps the `[measured]` or
-`[inferred]` token of its source, copied after the label; a line with no token
-is a guess.
+`RADIN_CLI backlog set-meta "<task id>" facts "<path>"`; a `fact` call sets it
+with `--long`. Every one of them is task-scoped: never copy one onto another
+entry, and never build a shared notes file.
 
 Then re-run the task (Phase 4).
 

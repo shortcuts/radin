@@ -24,13 +24,11 @@ This line is mandatory whether the task was implemented, found already done, or
 blocked. The router acts on this line alone, and your final message is exactly
 this one line.
 
-Before you report, append each item below to the task, one line each, with
-`RADIN_CLI backlog append "TASK_ID"` and a `**Fact:** [measured|inferred|guess] <the line>`
-line on stdin. On SUCCESS, `task-done` keeps these lines in the task's facts
+Before you report, record each item below with one call per line:
+`RADIN_CLI backlog fact "TASK_ID" <measured|inferred|guess> "<the line>"`. On SUCCESS, `task-done` keeps these lines in the task's facts
 file for `/radin-review`. Label every `**Fact:**` line: `measured` when you ran
 a command or read a file this session and the line names which, `inferred` when
-it follows from measured facts the line names, `guess` otherwise. A line with no
-label is a guess.
+it follows from measured facts the line names, `guess` otherwise.
 
 LEAF_CONTRACT
 
@@ -186,8 +184,8 @@ COMMENT_RULE
    Prove the change on the real artifact: run the changed code path itself and
    read its actual output. "It compiles", a passing proxy and a check on the
    wrong surface are not proof.
-   Record one line per acceptance criterion and per plan box:
-   `**Fact:** [measured] <criterion or box>: <the command and the output that
+   Record one `backlog fact` line per acceptance criterion and per plan box,
+   labeled `measured`: `<criterion or box>: <the command and the output that
    proves it>`. A criterion or box you could not prove makes the task
    `STATUS: INCONCLUSIVE` naming it, never `SUCCESS`.
    A check that fails: suspect your observation (wrong command, stale build)

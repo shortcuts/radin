@@ -56,7 +56,7 @@ you.
 A sub-agent's `STATUS: BLOCKED` routes through
 `RADIN_LIB/radin-batch-clarify.md`: read it and follow it. It holds
 the routing for both tags, the fact-finder handoff, the research arm for a
-fact that lives outside this repo, and the `backlog append` labels that put a
+fact that lives outside this repo, and the `backlog append` labels and `backlog fact` verb that put a
 settled answer where planning and execution sub-agents read it.
 
 Every status change this skill makes goes through one command, and this is its

@@ -74,10 +74,7 @@ For each sub-task, in order:
      to, plan the parts that do not hinge on it meanwhile, then record it:
 
      ```bash
-     RADIN_CLI backlog append "<id>" <<'EOF'
-     **Fact:** <the answer in one sentence, naming the source that owns it>
-     EOF
-     RADIN_CLI backlog set-meta "<id>" facts "<the state/facts path above>"
+     RADIN_CLI backlog fact "<id>" measured "<the answer in one sentence, naming the source that owns it>" --long "<the state/facts path above>"
      ```
 
      The skill asks you anything: drop it and name the question in the
