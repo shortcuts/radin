@@ -257,9 +257,8 @@ order:
   ids of live tasks sharing its plan files or a `depends_on` edge.
 
 `kind` is `planning` for an entry radin-record flagged as needing a plan that
-has none yet, else `execution`. A `planning` dispatch that reports
-`STATUS: PLANNED` skips `task-report`. A planning leaf with no `STATUS:` line goes in as `--no-status` like any other; it retries until `MAX_ATTEMPTS`, then `task-next` blocks it. Re-run `task-next "<task id>"`, which
-now hands out its execution prompt. `STATUS: BLOCKED (FACT|DECISION)`
+has none yet, else `execution`. A planning leaf with no `STATUS:` line goes in as `--no-status` like any other; it retries until `MAX_ATTEMPTS`, then `task-next` blocks it.
+`STATUS: BLOCKED (FACT|DECISION)`
 routes per Clarifying Ambiguity. Dispatch the prompt as one
 `Agent` call with exactly that model, `name: "radin-<kind>-<task id>"`
 (`kind` is `planning`, `execution`, `debug` or `factfind`), and this text,
@@ -276,7 +275,7 @@ session dies.
 
 When the sub-agent reports, hand its last line to one call. It verifies the
 tree first (a dirty tree fails the task, whatever the `STATUS:` claimed), then
-records the terminal state and prints the report line:
+records the terminal state and prints the report line. A planning leaf's `STATUS: PLANNED` goes in too, and `task-report` records its sizing:
 
 ```bash
 RADIN_CLI state task-report "<task id>" "<the sub-agent's STATUS: line>" --next

@@ -9,9 +9,8 @@ flowchart TD
   next -- exit 0 --> kind{kind}
   kind -- planning --> leafP[[Planning leaf]]
   kind -- execution --> leafE[[Execution leaf]]
-  leafP -- STATUS: PLANNED --> next
   leafE -- STATUS line --> report[task-report]
-  leafP -- other STATUS --> report
+  leafP -- STATUS line --> report
   report --> route{next}
   route -- continue --> next
   route -- debug --> debug[[Debug leaf, once]]

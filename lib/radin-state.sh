@@ -17,7 +17,7 @@
 #                                               # the fourth field is optional and defaults to pending; also writes state/baseline.json
 #   radin-state.sh task-next [<id>]  # pick, gate, claim and write the prompt in one call; an entry flagged planning=needed with no plan gets a planning prompt that counts against MAX_ATTEMPTS; exit 1 when nothing is left
 # an execution task also prints "overlap<TAB>none|unclear|<id>[,<id>...]": other live tasks sharing plan files
-#   radin-state.sh task-report <id> <the sub-agent's STATUS: line (SUCCESS|FAILED|INCONCLUSIVE|BLOCKED)> [--next] [--usage "<kind> <tokens> <tool_uses> <duration_ms>"]...  # verify the tree, record the outcome (a SUCCESS line's text after its first ";" is journaled as a summary event for report; it also journals an unproven event per acceptance criterion no **Fact:** [measured] line names, shown by report), then a final "next<TAB>continue|debug|clarify FACT|clarify DECISION" line
+#   radin-state.sh task-report <id> <the sub-agent's STATUS: line (SUCCESS|FAILED|INCONCLUSIVE|BLOCKED|PLANNED)> [--next] [--usage "<kind> <tokens> <tool_uses> <duration_ms>"]...  # verify the tree, record the outcome (a PLANNED line skips the tree check and writes planning --none and complexity; a SUCCESS line's text after its first ";" is journaled as a summary event for report; it also journals an unproven event per acceptance criterion no **Fact:** [measured] line names, shown by report), then a final "next<TAB>continue|debug|clarify FACT|clarify DECISION" line
 #   radin-state.sh task-report <id> --no-status <last line> [--next] [--usage "<kind> <tokens> <tool_uses> <duration_ms>"]...  # the same, for a sub-agent that ended with no STATUS: line
 #                                               # --next: when the final line is "next<TAB>continue", also run task-next and print its output after; exit is task-next's
 #   radin-state.sh task-fact <id> "<STATUS: FOUND line>"  # becomes a **Fact:** line (token kept, else [guess]); a long form path goes to set-meta facts; any other line exits 1
@@ -1176,6 +1176,7 @@ task-report)
 	line="$third"
 	tag=""
 	case "$line" in
+	*"STATUS: PLANNED"*) word="PLANNED" ;;
 	*"BLOCKED (FACT)"*)
 		word="BLOCKED"
 		tag="FACT"
@@ -1189,6 +1190,26 @@ task-report)
 	*FAILED*) word="FAILED" ;;
 	*) die "no SUCCESS/FAILED/INCONCLUSIVE/BLOCKED in that line: $line -- pass --no-status when the sub-agent produced none" ;;
 	esac
+	if [ "$word" = "PLANNED" ]; then
+		# A planning leaf writes only under .claude/.radin/, so no tree check.
+		detail="${line#*—}"
+		case "$detail" in
+		" none needed"*) (cd "$repo_root" && bash "$LIB_DIR/radin-backlog.sh" set-meta "$id" planning --none >/dev/null) ;;
+		esac
+		size=""
+		case "$detail" in
+		*"complexity low:"*) size=low ;;
+		*"complexity high:"*) size=high ;;
+		esac
+		if [ -n "$size" ]; then
+			(cd "$repo_root" && bash "$LIB_DIR/radin-backlog.sh" set-meta "$id" complexity "$size" >/dev/null)
+		else
+			printf 'radin-state: PLANNED line for %s has no "complexity low|high:"; left unsized\n' "$id" >&2
+		fi
+		printf 'task-report: planned %s\n' "$id"
+		printf 'next\tcontinue\n'
+		exit 0
+	fi
 	# The tree comes first whatever the line claimed: a dirty tree fails the
 	# task and nothing else runs.
 	if dirty="$(dirty_recover "$id" "$word")"; then

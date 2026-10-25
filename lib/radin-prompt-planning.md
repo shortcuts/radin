@@ -8,8 +8,7 @@ Rendered by `radin prompt planning <id>`. `lib/radin-prompt.sh` holds the format
 Read TASK_FILE first.
 
 When the task touches one or two files and has one obvious approach, it
-needs no plan: run `RADIN_CLI backlog set-meta "TASK_ID" planning --none`
-and go to the sizing step.
+needs no plan: skip `/radin-plan` and go to the sizing step.
 
 Otherwise invoke the `/radin-plan` skill scoped to the backlog task with id "TASK_ID",
 reading TASK_FILE in full as the task scope. It writes the plan file(s) and
@@ -28,8 +27,7 @@ OPEN_DECISIONS_RULE
 
 Find each Fact yourself; block only on a Decision.
 
-Sizing step: read the code the task touches, size it by this rule, and run
-`RADIN_CLI backlog set-meta "TASK_ID" complexity <low|high>`:
+Sizing step: read the code the task touches, size it by this rule:
 
 COMPLEXITY_RULE
 
