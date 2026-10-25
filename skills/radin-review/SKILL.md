@@ -214,13 +214,15 @@ discarded:
 - **Add to backlog** (also the first half of **Tackle now**):
 
   ```bash
-  RADIN_CLI backlog add <fix|refactor> "<short title>" --location "<the cited path:line>" [--planning needed] <<'EOF'
+  RADIN_CLI backlog add <fix|refactor> "<short title>" --location "<the cited path:line>" [--planning needed] [--complexity low|high] <<'EOF'
   <the body>
   EOF
   ```
 
   For a group, `location` is the first member's citation. Pass `--planning needed`
-  unless its remedy touches one or two files with one obvious approach.
+  unless its remedy touches one or two files with one obvious approach. Size an
+  entry with no `--planning needed` by `RADIN_LIB/radin-complexity-rule.md` and
+  pass `--complexity <low|high>`.
 - **Tackle now**: add every agreed group as above, journal the findings (next
   paragraph), then invoke `/radin-batch` once, naming the new task ids as its
   scope. One session runs one Phase 4.5 gate and one Phase 5 report for the
