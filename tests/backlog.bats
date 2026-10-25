@@ -425,6 +425,18 @@ IDX
   [ "${lines[3]}" = "low"$'\t'"4"$'\t\t'"pending" ]
   run cli order --steps --only nope
   [ "$status" -ne 0 ]
+  run cli order --steps --only 4,mid-a
+  [ "$status" -eq 0 ]
+  [ "${lines[0]}" = "high"$'\t'"1"$'\t\t'"deferred" ]
+  [ "${lines[1]}" = "mid-a"$'\t'"2"$'\t\t'"pending" ]
+  [ "${lines[3]}" = "low"$'\t'"4"$'\t\t'"pending" ]
+  run cli order --steps --only 9
+  [ "$status" -eq 1 ]
+  run cli order --steps --only "mid b"
+  [ "${lines[2]}" = "mid-b"$'\t'"3"$'\t\t'"pending" ]
+  run cli order --steps --only mid
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"candidate"$'\t'"mid-a"* ]]
   run cli order --steps --only low --first
   [ "$status" -ne 0 ]
 }

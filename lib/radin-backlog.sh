@@ -40,7 +40,7 @@
 #   radin-backlog.sh set-deps <id-or-title> <csv-of-ids|--none>   # set/clear depends_on (rejects an unknown id and any cycle)
 #   radin-backlog.sh set-meta <id-or-title> <plan|skills|acceptance|facts|location|planning|complexity> <value>...|--none  # set/clear one index-line field (skills takes skill names; facts, location, planning and complexity take exactly one value; planning takes only "needed", complexity "low" or "high")
 #   radin-backlog.sh meta <id-or-title>          # print "plan<TAB><path>" / "skill<TAB><instruction>" / "acceptance<TAB><criterion>" / "facts<TAB><path>" / "location<TAB><path:line>" / "planning<TAB>needed" / "complexity<TAB>low|high" lines from the task's entry
-#   radin-backlog.sh order <--rank-needed|--report|--steps> [--rank <csv-of-ids>] [--infer-deps <id>=<csv>]... [--defer <csv-of-ids>|--only <csv-of-ids>|--first]  # the execution order: the priority order with the topological dependency fix applied (--rank-needed: print every unset-priority id, exit 1 when there are none; --report: "<order>. <title> (id: <id>)" plus one "dependency override:" line per violated edge; --steps: "id<TAB>order<TAB>depends-on-csv<TAB>pending|deferred", which is `radin state steps-init`'s stdin format; --only defers every id outside the csv, --first every id but the one at order 1)
+#   radin-backlog.sh order <--rank-needed|--report|--steps> [--rank <csv-of-ids>] [--infer-deps <id>=<csv>]... [--defer <csv-of-ids>|--only <csv-of-ids-orders-or-titles>|--first]  # the execution order: the priority order with the topological dependency fix applied (--rank-needed: print every unset-priority id, exit 1 when there are none; --report: "<order>. <title> (id: <id>)" plus one "dependency override:" line per violated edge; --steps: "id<TAB>order<TAB>depends-on-csv<TAB>pending|deferred", which is `radin state steps-init`'s stdin format; --only defers every id outside the csv, --first every id but the one at order 1)
 #   radin-backlog.sh field <id-or-title> <TASK_FILE|TASK_BODY|EPIC_CONTEXT|TASK_ID|CATEGORY|PLAN_PATHS|SKILLS|SKILLS_DROPPED|ACCEPTANCE|FACTS|LOCATION|PLANNING|COMPLEXITY>  # one Execution-prompt placeholder, rendered ready to substitute
 #   radin-backlog.sh duplicates                  # print "id<TAB><value><TAB><ids>" / "title<TAB><value><TAB><ids>" per duplicated value, exit 1 when there are none
 #   radin-backlog.sh stamps [<branch>]           # print "id<TAB>created<TAB>branch" per entry in index order (only the entries recorded on <branch> when given); a field an old entry lacks prints empty
@@ -1096,6 +1096,36 @@ order)
 	case "${RADIN_DEFER:+x}${RADIN_ONLY:+x}${RADIN_FIRST:+x}" in
 	xx*) usage_die order "order takes at most one of --only, --first, --defer" ;;
 	esac
+	if [ -n "$RADIN_ONLY" ]; then
+		only_ids=""
+		while IFS= read -r ref; do
+			ref="$(printf '%s' "$ref" | sed 's/^[ \t]*//;s/[ \t]*$//')"
+			[ -n "$ref" ] || continue
+			case "$ref" in
+			*[!0-9]*)
+				found="$(matches "$ref")"
+				if [ "$(printf '%s\n' "$found" | grep -c '.')" -gt 1 ]; then
+					printf 'radin-backlog: "%s" matches several entries:\n' "$ref" >&2
+					printf '%s\n' "$found" | fmt_lines | sed 's/^/candidate\t/' >&2
+					exit 2
+				fi
+				# An unmatched reference passes through, so awk reports it as an unknown id.
+				[ -z "$found" ] || ref="$(printf '%s\n' "$found" | fmt_lines | cut -f1)"
+				;;
+			*)
+				# The numbers --report prints, under the same --rank and --infer-deps.
+				ref="$(RADIN_MODE=report RADIN_RANK="$RADIN_RANK" RADIN_INFER="$RADIN_INFER" RADIN_DEFER="" RADIN_ONLY="" RADIN_FIRST="" \
+					awk "$AWK_JSON$AWK_ORDER" "$BACKLOG_INDEX" |
+					sed -n "s/^$ref\\. .*(id: \\(.*\\))\$/\\1/p")"
+				[ -n "$ref" ] || die "--only: no task at that order number"
+				;;
+			esac
+			only_ids="$only_ids${only_ids:+,}$ref"
+		done <<EOF
+$(printf '%s' "$RADIN_ONLY" | tr ',' '\n')
+EOF
+		RADIN_ONLY="$only_ids"
+	fi
 	export RADIN_MODE RADIN_RANK RADIN_INFER RADIN_DEFER RADIN_ONLY RADIN_FIRST
 	awk "$AWK_JSON$AWK_ORDER" "$BACKLOG_INDEX"
 	;;

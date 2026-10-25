@@ -204,10 +204,11 @@ questions a prompt may pre-answer.
        the user sees what the run adds and leaves out.
      - **All of them**: no flag.
      - **Just the first one**: `--first`.
-     - **Only the ones I name** (or "Other" text): read the selection off the
-       free text (order numbers, titles, or ids). Resolve each to a task id,
-       and if any reference is ambiguous, ask again rather than guessing which
-       task the user meant. `--only <the named ids>`.
+     - **Only the ones I name** (or "Other" text): read the references off the
+       free text (order numbers, titles, or ids) and pass them as they are:
+       `--only <the references csv>`. Run it with the `--rank` and
+       `--infer-deps` flags Step 1 used, so the numbers match the report. On
+       exit 2 the verb printed the candidates: ask again.
 
 ## Phase 3: Persist Execution Plan
 
