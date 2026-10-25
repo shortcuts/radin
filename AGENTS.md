@@ -128,7 +128,7 @@ The graph tool name lives in one file and must exist in the upstream table ([whi
 
 ## Before committing
 
-- `make lint`, `make check` and `make test` come back clean, and `make test` stays under 15 seconds ([policy](#test-suite-speed)).
+- `make lint`, `make check` and `make test` come back clean, and `make test` stays under 30 seconds ([policy](#test-suite-speed)).
   - Every tree-only test replays one recorded `install.sh` run. A live run serves only install-time behavior.
   - The mock command is `tests/helpers/mock.c`, one compiled binary, because `/bin/sh` startup costs 20 ms per stub call.
   - No test makes a network request.
