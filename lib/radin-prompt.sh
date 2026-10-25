@@ -272,7 +272,7 @@ sub_token REVIEW_CORE "$review_core"
 sub_token EPIC_CONTEXT "$epic_context"
 sub_token TASK_BODY "$task_body"
 
-mkdir -p "$NAMESPACE_DIR/state/prompts"
+mkdir -p "$NAMESPACE_DIR/state/prompts" "$NAMESPACE_DIR/state/facts"
 out="$NAMESPACE_DIR/state/prompts/$task_id-$kind.md"
 printf '%s\n' "$body" >"$out"
 printf 'model\t%s\nprompt\t%s\n' "$model" "$out"

@@ -35,7 +35,7 @@ LEAF_CONTRACT
 A skill that starts asking a human: stop invoking it and diagnose on your own.
 
 Write nothing except, when the evidence is longer than a summary can carry,
-`NAMESPACE_DIR/state/facts/TASK_ID.md` (create the directory if needed); name
+`NAMESPACE_DIR/state/facts/TASK_ID.md`; name
 it at the end of your STATUS line. Change no repo file, commit nothing,
 revert nothing, and fix nothing: the fix is the next execution sub-agent's
 job.

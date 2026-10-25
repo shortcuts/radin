@@ -27,8 +27,8 @@ EXPLORE_RULE
 LEAF_CONTRACT
 
 When the evidence is longer than the line can carry, write it to
-`NAMESPACE_DIR/state/facts/TASK_ID.md` (create the directory if needed; that file
-and the scratch probe are the only things you may write).
+`NAMESPACE_DIR/state/facts/TASK_ID.md` (that file and the scratch probe are the
+only things you may write).
 
 Your final message is exactly one of these lines, and nothing else:
 `STATUS: FOUND — [measured|inferred] <the answer, one sentence, naming the file path, command
