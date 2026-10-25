@@ -28,7 +28,7 @@
 #   radin-state.sh answered <id>                # the user answered a waiting task: back to pending, attempts 0, debugged kept
 #   radin-state.sh retry <id>                   # a human looked at a MAX_ATTEMPTS-blocked task: back to pending, attempts 0, debugged cleared
 #   radin-state.sh stuck                        # print "id<TAB>attempts<TAB>note" per in_progress entry, exit 1 if none
-#   radin-state.sh steps-waiting                # print the id of each blocked entry whose note holds an unanswered question, exit 1 if none
+#   radin-state.sh steps-waiting                # print "id<TAB>note" per blocked entry whose note holds an unanswered question, exit 1 if none
 #   radin-state.sh steps-open                   # print "id<TAB>question" per open decision of a pending entry, exit 1 if none
 #   radin-state.sh steps-list                   # print "id<TAB>order<TAB>status<TAB>attempts<TAB>note" per entry, exit 1 if none
 #   radin-state.sh recover <id>                 # recover a task a dead session left in_progress; exit 3 prints commits only the model can judge
@@ -660,7 +660,7 @@ steps-waiting)
 		[ "$(json_get status "$line")" = "blocked" ] || continue
 		case "$(json_get note "$line")" in
 		"deferred:"* | "inconclusive:"*)
-			printf '%s\n' "$(json_get id "$line")"
+			printf '%s\t%s\n' "$(json_get id "$line")" "$(json_get note "$line")"
 			found=0
 			;;
 		esac

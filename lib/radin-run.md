@@ -136,9 +136,8 @@ persist them.
    RADIN_CLI state steps-waiting
    ```
 
-   Exit 1: nothing waits, continue to step 5. Exit 0 prints the id of each
-   entry that holds an unanswered question. Read each entry's `note` with
-   `RADIN_CLI state steps-list`. Invoke `/mattpocock-skills:grilling` once for
+   Exit 1: nothing waits, continue to step 5. Exit 0 prints `id<TAB>note` for
+   each entry that holds an unanswered question. Invoke `/mattpocock-skills:grilling` once for
    all of them, one question at a time, your recommendation first. Append each
    answer per `RADIN_LIB/radin-batch-clarify.md`, then run
    `RADIN_CLI state answered "<task id>"`. An entry the user explicitly defers

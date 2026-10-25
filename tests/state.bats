@@ -51,3 +51,14 @@ state() { (cd "$P" && bash "$REPO_ROOT/lib/radin-state.sh" "$@"); }
   run state task-diagnosis t-one "STATUS: NOT DIAGNOSED — nothing"
   [ "$status" -ne 0 ]
 }
+
+@test "steps-waiting prints id<TAB>note for each deferred entry and skips MAX_ATTEMPTS blocks" {
+  mkdir -p "$P/.claude/.radin/state"
+  cat >"$P/.claude/.radin/state/BACKLOG_STEPS.json" <<'JSON'
+{"id":"t-one","order":1,"status":"blocked","depends_on":[],"attempts":1,"debugged":0,"note":"deferred: which db?"}
+{"id":"t-two","order":2,"status":"blocked","depends_on":[],"attempts":3,"debugged":0,"note":"MAX_ATTEMPTS: crashed"}
+JSON
+  run state steps-waiting
+  [ "$status" -eq 0 ]
+  [ "$output" = $'t-one\tdeferred: which db?' ]
+}
