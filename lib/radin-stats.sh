@@ -102,6 +102,7 @@ function day(l,   t) { if (match(l, /"timestamp":"[0-9-]+/)) return substr(l, RS
 			if (match(rest, /"subagent_type":"[^"]+"/)) t = substr(rest, RSTART + 17, RLENGTH - 18)
 			if (match(rest, /"model":"[^"]+"/)) m = substr(rest, RSTART + 9, RLENGTH - 10)
 			ag[t, "calls"]++; types[t] = 1; type_of[id] = t; mdl[t, m]++
+			if (match(rest, /"name":"radin-[^"]+"/)) name_of[id] = substr(rest, RSTART + 8, RLENGTH - 9)
 		}
 	}
 	if (index(l, "<task-notification>")) {
@@ -118,6 +119,7 @@ function day(l,   t) { if (match(l, /"timestamp":"[0-9-]+/)) return substr(l, RS
 END {
 	print mn " to " mx > (out "/span.txt")
 	f1 = out "/skills.tsv"; f2 = out "/agents.tsv"; f3 = out "/vendors.tsv"; f4 = out "/hooks.tsv"
+	f5 = out "/roles.tsv"; f6 = out "/tasks.tsv"
 	print "vendor\tskill\ttool-calls\ttyped\tsessions\tprojects\tlast" > f1
 	for (s in names) {
 		ns = 0; for (k in sf) { split(k, a, SUBSEP); if (a[1] == s) ns++ }
@@ -128,6 +130,11 @@ END {
 	for (tid in n_type) {
 		t = (n_type[tid] in type_of) ? type_of[n_type[tid]] : "?"
 		if (t == "?") continue
+		if (n_type[tid] in name_of) {
+			nm = name_of[n_type[tid]]; split(nm, q, "-"); role = q[2]; task = substr(nm, length(q[2]) + 8)
+			rn[role]++; rtk[role] += n_tk[tid]; rtl[role] += n_tl[tid]; rms[role] += n_ms[tid]
+			tn[task] += n_tk[tid]
+		}
 		o[t, n_st[tid]]++; tok[t] += n_tk[tid]; tls[t] += n_tl[tid]; dur[t] += n_ms[tid]; fin[t]++
 	}
 	print "vendor\tsub-agent\tcalls\tfinished\tcompleted\tfailed\tother\tavg-tokens\tavg-tools\tavg-sec\tmodels" > f2
@@ -138,6 +145,10 @@ END {
 		printf "%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t%.1f\t%.0f\t%s\n", (t ~ /:/ ? vendor(t) : "built-in"), t, ag[t, "calls"], fin[t] + 0, c, fl, ot, tok[t] / n, tls[t] / n, dur[t] / n / 1000, ml > f2
 		av[(t ~ /:/ ? vendor(t) : "built-in")] += ag[t, "calls"]
 	}
+	print "role\tfinished\ttokens\tavg-tokens\tavg-tools\tavg-sec" > f5
+	for (r in rn) printf "%s\t%d\t%d\t%d\t%.1f\t%.0f\n", r, rn[r], rtk[r], rtk[r] / rn[r], rtl[r] / rn[r], rms[r] / rn[r] / 1000 > f5
+	print "task\ttokens" > f6
+	for (k in tn) printf "%s\t%d\n", k, tn[k] > f6
 	print "event\thook\tran\tcancelled\terrors\tsessions\tlast" > f4
 	for (k in hooks) {
 		split(k, a, SUBSEP); ns = 0
@@ -229,6 +240,14 @@ if [ "$do_tx" -eq 1 ]; then
 			sed -n 1p "$OUT_DIR/agents.tsv"
 			tail -n +2 "$OUT_DIR/agents.tsv" | sort -t "$TAB" -k1,1 -k3,3nr
 		} | table "Sub-agents (outcomes from background completions only)"
+		{
+			sed -n 1p "$OUT_DIR/roles.tsv"
+			tail -n +2 "$OUT_DIR/roles.tsv" | sort -t "$TAB" -k3,3nr
+		} | table "radin roles (sub-agent tokens by Agent name radin-<role>-<task>)"
+		{
+			sed -n 1p "$OUT_DIR/tasks.tsv"
+			tail -n +2 "$OUT_DIR/tasks.tsv" | sort -t "$TAB" -k2,2nr | head -n 15
+		} | table "radin tasks, top 15 by sub-agent tokens"
 		{
 			sed -n 1p "$OUT_DIR/hooks.tsv"
 			tail -n +2 "$OUT_DIR/hooks.tsv" | sort -t "$TAB" -k1,1 -k3,3nr
