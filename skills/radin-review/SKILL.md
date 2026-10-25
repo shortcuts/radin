@@ -1,9 +1,9 @@
 ---
 name: radin-review
 description: |
-  Review a commit, PR, directory or range for the simplest native solution,
-  maintainability and documented repo rubrics, triage findings with the user.
-  Use for /radin-review, "review and log to backlog".
+  Use for /radin-review, "review and log to backlog". Reviews a commit, PR,
+  directory or range for the simplest native solution, maintainability and
+  documented repo rubrics, then triages findings with the user.
 ---
 # Review
 

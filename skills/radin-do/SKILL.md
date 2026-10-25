@@ -1,8 +1,8 @@
 ---
 name: radin-do
 description: |
-  Record one ad-hoc prompt as a backlog entry, then execute just that task.
-  Use for /radin-do <prompt>.
+  Use for /radin-do <prompt>. Records one ad-hoc prompt as a backlog entry,
+  then executes just that task.
 disable-model-invocation: true
 ---
 # Run One Prompt

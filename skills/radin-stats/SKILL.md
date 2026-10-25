@@ -1,8 +1,8 @@
 ---
 name: radin-stats
 description: |
-  Show the stats/gain output of every companion tool that ships one, side by
-  side.
+  Use for /radin-stats. Shows the stats or gain output of every companion tool
+  that ships one, side by side.
 disable-model-invocation: true
 ---
 # Stats Roundup

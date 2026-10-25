@@ -1,9 +1,9 @@
 ---
 name: radin-batch
 description: |
-  Work backlog tasks via sub-agents, prioritized, one commit each; plans first
-  the entries radin-record flagged as needing a plan. Use for "work through my
-  backlog", or name an epic or task to run only those.
+  Use for "work through my backlog", or name an epic or task to run only those.
+  Works tasks via sub-agents in priority order, one commit each, and plans
+  first the entries radin-record flagged as needing a plan.
 ---
 # Backlog Batch
 
