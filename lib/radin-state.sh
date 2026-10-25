@@ -29,6 +29,7 @@
 #   radin-state.sh retry <id>                   # a human looked at a MAX_ATTEMPTS-blocked task: back to pending, attempts 0, debugged cleared
 #   radin-state.sh stuck                        # print "id<TAB>attempts<TAB>note" per in_progress entry, exit 1 if none
 #   radin-state.sh steps-waiting                # print "id<TAB>note" per blocked entry whose note holds an unanswered question, exit 1 if none
+#   radin-state.sh preflight                    # run the startup checks, print "empty" | "session<TAB>missing" | "stuck<TAB>id<TAB>attempts<TAB>note" | "waiting<TAB>id<TAB>note" | "rank<TAB>csv", exit 0
 #   radin-state.sh steps-open                   # print "id<TAB>question" per open decision of a pending entry, exit 1 if none
 #   radin-state.sh steps-list                   # print "id<TAB>order<TAB>status<TAB>attempts<TAB>note" per entry, exit 1 if none
 #   radin-state.sh recover <id>                 # recover a task a dead session left in_progress; exit 3 prints commits only the model can judge
@@ -699,6 +700,19 @@ steps-waiting)
 		esac
 	done <"$steps"
 	exit "$found"
+	;;
+
+preflight)
+	(bash "$LIB_DIR/radin-backlog.sh" reconcile >/dev/null 2>&1) || true
+	if [ "$(bash "$LIB_DIR/radin-backlog.sh" count 2>/dev/null)" = "0" ]; then
+		echo empty
+		exit 0
+	fi
+	bash "$0" session-get >/dev/null 2>&1 || printf 'session\tmissing\n'
+	bash "$0" stuck 2>/dev/null | sed 's/^/stuck\t/' || true
+	bash "$0" steps-waiting 2>/dev/null | sed 's/^/waiting\t/' || true
+	ids="$(bash "$LIB_DIR/radin-backlog.sh" order --rank-needed 2>/dev/null)" && printf 'rank\t%s\n' "$(printf '%s' "$ids" | paste -sd, -)"
+	exit 0
 	;;
 
 stuck)
@@ -1627,6 +1641,6 @@ finding-classes)
 	;;
 
 *)
-	die "unknown command: ${cmd:-<none>} (steps-init|task-next|task-report|task-fact|task-diagnosis|task-done|set-status|stuck|recover|recover-reject|report|session-set|session-get|prepare|dirty-check|trace|completed-show|completed-list|session-commits|merge-list|merge|gate-fix|deps-check|task-dir|journal-tail|plan-covers|review-findings|finding-classes)"
+	die "unknown command: ${cmd:-<none>} (steps-init|task-next|task-report|task-fact|task-diagnosis|task-done|set-status|stuck|preflight|recover|recover-reject|report|session-set|session-get|prepare|dirty-check|trace|completed-show|completed-list|session-commits|merge-list|merge|gate-fix|deps-check|task-dir|journal-tail|plan-covers|review-findings|finding-classes)"
 	;;
 esac

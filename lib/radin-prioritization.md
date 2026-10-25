@@ -1,7 +1,7 @@
 # Shared: radin-batch Priority Criteria
 
-`radin-batch` reads this file at Phase 1 step 5, and only when
-`RADIN_CLI backlog order --rank-needed` exited 0. It holds the two things
+`radin-batch` reads this file at Phase 0, and only when
+`RADIN_CLI state preflight` printed a `rank` line. It holds the two things
 `order` cannot compute: how to rank the entries whose `priority` is unset, and
 when one entry's body implies a dependency on another's.
 

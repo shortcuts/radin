@@ -1,7 +1,7 @@
 # Shared: radin-batch Worktree/Branch Answers
 
-`radin-batch` reads this file only when `RADIN_CLI state session-get` exits 1
-at Phase 0.5. No worktree/branch answer is recorded for this repo yet.
+`radin-batch` reads this file only when `RADIN_CLI state preflight` prints
+`session<TAB>missing` at Phase 0. No worktree/branch answer is recorded for this repo yet.
 
 The two answers are not independent. A worktree cannot share the checkout's
 branch, so `worktree: yes` always creates `radin/<task-id>` and the `branch`

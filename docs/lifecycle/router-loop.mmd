@@ -1,6 +1,9 @@
 flowchart TD
-  p0[Phase 0<br/>find backlog] --> p05[Phase 0.5<br/>worktree and branch answers]
-  p05 --> p1[Phase 1<br/>reconcile, recover stuck, settle waiting questions, rank]
+  p0[Phase 0<br/>state preflight] --> p1[Phase 1<br/>resolve scope]
+  p0 -. session line .-> note1[read session file]
+  p0 -. stuck line .-> note2[recover stuck]
+  p0 -. waiting line .-> note3[settle questions]
+  p0 -. rank line .-> note4[rank unset ids]
   p1 --> p2[Phase 2<br/>print order, user picks tasks]
   p2 --> p3[Phase 3<br/>persist BACKLOG_STEPS.json]
   p3 --> p35[Phase 3.5<br/>settle open decisions, one grilling]

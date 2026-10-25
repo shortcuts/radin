@@ -12,7 +12,7 @@ RADIN_CLI state steps-list
 
 It prints one `id<TAB>order<TAB>status<TAB>attempts<TAB>note` line per entry
 still in the plan; completed tasks are already gone. Triage `in_progress`
-entries per Phase 1 step 3, treat `failed` entries as `pending` for retry,
+entries per Phase 0's `stuck` line, treat `failed` entries as `pending` for retry,
 and continue.
 
 Run `RADIN_CLI state steps-waiting`. It prints `id<TAB>note` for each `blocked`

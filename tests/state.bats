@@ -62,3 +62,21 @@ JSON
   [ "$status" -eq 0 ]
   [ "$output" = $'t-one\tdeferred: which db?' ]
 }
+
+@test "preflight prints one tagged line per applicable branch and only empty on an empty backlog" {
+  mkdir -p "$P/.claude/.radin/state"
+  cat >"$P/.claude/.radin/state/BACKLOG_STEPS.json" <<'JSON'
+{"id":"t-one","order":1,"status":"blocked","depends_on":[],"attempts":1,"debugged":0,"note":"deferred: which db?"}
+{"id":"t-two","order":2,"status":"in_progress","depends_on":[],"attempts":2,"debugged":0,"note":"dispatched"}
+JSON
+  run state preflight
+  [ "$status" -eq 0 ]
+  [[ "$output" == *$'session\tmissing'* ]]
+  [[ "$output" == *$'stuck\tt-two\t2\tdispatched'* ]]
+  [[ "$output" == *$'waiting\tt-one\tdeferred: which db?'* ]]
+  [[ "$output" == *$'rank\tt-one'* ]]
+  (cd "$P" && bash "$REPO_ROOT/lib/radin-backlog.sh" remove t-one) || true
+  run state preflight
+  [ "$status" -eq 0 ]
+  [ "$output" = "empty" ]
+}
