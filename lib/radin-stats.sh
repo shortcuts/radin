@@ -134,6 +134,7 @@ END {
 			nm = name_of[n_type[tid]]; split(nm, q, "-"); role = q[2]; task = substr(nm, length(q[2]) + 8)
 			rn[role]++; rtk[role] += n_tk[tid]; rtl[role] += n_tl[tid]; rms[role] += n_ms[tid]
 			tn[task] += n_tk[tid]
+			if (!((role, task) in rt)) { rt[role, task] = 1; rtt[role]++ }
 		}
 		o[t, n_st[tid]]++; tok[t] += n_tk[tid]; tls[t] += n_tl[tid]; dur[t] += n_ms[tid]; fin[t]++
 	}
@@ -145,8 +146,8 @@ END {
 		printf "%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t%.1f\t%.0f\t%s\n", (t ~ /:/ ? vendor(t) : "built-in"), t, ag[t, "calls"], fin[t] + 0, c, fl, ot, tok[t] / n, tls[t] / n, dur[t] / n / 1000, ml > f2
 		av[(t ~ /:/ ? vendor(t) : "built-in")] += ag[t, "calls"]
 	}
-	print "role\tfinished\ttokens\tavg-tokens\tavg-tools\tavg-sec" > f5
-	for (r in rn) printf "%s\t%d\t%d\t%d\t%.1f\t%.0f\n", r, rn[r], rtk[r], rtk[r] / rn[r], rtl[r] / rn[r], rms[r] / rn[r] / 1000 > f5
+	print "role\tfinished\ttokens\tavg-tokens\tavg-tools\tavg-sec\ttools\ttasks" > f5
+	for (r in rn) printf "%s\t%d\t%d\t%d\t%.1f\t%.0f\t%d\t%d\n", r, rn[r], rtk[r], rtk[r] / rn[r], rtl[r] / rn[r], rms[r] / rn[r] / 1000, rtl[r], rtt[r] > f5
 	print "task\ttokens" > f6
 	for (k in tn) printf "%s\t%d\n", k, tn[k] > f6
 	print "event\thook\tran\tcancelled\terrors\tsessions\tlast" > f4
@@ -198,6 +199,16 @@ outcomes() {
 				printf "%s\t%d\t%d\t%d\t%d\t%.0f\n", n, tot, miss, fx, rv, ok ? 100 * (ok - fx) / ok : 0
 			}'
 	done
+}
+
+# Tokens per task and per tool call by role, next to the failed, debug and clean% rates.
+cost_vs_quality() {
+	printf 'kind\ttokens/task\ttokens/tool\tfailed%%\tdebug%%\tclean%%\n'
+	awk -F "$TAB" 'NR > 1 { printf "%s\t%.0f\t%.0f\t-\t-\t-\n", $1, $8 ? $3 / $8 : 0, $7 ? $3 / $7 : 0; tk += $3; tl += $7; tt += $8 }
+		END { printf "all\t%.0f\t%.0f", tt ? tk / tt : 0, tl ? tk / tl : 0 }' "$OUT_DIR/roles.tsv"
+	awk -F "$TAB" 'FILENAME == ARGV[1] && FNR > 1 { s += $3; f += $5; d += $7 }
+		FILENAME == ARGV[2] && FNR > 1 { ok += $2 - $3; fx += $4 }
+		END { printf "\t%.0f\t%.0f\t%.0f\n", s ? 100 * f / s : 0, s ? 100 * d / s : 0, ok ? 100 * (ok - fx) / ok : 0 }' "$OUT_DIR/repos.tsv" "$OUT_DIR/outcomes.tsv"
 }
 
 repos() {
@@ -257,8 +268,13 @@ if [ "$do_tx" -eq 1 ]; then
 	fi
 fi
 if [ "$do_repos" -eq 1 ]; then
-	repos | table "radin repos under $repos_root"
-	outcomes | table "Task outcomes (refixed = a fix:/revert: commit that is not itself a radin task touched the same non-markdown files within 14 days of the task commit)"
+	repos >"$OUT_DIR/repos.tsv"
+	outcomes >"$OUT_DIR/outcomes.tsv"
+	table "radin repos under $repos_root" <"$OUT_DIR/repos.tsv"
+	table "Task outcomes (refixed = a fix:/revert: commit that is not itself a radin task touched the same non-markdown files within 14 days of the task commit)" <"$OUT_DIR/outcomes.tsv"
+	if [ "$do_tx" -eq 1 ] && [ -s "$OUT_DIR/roles.tsv" ]; then
+		cost_vs_quality | table "Cost vs quality (compare two runs with --since; tokens from transcripts, rates from journals and git)"
+	fi
 fi
 
 # Companions that keep their own deterministic ledger. Each is named directly;
