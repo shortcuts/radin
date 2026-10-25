@@ -60,7 +60,7 @@ Then report:
    pass finding without one stays labeled "possible <name>".
 4. **Repo rubrics.** Every rule the scope breaks, citing the file and rule.
 5. **Comments.** Every comment the scope adds that breaks the comment rule
-   (`RADIN_LIB/radin-comment-rule.md`; an execution prompt's step 4a already
+   (`RADIN_LIB/radin-comment-rule.md`; an execution prompt's step 6 already
    holds it, so read no file there), and every existing comment the scope
    deletes or rewords without the task asking. Apply that rule's test. Level
    `plan` skips this item.

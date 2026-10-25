@@ -78,7 +78,7 @@ TASK_BODY
 <!-- if:LOCATION -->
    LOCATION is the `path:line` this task's finding was cited at; start there.
 <!-- end -->
-1a. Set up the tree you will work in:
+2. Set up the tree you will work in:
    `RADIN_CLI state prepare "TASK_ID"`.
    It prints one absolute path on stdout, and that path is the tree — repo root
    or worktree, task branch or the branch the user already had checked out:
@@ -93,7 +93,7 @@ TASK_BODY
 ACCEPTANCE
 <!-- end -->
 <!-- if:PLAN_PATHS -->
-2. Read PLAN_PATHS in order: they are the plan(s) `/radin-plan` already wrote
+3. Read PLAN_PATHS in order: they are the plan(s) `/radin-plan` already wrote
    for this task. Follow them rather than re-deriving an approach. Several of
    them cover different parts of the same task, so implement all of them.
    Each `You see:` line under `## Changes` and each `- [ ]` box under
@@ -104,19 +104,19 @@ ACCEPTANCE
    `STATUS: BLOCKED (DECISION)`, describing it.
 <!-- end -->
 <!-- if:!PLAN_PATHS -->
-2. This task has no plan, so implement directly from the entry text.
+3. This task has no plan, so implement directly from the entry text.
 <!-- end -->
 <!-- if:SKILLS -->
-2a. Invoke each skill named here before implementing: SKILLS
+Invoke each skill named here before implementing: SKILLS
    The user chose it for this task, so invoke it as instructed rather than
    judging whether it is needed, redundant, or the right fit.
 <!-- end -->
 <!-- if:DEPENDS_ON -->
-2b. This task's scope/plan was written assuming other tasks would land a
+This task's scope/plan was written assuming other tasks would land a
    certain way. They already committed this session: DEPENDS_ON
 <!-- end -->
 <!-- if:STALE_PLAN -->
-2c. Commits landed after this task's plan was written and touched the files
+Commits landed after this task's plan was written and touched the files
    it names: STALE_PLAN
 <!-- end -->
 <!-- if:DRIFT -->
@@ -129,24 +129,24 @@ ACCEPTANCE
    `STATUS: BLOCKED (DECISION)` describing it, and guess nothing.
 <!-- end -->
 <!-- if:CAT_fix -->
-3. Invoke `/caveman:surgical-patch` and implement through it: the narrowest
+4. Invoke `/caveman:surgical-patch` and implement through it: the narrowest
    layer that fixes it, with regression proof.
 <!-- end -->
 <!-- if:CAT_refactor -->
-3. Invoke `/caveman:safe-refactor` and implement through it: verification
+4. Invoke `/caveman:safe-refactor` and implement through it: verification
    brackets the structural edit.
 <!-- end -->
 <!-- if:CAT_feat -->
-3. Invoke `/caveman:lean-build` and implement through it: reuse first, with an
+4. Invoke `/caveman:lean-build` and implement through it: reuse first, with an
    explicit stop condition.
 <!-- end -->
 <!-- if:CAT_chore -->
-3. No category skill applies: the ladder below is the whole discipline.
+4. No category skill applies: the ladder below is the whole discipline.
 <!-- end -->
    Apply the `/ponytail:ponytail` ladder in every case: the minimum code that
    satisfies the task, reusing what the repo already has. Its SubagentStart
    hook already put the ladder in your context, so invoke no skill for it.
-4. Where the task changes behavior (not a pure deletion/rename), add or update a unit
+5. Where the task changes behavior (not a pure deletion/rename), add or update a unit
    test that pins the expected behavior, following existing test conventions in the repo.
    Run it without your change and confirm it fails for the reason the task
    names, then with your change and confirm it passes. A test that passes
@@ -156,13 +156,13 @@ ACCEPTANCE
    work around.
    For each such test, record a `**Fact:**` line: `test <name>: failed before
    (<its failure>), passes now`.
-4a. Comments in the code you write follow this rule:
+6. Comments in the code you write follow this rule:
 
 COMMENT_RULE
 
-4b. Build in small units: one change, run its check, then the next. A unit
+7. Build in small units: one change, run its check, then the next. A unit
    that turns a check red is the one to fix before you move on.
-5. Choose the checks from what your diff reaches: ask the graph
+8. Choose the checks from what your diff reaches: ask the graph
    for the symbols your working-tree diff changes and their callers. Run the
    typecheck and the tests that exercise those callers as you go. Run the whole
    suite (`make test`, `go test ./...`) only when you judge this task needs it,
@@ -190,24 +190,24 @@ COMMENT_RULE
    three fix rounds on one failure, report `STATUS: FAILED` with its output. A
    test that still passes when the code under test returns nothing pins
    nothing: assert literal expected values.
-   Fix what the checks surface before step 6.
-5a. Stage your task's files (`git add <paths>`, never `.claude/.radin/`) and
+   Fix what the checks surface before step 10.
+9. Stage your task's files (`git add <paths>`, never `.claude/.radin/`) and
    follow the review brief at the end of this prompt at level `diff`: spec the
    plan(s) above, else this task, plus its acceptance criteria. Fix every
-   `critical` and `warning` finding in the tree, re-run step 5's checks,
+   `critical` and `warning` finding in the tree, re-run step 8's checks,
    restage and review again. Two rounds at most: a `critical` still standing
    then is `STATUS: FAILED` with its citation. Fix a `nit` finding only when
    it sits in a file you staged.
-6. Invoke the `/caveman:caveman-commit` skill to draft the commit message, then commit.
-7. Run `RADIN_CLI state dirty-check` from the tree
-   step 1a handed you, so the check covers the files you actually touched.
+10. Invoke the `/caveman:caveman-commit` skill to draft the commit message, then commit.
+11. Run `RADIN_CLI state dirty-check` from the tree
+   step 2 handed you, so the check covers the files you actually touched.
    Delete any scratch file or script you created only to iterate. If anything
    else is still uncommitted (including changes made incidentally while
    investigating, e.g. formatter/linter auto-fixes), either commit it as part of this
    task's commit or a separate scoped commit. Never leave the working tree dirty when
    you report back.
 
-Review brief (step 5a):
+Review brief (step 9):
 
 REVIEW_CORE
 ```
