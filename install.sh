@@ -456,12 +456,12 @@ install_plugin_files() {
 
 # Every sub-agent role ships a distinct RADIN_MODEL_<ROLE> token instead of a
 # model name, so no model is forced. Roles share a model by group: major for
-# planning, execution, review and debug; minor for fact-finding and chores.
+# planning, execution, review and debug; minor for fact-finding and low-complexity tasks.
 MODEL_MAJOR="sonnet"
 # Fact-finding retrieves a checkable fact and its prompt requires the evidence
-# that establishes it, so the router can reject a wrong answer. A chore
-# (cleanup, rename, docs) needs no design judgement, and a wrong one still
-# meets the dirty-tree check and Phase 6's review. Both take the cheapest tier.
+# that establishes it, so the router can reject a wrong answer. A task the
+# planner marked `complexity low` needs no design judgement, and a wrong one
+# still meets the dirty-tree check and Phase 6's review. Both take the cheapest tier.
 MODEL_MINOR="haiku"
 
 # A file with no token is a no-op, so every pass runs over every SKILL.md and
@@ -491,7 +491,7 @@ set_role_models() {
 		-e "s/RADIN_MODEL_REVIEW/${MODEL_MAJOR}/g" \
 		-e "s/RADIN_MODEL_DEBUG/${MODEL_MAJOR}/g" \
 		-e "s/RADIN_MODEL_FACTFIND/${MODEL_MINOR}/g" \
-		-e "s/RADIN_MODEL_CHORE/${MODEL_MINOR}/g" \
+		-e "s/RADIN_MODEL_LOW/${MODEL_MINOR}/g" \
 		"$file" >"$tmp" && mv "$tmp" "$file"
 	# A surviving token reaches the model as a literal model name and every
 	# dispatch fails -- louder to stop here than to debug that.
@@ -541,14 +541,14 @@ step "Sub-agent models"
 MODELS="fable opus sonnet haiku"
 SONNET_INDEX=3
 HAIKU_INDEX=4
-if prompt_yn "Choose radin-batch's sub-agent models? (defaults: sonnet, haiku for fact-finding and chores)"; then
+if prompt_yn "Choose radin-batch's sub-agent models? (defaults: sonnet, haiku for fact-finding and low-complexity tasks)"; then
 	# shellcheck disable=SC2086  # word splitting is the point -- one arg per model
 	MODEL_MAJOR="$(prompt_pick "planning, execution, review and debug sub-agents" "$SONNET_INDEX" $MODELS)"
 	# shellcheck disable=SC2086
-	MODEL_MINOR="$(prompt_pick "fact-finding and chore sub-agents" "$HAIKU_INDEX" $MODELS)"
-	ok "sub-agent models: $MODEL_MAJOR, $MODEL_MINOR for fact-finding and chores"
+	MODEL_MINOR="$(prompt_pick "fact-finding and low-complexity sub-agents" "$HAIKU_INDEX" $MODELS)"
+	ok "sub-agent models: $MODEL_MAJOR, $MODEL_MINOR for fact-finding and low-complexity tasks"
 else
-	ok "keeping default sub-agent models (sonnet; haiku for fact-finding and chores)"
+	ok "keeping default sub-agent models (sonnet; haiku for fact-finding and low-complexity tasks)"
 fi
 for f in $(shipped_text_files); do
 	set_role_models "$f"
@@ -877,7 +877,7 @@ cat >"$MANIFEST_FILE" <<EOF
   "model_review": "$MODEL_MAJOR",
   "model_debug": "$MODEL_MAJOR",
   "model_factfind": "$MODEL_MINOR",
-  "model_chore": "$MODEL_MINOR",
+  "model_low": "$MODEL_MINOR",
   "claude_md_guidance": $CLAUDE_MD_GUIDANCE,
   "cbm_agent_config": $CBM_AGENT_CONFIG,
   "cli_on_path": $CLI_ON_PATH,

@@ -125,11 +125,14 @@ task_id="$(field TASK_ID)" || die "no backlog task matches: $id"
 [ -n "$task_id" ] || die "no backlog task matches: $id"
 task_file="$(field TASK_FILE)"
 category="$(field CATEGORY)"
-if [ "$kind" = execution ] && [ "$category" = chore ]; then
+# Category says what the change does to the codebase, not how hard it is: a
+# chore can still need tuning on a device. Only the planner's read of the code
+# marks a task low, and an unsized task keeps the execution model.
+if [ "$kind" = execution ] && [ "$(field COMPLEXITY || true)" = low ]; then
 	# shellcheck disable=SC2016
-	chore_model="$(sed -n 's/^`model-chore: "\([^"]*\)"`$/\1/p' "$TEMPLATE" | head -1)"
-	[ -n "$chore_model" ] || die "no model-chore line in $TEMPLATE"
-	model="$chore_model"
+	low_model="$(sed -n 's/^`model-low: "\([^"]*\)"`$/\1/p' "$TEMPLATE" | head -1)"
+	[ -n "$low_model" ] || die "no model-low line in $TEMPLATE"
+	model="$low_model"
 fi
 
 plan_paths=""
@@ -223,6 +226,8 @@ strip_guards() {
 # when its name is listed here, and `<!-- if:!NAME -->` only when it is not.
 active=" CAT_$category "
 [ -z "$plan_paths" ] || active="$active PLAN_PATHS "
+# A planning dispatch for an unflagged or already-planned entry only sizes it.
+[ -n "$plan_paths" ] || ! field PLANNING >/dev/null || active="$active NEEDS_PLAN "
 [ -z "$skills" ] || active="$active SKILLS "
 [ -z "$acceptance" ] || active="$active ACCEPTANCE "
 [ -z "$facts" ] || active="$active FACTS "

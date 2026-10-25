@@ -3,9 +3,9 @@
 Rendered by `radin prompt execution <id>`. `lib/radin-prompt.sh` holds the format.
 
 `model: "RADIN_MODEL_EXECUTION"`
-`model-chore: "RADIN_MODEL_CHORE"`
+`model-low: "RADIN_MODEL_LOW"`
 
-A `chore` task runs on the `model-chore:` line instead.
+A task whose entry carries `complexity low` runs on the `model-low:` line instead.
 
 ```
 Execute the task below.

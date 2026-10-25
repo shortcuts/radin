@@ -127,21 +127,21 @@ run_install_defaults() {
   run ! grep -rq --exclude=radin-doctor.sh 'RADIN_MODEL_' "$TEST_HOME/.claude/skills" "$TEST_HOME/.claude/.radin/lib"
   grep -q 'model: "sonnet"' "$TEST_HOME/.claude/.radin/lib/radin-prompt-gate.md"
   grep -q 'model: "haiku"' "$TEST_HOME/.claude/.radin/lib/radin-prompt-factfind.md"
-  grep -q 'model-chore: "haiku"' "$TEST_HOME/.claude/.radin/lib/radin-prompt-execution.md"
+  grep -q 'model-low: "haiku"' "$TEST_HOME/.claude/.radin/lib/radin-prompt-execution.md"
 }
 
 # Two picks, one per model group: the major roles take the first, fact-finding
-# and chores the second.
+# and low-complexity tasks the second.
 @test "two picks set the major and minor roles, even when a companion reads stdin" {
   export MOCK_NPX=eat-stdin
   cd "$REPO_ROOT" && run bash -c "printf '1\\n2\\n1\\n2\\n' | bash ./install.sh"
   [ "$status" -eq 0 ]
   grep -q '"model_planning": "opus"' "$TEST_HOME/.claude/.radin/manifest.json"
-  grep -q '"model_chore": "fable"' "$TEST_HOME/.claude/.radin/manifest.json"
+  grep -q '"model_low": "fable"' "$TEST_HOME/.claude/.radin/manifest.json"
   run ! grep -rq --exclude=radin-doctor.sh 'RADIN_MODEL_' "$TEST_HOME/.claude/skills" "$TEST_HOME/.claude/.radin/lib"
   grep -q 'model: "opus"' "$TEST_HOME/.claude/.radin/lib/radin-prompt-gate.md"
   grep -q 'model: "fable"' "$TEST_HOME/.claude/.radin/lib/radin-prompt-factfind.md"
-  grep -q 'model-chore: "fable"' "$TEST_HOME/.claude/.radin/lib/radin-prompt-execution.md"
+  grep -q 'model-low: "fable"' "$TEST_HOME/.claude/.radin/lib/radin-prompt-execution.md"
 }
 
 # install.sh, radin-doctor.sh and radin-uninstall.sh each keep their own list
@@ -465,7 +465,7 @@ pick_with_keys() {
 
   run bash -c "printf '1\n1\n1\n' | bash ./install.sh --update"
   [ "$status" -eq 0 ]
-  [[ "$output" == *"sub-agent models: fable, fable for fact-finding and chores"* ]]
+  [[ "$output" == *"sub-agent models: fable, fable for fact-finding and low-complexity tasks"* ]]
   grep -q 'fable' "$TEST_HOME/.claude/.radin/lib/radin-prompt-planning.md"
   grep -q '"package_manager": "brew"' "$manifest"
   [ ! -e "$TEST_HOME/brew.log" ]

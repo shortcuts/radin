@@ -256,7 +256,7 @@ order:
   then, for an `execution` task, an `overlap` line: `none`, `unclear`, or the
   ids of live tasks sharing its plan files or a `depends_on` edge.
 
-`kind` is `planning` for an entry radin-record flagged as needing a plan that
+`kind` is `planning` for an entry with no `complexity`, or one radin-record flagged as needing a plan that
 has none yet, else `execution`. A `planning` dispatch that reports
 `STATUS: PLANNED` skips `task-report`. A planning leaf with no `STATUS:` line goes in as `--no-status` like any other; it retries until `MAX_ATTEMPTS`, then `task-next` blocks it. Re-run `task-next "<task id>"`, which
 now hands out its execution prompt. `STATUS: BLOCKED (FACT|DECISION)`
