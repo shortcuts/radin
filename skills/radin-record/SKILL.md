@@ -23,7 +23,7 @@ One raised thing can be several sequential pieces of work ("add rate limiting on
 top of new auth middleware" needs the middleware first). Log each piece as its
 own entry, sized as a **vertical slice**:
 
-- It cuts a narrow but COMPLETE path through every layer it touches.
+- It cuts a narrow but complete path through every layer it touches.
 - Landed, it is demoable or verifiable on its own.
 - It fits one fresh context window.
 - A **prefactor**, the restructuring that makes the real change easy, is its
@@ -41,7 +41,7 @@ blocked or not.
 
 ### An external ticket as context (optional)
 
-A ticket key, Jira or GitHub issue URL: fetch it through the MCP if possible,
+A ticket key, Jira or GitHub issue URL: fetch it through its MCP,
 and treat the ticket as extension to the user's prompt.
 No MCP or API access: log from the ask alone, and continue.
 
