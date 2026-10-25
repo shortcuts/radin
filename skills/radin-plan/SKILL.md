@@ -77,7 +77,7 @@ For each sub-task, in order:
      RADIN_CLI backlog fact "<id>" measured "<the answer in one sentence, naming the source that owns it>" --long "<the state/facts path above>"
      ```
 
-     The skill asks you anything: drop it and name the question in the
+     If the skill asks you anything, drop it and name the question in the
      report. Non-interactive: name the question and stop, because
      `radin-batch`'s router owns the research arm
      (`lib/radin-batch-clarify.md`) and appends the answer to this task.
