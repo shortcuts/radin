@@ -29,7 +29,7 @@ and none when it states none.
   branch and worktree to inspect. It needs no read of the commits.
 - **At least one `acceptance` line**: never run `git show` yourself, because
   a large commit would fill the session's context. Dispatch one read-only
-  sub-agent (`model: "RADIN_MODEL_REVIEW"`, `name: "radin-recover-<task id>"`).
+  sub-agent (`model: "RADIN_MODEL_REVIEW"`, `effort: "RADIN_EFFORT_REVIEW"`, `name: "radin-recover-<task id>"`; omit `effort` when it is empty).
   Send it the `branch_commit` hashes, the `worktree` path and the criteria,
   and ask it to read the commits against every criterion without editing
   anything. It ends with `STATUS: SUCCESS — <last hash>` when the commits meet

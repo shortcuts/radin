@@ -210,7 +210,7 @@ order:
 - zero or more `blocked<TAB><id><TAB><why>` lines for tasks it skipped (an
   unresolved dependency, an entry the backlog lost, `MAX_ATTEMPTS` reached).
   It already marked each one `blocked`. Report each as skipped. The entry stays on the backlog with a `**Progress:**` note, and any work is a wip commit. When the user asks to retry one that hit `MAX_ATTEMPTS`, run `RADIN_CLI state retry "<task id>"`.
-- `id`, `order`, `kind`, `model` and `prompt` lines for the task to run now,
+- `id`, `order`, `kind`, `model`, an optional `effort` and `prompt` lines for the task to run now,
   then, for an `execution` task, an `overlap` line: `none`, `unclear`, or the
   ids of live tasks sharing its plan files or a `depends_on` edge.
 
@@ -218,7 +218,7 @@ order:
 has none yet, else `execution`. A planning leaf with no `STATUS:` line goes in as `--no-status` like any other; it retries until `MAX_ATTEMPTS`, then `task-next` blocks it.
 `STATUS: BLOCKED (FACT|DECISION)`
 routes per Clarifying Ambiguity. Dispatch the prompt as one
-`Agent` call with exactly that model, `name: "radin-<kind>-<task id>"`
+`Agent` call with exactly that model, that effort when an `effort` line printed, `name: "radin-<kind>-<task id>"`
 (`kind` is `planning`, `execution`, `debug` or `factfind`), and this text,
 and nothing else. The name lets a usage report show which task and role cost
 the most:

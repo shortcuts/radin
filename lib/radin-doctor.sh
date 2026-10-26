@@ -112,7 +112,7 @@ printf '\nInstall-time substitutions:\n'
 token_dirs=""
 for name in $SHIPPED_SKILLS; do token_dirs="$token_dirs $CLAUDE_DIR/skills/$name"; done
 # shellcheck disable=SC2086  # one path per shipped skill
-if grep -rq --exclude=radin-doctor.sh 'RADIN_MODEL_\|RADIN_CLI ' $token_dirs "$CLAUDE_DIR/.radin/lib" 2>/dev/null; then
+if grep -rq --exclude=radin-doctor.sh 'RADIN_MODEL_\|RADIN_EFFORT_\|RADIN_CLI ' $token_dirs "$CLAUDE_DIR/.radin/lib" 2>/dev/null; then
 	printf '  INVALID  unsubstituted RADIN_ token -- re-run install.sh\n'
 	MISSING=$((MISSING + 1))
 else

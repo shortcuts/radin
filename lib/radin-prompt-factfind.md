@@ -3,6 +3,7 @@
 Rendered by `radin prompt factfind <id>`. `lib/radin-prompt.sh` holds the format.
 
 `model: "RADIN_MODEL_FACTFIND"`
+`effort: "RADIN_EFFORT_FACTFIND"`
 
 Answers one checkable question in one turn.
 

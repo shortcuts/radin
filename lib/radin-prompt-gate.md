@@ -4,6 +4,8 @@ Rendered by `radin prompt gate`. `lib/radin-prompt.sh` holds the format.
 
 `model: "RADIN_MODEL_EXECUTION"`
 
+`effort: "RADIN_EFFORT_EXECUTION"`
+
 ```
 Run this repo's full check suite (lint, tests, format), as its own docs or CI
 config define it, `rtk`-wrapped. Run it once at the tip of each branch

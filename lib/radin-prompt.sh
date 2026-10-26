@@ -13,7 +13,7 @@
 #   radin-prompt.sh merge
 #
 # Writes the prompt to <namespace>/state/prompts/<id>-<kind>.md and prints
-# `model<TAB><name>` and `prompt<TAB><path>`. The router dispatches the path,
+# `model<TAB><name>`, `effort<TAB><level>` when set, and `prompt<TAB><path>`. The router dispatches the path,
 # never the text: echoing a whole prompt back as a Task argument costs output
 # tokens on every dispatch. Exit 1 on a bad kind, an unresolvable id, or an
 # unresolved dependency.
@@ -59,6 +59,15 @@ esac
 # shellcheck disable=SC2016  # the backticks are the template's markdown, not a subshell
 model="$(sed -n 's/^`model: "\([^"]*\)"`$/\1/p' "$TEMPLATE" | head -1)"
 [ -n "$model" ] || die "no model line in $TEMPLATE"
+# shellcheck disable=SC2016
+effort="$(sed -n 's/^`effort: "\([^"]*\)"`$/\1/p' "$TEMPLATE" | head -1)"
+
+# An empty effort prints no line: an empty `effort` on an Agent call fails it.
+print_dispatch() {
+	printf 'model\t%s\n' "$model"
+	[ -z "$effort" ] || printf 'effort\t%s\n' "$effort"
+	printf 'prompt\t%s\n' "$1"
+}
 
 fence() {
 	awk '
@@ -102,7 +111,7 @@ if [ "$kind" = gate ]; then
 	mkdir -p "$NAMESPACE_DIR/state/prompts"
 	out="$NAMESPACE_DIR/state/prompts/session-gate.md"
 	printf '%s\n' "$body" >"$out"
-	printf 'model\t%s\nprompt\t%s\n' "$model" "$out"
+	print_dispatch "$out"
 	exit 0
 fi
 
@@ -117,7 +126,7 @@ if [ "$kind" = merge ]; then
 	mkdir -p "$NAMESPACE_DIR/state/prompts"
 	out="$NAMESPACE_DIR/state/prompts/session-merge.md"
 	printf '%s\n' "$body" >"$out"
-	printf 'model\t%s\nprompt\t%s\n' "$model" "$out"
+	print_dispatch "$out"
 	exit 0
 fi
 
@@ -137,6 +146,8 @@ if [ "$kind" = execution ] && [ "$(field COMPLEXITY || true)" = low ]; then
 	low_model="$(sed -n 's/^`model-low: "\([^"]*\)"`$/\1/p' "$TEMPLATE" | head -1)"
 	[ -n "$low_model" ] || die "no model-low line in $TEMPLATE"
 	model="$low_model"
+	# shellcheck disable=SC2016
+	effort="$(sed -n 's/^`effort-low: "\([^"]*\)"`$/\1/p' "$TEMPLATE" | head -1)"
 fi
 
 plan_paths=""
@@ -278,4 +289,4 @@ sub_token TASK_BODY "$task_body"
 mkdir -p "$NAMESPACE_DIR/state/prompts" "$NAMESPACE_DIR/state/facts"
 out="$NAMESPACE_DIR/state/prompts/$task_id-$kind.md"
 printf '%s\n' "$body" >"$out"
-printf 'model\t%s\nprompt\t%s\n' "$model" "$out"
+print_dispatch "$out"

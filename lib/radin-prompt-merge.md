@@ -4,6 +4,8 @@ Rendered by `radin prompt merge`. `lib/radin-prompt.sh` holds the format.
 
 `model: "RADIN_MODEL_EXECUTION"`
 
+`effort: "RADIN_EFFORT_EXECUTION"`
+
 ```
 Merge each task branch below into MERGE_BASE, in the listed order, with
 `git merge <branch>`. Run every merge in the main checkout (`git rev-parse

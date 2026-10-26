@@ -463,6 +463,9 @@ MODEL_MAJOR="sonnet"
 # planner marked `complexity low` needs no design judgement, and a wrong one
 # still meets the dirty-tree check and Phase 6's review. Both take the cheapest tier.
 MODEL_MINOR="haiku"
+# Effort stays unset until a before/after run shows a level that holds quality.
+EFFORT_MAJOR=""
+EFFORT_MINOR=""
 
 # A file with no token is a no-op, so every pass runs over every SKILL.md and
 # lib/*.md and keeps no list of its own.
@@ -497,6 +500,24 @@ set_role_models() {
 	# dispatch fails -- louder to stop here than to debug that.
 	if grep -q 'RADIN_MODEL_' "$file"; then
 		printf "%b\n" "${RED}${RAT} failed to write the sub-agent models into $file.${RESET} Re-run the installer." >&2
+		exit 1
+	fi
+}
+
+set_role_efforts() {
+	local file="$1" tmp
+	tmp="$(mktemp)"
+	sed -e "s/RADIN_EFFORT_PLANNING/${EFFORT_MAJOR}/g" \
+		-e "s/RADIN_EFFORT_EXECUTION/${EFFORT_MAJOR}/g" \
+		-e "s/RADIN_EFFORT_REVIEW/${EFFORT_MAJOR}/g" \
+		-e "s/RADIN_EFFORT_DEBUG/${EFFORT_MAJOR}/g" \
+		-e "s/RADIN_EFFORT_FACTFIND/${EFFORT_MINOR}/g" \
+		-e "s/RADIN_EFFORT_LOW/${EFFORT_MINOR}/g" \
+		"$file" >"$tmp" && mv "$tmp" "$file"
+	# A surviving token reaches the Agent call as a literal effort and the
+	# dispatch fails.
+	if grep -q 'RADIN_EFFORT_' "$file"; then
+		printf "%b\n" "${RED}${RAT} failed to write the sub-agent efforts into $file.${RESET} Re-run the installer." >&2
 		exit 1
 	fi
 }
@@ -835,6 +856,24 @@ if CBM_BIN="$(cbm_bin)"; then
 	fi
 fi
 
+step "Sub-agent effort"
+# After the package-manager question, so the answers existing installs pipe in order do not shift.
+EFFORTS="unset low medium high xhigh max"
+if prompt_yn "Choose radin-batch's sub-agent effort? (default: unset, the Agent tool decides)"; then
+	# shellcheck disable=SC2086  # word splitting is the point -- one arg per level
+	EFFORT_MAJOR="$(prompt_pick "effort for planning, execution, review and debug sub-agents" 1 $EFFORTS)"
+	# shellcheck disable=SC2086
+	EFFORT_MINOR="$(prompt_pick "effort for fact-finding and low-complexity sub-agents" 1 $EFFORTS)"
+	[ "$EFFORT_MAJOR" != unset ] || EFFORT_MAJOR=""
+	[ "$EFFORT_MINOR" != unset ] || EFFORT_MINOR=""
+	ok "sub-agent effort: ${EFFORT_MAJOR:-unset}, ${EFFORT_MINOR:-unset} for fact-finding and low-complexity tasks"
+else
+	ok "keeping sub-agent effort unset"
+fi
+for f in $(shipped_text_files); do
+	set_role_efforts "$f"
+done
+
 step "Writing install manifest"
 # ponytail: three independent copies of this file list already exist
 # (install.sh's own cp lines above, radin-doctor.sh, radin-uninstall.sh) --
@@ -878,6 +917,12 @@ cat >"$MANIFEST_FILE" <<EOF
   "model_debug": "$MODEL_MAJOR",
   "model_factfind": "$MODEL_MINOR",
   "model_low": "$MODEL_MINOR",
+  "effort_planning": "$EFFORT_MAJOR",
+  "effort_execution": "$EFFORT_MAJOR",
+  "effort_review": "$EFFORT_MAJOR",
+  "effort_debug": "$EFFORT_MAJOR",
+  "effort_factfind": "$EFFORT_MINOR",
+  "effort_low": "$EFFORT_MINOR",
   "claude_md_guidance": $CLAUDE_MD_GUIDANCE,
   "cbm_agent_config": $CBM_AGENT_CONFIG,
   "cli_on_path": $CLI_ON_PATH,

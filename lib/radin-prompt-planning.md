@@ -3,6 +3,7 @@
 Rendered by `radin prompt planning <id>`. `lib/radin-prompt.sh` holds the format.
 
 `model: "RADIN_MODEL_PLANNING"`
+`effort: "RADIN_EFFORT_PLANNING"`
 
 ```
 Read TASK_FILE first.

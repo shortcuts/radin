@@ -3,6 +3,7 @@
 Rendered by `radin prompt debug <id>`. `lib/radin-prompt.sh` holds the format.
 
 `model: "RADIN_MODEL_DEBUG"`
+`effort: "RADIN_EFFORT_DEBUG"`
 
 One dispatch per task per session: `state task-report` answers `next debug` exactly once, and
 that exit is what sends this.

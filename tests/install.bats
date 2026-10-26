@@ -114,7 +114,7 @@ run_install_defaults() {
   [ "$status" -ne 0 ]
   [[ "$output" == *"partial install"* ]]
   [ -L "$TEST_HOME/.local/bin/radin" ]
-  [ -z "$(grep -rl --include='*.md' 'RADIN_CLI\|RADIN_LIB\|RADIN_MODEL_' "$TEST_HOME/.claude/skills" "$TEST_HOME/.claude/.radin/lib")" ]
+  [ -z "$(grep -rl --include='*.md' 'RADIN_CLI\|RADIN_LIB\|RADIN_MODEL_\|RADIN_EFFORT_' "$TEST_HOME/.claude/skills" "$TEST_HOME/.claude/.radin/lib")" ]
   grep -q 'radin:begin' "$TEST_HOME/.claude/CLAUDE.md"
 }
 
@@ -124,7 +124,9 @@ run_install_defaults() {
 # every dispatch would fail, so no installed file may keep one.
 @test "writes a model into every sub-agent role, leaving no marker behind" {
   run_install_defaults
-  run ! grep -rq --exclude=radin-doctor.sh 'RADIN_MODEL_' "$TEST_HOME/.claude/skills" "$TEST_HOME/.claude/.radin/lib"
+  run ! grep -rq --exclude=radin-doctor.sh 'RADIN_MODEL_\|RADIN_EFFORT_' "$TEST_HOME/.claude/skills" "$TEST_HOME/.claude/.radin/lib"
+  grep -q 'effort: ""' "$TEST_HOME/.claude/.radin/lib/radin-prompt-gate.md"
+  grep -q '"effort_planning": ""' "$TEST_HOME/.claude/.radin/manifest.json"
   grep -q 'model: "sonnet"' "$TEST_HOME/.claude/.radin/lib/radin-prompt-gate.md"
   grep -q 'model: "haiku"' "$TEST_HOME/.claude/.radin/lib/radin-prompt-factfind.md"
   grep -q 'model-low: "haiku"' "$TEST_HOME/.claude/.radin/lib/radin-prompt-execution.md"
@@ -134,11 +136,15 @@ run_install_defaults() {
 # and low-complexity tasks the second.
 @test "two picks set the major and minor roles, even when a companion reads stdin" {
   export MOCK_NPX=eat-stdin
-  cd "$REPO_ROOT" && run bash -c "printf '1\\n2\\n1\\n2\\n' | bash ./install.sh"
+  cd "$REPO_ROOT" && run bash -c "printf '1\\n2\\n1\\n2\\n1\\n4\\n2\\n' | bash ./install.sh"
   [ "$status" -eq 0 ]
   grep -q '"model_planning": "opus"' "$TEST_HOME/.claude/.radin/manifest.json"
   grep -q '"model_low": "fable"' "$TEST_HOME/.claude/.radin/manifest.json"
-  run ! grep -rq --exclude=radin-doctor.sh 'RADIN_MODEL_' "$TEST_HOME/.claude/skills" "$TEST_HOME/.claude/.radin/lib"
+  grep -q '"effort_planning": "high"' "$TEST_HOME/.claude/.radin/manifest.json"
+  grep -q '"effort_low": "low"' "$TEST_HOME/.claude/.radin/manifest.json"
+  run ! grep -rq --exclude=radin-doctor.sh 'RADIN_MODEL_\|RADIN_EFFORT_' "$TEST_HOME/.claude/skills" "$TEST_HOME/.claude/.radin/lib"
+  grep -q 'effort: "high"' "$TEST_HOME/.claude/.radin/lib/radin-prompt-gate.md"
+  grep -q 'effort-low: "low"' "$TEST_HOME/.claude/.radin/lib/radin-prompt-execution.md"
   grep -q 'model: "opus"' "$TEST_HOME/.claude/.radin/lib/radin-prompt-gate.md"
   grep -q 'model: "fable"' "$TEST_HOME/.claude/.radin/lib/radin-prompt-factfind.md"
   grep -q 'model-low: "fable"' "$TEST_HOME/.claude/.radin/lib/radin-prompt-execution.md"

@@ -41,11 +41,11 @@ own stacks; one that fails is reported and skipped, and radin still installs.
 `rtk` installs through Homebrew, mise, or its own
 installer. The install asks which.
 
-Install asks two questions: one about `radin-batch`'s sub-agent models,
-one naming the package manager for companion tools. Add `-s -- --yes` to take the defaults. Add `-s -- --verbose` to
+Install asks three questions: one about `radin-batch`'s sub-agent models,
+one naming the package manager for companion tools, one about sub-agent effort. Add `-s -- --yes` to take the defaults. Add `-s -- --verbose` to
 trace every command, for an install that hangs or fails.
 
-Update radin itself with `radin update`. It asks the sub-agent model question
+Update radin itself with `radin update`. It asks the sub-agent model and effort questions
 again, reapplies every companion's configuration, and installs only the
 companions that are missing. Re-run `install.sh` to update the companions too.
 
