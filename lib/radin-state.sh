@@ -291,14 +291,14 @@ dirty_files() {
 }
 
 # Stashes everything in tree $1 except .claude/.radin under message $2, prints
-# the stash ref.
+# the stash commit hash. An index such as stash@{0} shifts with the next stash.
 stash_tree() {
 	local before after
 	before="$(git -C "$1" stash list | grep -c . || true)"
 	git -C "$1" stash push -u -m "$2" -- . ':(exclude).claude/.radin' >/dev/null
 	after="$(git -C "$1" stash list | grep -c . || true)"
 	[ "$after" -gt "$before" ] || die "nothing to stash"
-	printf 'stash@{0}\n'
+	git -C "$1" rev-parse "stash@{0}"
 }
 
 # Commits everything in tree $1 except .claude/.radin as unfinished work of task
@@ -324,9 +324,9 @@ prepare_stash() {
 	[ -n "$(dirty_files "$1")" ] || return 0
 	ref="$(stash_tree "$1" "radin-batch: uncommitted changes found before task $2")"
 	journal "$ns/state" "stash" "$2" \
-		"$ref in $1 -- uncommitted before task $2 started. Recover: git -C $1 stash pop"
-	printf 'radin: stashed uncommitted changes in %s as %s before task %s. Recover: git -C %s stash pop\n' \
-		"$1" "$ref" "$2" "$1" >&2
+		"$ref in $1 -- uncommitted before task $2 started. Recover: git -C $1 stash apply $ref"
+	printf 'radin: stashed uncommitted changes in %s as %s before task %s. Recover: git -C %s stash apply %s\n' \
+		"$1" "$ref" "$2" "$1" "$ref" >&2
 }
 
 # Prints task $1's order and title, TAB-separated, the id standing in for a
