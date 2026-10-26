@@ -89,8 +89,18 @@ TASK_BODY
    add`, no `git checkout -b`, no `git switch -c`, and no switching onto a
    `radin/<task-id>` branch you happen to notice. Non-zero exit: stop and
    report `STATUS: FAILED` with its message.
+<!-- if:!STASH_BASE -->
    The tree starts clean: `prepare` stashes anything it found uncommitted and
    says where, so no work you did not write is yours to commit or revert.
+<!-- end -->
+<!-- if:STASH_BASE -->
+   Stashed work was triaged as the base of this task. `prepare` then prints
+   "applied stash" on stderr: the tree starts from that uncommitted work. Read
+   it as a draft: keep what the task needs, fix or finish it, and commit it
+   with your own work. Never revert it wholesale and never run `git stash
+   apply` or `git stash pop` yourself. `prepare` prints "did not apply"
+   instead: the tree is clean, so work from scratch.
+<!-- end -->
 <!-- if:ACCEPTANCE -->
 ACCEPTANCE
 <!-- end -->

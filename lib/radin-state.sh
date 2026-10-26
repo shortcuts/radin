@@ -49,6 +49,8 @@
 #   radin-state.sh merge-list                   # print "base<TAB>branch", then "id<TAB>branch<TAB>hash" per session task branch not yet in the base; exit 1 if none
 #   radin-state.sh reconcile                    # squash-merge every leftover branch whose last journal status is done, whose worktree is not dirty and that duplicates no other; print "merged<TAB>branch<TAB>tip", "conflict<TAB>branch" or "skipped<TAB>branch<TAB>reason"; exit 3 on a conflict
 #   radin-state.sh leftovers                    # print "base<TAB>branch", then a "branch", "stash" or "foreign" TAB line per unmerged radin/* branch, radin-batch stash or non-radin worktree in the repo, whatever session made it; exit 1 if none
+#   radin-state.sh stash-triage                 # print "candidate<TAB>hash<TAB>id" per untriaged radin-batch stash and open task the stash's paths appear in, then "left<TAB>n" (stashes not claimed by a task); nothing when no radin-batch stash exists
+#   radin-state.sh stash-claim <hash> <id|->    # record the router's verdict for a stash: a task id makes prepare apply the stash in that task's tree, "-" leaves it; exit 1 when the stash was triaged already
 #   radin-state.sh merge                        # squash-merge each merge-list branch that merges cleanly into the base, drop its worktree and branch, and print and journal any branch or worktree it keeps; exit 3 when a branch conflicts (printed as "conflict<TAB>branch")
 #   radin-state.sh gate-fix <hash>...           # record the gate's fix commits (state/gate-fixes) so session-commits lists them
 #   radin-state.sh deps-check <id>              # print "dep<TAB>hash" per dependency, exit 1 naming the first unresolved one (radin-prompt.sh)
@@ -365,6 +367,33 @@ prepare_stash() {
 		"$ref in $1 -- uncommitted before task $2 started. Recover: git -C $1 stash apply $ref"
 	printf 'radin: stashed uncommitted changes in %s as %s before task %s. Recover: git -C %s stash apply %s\n' \
 		"$1" "$ref" "$2" "$1" "$ref" >&2
+}
+
+# Prints the journal's stash-triage lines for stash $1; none when untriaged.
+triaged() {
+	local jf="$ns/state/journal.jsonl"
+	[ -f "$jf" ] || return 0
+	grep -F '"event":"stash-triage"' "$jf" | grep -F "\"detail\":\"$1\"" || true
+}
+
+# Applies the stash task $2 claimed (stash-claim) into tree $1, which
+# prepare_stash just cleaned. The stash is never dropped: a failed apply
+# resets the tree and leaves it where it was.
+prepare_apply_claim() {
+	local claim="$ns/state/stash-claims/$2" h
+	[ -s "$claim" ] || return 0
+	h="$(cat "$claim")"
+	if git -C "$1" stash apply "$h" >/dev/null 2>&1; then
+		mv "$claim" "$claim.applied"
+		journal "$ns/state" "stash-apply" "$2" "$h"
+		printf 'radin: applied stash %s into %s as the base of task %s\n' "$h" "$1" "$2" >&2
+	else
+		git -C "$1" reset --hard -q
+		git -C "$1" clean -fdq -e .claude/.radin
+		mv "$claim" "$claim.failed"
+		journal "$ns/state" "stash-apply-failed" "$2" "$h"
+		printf 'radin: stash %s did not apply to %s; the tree starts clean\n' "$h" "$1" >&2
+	fi
 }
 
 # Prints task $1's order and title, TAB-separated, the id standing in for a
@@ -700,6 +729,55 @@ leftovers)
 	for part in "$out" "$stashes" "$foreign"; do
 		[ -z "$part" ] || printf '%s\n' "$part"
 	done
+	;;
+
+stash-triage)
+	rows=""
+	left=0
+	for h in $(git -C "$repo_root" stash list --format='%H%x09%gs' | grep -F 'radin-batch: ' | cut -f1 || true); do
+		t="$(triaged "$h")"
+		[ -z "$t" ] || { grep -qvF '"id":""' <<<"$t" && continue; }
+		left=$((left + 1))
+		[ -z "$t" ] || continue
+		for p in $(git -C "$repo_root" stash show --include-untracked --name-only "$h" 2>/dev/null || true); do
+			rows="$rows$h	$p
+"
+		done
+	done
+	[ "$left" -gt 0 ] || exit 0
+	sep="$(printf '\037')"
+	seen=" "
+	for id in $( (cd "$repo_root" && bash "$LIB_DIR/radin-backlog.sh" list 2>/dev/null) | cut -d"$sep" -f1); do
+		hay="$( (
+			cd "$repo_root" && f="$(bash "$LIB_DIR/radin-backlog.sh" field "$id" TASK_FILE 2>/dev/null)" && cat "$f"
+			bash "$LIB_DIR/radin-backlog.sh" files "$id" 2>/dev/null
+		) || true)"
+		while IFS="$(printf '\t')" read -r h p; do
+			[ -n "$p" ] || continue
+			case "$seen" in *" $h $id "*) continue ;; esac
+			grep -qF -- "$p" <<<"$hay" || continue
+			seen="$seen$h $id "
+			printf 'candidate\t%s\t%s\n' "$h" "$id"
+		done <<EOF2
+$rows
+EOF2
+	done
+	printf 'left\t%s\n' "$left"
+	;;
+
+stash-claim)
+	h="${2:-}"
+	cid="${3:-}"
+	[ -n "$h" ] && [ -n "$cid" ] || die "usage: stash-claim <hash> <id|->"
+	[ -z "$(triaged "$h")" ] || die "already triaged: $h"
+	case "$(git -C "$repo_root" stash list --format=%H)" in *"$h"*) ;; *) die "no such stash: $h" ;; esac
+	if [ "$cid" = "-" ]; then
+		journal "$ns/state" "stash-triage" "" "$h"
+	else
+		mkdir -p "$ns/state/stash-claims"
+		printf '%s\n' "$h" >"$ns/state/stash-claims/$cid"
+		journal "$ns/state" "stash-triage" "$cid" "$h"
+	fi
 	;;
 
 merge)
@@ -1172,6 +1250,7 @@ prepare)
 		fi
 		dir="$repo_root"
 	fi
+	prepare_apply_claim "$dir" "$id"
 	# The branch is read here, after the git commands and nowhere else: a
 	# `branch: no` run lands on whatever the user had checked out, and no
 	# derivation from the id can see that. A detached HEAD records the literal
@@ -1823,6 +1902,6 @@ finding-classes)
 	;;
 
 *)
-	die "unknown command: ${cmd:-<none>} (steps-init|steps-list|steps-open|steps-waiting|answered|retry|task-next|task-report|task-fact|task-diagnosis|task-done|set-status|stuck|preflight|resume|recover|recover-reject|report|session-set|session-get|prepare|dirty-check|trace|completed-show|completed-list|session-commits|gate-map|merge-list|leftovers|merge|reconcile|gate-fix|deps-check|task-dir|journal-tail|plan-covers|review-findings|finding-classes)"
+	die "unknown command: ${cmd:-<none>} (steps-init|steps-list|steps-open|steps-waiting|answered|retry|task-next|task-report|task-fact|task-diagnosis|task-done|set-status|stuck|preflight|resume|recover|recover-reject|report|session-set|session-get|prepare|dirty-check|trace|completed-show|completed-list|session-commits|gate-map|merge-list|leftovers|stash-triage|stash-claim|merge|reconcile|gate-fix|deps-check|task-dir|journal-tail|plan-covers|review-findings|finding-classes)"
 	;;
 esac

@@ -119,6 +119,16 @@ Empty output means no branch applies. Act on each line by its first field:
   `RADIN_CLI prompt merge <the conflict branches>`. A `skipped` line is
   printed for the user and needs no action.
 
+Then run `RADIN_CLI state stash-triage`. Each `candidate<TAB>hash<TAB>id` line
+becomes one `RADIN_CLI prompt factfind "<id>" "Does the uncommitted work in git
+stash <hash> (read it with git stash show -p --include-untracked <hash>)
+continue the task at TASK_FILE, judged against that task's body, acceptance and
+plan? Answer FOUND — yes or FOUND — no, with one reason."` dispatch, all in one
+message. For each answer run `RADIN_CLI state stash-claim <hash> <id>` on
+`FOUND — yes` and `RADIN_CLI state stash-claim <hash> -` on any other answer;
+a claim that exits non-zero ("already triaged") is ignored. Print the `left`
+line as `N radin-batch stashes left in place (git stash list)`.
+
 ## Phase 1: Resolve the Scope
 
 Resolve the **scope**, only when the invoking prompt names one (an epic id,

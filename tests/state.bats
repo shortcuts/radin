@@ -133,3 +133,44 @@ JSON
   run state reconcile
   [[ "$output" != *merged* ]]
 }
+
+@test "a claimed stash is applied in the task's tree and kept; a conflicting one leaves a clean tree" {
+  base="$(git -C "$P" branch --show-current)"
+  echo one >"$P/a.txt"
+  git -C "$P" add a.txt
+  git -C "$P" commit -q -m "add a"
+  echo "touch a.txt" >>"$(cd "$P" && bash "$REPO_ROOT/lib/radin-backlog.sh" field t-one TASK_FILE)"
+  mkdir -p "$P/.claude/.radin/state"
+  state session-set yes no
+  echo draft >"$P/a.txt"
+  echo new >"$P/b.txt"
+  git -C "$P" stash push -u -q -m "radin-batch: uncommitted changes found before task other" -- . ':(exclude).claude/.radin'
+  h="$(git -C "$P" rev-parse 'stash@{0}')"
+  run state stash-triage
+  [ "$status" -eq 0 ]
+  [[ "$output" == *$'candidate\t'"$h"$'\tt-one'* ]]
+  [[ "$output" == *$'left\t1'* ]]
+  run state stash-claim "$h" t-one
+  [ "$status" -eq 0 ]
+  run state stash-claim "$h" t-one
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"already triaged"* ]]
+  run state prepare t-one
+  [ "$status" -eq 0 ]
+  dir="${lines[${#lines[@]}-1]}"
+  [ "$(cat "$dir/a.txt")" = draft ]
+  [ "$(git -C "$P" stash list | grep -c .)" -eq 1 ]
+  # a second claim whose apply conflicts leaves a clean tree and keeps the stash
+  echo other >"$P/a.txt"
+  git -C "$P" stash push -q -m "radin-batch: uncommitted changes found before task other" -- . ':(exclude).claude/.radin'
+  h2="$(git -C "$P" rev-parse 'stash@{0}')"
+  state stash-claim "$h2" t-two
+  git -C "$P" worktree add -q "$WORK/proj-t-two" -b radin/t-two "$base"
+  echo clash >"$WORK/proj-t-two/a.txt"
+  git -C "$WORK/proj-t-two" commit -qam clash
+  run state prepare t-two
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"did not apply"* ]]
+  [ -z "$(git -C "$WORK/proj-t-two" status --porcelain)" ]
+  [ "$(git -C "$P" stash list | grep -c .)" -eq 2 ]
+}

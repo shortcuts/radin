@@ -258,6 +258,7 @@ active=" CAT_$category "
 [ -z "$epic_context" ] || active="$active EPIC_CONTEXT "
 [ -z "$depends_on" ] || active="$active DEPENDS_ON "
 [ -z "$stale_plan" ] || active="$active STALE_PLAN "
+[ ! -s "$NAMESPACE_DIR/state/stash-claims/$task_id" ] || active="$active STASH_BASE "
 [ -z "$depends_on$stale_plan" ] || active="$active DRIFT "
 
 body="$(printf '%s\n' "$body" | strip_guards "$active")"
