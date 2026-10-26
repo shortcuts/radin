@@ -54,8 +54,8 @@ Work these rungs in order and stop at the first that yields a spec:
    RADIN_CLI scope --specs [<the same scope arg as Step 1>]
    ```
 
-   It prints one `id`, `created`, `branch`, `commit`, `source`, `role` line per
-   candidate, oldest first. `source` says how the entry joined: `commit` (the
+   It prints one `id`, `created`, `branch`, `commit`, `source`, `role`, `plan`,
+   `facts` line per candidate, oldest first. `source` says how the entry joined: `commit` (the
    task's commit is in scope), `reflog` (a squash or rebase rewrote that
    commit, and the review branch's reflog still lists it) or `pending` (an
    open entry recorded on the review branch).
@@ -65,10 +65,9 @@ Work these rungs in order and stop at the first that yields a spec:
    - **No output**: fall to rung 3.
    - **Lines**: take every line without asking.
 
-   A `pending` id resolves as in rung 1. For the others,
-   `RADIN_CLI state completed-show "<id>"` names the plan the task ran
-   against in its `plan` line, comma-separated. `RADIN_CLI state trace "<id>"`
-   adds the file its `facts` line names to the entry.
+   `plan` names the plan file(s), comma-separated. `facts` names the facts
+   file. Add each path to the entry; `none` means absent. A `pending` id's
+   task file resolves as in rung 1.
 
    `role` is `follow-up` or `feature`. Follow-ups are **decisions**; features
    are the **spec**.

@@ -22,7 +22,7 @@ The caller names the level, the scope and the spec:
 <!-- end -->
 | `diff` | `git diff --cached` | the plan file(s), else the task file; the acceptance criteria |
 <!-- if:!LEVEL_diff -->
-| `session` | the commits, as `RADIN_CLI scope <range>` prints their diff command | the task file and plan file(s) of each id `RADIN_CLI scope --specs <range>` prints (`RADIN_CLI state completed-show "<id>"` names them) |
+| `session` | the commits, as `RADIN_CLI scope <range>` prints their diff command | the task file and plan file(s) of each id `RADIN_CLI scope --specs <range>` prints (its `plan` column names the plan file(s)) |
 <!-- end -->
 
 Read the spec in full before reading the scope.

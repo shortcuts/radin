@@ -6,7 +6,7 @@
 # Usage: radin-scope.sh [arg]
 #        radin-scope.sh --in-scope [arg]   # classify "path:line" lines on stdin
 #        radin-scope.sh --commits [arg]    # the scope's commits, "<hash> <subject>"
-#        radin-scope.sh --specs [arg]      # candidate specs, "id created branch commit source role", oldest first
+#        radin-scope.sh --specs [arg]      # candidate specs, "id created branch commit source role plan facts", oldest first
 #        radin-scope.sh --attribute [arg]  # map "path:line" lines on stdin to task + plan
 #        radin-scope.sh --bucket           # bucket finding lines on stdin, no scope
 #
@@ -34,6 +34,8 @@
 # joined through `radin state trace`. Anything else prints `none` twice.
 # --specs `role` is `follow-up` when a plan of the task (or the task file of a
 # pending one) holds a `**Finding:**` or `**Severity:**` line, else `feature`.
+# --specs `plan` is the task's plan paths, comma-separated; `facts` is its facts
+# file when one exists. Both print `none` when absent, so no column is empty.
 # --bucket reads review finding lines `<severity> <path:line> — <claim>
 # [<rung>: <evidence>]` on stdin and prints `<bucket><TAB><line>` in input
 # order. A nit is `noted`. A critical or warning is `act-on` with rung traced
@@ -181,6 +183,13 @@ if [ "${1:-}" = "--specs" ]; then
 			printf feature
 		fi
 	}
+	cols_of() {
+		local plan_col facts_file
+		plan_col="$(printf '%s\n' "$2" | paste -sd, -)"
+		facts_file="$NAMESPACE_DIR/state/facts/$1.md"
+		[ -f "$facts_file" ] || facts_file=none
+		printf '%s\t%s' "${plan_col:-none}" "$facts_file"
+	}
 	# ponytail: one `completed-show` fork per completed task; batch it if the
 	# completed log ever grows past a few hundred lines.
 	while IFS="$TAB" read -r id c; do
@@ -205,7 +214,7 @@ if [ "${1:-}" = "--specs" ]; then
 		# Plan paths hold no spaces or globs; word splitting is the intent.
 		# shellcheck disable=SC2086
 		role="$(role_of $plans)"
-		rows="$rows$id$TAB$(printf '%s\n' "$shown" | sed -n "s/^created$TAB//p")$TAB$(printf '%s\n' "$shown" | sed -n "s/^branch$TAB//p")$TAB$c$TAB$source$TAB$role
+		rows="$rows$id$TAB$(printf '%s\n' "$shown" | sed -n "s/^created$TAB//p")$TAB$(printf '%s\n' "$shown" | sed -n "s/^branch$TAB//p")$TAB$c$TAB$source$TAB$role$TAB$(cols_of "$id" "$plans")
 "
 	done < <(bash "$LIB_DIR/radin-state.sh" completed-list 2>/dev/null || true)
 	if [ -n "$branch" ]; then
@@ -216,7 +225,7 @@ if [ "${1:-}" = "--specs" ]; then
 			tf="$(bash "$LIB_DIR/radin-backlog.sh" field "$id" TASK_FILE 2>/dev/null || true)"
 			# shellcheck disable=SC2086
 			role="$(role_of $plans $tf)"
-			rows="$rows$id$TAB$created$TAB$b$TAB${TAB}pending$TAB$role
+			rows="$rows$id$TAB$created$TAB$b$TAB${TAB}pending$TAB$role$TAB$(cols_of "$id" "$plans")
 "
 		done < <(bash "$LIB_DIR/radin-backlog.sh" stamps "$branch" 2>/dev/null || true)
 	fi
