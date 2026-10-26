@@ -47,7 +47,7 @@
 #   radin-state.sh session-commits              # print this session's commits, oldest first, one hash per line: task-done commits past the baseline, then gate fixes; exit 1 if none
 #   radin-state.sh gate-map                     # print "branch<TAB>tip<TAB>worktree<TAB>oldest session commit" per branch holding a session commit, oldest work first; exit 1 if none
 #   radin-state.sh merge-list                   # print "base<TAB>branch", then "id<TAB>branch<TAB>hash" per session task branch not yet in the base; exit 1 if none
-#   radin-state.sh merge                        # merge each merge-list branch that merges cleanly into the base, drop its worktree and branch; exit 3 when a branch conflicts (printed as "conflict<TAB>branch")
+#   radin-state.sh merge                        # merge each merge-list branch that merges cleanly into the base, drop its worktree and branch, and print and journal any branch or worktree it keeps; exit 3 when a branch conflicts (printed as "conflict<TAB>branch")
 #   radin-state.sh gate-fix <hash>...           # record the gate's fix commits (state/gate-fixes) so session-commits lists them
 #   radin-state.sh deps-check <id>              # print "dep<TAB>hash" per dependency, exit 1 naming the first unresolved one (radin-prompt.sh)
 #   radin-state.sh task-dir <id>                # print the task's worktree if it exists, else the repo root (radin-prompt.sh)
@@ -620,10 +620,14 @@ merge)
 		if [ -n "$wt" ] && [ -d "$wt" ]; then
 			git -C "$repo_root" worktree remove "$wt" >&2 || {
 				printf 'merge: kept %s, worktree %s would not remove\n' "$mbranch" "$wt" >&2
+				journal "$state_dir" "merge-kept" "$mid" "branch $mbranch kept, worktree $wt would not remove"
 				continue
 			}
 		fi
-		git -C "$repo_root" branch -d "$mbranch" >&2 || true
+		if ! git -C "$repo_root" branch -d "$mbranch" >&2; then
+			printf 'merge: kept %s, branch -d failed\n' "$mbranch" >&2
+			journal "$state_dir" "merge-kept" "$mid" "branch $mbranch kept, branch -d failed"
+		fi
 	done <<EOF2
 $(printf '%s\n' "$list" | sed 1d)
 EOF2

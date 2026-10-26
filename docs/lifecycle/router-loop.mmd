@@ -21,9 +21,9 @@ flowchart TD
   route -- clarify --> user[/Ask the user<br/>FACT or DECISION/]
   user --> next
   p45 --> p5[Phase 5<br/>state report]
-  p5 --> p55[Phase 5.5<br/>offer merge of task branches]
-  p55 -- merge all --> mergeCli[radin state merge]
+  p5 --> p55[Phase 5.5<br/>merge task branches]
+  p55 --> mergeCli[radin state merge]
   mergeCli -- all merged --> p6
   mergeCli -- conflict, exit 3 --> leafM[[Merge leaf]]
-  p55 -- skip or no branches --> p6
+  p55 -- no branches --> p6
   leafM --> p6[Phase 6<br/>review offer]

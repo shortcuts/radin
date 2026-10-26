@@ -306,7 +306,7 @@ cannot do.
 
 Skip it when `RADIN_CLI state session-get` prints `worktree<TAB>no` and `branch<TAB>no`.
 
-Read `RADIN_LIB/radin-batch-merge.md` and follow it to offer the merge of this session's task branches.
+Read `RADIN_LIB/radin-batch-merge.md` and follow it to merge this session's task branches.
 
 ## Phase 6: Review
 
