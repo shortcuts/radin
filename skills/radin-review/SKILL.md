@@ -127,12 +127,13 @@ printf '%s\n' "<path:line per survivor>" |
   RADIN_CLI scope --attribute [<the same scope arg as Step 1>]
 ```
 
-Each line carries the citation, its task id and its plan paths (comma-joined);
-`none` in either field, a `dir` scope or an untraced commit means class
-`none`. Otherwise settle the class in this order:
+Each line carries the citation, its task id, its plan paths (comma-joined) and
+its plan-covers result (`in`, `test` or `out`); `none` in the task or plan
+field, a `dir` scope or an untraced commit means class `none`. Otherwise settle
+the class in this order:
 
-1. `RADIN_CLI state plan-covers "<plan csv>" "<cited path>"` prints `out`:
-   class `executor`, the code touched a file outside the plan's Changes.
+1. The fourth field is `out`: class `executor`, the code touched a file outside
+   the plan's Changes.
 2. Otherwise read the plan's `## Decisions`: class `plan` when a Decisions line
    prescribed the flaw or left the choice open for the executor to guess,
    `executor` when the plan was right and the code deviated. Quote that

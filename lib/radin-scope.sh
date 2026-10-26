@@ -7,7 +7,7 @@
 #        radin-scope.sh --in-scope [arg]   # classify "path:line" lines on stdin
 #        radin-scope.sh --commits [arg]    # the scope's commits, "<hash> <subject>"
 #        radin-scope.sh --specs [arg]      # candidate specs, "id created branch commit source role plan facts", oldest first
-#        radin-scope.sh --attribute [arg]  # map "path:line" lines on stdin to task + plan
+#        radin-scope.sh --attribute [arg]  # map "path:line" lines on stdin to task + plan + plan-covers
 #        radin-scope.sh --bucket           # bucket finding lines on stdin, no scope
 #
 # No arg: the current branch's diff against its merge-base with main/master.
@@ -29,9 +29,11 @@
 # per commit it covers: newest first for git scopes, gh's order for a PR, and
 # nothing for a `dir` scope.
 # --attribute resolves the same scope, then prints `<citation><TAB><task id>
-# <TAB><plan path|none>` per stdin citation in input order. The cited line is
-# blamed; it maps only when the blamed commit is one of the scope's commits,
-# joined through `radin state trace`. Anything else prints `none` twice.
+# <TAB><plan path|none><TAB><in|test|out|none>` per stdin citation in input
+# order. The cited line is blamed; it maps only when the blamed commit is one
+# of the scope's commits, joined through `radin state trace`. The last column
+# is `plan-covers` for the cited path, `none` without a plan. Anything else
+# prints `none` three times.
 # --specs `role` is `follow-up` when a plan of the task (or the task file of a
 # pending one) holds a `**Finding:**` or `**Severity:**` line, else `feature`.
 # --specs `plan` is the task's plan paths, comma-separated; `facts` is its facts
@@ -268,6 +270,7 @@ if [ "${1:-}" = "--attribute" ]; then
 		l="${l%%-*}"
 		task=""
 		plan=""
+		covers=""
 		case "$l" in '' | *[!0-9]*) ;; *)
 			h="$(git blame --porcelain -L "$l,$l" -- "$p" 2>/dev/null | sed -n '1s/ .*//p' || true)"
 			case "$h" in '' | *[!0-9a-f]*) h="" ;; esac
@@ -275,11 +278,12 @@ if [ "${1:-}" = "--attribute" ]; then
 				traced="$(bash "$LIB_DIR/radin-state.sh" trace "$h" 2>/dev/null || true)"
 				task="$(printf '%s\n' "$traced" | sed -n "s/^task$TAB//p" | head -n 1)"
 				plan="$(printf '%s\n' "$traced" | sed -n "s/^plan$TAB//p" | head -n 1)"
+				[ -z "$plan" ] || covers="$(bash "$LIB_DIR/radin-state.sh" plan-covers "$plan" "$p")"
 				;;
 			esac
 			;;
 		esac
-		printf '%s\t%s\t%s\n' "$cite" "${task:-none}" "${plan:-none}"
+		printf '%s\t%s\t%s\t%s\n' "$cite" "${task:-none}" "${plan:-none}" "${covers:-none}"
 	done
 	exit 0
 fi
