@@ -22,7 +22,7 @@ flowchart TD
   user --> next
   p45 --> p5[Phase 5<br/>state report]
   p5 --> p55[Phase 5.5<br/>merge task branches]
-  p55 --> mergeCli[radin state merge]
+  p55 --> mergeCli[radin state merge squash]
   mergeCli -- all merged --> p6
   mergeCli -- conflict, exit 3 --> leafM[[Merge leaf]]
   p55 -- no branches --> p6
