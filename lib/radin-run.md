@@ -113,6 +113,11 @@ Empty output means no branch applies. Act on each line by its first field:
   call this session; carry nothing else. No `rank` line: every entry carries
   a priority, so read no task body, run no criteria pass, infer no
   dependency.
+- `leftovers`: a finished task branch from an earlier session never reached
+  the base. Run `RADIN_CLI state reconcile` and print its output. Exit 3: read
+  `RADIN_LIB/radin-batch-merge.md` and follow its conflict path with
+  `RADIN_CLI prompt merge <the conflict branches>`. A `skipped` line is
+  printed for the user and needs no action.
 
 ## Phase 1: Resolve the Scope
 

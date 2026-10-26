@@ -107,3 +107,29 @@ JSON
     [[ "$output" == *"$name"* ]]
   done
 }
+
+@test "reconcile merges only a done, clean leftover and keeps the rest" {
+  base="$(git -C "$P" branch --show-current)"
+  for b in a b c; do
+    git -C "$P" checkout -q -b "radin/$b" "$base"
+    echo "$b" >"$P/$b.txt"
+    git -C "$P" add "$b.txt"
+    git -C "$P" commit -q -m "feat: $b"
+  done
+  git -C "$P" checkout -q "$base"
+  git -C "$P" worktree add -q "$WORK/wt-c" radin/c
+  echo dirt >"$WORK/wt-c/dirt.txt"
+  mkdir -p "$P/.claude/.radin/state"
+  printf '{"ts":"t","event":"done","id":"a","detail":""}\n{"ts":"t","event":"unproven","id":"b","detail":""}\n{"ts":"t","event":"done","id":"c","detail":""}\n' >"$P/.claude/.radin/state/journal.jsonl"
+  run state reconcile
+  [ "$status" -eq 0 ]
+  [[ "$output" == *$'merged\tradin/a\t'* ]]
+  [[ "$output" == *$'skipped\tradin/b\tnot done (unproven)'* ]]
+  [[ "$output" == *$'skipped\tradin/c\tdirty'* ]]
+  [ -z "$(git -C "$P" branch --list radin/a)" ]
+  [ -n "$(git -C "$P" branch --list radin/b)" ]
+  [ -n "$(git -C "$P" branch --list radin/c)" ]
+  [ -f "$P/a.txt" ]
+  run state reconcile
+  [[ "$output" != *merged* ]]
+}

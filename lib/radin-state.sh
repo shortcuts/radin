@@ -30,7 +30,7 @@
 #   radin-state.sh resume                       # move each failed entry and each retryable blocked entry to pending, attempts and debugged kept; print "id<TAB>old status" per move
 #   radin-state.sh stuck                        # print "id<TAB>attempts<TAB>note" per in_progress entry, exit 1 if none
 #   radin-state.sh steps-waiting                # print "id<TAB>note" per blocked entry whose note holds an unanswered question, exit 1 if none
-#   radin-state.sh preflight                    # run the startup checks, print "empty" | "session<TAB>missing" | "stuck<TAB>id<TAB>attempts<TAB>note" | "waiting<TAB>id<TAB>note" | "rank<TAB>csv", exit 0
+#   radin-state.sh preflight                    # run the startup checks, print "empty" | "session<TAB>missing" | "stuck<TAB>id<TAB>attempts<TAB>note" | "waiting<TAB>id<TAB>note" | "rank<TAB>csv" | "leftovers", exit 0
 #   radin-state.sh steps-open                   # print "id<TAB>question" per open decision of a pending entry, exit 1 if none
 #   radin-state.sh steps-list                   # print "id<TAB>order<TAB>status<TAB>attempts<TAB>note" per entry, exit 1 if none
 #   radin-state.sh recover <id>                 # recover a task a dead session left in_progress; exit 3 prints commits only the model can judge
@@ -47,6 +47,7 @@
 #   radin-state.sh session-commits              # print this session's commits, oldest first, one hash per line: task-done commits past the baseline, then gate fixes; exit 1 if none
 #   radin-state.sh gate-map                     # print "branch<TAB>tip<TAB>worktree<TAB>oldest session commit" per branch holding a session commit, oldest work first; exit 1 if none
 #   radin-state.sh merge-list                   # print "base<TAB>branch", then "id<TAB>branch<TAB>hash" per session task branch not yet in the base; exit 1 if none
+#   radin-state.sh reconcile                    # squash-merge every leftover branch whose last journal status is done, whose worktree is not dirty and that duplicates no other; print "merged<TAB>branch<TAB>tip", "conflict<TAB>branch" or "skipped<TAB>branch<TAB>reason"; exit 3 on a conflict
 #   radin-state.sh leftovers                    # print "base<TAB>branch", then a "branch", "stash" or "foreign" TAB line per unmerged radin/* branch, radin-batch stash or non-radin worktree in the repo, whatever session made it; exit 1 if none
 #   radin-state.sh merge                        # squash-merge each merge-list branch that merges cleanly into the base, drop its worktree and branch, and print and journal any branch or worktree it keeps; exit 3 when a branch conflicts (printed as "conflict<TAB>branch")
 #   radin-state.sh gate-fix <hash>...           # record the gate's fix commits (state/gate-fixes) so session-commits lists them
@@ -321,6 +322,29 @@ wip_commit() {
 	git -C "$1" add -A -- . ':(exclude).claude/.radin'
 	git -C "$1" commit --no-verify -q -m "wip($2): unfinished work, task not complete" -m "$3" >/dev/null
 	git -C "$1" rev-parse --short HEAD
+}
+
+# Deletes with -D: a squash never makes the branch an ancestor, so -d always fails.
+squash_merge_one() {
+	local sid="$1" sbranch="$2" swt="$3" stip="$4"
+	if ! { git -C "$repo_root" merge --squash "$sbranch" && git -C "$repo_root" commit -q -m "$(git -C "$repo_root" log -1 --format=%s "$sbranch")"; } >&2; then
+		git -C "$repo_root" reset --merge >&2 || true
+		printf 'conflict\t%s\n' "$sbranch"
+		return 1
+	fi
+	[ "$sid" = "-" ] || : >"$ns/state/prepared/$sid.merged"
+	printf 'merged\t%s\t%s\n' "$sbranch" "$stip"
+	if [ -n "$swt" ] && [ -d "$swt" ]; then
+		git -C "$repo_root" worktree remove "$swt" >&2 || {
+			printf 'merge: kept %s, worktree %s would not remove\n' "$sbranch" "$swt" >&2
+			journal "$ns/state" "merge-kept" "$sid" "branch $sbranch kept, worktree $swt would not remove"
+			return 0
+		}
+	fi
+	if ! git -C "$repo_root" branch -D "$sbranch" >&2; then
+		printf 'merge: kept %s, branch -D failed\n' "$sbranch" >&2
+		journal "$ns/state" "merge-kept" "$sid" "branch $sbranch kept, branch -D failed"
+	fi
 }
 
 # Records on task $1's backlog entry why it stopped. The steps file is rewritten
@@ -686,32 +710,46 @@ merge)
 	merged=""
 	conflicts=""
 	while IFS=$'\t' read -r mid mbranch mhash; do
-		if ! { git -C "$repo_root" merge --squash "$mbranch" && git -C "$repo_root" commit -q -m "$(git -C "$repo_root" log -1 --format=%s "$mbranch")"; } >&2; then
-			git -C "$repo_root" reset --merge >&2 || true
-			printf 'conflict\t%s\n' "$mbranch"
-			conflicts="${conflicts:+$conflicts,}$mbranch"
-			continue
-		fi
-		: >"$state_dir/prepared/$mid.merged"
-		printf 'merged\t%s\t%s\n' "$mbranch" "$mhash"
-		merged="${merged:+$merged,}$mbranch"
 		wt=""
 		[ ! -s "$state_dir/prepared/$mid.json" ] || wt="$(json_get worktree "$(cat "$state_dir/prepared/$mid.json")")"
-		if [ -n "$wt" ] && [ -d "$wt" ]; then
-			git -C "$repo_root" worktree remove "$wt" >&2 || {
-				printf 'merge: kept %s, worktree %s would not remove\n' "$mbranch" "$wt" >&2
-				journal "$state_dir" "merge-kept" "$mid" "branch $mbranch kept, worktree $wt would not remove"
-				continue
-			}
-		fi
-		if ! git -C "$repo_root" branch -D "$mbranch" >&2; then
-			printf 'merge: kept %s, branch -D failed\n' "$mbranch" >&2
-			journal "$state_dir" "merge-kept" "$mid" "branch $mbranch kept, branch -D failed"
+		if squash_merge_one "$mid" "$mbranch" "$wt" "$mhash"; then
+			merged="${merged:+$merged,}$mbranch"
+		else
+			conflicts="${conflicts:+$conflicts,}$mbranch"
 		fi
 	done <<EOF2
 $(printf '%s\n' "$list" | sed 1d)
 EOF2
 	journal "$state_dir" "merge" "" "merged=$merged conflict=$conflicts"
+	[ -z "$conflicts" ] || exit 3
+	;;
+
+reconcile)
+	list="$(bash "$LIB_DIR/radin-state.sh" leftovers 2>/dev/null)" || exit 0
+	base="$(printf '%s\n' "$list" | sed -n '1s/^base\t//p')"
+	todo="$(printf '%s\n' "$list" | awk -F'\t' '$1 == "branch" && $6 == "done" && $5 != "dirty" && $7 == "-" { print $2 "\t" $4 }')"
+	skips="$(printf '%s\n' "$list" | awk -F'\t' -v OFS='\t' '$1 == "branch" && !($6 == "done" && $5 != "dirty" && $7 == "-") { print "skipped", $2, ($7 != "-" ? "duplicate of " $7 : ($5 == "dirty" ? "dirty" : "not done (" $6 ")")) }')"
+	[ -z "$skips" ] || printf '%s\n' "$skips"
+	[ -n "$todo" ] || exit 0
+	if [ -n "$(dirty_files "$repo_root")" ]; then
+		printf 'skipped\t-\tbase checkout dirty\n'
+		exit 0
+	fi
+	git -C "$repo_root" checkout "$base" >&2 || die "cannot check out $base"
+	merged=""
+	conflicts=""
+	while IFS=$'\t' read -r rbranch wt; do
+		[ "$wt" != "-" ] || wt=""
+		if squash_merge_one - "$rbranch" "$wt" "$(git -C "$repo_root" rev-parse --short=12 "$rbranch")"; then
+			merged="${merged:+$merged,}$rbranch"
+		else
+			conflicts="${conflicts:+$conflicts,}$rbranch"
+		fi
+	done <<EOF2
+$todo
+EOF2
+	git -C "$repo_root" worktree prune >&2 || true
+	journal "$ns/state" "reconcile" "" "merged=$merged conflict=$conflicts"
 	[ -z "$conflicts" ] || exit 3
 	;;
 
@@ -855,6 +893,7 @@ preflight)
 	bash "$0" stuck 2>/dev/null | sed 's/^/stuck\t/' || true
 	bash "$0" steps-waiting 2>/dev/null | sed 's/^/waiting\t/' || true
 	ids="$(bash "$LIB_DIR/radin-backlog.sh" order --rank-needed 2>/dev/null)" && printf 'rank\t%s\n' "$(printf '%s' "$ids" | paste -sd, -)"
+	bash "$0" leftovers 2>/dev/null | grep -q '^branch	' && printf 'leftovers\n'
 	exit 0
 	;;
 
@@ -1784,6 +1823,6 @@ finding-classes)
 	;;
 
 *)
-	die "unknown command: ${cmd:-<none>} (steps-init|steps-list|steps-open|steps-waiting|answered|retry|task-next|task-report|task-fact|task-diagnosis|task-done|set-status|stuck|preflight|resume|recover|recover-reject|report|session-set|session-get|prepare|dirty-check|trace|completed-show|completed-list|session-commits|gate-map|merge-list|leftovers|merge|gate-fix|deps-check|task-dir|journal-tail|plan-covers|review-findings|finding-classes)"
+	die "unknown command: ${cmd:-<none>} (steps-init|steps-list|steps-open|steps-waiting|answered|retry|task-next|task-report|task-fact|task-diagnosis|task-done|set-status|stuck|preflight|resume|recover|recover-reject|report|session-set|session-get|prepare|dirty-check|trace|completed-show|completed-list|session-commits|gate-map|merge-list|leftovers|merge|reconcile|gate-fix|deps-check|task-dir|journal-tail|plan-covers|review-findings|finding-classes)"
 	;;
 esac
