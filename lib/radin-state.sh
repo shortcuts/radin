@@ -47,6 +47,7 @@
 #   radin-state.sh session-commits              # print this session's commits, oldest first, one hash per line: task-done commits past the baseline, then gate fixes; exit 1 if none
 #   radin-state.sh gate-map                     # print "branch<TAB>tip<TAB>worktree<TAB>oldest session commit" per branch holding a session commit, oldest work first; exit 1 if none
 #   radin-state.sh merge-list                   # print "base<TAB>branch", then "id<TAB>branch<TAB>hash" per session task branch not yet in the base; exit 1 if none
+#   radin-state.sh leftovers                    # print "base<TAB>branch", then a "branch", "stash" or "foreign" TAB line per unmerged radin/* branch, radin-batch stash or non-radin worktree in the repo, whatever session made it; exit 1 if none
 #   radin-state.sh merge                        # squash-merge each merge-list branch that merges cleanly into the base, drop its worktree and branch, and print and journal any branch or worktree it keeps; exit 3 when a branch conflicts (printed as "conflict<TAB>branch")
 #   radin-state.sh gate-fix <hash>...           # record the gate's fix commits (state/gate-fixes) so session-commits lists them
 #   radin-state.sh deps-check <id>              # print "dep<TAB>hash" per dependency, exit 1 naming the first unresolved one (radin-prompt.sh)
@@ -130,6 +131,19 @@ trace_status() {
 	{ grep -F "\"id\":\"$(json_escape "$2")\"" "$f" || true; } |
 		sed -nE 's/.*"event":"(pending|in_progress|failed|blocked)".*/\1/p' |
 		tail -n1
+}
+
+# Prints the last of done|unproven|failed that namespace dir $1's journal
+# recorded for task $2, else none. Reporting only.
+leftover_status() {
+	f="$1/state/journal.jsonl"
+	[ -s "$f" ] || {
+		echo none
+		return 0
+	}
+	{ grep -F "\"id\":\"$(json_escape "$2")\"" "$f" || true; } |
+		sed -nE 's/.*"event":"(done|unproven|failed)".*/\1/p' |
+		tail -n1 | grep . || echo none
 }
 
 # Prints the seven fixed TAB lines `trace` reports for one task: id $2, commit
@@ -599,6 +613,69 @@ merge-list)
 	done <"$completed"
 	[ -n "$out" ] || exit 1
 	printf 'base\t%s\n%s\n' "$base_branch" "$out"
+	;;
+
+leftovers)
+	# Repo-wide, unlike merge-list: reads git and the journal, never prepared/.
+	base_branch=""
+	[ ! -s "$ns/state/baseline.json" ] || base_branch="$(json_get base_branch "$(cat "$ns/state/baseline.json")")"
+	if [ -z "$base_branch" ]; then
+		base_branch="$(git -C "$repo_root" rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
+		case "$base_branch" in HEAD | radin/*) base_branch="" ;; esac
+	fi
+	[ -n "$base_branch" ] || die "no base branch"
+	worktrees="$(git -C "$repo_root" worktree list --porcelain)"
+	rows=""
+	for b in $(git -C "$repo_root" for-each-ref --format='%(refname:short)' refs/heads/radin/); do
+		ahead="$(git -C "$repo_root" cherry "$base_branch" "$b" | grep -c '^+' || true)"
+		[ "${ahead:-0}" -gt 0 ] || continue
+		wt="$(printf '%s\n' "$worktrees" | awk -v b="refs/heads/$b" '/^worktree /{ w = substr($0, 10); p = "" } /^prunable/{ p = 1 } $0 == "branch " b { f = 1 } /^$/ { if (f) { print w "\t" p; f = 0; exit } } END { if (f) print w "\t" p }')"
+		wpath="$(printf '%s' "$wt" | cut -f1)"
+		if [ -z "$wpath" ]; then
+			wpath="-"
+			wstate="none"
+		elif [ -n "$(printf '%s' "$wt" | cut -f2)" ]; then
+			wstate="prunable"
+		elif [ -n "$(dirty_files "$wpath")" ]; then
+			wstate="dirty"
+		else
+			wstate="clean"
+		fi
+		rows="${rows:+$rows$'\n'}r	$b	$ahead	$wpath	$wstate	$(leftover_status "$ns" "${b#radin/}")"
+		for c in $(git -C "$repo_root" rev-list "$base_branch..$b"); do
+			rows="$rows"$'\n'"k	$b	s:$(git -C "$repo_root" log -1 --format=%s "$c")"
+			pid="$(git -C "$repo_root" diff-tree -p "$c" | git patch-id --stable | cut -d' ' -f1)"
+			[ -z "$pid" ] || rows="$rows"$'\n'"k	$b	p:$pid"
+		done
+	done
+	out="$(printf '%s\n' "$rows" | awk -F'\t' -v OFS='\t' '
+		$1 == "r" { n++; row[n] = $2 OFS $3 OFS $4 OFS $5 OFS $6; br[n] = $2 }
+		$1 == "k" && index(" " kb[$3] " ", " " $2 " ") == 0 { kb[$3] = kb[$3] " " $2 }
+		END {
+			for (i = 1; i <= n; i++) {
+				o = ""
+				for (k in kb)
+					if (index(kb[k] " ", " " br[i] " ")) {
+						m = split(kb[k], w, " ")
+						for (j = 1; j <= m; j++) if (w[j] != br[i] && index("," o ",", "," w[j] ",") == 0) o = o (o == "" ? "" : ",") w[j]
+					}
+				print "branch", row[i], (o == "" ? "-" : o)
+			}
+		}')"
+	stashes="$(git -C "$repo_root" stash list --format='%H%x09%gs' | grep -F 'radin-batch: ' | while IFS="$(printf '\t')" read -r h msg; do
+		printf 'stash\t%s\t%s\t%s\n' "$h" "$(printf '%s' "$msg" | sed -nE 's/.*before task (.*)$/\1/p' | grep . || echo -)" "$msg"
+	done || true)"
+	foreign="$(printf '%s\n' "$worktrees" | awk -v OFS='\t' '
+		/^worktree /{ if (w != "") emit(); w = substr($0, 10); b = "-"; n++ }
+		/^branch /{ b = substr($0, 8) }
+		function emit() { if (n > 1 && !(b ~ "^refs/heads/radin/" && w == root "-" substr(b, 18))) print "foreign", w, (b == "-" ? b : substr(b, 12)) }
+		n == 1 && !root { root = w }
+		END { if (w != "") emit() }')"
+	[ -n "$out$stashes$foreign" ] || exit 1
+	printf 'base\t%s\n' "$base_branch"
+	for part in "$out" "$stashes" "$foreign"; do
+		[ -z "$part" ] || printf '%s\n' "$part"
+	done
 	;;
 
 merge)
@@ -1707,6 +1784,6 @@ finding-classes)
 	;;
 
 *)
-	die "unknown command: ${cmd:-<none>} (steps-init|steps-list|steps-open|steps-waiting|answered|retry|task-next|task-report|task-fact|task-diagnosis|task-done|set-status|stuck|preflight|resume|recover|recover-reject|report|session-set|session-get|prepare|dirty-check|trace|completed-show|completed-list|session-commits|gate-map|merge-list|merge|gate-fix|deps-check|task-dir|journal-tail|plan-covers|review-findings|finding-classes)"
+	die "unknown command: ${cmd:-<none>} (steps-init|steps-list|steps-open|steps-waiting|answered|retry|task-next|task-report|task-fact|task-diagnosis|task-done|set-status|stuck|preflight|resume|recover|recover-reject|report|session-set|session-get|prepare|dirty-check|trace|completed-show|completed-list|session-commits|gate-map|merge-list|leftovers|merge|gate-fix|deps-check|task-dir|journal-tail|plan-covers|review-findings|finding-classes)"
 	;;
 esac
