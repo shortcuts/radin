@@ -98,3 +98,12 @@ JSON
   [[ "$output" == *$'t-three\t3\tblocked\t1\tdeferred: which db?\n'* ]]
   [[ "$output" == *$'t-four\t4\tblocked\t3\t'* ]]
 }
+
+@test "an unknown state command lists every subcommand in its usage line, steps-open included" {
+  run state no-such-command
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"unknown command: no-such-command"* ]]
+  for name in steps-open steps-list steps-waiting answered retry; do
+    [[ "$output" == *"$name"* ]]
+  done
+}

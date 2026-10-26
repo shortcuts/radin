@@ -1700,6 +1700,6 @@ finding-classes)
 	;;
 
 *)
-	die "unknown command: ${cmd:-<none>} (steps-init|task-next|task-report|task-fact|task-diagnosis|task-done|set-status|stuck|preflight|resume|recover|recover-reject|report|session-set|session-get|prepare|dirty-check|trace|completed-show|completed-list|session-commits|gate-map|merge-list|merge|gate-fix|deps-check|task-dir|journal-tail|plan-covers|review-findings|finding-classes)"
+	die "unknown command: ${cmd:-<none>} (steps-init|steps-list|steps-open|steps-waiting|answered|retry|task-next|task-report|task-fact|task-diagnosis|task-done|set-status|stuck|preflight|resume|recover|recover-reject|report|session-set|session-get|prepare|dirty-check|trace|completed-show|completed-list|session-commits|gate-map|merge-list|merge|gate-fix|deps-check|task-dir|journal-tail|plan-covers|review-findings|finding-classes)"
 	;;
 esac
