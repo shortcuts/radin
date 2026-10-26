@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Usage: check-prose.sh [root]. Three lints, each fails with file:line and the fix.
+# Usage: check-prose.sh [root]. Four lints, each fails with file:line and the fix.
 set -u
 cd "${1:-.}" || exit 2
 rc=0
@@ -31,6 +31,13 @@ guard_re="command -v|if (it|the|that|a)[^.]{0,40}(is|are) (installed|wired|avail
 guard_hits=$(grep -nEi "$guard_re" skills/*/SKILL.md lib/*.md)
 if [ -n "$guard_hits" ]; then
 	printf '%s\n' "$guard_hits" | awk -F: '{ printf "%s:%s: companion guard; name the tool directly, a missing tool fails loudly and counts as a skip\n", $1, $2 }'
+	rc=1
+fi
+
+# A line with "never" states a prohibition, which is not a router step.
+git_hits=$(grep -nEi '(`|^[ \t]*)git [a-z]' lib/radin-run.md lib/radin-batch-*.md | grep -vi 'never')
+if [ -n "$git_hits" ]; then
+	printf '%s\n' "$git_hits" | awk -F: '{ printf "%s:%s: raw git command in router prose; add a radin subcommand, or state the prohibition with \"never\"\n", $1, $2 }'
 	rc=1
 fi
 

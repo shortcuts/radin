@@ -29,7 +29,7 @@ radin is a Claude Code plugin of skills, a CLI, and install glue.
 | Name each companion directly, no guard or escape clause | `scripts/check-prose.sh` guard phrases | A paraphrase escapes the phrase list. |
 | A test must be able to fail | `scripts/check-prose.sh` bare `! cmd` lint | Other vacuous patterns; review only. |
 | Same checks locally and in CI | `make check` and `make test` in `.github/workflows/ci.yml` | Linux run unverified. |
-| Deterministic work lives in the CLI | None | Review only. |
+| Deterministic work lives in the CLI | `scripts/check-prose.sh` raw `git` lint over `lib/radin-run.md` and `lib/radin-batch-*.md` | Other deterministic steps in prose, and a raw `git` outside those files; review only. |
 | Lifecycle diagrams match the skills and the run loop | None; `make diagrams` regenerates the SVGs | Review only. |
 | Critical-path-only tests ([policy](#test-suite-speed)) | None; review only | A new test that guards no install or TUI failure passes unnoticed. |
 

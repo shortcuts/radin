@@ -4,7 +4,7 @@
 
 Run `RADIN_CLI state merge-list`. Exit 1: no task branch is left to merge, so stop. Otherwise print its lines and ask with `AskUserQuestion`: "Merge these task branches into `<base>` now?" Options: "Merge all (Recommended)" and "Skip, I merge by hand". The answer covers every branch.
 
-On "Skip", stop. The Phase 5 summary already prints each `git merge` command.
+On "Skip", stop. The Phase 5 summary already prints each merge command.
 
 On "Merge all", run `RADIN_CLI state merge` and print its output. Exit 0: stop, every branch merged. Exit 3: a branch conflicted, so run `RADIN_CLI prompt merge`. Dispatch one sub-agent (`name: "radin-merge"`, the printed `model`) with `Read <the printed prompt path> and follow it.`
 
