@@ -80,3 +80,21 @@ JSON
   [ "$status" -eq 0 ]
   [ "$output" = "empty" ]
 }
+
+@test "resume moves failed and retryable blocked entries to pending and keeps waiting and MAX_ATTEMPTS blocks" {
+  mkdir -p "$P/.claude/.radin/state"
+  cat >"$P/.claude/.radin/state/BACKLOG_STEPS.json" <<'JSON'
+{"id":"t-one","order":1,"status":"failed","depends_on":[],"attempts":2,"debugged":1,"note":"tests red"}
+{"id":"t-two","order":2,"status":"blocked","depends_on":[],"attempts":1,"debugged":0,"note":"crashed"}
+{"id":"t-three","order":3,"status":"blocked","depends_on":[],"attempts":1,"debugged":0,"note":"deferred: which db?"}
+{"id":"t-four","order":4,"status":"blocked","depends_on":[],"attempts":3,"debugged":0,"note":"dispatched 3 times without finishing (MAX_ATTEMPTS) -- needs a human look"}
+JSON
+  run state resume
+  [ "$status" -eq 0 ]
+  [ "$output" = $'t-one\tfailed\nt-two\tblocked' ]
+  run state steps-list
+  [[ "$output" == *$'t-one\t1\tpending\t2\t\n'* ]]
+  [[ "$output" == *$'t-two\t2\tpending\t1\t\n'* ]]
+  [[ "$output" == *$'t-three\t3\tblocked\t1\tdeferred: which db?\n'* ]]
+  [[ "$output" == *$'t-four\t4\tblocked\t3\t'* ]]
+}

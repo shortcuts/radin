@@ -12,17 +12,19 @@ RADIN_CLI state steps-list
 
 It prints one `id<TAB>order<TAB>status<TAB>attempts<TAB>note` line per entry
 still in the plan; completed tasks are already gone. Triage `in_progress`
-entries per Phase 0's `stuck` line, treat `failed` entries as `pending` for retry,
-and continue.
+entries per Phase 0's `stuck` line.
+
+Run `RADIN_CLI state resume`. It moves each `failed` entry, and each `blocked`
+entry that is neither waiting nor at `MAX_ATTEMPTS`, back to `pending`, and
+prints `id<TAB>old status` per move. Continue.
 
 Run `RADIN_CLI state steps-waiting`. It prints `id<TAB>note` for each `blocked`
 entry that holds an unanswered question. Route each one through `clarify DECISION`
 (`lib/radin-batch-clarify.md`), append the answer, and run
-`RADIN_CLI state answered "<task id>"` before it returns to `pending`. Treat every other
-`blocked` entry as `pending` for retry.
+`RADIN_CLI state answered "<task id>"` before it returns to `pending`.
 
-One exception: a `blocked` entry whose `note` says it hit `MAX_ATTEMPTS` stays
-blocked. It needs the user to look, not another retry.
+`resume` leaves waiting and `MAX_ATTEMPTS` entries `blocked`. A waiting entry
+needs an answer. A `MAX_ATTEMPTS` entry needs the user to look, not another retry.
 
 ## State Persistence Contract
 

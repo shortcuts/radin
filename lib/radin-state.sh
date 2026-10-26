@@ -27,6 +27,7 @@
 #   radin-state.sh set-status <id> <pending|in_progress|failed|blocked> [note]
 #   radin-state.sh answered <id>                # the user answered a waiting task: back to pending, attempts 0, debugged kept
 #   radin-state.sh retry <id>                   # a human looked at a MAX_ATTEMPTS-blocked task: back to pending, attempts 0, debugged cleared
+#   radin-state.sh resume                       # move each failed entry and each retryable blocked entry to pending, attempts and debugged kept; print "id<TAB>old status" per move
 #   radin-state.sh stuck                        # print "id<TAB>attempts<TAB>note" per in_progress entry, exit 1 if none
 #   radin-state.sh steps-waiting                # print "id<TAB>note" per blocked entry whose note holds an unanswered question, exit 1 if none
 #   radin-state.sh preflight                    # run the startup checks, print "empty" | "session<TAB>missing" | "stuck<TAB>id<TAB>attempts<TAB>note" | "waiting<TAB>id<TAB>note" | "rank<TAB>csv", exit 0
@@ -655,6 +656,30 @@ retry)
 	# override, so the debug pass is also available again.
 	write_entry "$steps" "$id" pending 0 "" 0
 	journal "$ns/state" "retry" "$id" ""
+	;;
+
+resume)
+	[ -f "$steps" ] || exit 1
+	# Collected before any write: write_entry replaces the steps file under the read loop.
+	moved=""
+	while IFS= read -r line || [ -n "$line" ]; do
+		[ -n "$line" ] || continue
+		case "$(json_get status "$line")" in
+		failed) ;;
+		blocked)
+			case "$(json_get note "$line")" in
+			"deferred:"* | "inconclusive:"* | *"(MAX_ATTEMPTS)"*) continue ;;
+			esac
+			;;
+		*) continue ;;
+		esac
+		moved="$moved$(json_get id "$line")"$'\t'"$(json_get status "$line")"$'\n'
+	done <"$steps"
+	while IFS=$'\t' read -r id old; do
+		[ -n "$id" ] || continue
+		write_entry "$steps" "$id" pending "$(num_field "$(entry_line "$steps" "$id")" attempts)" ""
+		printf '%s\t%s\n' "$id" "$old"
+	done <<<"$moved"
 	;;
 
 steps-list)
@@ -1641,6 +1666,6 @@ finding-classes)
 	;;
 
 *)
-	die "unknown command: ${cmd:-<none>} (steps-init|task-next|task-report|task-fact|task-diagnosis|task-done|set-status|stuck|preflight|recover|recover-reject|report|session-set|session-get|prepare|dirty-check|trace|completed-show|completed-list|session-commits|merge-list|merge|gate-fix|deps-check|task-dir|journal-tail|plan-covers|review-findings|finding-classes)"
+	die "unknown command: ${cmd:-<none>} (steps-init|task-next|task-report|task-fact|task-diagnosis|task-done|set-status|stuck|preflight|resume|recover|recover-reject|report|session-set|session-get|prepare|dirty-check|trace|completed-show|completed-list|session-commits|merge-list|merge|gate-fix|deps-check|task-dir|journal-tail|plan-covers|review-findings|finding-classes)"
 	;;
 esac

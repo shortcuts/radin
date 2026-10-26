@@ -122,6 +122,7 @@ What an audit checks prose against:
 ## The run loop
 
 - **The router makes one startup call, `state preflight`, and reads a side file only for a line it prints.** **Why:** six startup verbs each routed on an exit code. One call prints a tagged line per applicable branch, so the router loads recovery, session and prioritization text only when needed.
+- **Resume triage is a CLI verb, `state resume`.** **Why:** the retry rule has no judgment, and per-entry `set-status` calls by the router were error-prone.
 - **The router does no per-task verification.** A `SUCCESS` goes straight to bookkeeping. **Why:** a per-task refuter cost an extra sub-agent per success. The leaf verifies its own work, and Phase 4.5 gates the session. Do not reintroduce a refuter, and do not have the router re-read the diff.
 - **`out-of-plan` is not verification.** `task-done` compares the commit's files with the plan's `## Changes` paths (tests exempt). It costs no tokens and changes no status. The leaf's `test <name>: failed before, passes now` line is evidence for the human, not a gate.
 - **The leaf picks its checks from what its diff reaches in the code graph.** **Why:** on a large repo the full suite was 16 of 21 minutes in one measured task. Phase 4.5 runs the full suite once at the tip of each branch the session touched. There is no per-session choice.
