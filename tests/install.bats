@@ -391,6 +391,18 @@ pick_with_keys() {
   [[ "$output" == *"wasn't created by this installer"* ]]
 }
 
+# A release tag predates files that main's SHIPPED_LIB names, so a piped
+# install.sh from main must download main, never the latest release.
+@test "a piped install downloads main, not the latest release" {
+  FAKE_ROOT="$TEST_HOME/fake-checkout"
+  mkdir -p "$FAKE_ROOT"
+  cp "$REPO_ROOT/install.sh" "$FAKE_ROOT/install.sh"
+  cd "$FAKE_ROOT"
+  run bash -c "RADIN_ROOT_OVERRIDE='$TEST_HOME/fetched' bash ./install.sh --yes"
+  grep -q 'refs/heads/main.tar.gz' "$TEST_HOME/curl.log"
+  run ! grep -q 'refs/tags' "$TEST_HOME/curl.log"
+}
+
 # --yes is how one command reproduces this machine on the next one: the three
 # behaviour questions take their defaults instead of blocking on a terminal.
 @test "--yes asks nothing and still installs everything" {

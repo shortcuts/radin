@@ -74,7 +74,6 @@ BREW="$(command -v brew || true)"
 MISE="$(command -v mise || true)"
 
 GITHUB_REPO="shortcuts/radin"
-API_LATEST_RELEASE="https://api.github.com/repos/$GITHUB_REPO/releases/latest"
 TARBALL_BASE="https://github.com/$GITHUB_REPO/archive"
 DEFAULT_FETCH_DIR="$HOME/.claude/radin"
 
@@ -114,20 +113,9 @@ if [ -z "$RADIN_ROOT" ]; then
 		exit 1
 	fi
 
-	# Redirect lookup first -- doesn't count against the API's 60 req/hour
-	# anonymous rate limit. Fall back to the API only if that fails.
-	VERSION="$(curl -sI "https://github.com/$GITHUB_REPO/releases/latest" 2>/dev/null | grep -i '^location:' | sed -E 's|.*/tag/([^[:space:]]+).*|\1|' | tr -d '\r')"
-	if [ -z "$VERSION" ]; then
-		VERSION="$(curl -fsSL "$API_LATEST_RELEASE" 2>/dev/null | grep -m1 '"tag_name"' | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/')"
-	fi
-	if [ -n "$VERSION" ]; then
-		info "Latest release: ${BOLD}$VERSION${RESET}"
-		TARBALL_URL="$TARBALL_BASE/refs/tags/$VERSION.tar.gz"
-	else
-		VERSION="main"
-		info "No published release found, using ${BOLD}main${RESET}"
-		TARBALL_URL="$TARBALL_BASE/refs/heads/main.tar.gz"
-	fi
+	# Piped from main, so fetch main: a release tag predates the files main's SHIPPED_LIB names.
+	VERSION="main"
+	TARBALL_URL="$TARBALL_BASE/refs/heads/main.tar.gz"
 
 	info "Downloading radin ($VERSION)..."
 	TMP_TAR="$(mktemp)"
