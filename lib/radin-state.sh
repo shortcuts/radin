@@ -45,6 +45,7 @@
 #   radin-state.sh completed-show <id>          # print "id|commit|title|branch|worktree|plan|ts<TAB>value" lines, exit 1 if absent
 #   radin-state.sh completed-list               # print "id<TAB>commit" per completion, exit 1 if none (the TUI's Done view)
 #   radin-state.sh session-commits              # print this session's commits, oldest first, one hash per line: task-done commits past the baseline, then gate fixes; exit 1 if none
+#   radin-state.sh gate-map                     # print "branch<TAB>tip<TAB>worktree<TAB>oldest session commit" per branch holding a session commit, oldest work first; exit 1 if none
 #   radin-state.sh merge-list                   # print "base<TAB>branch", then "id<TAB>branch<TAB>hash" per session task branch not yet in the base; exit 1 if none
 #   radin-state.sh merge                        # merge each merge-list branch that merges cleanly into the base, drop its worktree and branch; exit 3 when a branch conflicts (printed as "conflict<TAB>branch")
 #   radin-state.sh gate-fix <hash>...           # record the gate's fix commits (state/gate-fixes) so session-commits lists them
@@ -534,6 +535,39 @@ session-commits)
 	[ -n "$out" ] || exit 1
 	# A gate re-run after a resume records the same fix twice.
 	printf '%s\n' "$out" | awk '!seen[$0]++'
+	;;
+
+gate-map)
+	state_dir="$ns/state"
+	commits="$(bash "$LIB_DIR/radin-state.sh" session-commits)" || exit 1
+	base_completed=0
+	[ ! -s "$state_dir/baseline.json" ] || base_completed="$(num_field "$(cat "$state_dir/baseline.json")" completed_count)"
+	prepared_map=""
+	n_ok=0
+	if [ -s "$completed" ]; then
+		while IFS= read -r line || [ -n "$line" ]; do
+			[ -n "$line" ] || continue
+			n_ok=$((n_ok + 1))
+			[ "$n_ok" -gt "$base_completed" ] || continue
+			pfile="$state_dir/prepared/$(json_get id "$line").json"
+			[ -s "$pfile" ] || continue
+			prepared_map="${prepared_map:+$prepared_map$'\n'}$(json_get commit "$line")	$(json_get branch "$(cat "$pfile")")"
+		done <"$completed"
+	fi
+	worktrees="$(git -C "$repo_root" worktree list --porcelain 2>/dev/null || true)"
+	seen=""
+	while IFS= read -r chash; do
+		branch="$(printf '%s\n' "$prepared_map" | awk -F'\t' -v h="$chash" '$1 == h { print $2; exit }')"
+		[ -n "$branch" ] || branch="$(git -C "$repo_root" branch --contains "$chash" --format='%(refname:short)' 2>/dev/null | grep -v '^(' | head -n 1 || true)"
+		[ -n "$branch" ] || branch="HEAD"
+		printf '%s\n' "$seen" | grep -Fxq -- "$branch" && continue
+		seen="${seen:+$seen$'\n'}$branch"
+		tip="$(git -C "$repo_root" rev-parse --short=12 "$branch" 2>/dev/null)" || continue
+		wt="$(printf '%s\n' "$worktrees" | awk -v b="refs/heads/$branch" '/^worktree /{ w = substr($0, 10) } $0 == "branch " b { print w; exit }')"
+		printf '%s\t%s\t%s\t%s\n' "$branch" "$tip" "${wt:-$repo_root}" "$chash"
+	done <<EOF2
+$commits
+EOF2
 	;;
 
 merge-list)
@@ -1666,6 +1700,6 @@ finding-classes)
 	;;
 
 *)
-	die "unknown command: ${cmd:-<none>} (steps-init|task-next|task-report|task-fact|task-diagnosis|task-done|set-status|stuck|preflight|resume|recover|recover-reject|report|session-set|session-get|prepare|dirty-check|trace|completed-show|completed-list|session-commits|merge-list|merge|gate-fix|deps-check|task-dir|journal-tail|plan-covers|review-findings|finding-classes)"
+	die "unknown command: ${cmd:-<none>} (steps-init|task-next|task-report|task-fact|task-diagnosis|task-done|set-status|stuck|preflight|resume|recover|recover-reject|report|session-set|session-get|prepare|dirty-check|trace|completed-show|completed-list|session-commits|gate-map|merge-list|merge|gate-fix|deps-check|task-dir|journal-tail|plan-covers|review-findings|finding-classes)"
 	;;
 esac

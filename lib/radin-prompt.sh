@@ -95,10 +95,10 @@ sub_token() {
 
 # The gate belongs to the session, not a task: no id, no task fields, no guards.
 if [ "$kind" = gate ]; then
-	commits="$(cd "$REPO_ROOT" && bash "$LIB_DIR/radin-state.sh" session-commits)" ||
+	map="$(cd "$REPO_ROOT" && bash "$LIB_DIR/radin-state.sh" gate-map)" ||
 		die "no session commits, so no gate is due"
 	sub_token LEAF_CONTRACT "$leaf_contract"
-	sub_token SESSION_COMMITS "$(printf '%s\n' "$commits" | awk 'NF { printf "%s%s", sep, $0; sep = " " } END { print "" }')"
+	sub_token GATE_MAP "$map"
 	mkdir -p "$NAMESPACE_DIR/state/prompts"
 	out="$NAMESPACE_DIR/state/prompts/session-gate.md"
 	printf '%s\n' "$body" >"$out"

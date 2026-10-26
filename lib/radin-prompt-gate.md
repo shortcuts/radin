@@ -6,18 +6,19 @@ Rendered by `radin prompt gate`. `lib/radin-prompt.sh` holds the format.
 
 ```
 Run this repo's full check suite (lint, tests, format), as its own docs or CI
-config define it, `rtk`-wrapped. Run it once at the tip of each branch that
-holds one of the commits below (`git branch --contains`). A branch checked out
-in a linked worktree runs in that worktree (`git worktree list`). Touch nothing
-under `.claude/.radin/`, and leave each checkout on the branch it started on.
+config define it, `rtk`-wrapped. Run it once at the tip of each branch
+listed below, in the worktree on its line. Touch nothing under
+`.claude/.radin/`, and leave each checkout on the branch it started on.
 LEAF_CONTRACT
 
-The session's commits, oldest first: SESSION_COMMITS.
+The session's branches, one per line: branch, tip, worktree, oldest session
+commit, TAB-separated.
+GATE_MAP
 
 Green: report `STATUS: SUCCESS — suite green at <tip hash(es)>`.
 
 Red: for each failing check, find the commit that broke it with
-`git bisect run` over `<that branch's oldest session commit>^..<its tip>`,
+`git bisect run` over `<oldest session commit>^..<tip>` from its line,
 running only that check, then `git bisect reset`. Fix forward on that branch
 through `/caveman:surgical-patch`, commit through `/caveman:caveman-commit`
 naming the culprit commit, and re-run the full suite. Leave the tree clean.
