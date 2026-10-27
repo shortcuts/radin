@@ -98,6 +98,13 @@ Classify into exactly one category (conventional-commit vocabulary):
 - **chore**: a maintenance follow-up (docs, tooling, cleanup).
 - **refactor**: structure should change without behavior change.
 
+Then group. Two or more items in the batch that serve one feature, goal or
+raised thing form an **epic**. Run `RADIN_CLI backlog epics` first. When an existing
+epic already covers the goal, reuse it. A lone item gets no epic.
+
+**The test:** would each body repeat the same background, the same `**Raised as:**`
+quote or the same constraint? Then it belongs in the epic.
+
 Then judge whether the item needs a plan before execution. Judge by `RADIN_LIB/radin-planning-rule.md`. An entry that needs no plan goes to an execution sub-agent, which implements from the entry alone.
 
 Size each entry that needs no plan by `RADIN_LIB/radin-complexity-rule.md`. The
@@ -116,6 +123,8 @@ Present the batch as a numbered list, each item showing:
 - **Blocked by**: the entries that gate it, or "None, can start immediately".
 - **What it delivers**: the end-to-end behavior this entry makes work.
 - **Plan**: needed or not, with the one-line reason. When not needed, the complexity.
+
+Show each epic once above its items: its slug, and the shared context it will hold.
 
 Then call `AskUserQuestion` with one question: "Are the granularity, the dependencies,
 the split and the plan verdicts right?" Offer two options, "Yes, log them
@@ -136,6 +145,17 @@ stale within a commit or two. Two exceptions stay verbatim: the `**Raised as:**`
 quote, paths and snippets the user pasted included, and a snippet that encodes a
 decision more precisely than prose can (state machine, schema, type shape),
 trimmed to the decision-rich part.
+
+For each new epic, create it before its items. The description holds the shared
+context: what was being worked on, why it matters, the `**Raised as:**` quote, and
+any `**Decision:**` line that applies to every child. A child inherits it, so a
+child body keeps only what is specific to that entry.
+
+```bash
+RADIN_CLI backlog epic-add <epic-slug> <<'EOF'
+<the shared context>
+EOF
+```
 
 For each approved item:
 
@@ -165,7 +185,13 @@ with no bullet and no checkbox. Never ask for criteria, never synthesise one.
 Pass `--planning needed` on each approved entry whose verdict is "needed", and
 `--complexity <low|high>` on every other entry.
 
-Once every `add` has printed its id, record Step 4's
+Once every `add` has printed its id, file each child under its epic, one call per child:
+
+```bash
+RADIN_CLI backlog epic-move <id> <epic-slug>
+```
+
+Then record Step 4's
 dependencies, one call per dependent entry, always after all the adds:
 
 ```bash
@@ -183,8 +209,8 @@ than an occasional repeat.
 
 ## Step 6: Report back
 
-**Reply:** how many entries were logged, with titles, categories and plan
-flags, and the
+**Reply:** how many entries were logged, with titles, categories, plan
+flags and epic, and the
 backlog path the CLI printed; the decisions grilling settled and the questions
 left open, per entry. When nothing in scope rose to a loggable item, say so
 plainly and write no vague entry to prove the skill ran.
