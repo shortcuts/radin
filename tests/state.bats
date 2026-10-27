@@ -134,6 +134,38 @@ JSON
   [[ "$output" != *merged* ]]
 }
 
+@test "a task done on a side branch stays on the backlog until its merge lands" {
+  base="$(git -C "$P" branch --show-current)"
+  printf 't-one\t1\t\tpending\n' | state steps-init >/dev/null
+  git -C "$P" checkout -q -b radin/t-one
+  echo x >"$P/x.txt"
+  git -C "$P" add x.txt
+  git -C "$P" commit -q -m "feat: x"
+  h="$(git -C "$P" rev-parse --short=12 HEAD)"
+  git -C "$P" checkout -q "$base"
+  mkdir -p "$P/.claude/.radin/state/prepared"
+  printf '{"branch":"radin/t-one","worktree":""}\n' >"$P/.claude/.radin/state/prepared/t-one.json"
+  run state task-done t-one "$h"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *unmerged* ]]
+  run bash -c "cd '$P' && bash '$REPO_ROOT/lib/radin-backlog.sh' find t-one"
+  [ "$status" -eq 0 ]
+  run state completed-list
+  [ "$status" -ne 0 ]
+  run state unlanded
+  [[ "$output" == *$'t-one\t'"$h"$'\tradin/t-one\tpending'* ]]
+  run state merge
+  [ "$status" -eq 0 ]
+  run state completed-list
+  [[ "$output" == t-one$'\t'* ]]
+  [ "$(state completed-list | cut -f2)" != "$h" ]
+  git -C "$P" merge-base --is-ancestor "$(state completed-list | cut -f2)" "$base"
+  run bash -c "cd '$P' && bash '$REPO_ROOT/lib/radin-backlog.sh' find t-one"
+  [ "$status" -ne 0 ]
+  run state unlanded
+  [ "$status" -eq 1 ]
+}
+
 @test "a claimed stash is applied in the task's tree and kept; a conflicting one leaves a clean tree" {
   base="$(git -C "$P" branch --show-current)"
   echo one >"$P/a.txt"

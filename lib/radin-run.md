@@ -291,7 +291,7 @@ next task's dispatch and carry on. The loop stops only at a
 Never verify a `SUCCESS` yourself: no per-task verification sub-agent, and no
 re-reading the diff. That read is the cost the leaf's own verify loop and
 Phase 4.5's gate exist to avoid. A task is finished when `task-report` has recorded it,
-whatever the sub-agent's prose said.
+whatever the sub-agent's prose said. A commit still on a side branch counts as done only after the merge (see "A task is done when its commit is in the base branch" in `docs/DECISIONS.md`).
 
 An entry stays `failed` or `blocked` only after the user explicitly deferred
 it. A deferred entry is not retried within this session, and does not block

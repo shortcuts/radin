@@ -23,7 +23,7 @@ API/library behavior local code and repo exploration can't settle>`
 `STATUS: BLOCKED (DECISION) — <what you need from the user (a decision, a confirmation,
 guidance or a human action), the options, and your recommendation>`
 This line is mandatory whether the task was implemented, found already done, or
-blocked. The router acts on this line alone.
+blocked. The router acts on this line alone. Your commit stays on your own branch, and the router records the task done after the merge.
 
 Before you report, record each item below with one call per line:
 `RADIN_CLI backlog fact "TASK_ID" <measured|inferred|guess> "<the line>"`. On SUCCESS, `task-done` keeps these lines in the task's facts

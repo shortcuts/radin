@@ -17,6 +17,7 @@ flowchart TD
   kind -- execution --> leafE[[Execution leaf]]
   leafE -- STATUS line --> report[task-report]
   leafP -- STATUS line --> report
+  report -- commit on a side branch --> blocked[blocked until the merge lands]
   report --> route{next}
   route -- continue --> next
   route -- debug --> debug[[Debug leaf, once]]
@@ -26,7 +27,7 @@ flowchart TD
   p45 --> p5[Phase 5<br/>state report]
   p5 --> p55[Phase 5.5<br/>merge task branches]
   p55 --> mergeCli[radin state merge squash]
-  mergeCli -- all merged --> p6
+  mergeCli -- all merged, tasks recorded done --> p6
   mergeCli -- conflict, exit 3 --> leafM[[Merge leaf]]
   p55 -- no branches --> p6
   leafM --> p6[Phase 6<br/>review offer]
