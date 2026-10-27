@@ -33,16 +33,26 @@ run: lib/radin-tui
 test: build
 # Every temp repo a test builds is deleted in teardown, so git's fsync is pure
 # latency here: it cost ~0.1s per test that runs `git init`.
-	@GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.fsync GIT_CONFIG_VALUE_0=none \
-		sh -c 'bats tests/install.bats & install=$$!; \
+# A test that follows a cc symlink once overwrote the real settings.json, so
+# bats runs without CLAUDE_CONFIG_DIR and the run fails if a real file changes.
+	@before=$$(scripts/real-setup-sum.sh); \
+		GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.fsync GIT_CONFIG_VALUE_0=none \
+		env -u CLAUDE_CONFIG_DIR sh -c 'bats tests/install.bats & install=$$!; \
 			{ ls tests/backlog.bats tests/tui-*.bats; ls tests/*.bats | grep -v -e install -e backlog -e tui-; } | xargs -P 6 -n1 bats; status=$$?; \
-			wait $$install || status=1; exit $$status'
+			wait $$install || status=1; exit $$status'; \
+		status=$$?; \
+		after=$$(scripts/real-setup-sum.sh); \
+		if [ "$$before" != "$$after" ]; then \
+			echo "make test changed the real setup:"; \
+			printf "before:\n%s\nafter:\n%s\n" "$$before" "$$after"; status=1; \
+		fi; \
+		exit $$status
 
 # Key-to-frame latency on a seeded 42-task backlog; see tests/bench-tui.sh.
 bench-tui:
 	@tests/bench-tui.sh
 
-SH_FILES = tests/bench-tui.sh scripts/shipped.sh install.sh bin/radin lib/radin-namespace.sh lib/radin-json.sh lib/radin-backlog.sh lib/radin-state.sh lib/radin-scope.sh lib/radin-prompt.sh lib/radin-cbm-hooks.sh lib/radin-cbm-config.sh lib/radin-update.sh lib/radin-doctor.sh lib/radin-stats.sh lib/radin-uninstall.sh scripts/check-prose.sh
+SH_FILES = tests/bench-tui.sh scripts/shipped.sh install.sh bin/radin lib/radin-namespace.sh lib/radin-json.sh lib/radin-backlog.sh lib/radin-state.sh lib/radin-scope.sh lib/radin-prompt.sh lib/radin-cbm-hooks.sh lib/radin-cbm-config.sh lib/radin-update.sh lib/radin-doctor.sh lib/radin-stats.sh lib/radin-uninstall.sh scripts/check-prose.sh scripts/real-setup-sum.sh
 
 clean:
 	rm -f lib/radin-tui lib/radin-cbm-json tests/helpers/pty-run tests/helpers/mock

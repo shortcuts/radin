@@ -15,6 +15,7 @@ radin is a Claude Code plugin of skills, a CLI, and install glue.
 
   Call out every `install.sh` edit.
 - **Companion install is advisory.** A failed install prints a warning and the run continues. The installer asks one question: which package manager installs the companions (`brew`, `mise`, or `curl`). radin adds no package manager the user has not already run.
+- **Tests never touch the real device setup.** No test reads or writes the real `~/.claude`, `~/.config/.claude`, `~/.claude.json`, the `CLAUDE_CONFIG_DIR` target or the keychain. Tests use mocks and stubs under an isolated `HOME`.
 
 ## Rule enforcers
 
@@ -28,6 +29,7 @@ radin is a Claude Code plugin of skills, a CLI, and install glue.
 | One owner per prose rule | `LEAF_CONTRACT`, `EXPLORE_RULE`, `OPEN_DECISIONS_RULE` and `PLANNING_RULE` tokens, `scripts/check-prose.sh` (new verbatim sentence copy) | A paraphrase or contradiction; review only. |
 | Name each companion directly, no guard or escape clause | `scripts/check-prose.sh` guard phrases | A paraphrase escapes the phrase list. |
 | A test must be able to fail | `scripts/check-prose.sh` bare `! cmd` lint | Other vacuous patterns; review only. |
+| Tests never touch the real device setup | `make test` runs bats with `CLAUDE_CONFIG_DIR` unset and fails when `scripts/real-setup-sum.sh` differs before and after | A test that reads the keychain or another real path; review only. |
 | Same checks locally and in CI | `make check` and `make test` in `.github/workflows/ci.yml` | Linux run unverified. |
 | Deterministic work lives in the CLI | `scripts/check-prose.sh` raw `git` lint over `lib/radin-run.md` and `lib/radin-batch-*.md` | Other deterministic steps in prose, and a raw `git` outside those files; review only. |
 | Lifecycle diagrams match the skills and the run loop | None; `make diagrams` regenerates the SVGs | Review only. |
