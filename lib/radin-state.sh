@@ -532,6 +532,11 @@ record_status_line() {
 
 cmd="${1:-}"
 case "$cmd" in
+help | --help | -h)
+	# The header comment block is the verb list; no second copy to drift.
+	sed -n 's|^#   radin-state\.sh |  |p' "${BASH_SOURCE[0]}"
+	;;
+
 steps-init)
 	file="$steps"
 	index="$BACKLOG_INDEX"

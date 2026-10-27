@@ -833,7 +833,7 @@ deps_reaches() {
 
 cmd="${1:-}"
 case "$cmd" in
-help)
+help | --help | -h)
 	if [ -n "${2:-}" ]; then
 		out="$(usage_for "$2")"
 		[ -n "$out" ] || die "unknown command: $2
