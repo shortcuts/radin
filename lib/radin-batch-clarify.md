@@ -75,3 +75,11 @@ Report `⏸️ Task <order> '<title>' deferred: <question>. Continuing to next
 task.` and continue. Deferred entries surface in the Phase 5 summary, and
 re-invoking the skill resumes them: append the decision first, then treat the
 entry as `pending`.
+
+## Settling Waiting Entries
+
+Phase 0 and Phase 5 of `RADIN_LIB/radin-run.md` read this section for every
+`waiting` entry. Invoke `/mattpocock-skills:grilling` once for all of them,
+one question at a time, your recommendation first. Append each answer as
+above, then run `RADIN_CLI state answered "<task id>"`. An entry the user
+explicitly defers again keeps its `blocked` status and its `deferred:` note.

@@ -99,12 +99,8 @@ Empty output means no branch applies. Act on each line by its first field:
   `RADIN_LIB/radin-batch-recovery.md` and follow it for each id.
 - `waiting<TAB>id<TAB>note`: this entry holds an unanswered question.
   `steps-init` rewrites `BACKLOG_STEPS.json` in Phase 3, so a waiting entry
-  that stays unanswered restarts without its decision. Invoke
-  `/mattpocock-skills:grilling` once for all of them, one question at a time,
-  your recommendation first. Append each answer per
-  `RADIN_LIB/radin-batch-clarify.md`, then run
-  `RADIN_CLI state answered "<task id>"`. An entry the user explicitly defers
-  again keeps its `blocked` status and its `deferred:` note.
+  that stays unanswered restarts without its decision. Settle every one per
+  "Settling Waiting Entries" in `RADIN_LIB/radin-batch-clarify.md`.
 - `rank<TAB>csv`: these ids have no `priority`. Read
   `RADIN_LIB/radin-prioritization.md` and apply its weighted criteria to those
   ids alone. It produces two things: the unset group in your order, as one
@@ -316,6 +312,13 @@ RADIN_CLI state report
 Print its output verbatim. Read
 `RADIN_LIB/radin-batch-reporting.md` for the two things it
 cannot do.
+
+Then run `RADIN_CLI state steps-waiting`. Exit 1: go to Phase 5.5. Exit 0
+prints the `waiting` entries this run left, so ask via one `AskUserQuestion`:
+"Settle N open decisions now?" Options: `Yes` / `Later`. `Yes`: settle them per
+"Settling Waiting Entries" in `RADIN_LIB/radin-batch-clarify.md`, then tell the
+user the answered entries are `pending` and re-invoking the skill runs them.
+`Later`: change nothing.
 
 ## Phase 5.5: Merge
 
