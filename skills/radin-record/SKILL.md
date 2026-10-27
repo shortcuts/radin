@@ -110,33 +110,18 @@ Then judge whether the item needs a plan before execution. Judge by `RADIN_LIB/r
 Size each entry that needs no plan by `RADIN_LIB/radin-complexity-rule.md`. The
 planner sizes an entry that needs a plan.
 
-## Step 5: Review, quiz the user on the batch, then append via the CLI
+## Step 5: Append via the CLI
 
-An entry passes by carrying its decisions, or by naming what stays open. Literal
-content in the ask, such as an error string, a path, a snippet or an explicit constraint,
-belongs in the `**Raised as:**` quote before anything is appended.
+**Append right away.** Never ask the user to approve the granularity, the
+dependencies, the split or the plan verdicts. Step 6 reports them, and
+`radin backlog` edits a wrong entry afterwards.
 
-Present the batch as a numbered list, each item showing:
+**Why:** a confirmation gate stalls a capture the user already asked for, and a
+user who closes the window logs nothing.
 
-- **Title**: the short descriptive name.
-- **Category**: from Step 4.
-- **Blocked by**: the entries that gate it, or "None, can start immediately".
-- **What it delivers**: the end-to-end behavior this entry makes work.
-- **Plan**: needed or not, with the one-line reason. When not needed, the complexity.
-
-Show each epic once above its items: its slug, and the shared context it will hold.
-
-Then call `AskUserQuestion` with one question: "Are the granularity, the dependencies,
-the split and the plan verdicts right?" Offer two options, "Yes, log them
-(Recommended)" and "No, I want changes". Never ask this as plain text.
-
-**Why:** a plain-text question scrolls past, and a user who closes the window logs nothing.
-
-On "No", ask what to change, revise the list, and call `AskUserQuestion` again.
-Iterate until the user approves the batch. One run skips the gate: a specific ask
-that produced exactly one entry with no dependencies. A generic ask always
-quizzes, single entry included, because a session scan is a guess about what the
-user wants captured.
+An entry carries its decisions, or names what stays open. Literal content in the
+ask, such as an error string, a path, a snippet or an explicit constraint, belongs
+in the `**Raised as:**` quote before anything is appended.
 
 A cold start reads the body and nothing else, so quote rather than paraphrase.
 Your paraphrase is the only version that survives. Name the behavior and each
