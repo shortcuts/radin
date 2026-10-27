@@ -49,11 +49,14 @@ No MCP or API access: log from the ask alone, and continue.
 
 Settle judgment calls here, while the user is present.
 
-Apply `RADIN_LIB/radin-open-decisions.md` to each item. Note each Fact in the entry
-body as an open fact to verify. Ask the item's Decisions now, before the next item
-and before Step 5's batch list. Keep every settled answer for Step 5's body. An
-item with no Decision asks nothing, and so does a stub, one deliberately deferred
-whole.
+Apply `RADIN_LIB/radin-open-decisions.md` to each item. Look up each Fact now in the
+repo, its docs or the API, and keep the answer for Step 5's body. Ask the item's
+Decisions now, before the next item and before Step 5's list. Keep every settled
+answer for Step 5's body. An item with no Decision asks nothing, and so does a stub,
+one deliberately deferred whole.
+
+**Why:** `radin-batch` cannot ask mid-run, so every question left in an entry stalls
+that run. The user is present now and the batch is not.
 
 Pick the channel by the Decisions:
 
@@ -66,7 +69,8 @@ Pick the channel by the Decisions:
 belongs here. Step 5 asks only whether the split, the dependencies and the plan
 verdicts are right.
 
-If the user defers a question or stops answering, record it as one body line,
+A Decision stays open only when the user says "later" or does not answer, or when
+no user is present to ask (a sub-agent runs this skill). Then record it as one body line,
 `**Open decision:** <question>, <options>, <your recommendation>`, so
 `radin-batch` asks it before execution instead of guessing.
 
@@ -152,8 +156,9 @@ stated it, why it matters>
 <**Raised as:** and the triggering text verbatim, the user's words plus any
 error string, path or snippet they pasted.>
 
-<one **Decision:** <question -- settled answer> line per Step 2 answer, then any
-open facts or deferred decisions in plain prose.>
+<one **Decision:** <question -- settled answer> line per Step 2 answer, one
+**Fact:** line per Step 2 lookup, then any deferred decision as an **Open decision:**
+line.>
 EOF
 ```
 
