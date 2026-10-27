@@ -27,6 +27,18 @@ The caller names the level, the scope and the spec:
 
 Read the spec in full before reading the scope.
 
+## Rate the risk
+
+Rate the scope `high` or `low`. Level `plan` skips this step.
+
+**The test:** does the scope delete or overwrite data it did not create, run
+outside the repo, handle secrets or auth, or change an interface another
+program calls? Yes: `high`. No: `low`. Rate on what the changed lines do, not
+on the file type.
+
+Rate without asking anyone. The reply's first line is
+`Risk: <high|low> — <path:line that set it>`.
+
 ## Review
 
 Invoke the passes for the level against the scope:
@@ -38,7 +50,8 @@ Invoke the passes for the level against the scope:
 <!-- end -->
 | `diff` | `/ponytail:ponytail-review` |
 <!-- if:!LEVEL_diff -->
-| `session` | `/thermo-nuclear`, `/ponytail:ponytail-review` |
+| `session`, `high` | `/thermo-nuclear`, `/ponytail:ponytail-review` |
+| `session`, `low` | `/ponytail:ponytail-review` |
 <!-- end -->
 
 Then report:
@@ -84,6 +97,8 @@ rung it reached:
 - `ran`: you executed the changed path and saw it fail. Every `critical` at
   `diff` or `session` level reaches `ran`.
 
+At `high` risk, every `warning` reaches `traced`.
+
 A `cited` finding that depends on an input or a state ("what if this is null")
 survives only when a call site or data path produces that input. Drop it
 otherwise. Drop a finding that cites no rubric, quotes no spec line and shows
@@ -96,3 +111,8 @@ One line per finding, most severe first:
 `<severity> <path:line or plan section> — <claim> [<rung>: <evidence>]`
 
 No finding is a valid result: say `no findings`.
+
+End every reply, findings or not, with one line:
+`Blind spots: <what these passes could not catch in this scope>`. Run a check
+for a blind spot first when one repo command covers it, and fold its result
+into the findings. Write `none` only when you ran the changed path.
