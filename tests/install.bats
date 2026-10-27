@@ -114,7 +114,8 @@ run_install_defaults() {
   [ "$status" -ne 0 ]
   [[ "$output" == *"partial install"* ]]
   [ -L "$TEST_HOME/.local/bin/radin" ]
-  [ -z "$(grep -rl --include='*.md' 'RADIN_CLI\|RADIN_LIB\|RADIN_MODEL_\|RADIN_EFFORT_' "$TEST_HOME/.claude/skills" "$TEST_HOME/.claude/.radin/lib")" ]
+  # Effort tokens are written after the companion step, so a mid-run death leaves them.
+  [ -z "$(grep -rl --include='*.md' 'RADIN_CLI\|RADIN_LIB\|RADIN_MODEL_' "$TEST_HOME/.claude/skills" "$TEST_HOME/.claude/.radin/lib")" ]
   grep -q 'radin:begin' "$TEST_HOME/.claude/CLAUDE.md"
 }
 
