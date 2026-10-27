@@ -34,7 +34,7 @@ test: build
 # Every temp repo a test builds is deleted in teardown, so git's fsync is pure
 # latency here: it cost ~0.1s per test that runs `git init`.
 	@GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.fsync GIT_CONFIG_VALUE_0=none \
-		sh -c 'bats -j 4 tests/install.bats & install=$$!; \
+		sh -c 'bats tests/install.bats & install=$$!; \
 			{ ls tests/backlog.bats tests/tui-*.bats; ls tests/*.bats | grep -v -e install -e backlog -e tui-; } | xargs -P 6 -n1 bats; status=$$?; \
 			wait $$install || status=1; exit $$status'
 
