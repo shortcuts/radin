@@ -32,6 +32,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 /* ---------- allocation ---------- */
@@ -1049,6 +1050,77 @@ static int wired(void)
 	return (in_hooks && in_mcp) ? 0 : 4;
 }
 
+static int is_exec_file(const char *p)
+{
+	struct stat st;
+	return stat(p, &st) == 0 && S_ISREG(st.st_mode) && access(p, X_OK) == 0;
+}
+
+static int on_path_executable(const char *word)
+{
+	const char *path = getenv("PATH"), *p, *e;
+	if (strchr(word, '/'))
+		return is_exec_file(expanduser(word));
+	if (!path)
+		return 0;
+	for (p = path; ; p = e + 1) {
+		size_t n;
+		char *cand;
+		e = strchr(p, ':');
+		n = e ? (size_t)(e - p) : strlen(p);
+		cand = xmalloc(n + strlen(word) + 3);
+		snprintf(cand, n + strlen(word) + 3, "%.*s/%s", (int)(n ? n : 1), n ? p : ".", word);
+		if (is_exec_file(cand))
+			return 1;
+		if (!e)
+			return 0;
+	}
+}
+
+/* A hook that cannot start fails every session. With `args`, Claude Code runs
+ * `command` whole as the program, so a path may hold spaces. */
+static int dead_hooks(const char *path)
+{
+	JVal *hooks = obj_get(load_lax(path), "hooks");
+	JMem *m;
+	int dead = 0;
+	if (!hooks || hooks->kind != J_OBJ)
+		return 0;
+	for (m = hooks->head; m; m = m->next) {
+		JVal *entries = m->val;
+		int i, j;
+		if (!entries || entries->kind != J_ARR)
+			continue;
+		for (i = 0; i < entries->n; i++) {
+			JVal *entry = entries->items[i], *hs;
+			hs = (entry && entry->kind == J_OBJ) ? obj_get(entry, "hooks") : NULL;
+			if (!hs || hs->kind != J_ARR)
+				continue;
+			for (j = 0; j < hs->n; j++) {
+				JVal *h = hs->items[j], *cmd;
+				char *s, **w;
+				int n, ok;
+				cmd = (h && h->kind == J_OBJ) ? obj_get(h, "command") : NULL;
+				if (!cmd || cmd->kind != J_STR)
+					continue;
+				s = str_decode(cmd->raw);
+				if (!s || blank(s))
+					continue;
+				if (obj_get(h, "args"))
+					ok = on_path_executable(s);
+				else
+					ok = shlex_split(s, &w, &n) || n == 0 || on_path_executable(w[0]);
+				if (ok)
+					continue;
+				printf("DEAD     %s (hooks.%s: '%s' not on PATH or not executable)\n",
+				       path, m->key, s);
+				dead++;
+			}
+		}
+	}
+	return dead ? 5 : 0;
+}
+
 /* `radin cbm-hooks mcp`: merge one mcpServers entry into a repo's .mcp.json.
  * A missing file is {}; anything unreadable as a JSON object is refused
  * without a write, because the file is the user's, not radin's. An entry
@@ -1187,7 +1259,8 @@ static int usage(void)
 	        "       radin-cbm-json wired <settings> <claude_json> <cbm>\n"
 	        "       radin-cbm-json ensure-mcp <mcp_json> <name> <command>\n"
 	        "       radin-cbm-json ensure-env <settings> <key> <value>\n"
-	        "       radin-cbm-json ensure-hook-timeout <settings> <cbm> <seconds>\n");
+	        "       radin-cbm-json ensure-hook-timeout <settings> <cbm> <seconds>\n"
+	        "       radin-cbm-json dead-hooks <settings>\n");
 	return 1;
 }
 
@@ -1214,6 +1287,8 @@ int main(int argc, char **argv)
 		return ensure_env(argv[2], argv[3], argv[4]);
 	if (!strcmp(argv[1], "ensure-hook-timeout") && argc == 5)
 		return ensure_hook_timeout(argv[2], argv[3], atoi(argv[4]));
+	if (!strcmp(argv[1], "dead-hooks") && argc == 3)
+		return dead_hooks(argv[2]);
 	if (!strcmp(argv[1], "wired") && argc == 5) {
 		settings_path = argv[2];
 		claude_json_path = argv[3];

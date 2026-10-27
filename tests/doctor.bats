@@ -7,6 +7,9 @@ setup() {
   TEST_HOME="$(mktemp -d)"
   MOCK_BIN="$(mktemp -d)"
   export PATH="$MOCK_BIN:/usr/bin:/bin:/usr/sbin:/sbin"
+  load helpers/pty
+  cc_build "$REPO_ROOT/lib/radin-cbm-json.c" "$REPO_ROOT/lib/radin-cbm-json" ||
+    skip "a C compiler is needed to build the JSON helper"
 }
 
 teardown() {
@@ -133,4 +136,56 @@ JSON
   run env HOME="$TEST_HOME" bash "$CLI"
   [ "$status" -eq 0 ]
   [[ "$output" == *"OK       hooks in $TEST_HOME/.claude/settings.json"* ]]
+}
+
+with_helper() {
+  install_all_expected
+  cp "$REPO_ROOT/lib/radin-cbm-json" "$TEST_HOME/.claude/.radin/bin/radin-cbm-json"
+}
+
+@test "exits 1 and names a hook command that is not on PATH" {
+  with_helper
+  cat > "$TEST_HOME/.claude/settings.json" <<'JSON'
+{"hooks":{"SessionStart":[{"hooks":[{"type":"command","command":"caveman-session"}]}]}}
+JSON
+  run env HOME="$TEST_HOME" bash "$CLI"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"INVALID  hook "*"caveman-session"* ]]
+  [[ "$output" == *"1 check(s) failed"* ]]
+}
+
+@test "passes a bare name on PATH, an absolute executable with args, and an sh -c wrapper" {
+  with_helper
+  printf '#!/bin/sh\n' > "$MOCK_BIN/rtk"
+  chmod +x "$MOCK_BIN/rtk"
+  cat > "$TEST_HOME/.claude/settings.json" <<JSON
+{"hooks":{"SessionStart":[{"hooks":[
+{"type":"command","command":"rtk hook claude"},
+{"type":"command","command":"$MOCK_BIN/rtk","args":["x"]},
+{"type":"command","command":"/bin/sh -c 'nothing-here || true'"}]}]}}
+JSON
+  run env HOME="$TEST_HOME" bash "$CLI"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"OK       every hook command resolves"* ]]
+}
+
+@test "exits 1 for an absolute hook path that is not executable" {
+  with_helper
+  : > "$MOCK_BIN/plain"
+  cat > "$TEST_HOME/.claude/settings.json" <<JSON
+{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"$MOCK_BIN/plain"}]}]}}
+JSON
+  run env HOME="$TEST_HOME" bash "$CLI"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"INVALID  hook "*"$MOCK_BIN/plain"* ]]
+}
+
+@test "skips the hook check without the helper" {
+  install_all_expected
+  cat > "$TEST_HOME/.claude/settings.json" <<'JSON'
+{"hooks":{"SessionStart":[{"hooks":[{"type":"command","command":"caveman-session"}]}]}}
+JSON
+  run env HOME="$TEST_HOME" bash "$CLI"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"SKIPPED  hook commands"* ]]
 }

@@ -7,8 +7,9 @@
 # Installed to ~/.claude/.radin/lib/radin-doctor.sh by install.sh.
 #
 # Usage: radin-doctor.sh
-# Exit: 0 if every expected agent/skill/lib file is present and every lib
-# shell script has valid syntax, 1 otherwise. Companion-tool reachability
+# Exit: 0 if every expected agent/skill/lib file is present, every lib
+# shell script has valid syntax and every settings.json hook command resolves,
+# 1 otherwise. Companion-tool reachability
 # is informational only and never affects the exit code.
 # Must stay bash-3.2-compatible (macOS /bin/bash).
 set -euo pipefail
@@ -119,6 +120,19 @@ else
 	printf '  OK       no unsubstituted token left\n'
 fi
 
+printf '\nHook commands (%s/settings.json):\n' "$CLAUDE_DIR"
+json_helper="$CLAUDE_DIR/.radin/bin/radin-cbm-json"
+if [ ! -x "$json_helper" ]; then
+	printf '  SKIPPED  hook commands (radin-cbm-json not built)\n'
+elif [ ! -f "$CLAUDE_DIR/settings.json" ]; then
+	printf '  OK       no settings.json, no hooks to check\n'
+elif dead="$("$json_helper" dead-hooks "$CLAUDE_DIR/settings.json")"; then
+	printf '  OK       every hook command resolves\n'
+else
+	printf '%s\n' "$dead" | sed 's/^DEAD     /  INVALID  hook /'
+	MISSING=$((MISSING + $(printf '%s\n' "$dead" | grep -c .)))
+fi
+
 printf '\nCompanion tools (optional, advisory-only):\n'
 check_path_tool "rtk" "rtk"
 check_path_tool "codebase-memory-mcp" "codebase-memory-mcp"
@@ -155,6 +169,6 @@ if [ "$MISSING" -eq 0 ]; then
 	printf 'All expected files present.\n'
 	exit 0
 else
-	printf '%d expected file(s) missing or invalid.\n' "$MISSING"
+	printf '%d check(s) failed (missing file, invalid file or unresolved hook).\n' "$MISSING"
 	exit 1
 fi
