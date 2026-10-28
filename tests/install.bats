@@ -276,7 +276,6 @@ run_install_defaults() {
   run ! grep -q '$HOME/.claude/.radin/lib' "$run_doc"
   grep -q "$TEMPLATE/home/.claude/.radin/lib/radin-batch-clarify.md" "$run_doc"
   grep -q "$TEMPLATE/home/.claude/.radin/lib/radin-batch-gate.md" "$run_doc"
-  grep -q "$TEMPLATE/home/.claude/.radin/lib/radin-batch-review.md" "$run_doc"
   run ! grep -q 'full check suite' "$run_doc"
   for s in radin-batch radin-do; do
     grep -q "$TEMPLATE/home/.claude/.radin/lib/radin-run.md" "$TEST_HOME/.claude/skills/$s/SKILL.md"

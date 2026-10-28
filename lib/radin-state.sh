@@ -52,7 +52,8 @@
 #   radin-state.sh stash-triage                 # print "candidate<TAB>hash<TAB>id" per untriaged radin-batch stash and open task the stash's paths appear in, then "left<TAB>n" (stashes not claimed by a task); nothing when no radin-batch stash exists
 #   radin-state.sh stash-claim <hash> <id|->    # record the router's verdict for a stash: a task id makes prepare apply the stash in that task's tree, "-" leaves it; exit 1 when the stash was triaged already
 #   radin-state.sh gate-fix <hash>...           # record the gate's fix commits (state/gate-fixes) so session-commits lists them
-#   radin-state.sh deps-check <id>              # print "dep<TAB>hash" per dependency, exit 1 naming the first unresolved one (radin-prompt.sh)
+#   radin-state.sh gate-filed <id>...           # the gate filed these entries: append them to BACKLOG_STEPS.json as pending and mark the session's one review round used; exit 1 when it is used already
+#   radin-state.sh deps-check <id>             # print "dep<TAB>hash" per dependency, exit 1 naming the first unresolved one (radin-prompt.sh)
 #   radin-state.sh task-dir <id>                # print the task's worktree if it exists, else the repo root (radin-prompt.sh)
 #   radin-state.sh journal-tail [n]             # last n journal events (default 20)
 #   radin-state.sh plan-covers <plan-csv> <path>  # print in (a listed plan's Changes names the path), test (a test path, exempt) or out
@@ -668,7 +669,7 @@ steps-init)
 		esac
 		printf '{"backlog_count":%s,"completed_count":%s,"base_branch":"%s"}\n' \
 			"${backlog_count:-0}" "${completed_count:-0}" "$(json_escape "$base_branch")" >"$state_dir/baseline.json"
-		rm -f "$state_dir/gate-fixes"
+		rm -f "$state_dir/gate-fixes" "$state_dir/gate-reviewed"
 	fi
 	journal "$state_dir" "steps-init" "" "$n entries"
 	printf 'steps-init: wrote %d entries to %s\n' "$n" "$file"
@@ -926,6 +927,27 @@ gate-fix)
 	done
 	printf '%s\n' "$fixes" >>"$ns/state/gate-fixes"
 	journal "$ns/state" "gate-fix" "" "$*"
+	;;
+
+gate-filed)
+	shift
+	[ "$#" -gt 0 ] || die "usage: gate-filed <id>..."
+	[ -f "$steps" ] || die "no state file: $steps"
+	# One review round per session: the marker is the whole counter, and steps-init clears it.
+	[ ! -e "$ns/state/gate-reviewed" ] || die "the gate's review round is already used"
+	next_order="$(sed -n 's/.*"order":\([0-9][0-9]*\).*/\1/p' "$steps" | sort -n | tail -n1)"
+	for id in "$@"; do
+		(cd "$repo_root" && bash "$LIB_DIR/radin-backlog.sh" field "$id" TASK_ID >/dev/null 2>&1) || die "no backlog task matches: $id"
+		next_order=$((${next_order:-0} + 1))
+		iline="$(grep -F "\"id\":\"$id\"" "$BACKLOG_INDEX" | head -n1 || true)"
+		deps="$(deps_csv "$iline")"
+		deps_json="[]"
+		[ -z "$deps" ] || deps_json="[$(printf '%s' "$deps" | sed -E 's/([^,]+)/"\1"/g')]"
+		printf '{"id":"%s","order":%s,"status":"pending","depends_on":%s,"attempts":0,"debugged":0,"note":""}\n' \
+			"$(json_escape "$id")" "$next_order" "$deps_json" >>"$steps"
+	done
+	: >"$ns/state/gate-reviewed"
+	journal "$ns/state" "gate-filed" "" "$*"
 	;;
 
 deps-check)
@@ -2039,6 +2061,6 @@ finding-classes)
 	;;
 
 *)
-	die "unknown command: ${cmd:-<none>} (steps-init|steps-list|steps-open|steps-waiting|answered|retry|task-next|task-report|task-fact|task-diagnosis|task-done|set-status|stuck|preflight|resume|recover|recover-reject|report|session-set|session-get|prepare|dirty-check|trace|completed-show|completed-list|unlanded|session-commits|gate-map|leftovers|stash-triage|stash-claim|reconcile|gate-fix|deps-check|task-dir|journal-tail|plan-covers|review-findings|finding-classes)"
+	die "unknown command: ${cmd:-<none>} (steps-init|steps-list|steps-open|steps-waiting|answered|retry|task-next|task-report|task-fact|task-diagnosis|task-done|set-status|stuck|preflight|resume|recover|recover-reject|report|session-set|session-get|prepare|dirty-check|trace|completed-show|completed-list|unlanded|session-commits|gate-map|leftovers|stash-triage|stash-claim|reconcile|gate-fix|gate-filed|deps-check|task-dir|journal-tail|plan-covers|review-findings|finding-classes)"
 	;;
 esac

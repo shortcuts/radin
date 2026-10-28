@@ -292,9 +292,9 @@ the loop from reaching Phase 4.5.
 
 ## Phase 4.5: Session Gate
 
-Execution sub-agents run only the checks their diffs reached, so the whole
-suite runs here once, every session. Skip it when the session recorded no
-commit.
+Execution sub-agents run the tests their diffs reached. The gate runs lint and
+format once per session, then reviews the session's commits and files each
+`act-on` finding to the backlog. Skip it when the session recorded no commit.
 
 Read `RADIN_LIB/radin-batch-gate.md` and follow it to dispatch the gate.
 
@@ -325,12 +325,9 @@ Read `RADIN_LIB/radin-batch-merge.md` and follow it to land every task branch, f
 
 ## Phase 6: Review
 
-- **The user asked for a post-session review** (in the invoking prompt or
-  once the summary is out): read `RADIN_LIB/radin-batch-review.md` and follow
-  it.
-- **They didn't**: no review. Close the summary with `To review this
-  session's work, run /radin-review with scope: <the output of RADIN_CLI state
-  session-commits>.`
+Phase 4.5 already reviewed the session. Close the summary with `To triage the
+review's other findings, run /radin-review with scope: <the output of
+RADIN_CLI state session-commits>.`
 
 ## Additional Guardrails
 

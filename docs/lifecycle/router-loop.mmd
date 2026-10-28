@@ -11,7 +11,8 @@ flowchart TD
   p2 --> p3[Phase 3<br/>persist BACKLOG_STEPS.json]
   p3 --> p35[Phase 3.5<br/>settle open decisions, one grilling]
   p35 --> next{{task-next}}
-  next -- exit 1, nothing left --> p45[Phase 4.5<br/>session gate: full suite]
+  next -- exit 1, nothing left --> p45[Phase 4.5<br/>session gate: lint, format, review]
+  p45 -- findings filed, once --> next
   next -- exit 0 --> kind{kind}
   kind -- planning --> leafP[[Planning leaf]]
   kind -- execution --> leafE[[Execution leaf]]
@@ -32,4 +33,4 @@ flowchart TD
   mergeCli -- conflict, exit 3 --> leafM[[Merge leaf]]
   p55 -- no branches --> p6
   leafM -- SUCCESS --> mergeCli
-  leafM --> p6[Phase 6<br/>review offer]
+  leafM --> p6[Phase 6<br/>point to /radin-review]

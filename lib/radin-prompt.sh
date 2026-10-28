@@ -102,11 +102,34 @@ sub_token() {
 	body="${body//$1/$2}"
 }
 
-# The gate belongs to the session, not a task: no id, no task fields, no guards.
+# Drops every guarded block whose name is not in the active list (see below).
+strip_guards() {
+	awk -v active="$1" '
+		/^<!-- if:/ {
+			name = $0
+			sub(/^<!-- if:/, "", name); sub(/ -->$/, "", name)
+			neg = (substr(name, 1, 1) == "!")
+			if (neg) name = substr(name, 2)
+			on = index(active, " " name " ") > 0
+			skip = neg ? on : !on
+			next
+		}
+		$0 == "<!-- end -->" { skip = 0; next }
+		!skip { print }
+	'
+}
+
+# The gate belongs to the session, not a task: no id, no task fields. Its one
+# guard, GATE_REVIEW, holds the review, and `gate-filed` marks it used.
 if [ "$kind" = gate ]; then
 	map="$(cd "$REPO_ROOT" && bash "$LIB_DIR/radin-state.sh" gate-map)" ||
 		die "no session commits, so no gate is due"
+	active=" GATE_REVIEW "
+	[ ! -e "$NAMESPACE_DIR/state/gate-reviewed" ] || active=" "
+	body="$(printf '%s\n' "$body" | strip_guards "$active")"
 	sub_token LEAF_CONTRACT "$leaf_contract"
+	sub_token PLANNING_RULE "$planning_rule"
+	sub_token COMPLEXITY_RULE "$complexity_rule"
 	sub_token GATE_MAP "$map"
 	mkdir -p "$NAMESPACE_DIR/state/prompts"
 	out="$NAMESPACE_DIR/state/prompts/session-gate.md"
@@ -225,23 +248,6 @@ task_dir=""
 if [ "$kind" = debug ]; then
 	task_dir="$(bash "$LIB_DIR/radin-state.sh" task-dir "$task_id")"
 fi
-
-# Drops every guarded block whose name is not in the active list (see below).
-strip_guards() {
-	awk -v active="$1" '
-		/^<!-- if:/ {
-			name = $0
-			sub(/^<!-- if:/, "", name); sub(/ -->$/, "", name)
-			neg = (substr(name, 1, 1) == "!")
-			if (neg) name = substr(name, 2)
-			on = index(active, " " name " ") > 0
-			skip = neg ? on : !on
-			next
-		}
-		$0 == "<!-- end -->" { skip = 0; next }
-		!skip { print }
-	'
-}
 
 # Guard names active for this task. A `<!-- if:NAME -->` block survives only
 # when its name is listed here, and `<!-- if:!NAME -->` only when it is not.

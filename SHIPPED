@@ -32,7 +32,6 @@ lib radin-batch-recovery.md
 lib radin-batch-reporting.md
 lib radin-batch-gate.md
 lib radin-batch-merge.md
-lib radin-batch-review.md
 lib radin-batch-clarify.md
 lib radin-batch-session.md
 lib radin-batch-resume.md
@@ -62,3 +61,4 @@ retired lib radin-execute-review.md
 retired lib radin-execute-clarify.md
 retired lib radin-execute-session.md
 retired lib radin-execute-resume.md
+retired lib radin-batch-review.md
