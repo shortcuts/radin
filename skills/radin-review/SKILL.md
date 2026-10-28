@@ -175,15 +175,16 @@ Print the groups as your own reply text, before any dialog, as a numbered list
 in the order Act on, Consider, Noted, Dismissed: number, bucket and reason,
 category, severity, location, the finding in a clause. A group lists each
 member on a lettered sub-line with its location and clause.
+This list is the only full copy. The dialog repeats none of it, because a
+model that sees the list twice drops the printed one.
 **Why:** the user sees only a truncated one-line summary of a sub-agent's
 result, so the findings reach the user only through text you print.
 
 Then gate on one `AskUserQuestion` with two single-select questions:
 
 - Which groups: **Recommended only** (the Act on groups) or **All** (Act on
-  and Consider). The question text is the whole numbered list above, Noted
-  and Dismissed groups included. Each option's `description` lists its groups
-  as number, severity, location and the finding in a clause, one per line.
+  and Consider). The question text is one line: "Which groups, by the list
+  above?". Each option's `description` names its group numbers only.
 - What to do with them: **Add to backlog** or **Tackle now**.
 
 A free-text answer names the numbers you printed, Noted and Dismissed ones
