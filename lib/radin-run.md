@@ -109,11 +109,8 @@ Empty output means no branch applies. Act on each line by its first field:
   call this session; carry nothing else. No `rank` line: every entry carries
   a priority, so read no task body, run no criteria pass, infer no
   dependency.
-- `leftovers`: a finished task branch from an earlier session never reached
-  the base. Run `RADIN_CLI state reconcile` and print its output. Exit 3: read
-  `RADIN_LIB/radin-batch-merge.md` and follow its conflict path with
-  `RADIN_CLI prompt merge <the conflict branches>`. A `skipped` line is
-  printed for the user and needs no action.
+- `leftovers`: a task branch from an earlier session, finished or not, is
+  still outside the base. Read `RADIN_LIB/radin-batch-merge.md` and follow it.
 
 Then run `RADIN_CLI state stash-triage`. Each `candidate<TAB>hash<TAB>id` line
 becomes one `RADIN_CLI prompt factfind "<id>" "Does the uncommitted work in git
@@ -287,7 +284,7 @@ next task's dispatch and carry on. The loop stops only at a
 Never verify a `SUCCESS` yourself: no per-task verification sub-agent, and no
 re-reading the diff. That read is the cost the leaf's own verify loop and
 Phase 4.5's gate exist to avoid. A task is finished when `task-report` has recorded it,
-whatever the sub-agent's prose said. A commit still on a side branch counts as done only after the merge (see "A task is done when its commit is in the base branch" in `docs/DECISIONS.md`).
+whatever the sub-agent's prose said. A commit still on a side branch counts as done only after the merge. Phase 5.5 lands every task branch, and an unfinished task's branch lands with a follow-up entry (see "A task is done when its commit is in the base branch" in `docs/DECISIONS.md`).
 
 An entry stays `failed` or `blocked` only after the user explicitly deferred
 it. A deferred entry is not retried within this session, and does not block
@@ -324,7 +321,7 @@ user the answered entries are `pending` and re-invoking the skill runs them.
 
 Skip it when `RADIN_CLI state session-get` prints `worktree<TAB>no` and `branch<TAB>no`.
 
-Read `RADIN_LIB/radin-batch-merge.md` and follow it to merge this session's task branches.
+Read `RADIN_LIB/radin-batch-merge.md` and follow it to land every task branch, finished or not.
 
 ## Phase 6: Review
 

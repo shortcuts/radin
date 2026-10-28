@@ -47,12 +47,10 @@
 #   radin-state.sh completed-list               # print "id<TAB>commit" per completion, exit 1 if none (the TUI's Done view)
 #   radin-state.sh session-commits              # print this session's commits, oldest first, one hash per line: task-done commits past the baseline, then gate fixes; exit 1 if none
 #   radin-state.sh gate-map                     # print "branch<TAB>tip<TAB>worktree<TAB>oldest session commit" per branch holding a session commit, oldest work first; exit 1 if none
-#   radin-state.sh merge-list                   # print "base<TAB>branch", then "id<TAB>branch<TAB>hash" per session task branch not yet in the base; exit 1 if none
-#   radin-state.sh reconcile                    # squash-merge every leftover branch whose last journal status is done, whose worktree is not dirty and that duplicates no other; print "merged<TAB>branch<TAB>tip", "conflict<TAB>branch" or "skipped<TAB>branch<TAB>reason"; exit 3 on a conflict
+#   radin-state.sh reconcile                    # land every radin/* branch but an in_progress task's: wip-commit a dirty worktree, squash-merge, record the task done (an unfinished one first gets a "Finish: <title>" follow-up its dependents move to), drop worktree and branch; restore a recorded branch whose work is not in the base; print "merged<TAB>branch<TAB>tip", "removed<TAB>branch", "adopted<TAB>branch", "restored<TAB>branch<TAB>hash", "follow-up<TAB>id<TAB>new id", "conflict<TAB>branch" or "skipped<TAB>branch<TAB>reason"; exit 3 on a conflict
 #   radin-state.sh leftovers                    # print "base<TAB>branch", then a "branch", "stash" or "foreign" TAB line per unmerged radin/* branch, radin-batch stash or non-radin worktree in the repo, whatever session made it; exit 1 if none
 #   radin-state.sh stash-triage                 # print "candidate<TAB>hash<TAB>id" per untriaged radin-batch stash and open task the stash's paths appear in, then "left<TAB>n" (stashes not claimed by a task); nothing when no radin-batch stash exists
 #   radin-state.sh stash-claim <hash> <id|->    # record the router's verdict for a stash: a task id makes prepare apply the stash in that task's tree, "-" leaves it; exit 1 when the stash was triaged already
-#   radin-state.sh merge                        # squash-merge each merge-list branch that merges cleanly into the base, drop its worktree and branch, and print and journal any branch or worktree it keeps; exit 3 when a branch conflicts (printed as "conflict<TAB>branch")
 #   radin-state.sh gate-fix <hash>...           # record the gate's fix commits (state/gate-fixes) so session-commits lists them
 #   radin-state.sh deps-check <id>              # print "dep<TAB>hash" per dependency, exit 1 naming the first unresolved one (radin-prompt.sh)
 #   radin-state.sh task-dir <id>                # print the task's worktree if it exists, else the repo root (radin-prompt.sh)
@@ -339,6 +337,71 @@ wip_commit() {
 	git -C "$1" rev-parse --short HEAD
 }
 
+# Succeeds when merging commit $1 into branch $2 changes nothing: the work
+# landed, under any hash. merge-tree, not cherry: a squash of several commits
+# matches no single patch-id.
+landed() {
+	[ "$(git -C "$repo_root" merge-tree --write-tree "$2" "$1" 2>/dev/null | sed -n 1p)" = "$(git -C "$repo_root" rev-parse "$2^{tree}")" ]
+}
+
+# Files a follow-up entry for task $1, whose unfinished work landed at $2, and
+# points its dependents at it. The landing/<id>.follow-up mark keeps a re-run
+# after a crash from filing it twice.
+follow_up() {
+	local id="$1" hash="$2" mark="$ns/state/landing/$1.follow-up" line note q body fid did deps
+	[ ! -s "$mark" ] || return 0
+	line="$(cd "$repo_root" && bash "$LIB_DIR/radin-backlog.sh" find "$id" | awk -F'\t' -v id="$id" '$1 == id')"
+	note=""
+	[ ! -f "$steps" ] || note="$(json_get note "$(entry_line "$steps" "$id")")"
+	body="Task $id stopped unfinished. Its branch landed on the base at $hash, so no work stays on a side branch. Finish what it left. \`radin state trace $id\` names its plan and facts.
+
+**Why unfinished:** ${note:-no reason recorded}"
+	case "$note" in
+	deferred:*)
+		q="${note#deferred:}"
+		body="$body"$'\n'"**Open decision:** ${q# }"
+		;;
+	esac
+	fid="$(cd "$repo_root" && printf '%s\n' "$body" | bash "$LIB_DIR/radin-backlog.sh" add "$(printf '%s' "$line" | cut -f2)" "Finish: $(printf '%s' "$line" | cut -f3)" 2>/dev/null)" || return 1
+	mkdir -p "$ns/state/landing"
+	printf '%s\n' "$fid" >"$mark"
+	# A dependent of an unfinished task would otherwise run on half-done work.
+	while IFS=$'\t' read -r did deps; do
+		[ -n "$did" ] || continue
+		(cd "$repo_root" && bash "$LIB_DIR/radin-backlog.sh" set-deps "$did" "$(printf '%s' "$deps" | tr ',' '\n' | sed "s/^$id\$/$fid/" | paste -sd, -)") >/dev/null 2>&1 || true
+	done <<EOF2
+$(cd "$repo_root" && bash "$LIB_DIR/radin-backlog.sh" list --order created | awk -F"$(printf '\037')" -v id="$id" -v OFS='\t' '{ n = split($6, d, ","); for (i = 1; i <= n; i++) if (d[i] == id) { print $1, $6; break } }')
+EOF2
+	journal "$ns/state" "follow-up" "$id" "$fid"
+	printf 'follow-up\t%s\t%s\n' "$id" "$fid"
+}
+
+# Records task $1 done at $2 once its branch's work is in the base. A backlog
+# entry with no state/unmerged file stopped unfinished, so it gets a follow-up
+# first. An id on no backlog entry (done before, or never a task) records nothing.
+record_landed() {
+	local id="$1" hash="$2"
+	if [ ! -e "$ns/state/unmerged/$id" ]; then
+		if [ -z "$( (cd "$repo_root" && bash "$LIB_DIR/radin-backlog.sh" find "$id" 2>/dev/null) | awk -F'\t' -v id="$id" '$1 == id')" ]; then
+			rm -f "$ns/state/landing/$id" "$ns/state/conflict/$id"
+			return 0
+		fi
+		follow_up "$id" "$hash" || {
+			printf 'merge: landed %s but could not file its follow-up, it stays on the backlog\n' "$id" >&2
+			return 1
+		}
+	fi
+	mkdir -p "$ns/state/prepared"
+	: >"$ns/state/prepared/$id.merged"
+	if (cd "$repo_root" && bash "$LIB_DIR/radin-state.sh" task-done "$id" "$hash") >&2; then
+		rm -f "$ns/state/unmerged/$id" "$ns/state/landing/$id" "$ns/state/landing/$id.follow-up" "$ns/state/conflict/$id"
+	else
+		printf 'merge: landed %s but could not record it done, it stays blocked\n' "$id" >&2
+		journal "$ns/state" "done-unmerged" "$id" "merged into the base but task-done failed"
+		return 1
+	fi
+}
+
 # Deletes with -D: a squash never makes the branch an ancestor, so -d always fails.
 squash_merge_one() {
 	local sid="$1" sbranch="$2" swt="$3" stip="$4"
@@ -347,19 +410,19 @@ squash_merge_one() {
 		printf 'conflict\t%s\n' "$sbranch"
 		return 1
 	fi
-	if [ "$sid" != "-" ]; then
-		mkdir -p "$ns/state/prepared"
-		: >"$ns/state/prepared/$sid.merged"
-	fi
 	printf 'merged\t%s\t%s\n' "$sbranch" "$stip"
-	if [ "$sid" != "-" ] && [ -e "$ns/state/unmerged/$sid" ]; then
-		if (cd "$repo_root" && bash "$LIB_DIR/radin-state.sh" task-done "$sid" "$(git -C "$repo_root" rev-parse --short=12 HEAD)") >&2; then
-			rm -f "$ns/state/unmerged/$sid"
-		else
-			printf 'merge: merged %s but could not record %s done, it stays blocked\n' "$sbranch" "$sid" >&2
-			journal "$ns/state" "done-unmerged" "$sid" "merged into the base but task-done failed"
-		fi
-	fi
+	record_landed "$sid" "$(git -C "$repo_root" rev-parse --short=12 HEAD)" || true
+	drop_branch "$sid" "$sbranch" "$swt"
+}
+
+# Prints the worktree holding branch $2, read from `git worktree list --porcelain` output $1;
+# empty when no worktree holds it.
+branch_worktree() {
+	printf '%s\n' "$1" | awk -v b="branch refs/heads/$2" '/^worktree /{ w = substr($0, 10) } $0 == b { print w; exit }'
+}
+
+drop_branch() {
+	local sid="$1" sbranch="$2" swt="$3"
 	if [ -n "$swt" ] && [ -d "$swt" ]; then
 		git -C "$repo_root" worktree remove "$swt" >&2 || {
 			printf 'merge: kept %s, worktree %s would not remove\n' "$sbranch" "$swt" >&2
@@ -594,7 +657,7 @@ steps-init)
 	if [ -d "$state_dir" ]; then
 		backlog_count="$( (cd "$repo_root" 2>/dev/null && bash "$LIB_DIR/radin-backlog.sh" count 2>/dev/null) || printf '0')"
 		completed_count="$(grep -c . "$state_dir/completed.json" 2>/dev/null || true)"
-		# The branch `merge-list` merges into. A resume that finds the checkout
+		# The branch `reconcile` merges into. A resume that finds the checkout
 		# on a task branch keeps the earlier value.
 		base_branch="$(git -C "$repo_root" rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
 		case "$base_branch" in
@@ -668,39 +731,15 @@ gate-map)
 		printf '%s\n' "$seen" | grep -Fxq -- "$branch" && continue
 		seen="${seen:+$seen$'\n'}$branch"
 		tip="$(git -C "$repo_root" rev-parse --short=12 "$branch" 2>/dev/null)" || continue
-		wt="$(printf '%s\n' "$worktrees" | awk -v b="refs/heads/$branch" '/^worktree /{ w = substr($0, 10) } $0 == "branch " b { print w; exit }')"
+		wt="$(branch_worktree "$worktrees" "$branch")"
 		printf '%s\t%s\t%s\t%s\n' "$branch" "$tip" "${wt:-$repo_root}" "$chash"
 	done <<EOF2
 $commits
 EOF2
 	;;
 
-merge-list)
-	# One line per task done on a radin/<id> branch whose commit the base branch
-	# lacks (state/unmerged/<id>). Exit 1 when nothing is left to merge.
-	state_dir="$ns/state"
-	base_branch="$(resolve_base)"
-	[ -n "$base_branch" ] || exit 1
-	out=""
-	for f in "$state_dir"/unmerged/*; do
-		[ -f "$f" ] || continue
-		cid="$(basename "$f")"
-		chash="$(cat "$f")"
-		pfile="$state_dir/prepared/$cid.json"
-		[ -s "$pfile" ] || continue
-		pbranch="$(json_get branch "$(cat "$pfile")")"
-		case "$pbranch" in radin/*) ;; *) continue ;; esac
-		git -C "$repo_root" rev-parse --verify -q "refs/heads/$pbranch" >/dev/null 2>&1 || continue
-		[ ! -e "$state_dir/prepared/$cid.merged" ] || continue
-		git -C "$repo_root" merge-base --is-ancestor "$chash" "$base_branch" >/dev/null 2>&1 && continue
-		out="${out:+$out$'\n'}$cid	$pbranch	$chash"
-	done
-	[ -n "$out" ] || exit 1
-	printf 'base\t%s\n%s\n' "$base_branch" "$out"
-	;;
-
 leftovers)
-	# Repo-wide, unlike merge-list: reads git and the journal, never prepared/.
+	# Repo-wide: reads git and the journal, never prepared/.
 	base_branch="$(resolve_base)"
 	[ -n "$base_branch" ] || die "no base branch"
 	worktrees="$(git -C "$repo_root" worktree list --porcelain)"
@@ -806,75 +845,70 @@ stash-claim)
 	fi
 	;;
 
-merge)
-	state_dir="$ns/state"
-	list="$(bash "$LIB_DIR/radin-state.sh" merge-list)" || exit 0
-	base="$(printf '%s\n' "$list" | sed -n '1s/^base\t//p')"
-	git -C "$repo_root" checkout "$base" >&2 || die "cannot check out $base"
-	merged=""
-	conflicts=""
-	while IFS=$'\t' read -r mid mbranch mhash; do
-		wt=""
-		[ ! -s "$state_dir/prepared/$mid.json" ] || wt="$(json_get worktree "$(cat "$state_dir/prepared/$mid.json")")"
-		if squash_merge_one "$mid" "$mbranch" "$wt" "$mhash"; then
-			merged="${merged:+$merged,}$mbranch"
-		else
-			conflicts="${conflicts:+$conflicts,}$mbranch"
-		fi
-	done <<EOF2
-$(printf '%s\n' "$list" | sed 1d)
-EOF2
-	journal "$state_dir" "merge" "" "merged=$merged conflict=$conflicts"
-	[ -z "$conflicts" ] || exit 3
-	;;
-
 reconcile)
-	# A task the user merged by hand is recorded done here; its pending file proves it was finished.
+	# Lands every radin/* branch, whatever its task's status, so no work stays
+	# on a side branch. Only a task in progress keeps its branch.
 	base="$(resolve_base)"
-	for f in "$ns/state/unmerged"/*; do
-		[ -f "$f" ] && [ -n "$base" ] || continue
+	[ -n "$base" ] || exit 0
+	# A recorded branch that is gone: the merge leaf, the user or a crash took
+	# it. Work in the base is recorded; work outside it gets its branch back.
+	for f in "$ns/state/unmerged"/* "$ns/state/landing"/* "$ns/state/conflict"/*; do
+		[ -f "$f" ] || continue
 		uid="$(basename "$f")"
+		case "$uid" in *.follow-up) continue ;; esac
 		uhash="$(cat "$f")"
-		if git -C "$repo_root" merge-base --is-ancestor "$uhash" "$base" >/dev/null 2>&1; then
-			:
-		elif git -C "$repo_root" rev-parse --verify -q "refs/heads/radin/$uid" >/dev/null 2>&1; then
-			! git -C "$repo_root" cherry "$base" "radin/$uid" | grep -q '^+' || continue
+		! git -C "$repo_root" rev-parse --verify -q "refs/heads/radin/$uid" >/dev/null 2>&1 || continue
+		# The leaf deletes a branch only after its squash commit, and a resolved
+		# conflict never merges as a no-op, so its mark alone proves the landing.
+		if [ -e "$ns/state/conflict/$uid" ] || landed "$uhash" "$base"; then
+			! record_landed "$uid" "$uhash" || printf 'adopted\tradin/%s\n' "$uid"
+		elif git -C "$repo_root" rev-parse --verify -q "$uhash^{commit}" >/dev/null 2>&1; then
+			git -C "$repo_root" branch "radin/$uid" "$uhash" >&2
+			printf 'restored\tradin/%s\t%s\n' "$uid" "$uhash"
 		else
-			printf 'skipped\tradin/%s\tdone but not in the base, branch missing\n' "$uid"
-			continue
-		fi
-		mkdir -p "$ns/state/prepared"
-		: >"$ns/state/prepared/$uid.merged"
-		if (cd "$repo_root" && bash "$LIB_DIR/radin-state.sh" task-done "$uid" "$uhash") >&2; then
-			rm -f "$f"
-			printf 'adopted\tradin/%s\n' "$uid"
+			printf 'skipped\tradin/%s\tcommit %s is gone\n' "$uid" "$uhash"
 		fi
 	done
-	list="$(bash "$LIB_DIR/radin-state.sh" leftovers 2>/dev/null)" || exit 0
-	base="$(printf '%s\n' "$list" | sed -n '1s/^base\t//p')"
-	todo="$(printf '%s\n' "$list" | awk -F'\t' '$1 == "branch" && ($6 == "done" || $6 == "done-unmerged") && $5 != "dirty" && $7 == "-" { print $2 "\t" $4 }')"
-	skips="$(printf '%s\n' "$list" | awk -F'\t' -v OFS='\t' '$1 == "branch" && !(($6 == "done" || $6 == "done-unmerged") && $5 != "dirty" && $7 == "-") { print "skipped", $2, ($7 != "-" ? "duplicate of " $7 : ($5 == "dirty" ? "dirty" : "not done (" $6 ")")) }')"
-	[ -z "$skips" ] || printf '%s\n' "$skips"
-	[ -n "$todo" ] || exit 0
+	[ -n "$(git -C "$repo_root" for-each-ref --format=x refs/heads/radin/)" ] || exit 0
 	if [ -n "$(dirty_files "$repo_root")" ]; then
 		printf 'skipped\t-\tbase checkout dirty\n'
 		exit 0
 	fi
-	git -C "$repo_root" checkout "$base" >&2 || die "cannot check out $base"
+	git -C "$repo_root" checkout -q "$base" >&2 || die "cannot check out $base"
+	worktrees="$(git -C "$repo_root" worktree list --porcelain)"
 	merged=""
 	conflicts=""
-	while IFS=$'\t' read -r rbranch wt; do
-		[ "$wt" != "-" ] || wt=""
-		rid="${rbranch#radin/}"
-		[ -e "$ns/state/unmerged/$rid" ] || rid="-"
-		if squash_merge_one "$rid" "$rbranch" "$wt" "$(git -C "$repo_root" rev-parse --short=12 "$rbranch")"; then
-			merged="${merged:+$merged,}$rbranch"
-		else
-			conflicts="${conflicts:+$conflicts,}$rbranch"
+	for rb in $(git -C "$repo_root" for-each-ref --format='%(refname:short)' refs/heads/radin/); do
+		rid="${rb#radin/}"
+		if [ -f "$steps" ] && [ "$(json_get status "$(entry_line "$steps" "$rid")")" = in_progress ]; then
+			printf 'skipped\t%s\tin progress\n' "$rb"
+			continue
 		fi
-	done <<EOF2
-$todo
-EOF2
+		wt="$(branch_worktree "$worktrees" "$rb")"
+		[ -z "$wt" ] || [ ! -d "$wt" ] || [ -z "$(dirty_files "$wt")" ] ||
+			wip_commit "$wt" "$rid" "Left uncommitted in $wt; reconcile landed it." >/dev/null
+		tip="$(git -C "$repo_root" rev-parse --short=12 "$rb")"
+		if landed "$tip" "$base"; then
+			# A branch with commits whose work is already in the base still finishes its task.
+			if [ -e "$ns/state/unmerged/$rid" ] || [ "$(git -C "$repo_root" rev-list --count "$base..$rb")" -gt 0 ]; then
+				record_landed "$rid" "$tip" || true
+			fi
+			drop_branch "$rid" "$rb" "$wt"
+			printf 'removed\t%s\n' "$rb"
+			continue
+		fi
+		if [ ! -e "$ns/state/unmerged/$rid" ]; then
+			mkdir -p "$ns/state/landing"
+			printf '%s\n' "$tip" >"$ns/state/landing/$rid"
+		fi
+		if squash_merge_one "$rid" "$rb" "$wt" "$tip"; then
+			merged="${merged:+$merged,}$rb"
+		else
+			mkdir -p "$ns/state/conflict"
+			printf '%s\n' "$tip" >"$ns/state/conflict/$rid"
+			conflicts="${conflicts:+$conflicts,}$rb"
+		fi
+	done
 	git -C "$repo_root" worktree prune >&2 || true
 	journal "$ns/state" "reconcile" "" "merged=$merged conflict=$conflicts"
 	[ -z "$conflicts" ] || exit 3
@@ -1020,7 +1054,8 @@ preflight)
 	bash "$0" stuck 2>/dev/null | sed 's/^/stuck\t/' || true
 	bash "$0" steps-waiting 2>/dev/null | sed 's/^/waiting\t/' || true
 	ids="$(bash "$LIB_DIR/radin-backlog.sh" order --rank-needed 2>/dev/null)" && printf 'rank\t%s\n' "$(printf '%s' "$ids" | paste -sd, -)"
-	bash "$0" leftovers 2>/dev/null | grep -q '^branch	' && printf 'leftovers\n'
+	# A pipe into grep -q fails under pipefail once the writer outlives the reader, so no pipe.
+	[ -z "$(git -C "$repo_root" for-each-ref --format=x refs/heads/radin/)$(find "$ns/state/unmerged" "$ns/state/landing" "$ns/state/conflict" -type f 2>/dev/null)" ] || printf 'leftovers\n'
 	exit 0
 	;;
 
@@ -2004,6 +2039,6 @@ finding-classes)
 	;;
 
 *)
-	die "unknown command: ${cmd:-<none>} (steps-init|steps-list|steps-open|steps-waiting|answered|retry|task-next|task-report|task-fact|task-diagnosis|task-done|set-status|stuck|preflight|resume|recover|recover-reject|report|session-set|session-get|prepare|dirty-check|trace|completed-show|completed-list|unlanded|session-commits|gate-map|merge-list|leftovers|stash-triage|stash-claim|merge|reconcile|gate-fix|deps-check|task-dir|journal-tail|plan-covers|review-findings|finding-classes)"
+	die "unknown command: ${cmd:-<none>} (steps-init|steps-list|steps-open|steps-waiting|answered|retry|task-next|task-report|task-fact|task-diagnosis|task-done|set-status|stuck|preflight|resume|recover|recover-reject|report|session-set|session-get|prepare|dirty-check|trace|completed-show|completed-list|unlanded|session-commits|gate-map|leftovers|stash-triage|stash-claim|reconcile|gate-fix|deps-check|task-dir|journal-tail|plan-covers|review-findings|finding-classes)"
 	;;
 esac

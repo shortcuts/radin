@@ -10,7 +10,7 @@
 #   radin-prompt.sh debug     <id> <failure reason>
 #   radin-prompt.sh factfind  <id> <question>
 #   radin-prompt.sh gate
-#   radin-prompt.sh merge [<branch>...]   # no branch: the session's merge-list; branches: those leftovers, based on `state leftovers`
+#   radin-prompt.sh merge <branch>...     # the conflicting branches `state reconcile` printed, based on `state leftovers`
 #
 # Writes the prompt to <namespace>/state/prompts/<id>-<kind>.md and prints
 # `model<TAB><name>`, `effort<TAB><level>` when set, and `prompt<TAB><path>`. The router dispatches the path,
@@ -115,21 +115,17 @@ if [ "$kind" = gate ]; then
 	exit 0
 fi
 
-# Like the gate, the merge belongs to the session. `merge-list` names the base
-# branch and the task branches, so the leaf never derives either from git.
+# Like the gate, the merge belongs to the session. `leftovers` names the base
+# branch, so the leaf never derives it from git.
 if [ "$kind" = merge ]; then
-	if [ "$#" -gt 1 ]; then
-		list="$(cd "$REPO_ROOT" && bash "$LIB_DIR/radin-state.sh" leftovers)" || die "no leftover branch to merge"
-		list="$(printf '%s\n' "$list" | sed -n 1p)"
-		shift
-		for b in "$@"; do
-			tip="$(git -C "$REPO_ROOT" rev-parse --short=12 "$b")" || die "no such branch: $b"
-			list="$list"$'\n'"-$TAB$b$TAB$tip"
-		done
-	else
-		list="$(cd "$REPO_ROOT" && bash "$LIB_DIR/radin-state.sh" merge-list)" ||
-			die "no session branch is left to merge"
-	fi
+	[ "$#" -gt 1 ] || die "usage: merge <branch>..."
+	list="$(cd "$REPO_ROOT" && bash "$LIB_DIR/radin-state.sh" leftovers)" || die "no leftover branch to merge"
+	list="$(printf '%s\n' "$list" | sed -n 1p)"
+	shift
+	for b in "$@"; do
+		tip="$(git -C "$REPO_ROOT" rev-parse --short=12 "$b")" || die "no such branch: $b"
+		list="$list"$'\n'"-$TAB$b$TAB$tip"
+	done
 	sub_token LEAF_CONTRACT "$leaf_contract"
 	sub_token MERGE_BASE "$(printf '%s\n' "$list" | sed -n 's/^base\t//p')"
 	sub_token MERGE_BRANCHES "$(printf '%s\n' "$list" | awk -F'\t' '$1 != "base" { printf "%s%s (%s)", sep, $2, $3; sep = ", " } END { print "" }')"

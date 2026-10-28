@@ -8,3 +8,5 @@ stateDiagram-v2
   failed --> in_progress: debug pass, then re-run
   blocked --> in_progress: user settles the question
   pending --> blocked: dependency unresolved or MAX_ATTEMPTS
+  failed --> [*]: reconcile lands its branch, Finish entry filed
+  blocked --> [*]: reconcile lands its branch, Finish entry filed

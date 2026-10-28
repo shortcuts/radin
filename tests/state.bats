@@ -108,30 +108,71 @@ JSON
   done
 }
 
-@test "reconcile merges only a done, clean leftover and keeps the rest" {
+@test "reconcile lands every leftover branch but a live one and files a follow-up for unfinished work" {
   base="$(git -C "$P" branch --show-current)"
-  for b in a b c; do
+  (cd "$P" && bash "$REPO_ROOT/lib/radin-backlog.sh" add fix "t two" --deps t-one <<<"body" && bash "$REPO_ROOT/lib/radin-backlog.sh" add fix "t three" <<<"body") >/dev/null
+  printf 't-one\t1\t\tpending\nt-two\t2\tt-one\tpending\nt-three\t3\t\tpending\n' | state steps-init >/dev/null
+  state set-status t-one failed "tests red"
+  state set-status t-three in_progress ""
+  for b in t-one t-three b c; do
     git -C "$P" checkout -q -b "radin/$b" "$base"
     echo "$b" >"$P/$b.txt"
     git -C "$P" add "$b.txt"
     git -C "$P" commit -q -m "feat: $b"
   done
   git -C "$P" checkout -q "$base"
-  git -C "$P" worktree add -q "$WORK/wt-c" radin/c
-  echo dirt >"$WORK/wt-c/dirt.txt"
-  mkdir -p "$P/.claude/.radin/state"
-  printf '{"ts":"t","event":"done","id":"a","detail":""}\n{"ts":"t","event":"unproven","id":"b","detail":""}\n{"ts":"t","event":"done","id":"c","detail":""}\n' >"$P/.claude/.radin/state/journal.jsonl"
+  git -C "$P" branch radin/e
+  git -C "$P" worktree add -q "$WORK/proj-c" radin/c
+  git -C "$P" worktree add -q "$WORK/proj-e" radin/e
+  echo dirt >"$WORK/proj-c/dirt.txt"
+  run state preflight
+  [[ "$output" == *leftovers* ]]
   run state reconcile
   [ "$status" -eq 0 ]
-  [[ "$output" == *$'merged\tradin/a\t'* ]]
-  [[ "$output" == *$'skipped\tradin/b\tnot done (unproven)'* ]]
-  [[ "$output" == *$'skipped\tradin/c\tdirty'* ]]
-  [ -z "$(git -C "$P" branch --list radin/a)" ]
-  [ -n "$(git -C "$P" branch --list radin/b)" ]
-  [ -n "$(git -C "$P" branch --list radin/c)" ]
-  [ -f "$P/a.txt" ]
+  [[ "$output" == *$'merged\tradin/t-one\t'* ]]
+  [[ "$output" == *$'merged\tradin/b\t'* ]]
+  [[ "$output" == *$'merged\tradin/c\t'* ]]
+  [[ "$output" == *$'skipped\tradin/t-three\tin progress'* ]]
+  [[ "$output" == *$'removed\tradin/e'* ]]
+  for b in t-one b c e; do [ -z "$(git -C "$P" branch --list "radin/$b")" ]; done
+  [ -n "$(git -C "$P" branch --list radin/t-three)" ]
+  [ ! -d "$WORK/proj-c" ] && [ ! -d "$WORK/proj-e" ]
+  [ -f "$P/t-one.txt" ] && [ -f "$P/dirt.txt" ]
+  state completed-list | grep -q '^t-one	'
+  fu="$(cd "$P" && bash "$REPO_ROOT/lib/radin-backlog.sh" find "Finish: t one" | cut -f1)"
+  [ -n "$fu" ]
+  run bash -c "cd '$P' && cat \"\$(bash '$REPO_ROOT/lib/radin-backlog.sh' field '$fu' TASK_FILE)\""
+  [[ "$output" == *"t-one"* ]] && [[ "$output" == *"tests red"* ]]
+  [ "$(cd "$P" && bash "$REPO_ROOT/lib/radin-backlog.sh" find t-two | cut -f6)" = "$fu" ]
   run state reconcile
   [[ "$output" != *merged* ]]
+}
+
+@test "a done task whose branch is gone is recorded done once its work is on the base, else its branch comes back and lands" {
+  base="$(git -C "$P" branch --show-current)"
+  (cd "$P" && bash "$REPO_ROOT/lib/radin-backlog.sh" add fix "t two" <<<"body") >/dev/null
+  mkdir -p "$P/.claude/.radin/state/unmerged"
+  for t in t-one t-two; do
+    git -C "$P" checkout -q -b "radin/$t" "$base"
+    echo "$t" >"$P/$t.txt"
+    git -C "$P" add "$t.txt"
+    git -C "$P" commit -q -m "feat: $t"
+    git -C "$P" rev-parse --short=12 HEAD >"$P/.claude/.radin/state/unmerged/$t"
+    git -C "$P" checkout -q "$base"
+    git -C "$P" branch -q -D "radin/$t"
+  done
+  # t-one landed under another hash; t-two never landed.
+  echo t-one >"$P/t-one.txt"
+  git -C "$P" add t-one.txt
+  git -C "$P" commit -q -m "feat: t-one again"
+  run state reconcile
+  [ "$status" -eq 0 ]
+  [[ "$output" == *$'adopted\tradin/t-one'* ]]
+  [[ "$output" == *$'merged\tradin/t-two\t'* ]]
+  [ -f "$P/t-two.txt" ]
+  [ "$(state completed-list | cut -f1 | sort | paste -sd, -)" = "t-one,t-two" ]
+  run state unlanded
+  [ "$status" -eq 1 ]
 }
 
 @test "a task done on a side branch stays on the backlog until its merge lands" {
@@ -154,7 +195,7 @@ JSON
   [ "$status" -ne 0 ]
   run state unlanded
   [[ "$output" == *$'t-one\t'"$h"$'\tradin/t-one\tpending'* ]]
-  run state merge
+  run state reconcile
   [ "$status" -eq 0 ]
   run state completed-list
   [[ "$output" == t-one$'\t'* ]]

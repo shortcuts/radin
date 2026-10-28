@@ -4,7 +4,7 @@ flowchart TD
   p0 -. stuck line .-> note2[recover stuck]
   p0 -. waiting line .-> note3[settle questions]
   p0 -. rank line .-> note4[rank unset ids]
-  p0 -. leftovers line .-> note5[state reconcile: merge done leftovers]
+  p0 -. leftovers line .-> note5[state reconcile: land every task branch]
   note5 -- conflict, exit 3 --> leafM
   p0 -. candidate line .-> note6[state stash-triage: factfind per candidate, stash-claim]
   p1 --> p2[Phase 2<br/>print order, user picks tasks]
@@ -27,8 +27,9 @@ flowchart TD
   p45 --> p5[Phase 5<br/>state report]
   p5 -. waiting entries left .-> ask5[ask: settle now?<br/>yes: same grilling as Phase 0]
   p5 --> p55[Phase 5.5<br/>merge task branches]
-  p55 --> mergeCli[radin state merge squash]
-  mergeCli -- all merged, tasks recorded done --> p6
+  p55 --> mergeCli[radin state reconcile squash]
+  mergeCli -- all landed, tasks done, Finish entries filed --> p6
   mergeCli -- conflict, exit 3 --> leafM[[Merge leaf]]
   p55 -- no branches --> p6
+  leafM -- SUCCESS --> mergeCli
   leafM --> p6[Phase 6<br/>review offer]
