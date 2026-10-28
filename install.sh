@@ -550,7 +550,14 @@ step "Sub-agent models"
 MODELS="fable opus sonnet haiku"
 SONNET_INDEX=3
 HAIKU_INDEX=4
-if prompt_yn "Choose radin-batch's sub-agent models? (defaults: sonnet, haiku for fact-finding and low-complexity tasks)"; then
+if [ -n "$UPDATE" ]; then
+	# An update keeps the recorded answer instead of asking again.
+	MODEL_MAJOR="$(manifest_value model_planning)"
+	MODEL_MAJOR="${MODEL_MAJOR:-sonnet}"
+	MODEL_MINOR="$(manifest_value model_factfind)"
+	MODEL_MINOR="${MODEL_MINOR:-haiku}"
+	ok "keeping sub-agent models: $MODEL_MAJOR, $MODEL_MINOR for fact-finding and low-complexity tasks"
+elif prompt_yn "Choose radin-batch's sub-agent models? (defaults: sonnet, haiku for fact-finding and low-complexity tasks)"; then
 	# shellcheck disable=SC2086  # word splitting is the point -- one arg per model
 	MODEL_MAJOR="$(prompt_pick "planning, execution, review and debug sub-agents" "$SONNET_INDEX" $MODELS)"
 	# shellcheck disable=SC2086

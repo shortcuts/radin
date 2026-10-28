@@ -478,10 +478,14 @@ pick_with_keys() {
   done >"$TEST_HOME/plugins.txt"
   export MOCK_CLAUDE_LIST="$TEST_HOME/plugins.txt"
 
-  run bash -c "printf '1\n1\n1\n' | bash ./install.sh --update"
+  sed -e 's/"model_planning": "[a-z]*"/"model_planning": "opus"/' \
+    -e 's/"model_factfind": "[a-z]*"/"model_factfind": "fable"/' "$manifest" >"$manifest.new"
+  mv "$manifest.new" "$manifest"
+
+  run bash -c "printf '' | bash ./install.sh --update"
   [ "$status" -eq 0 ]
-  [[ "$output" == *"sub-agent models: fable, fable for fact-finding and low-complexity tasks"* ]]
-  grep -q 'fable' "$TEST_HOME/.claude/.radin/lib/radin-prompt-planning.md"
+  [[ "$output" == *"keeping sub-agent models: opus, fable for fact-finding and low-complexity tasks"* ]]
+  grep -q 'opus' "$TEST_HOME/.claude/.radin/lib/radin-prompt-planning.md"
   grep -q '"package_manager": "brew"' "$manifest"
   [ ! -e "$TEST_HOME/brew.log" ]
   [ ! -e "$TEST_HOME/npx.log" ]
