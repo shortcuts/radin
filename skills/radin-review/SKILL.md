@@ -14,6 +14,11 @@ read `RADIN_LIB/radin-explore-rule.md` before they explore.
 
 ## Step 1: Resolve the scope
 
+Pass `<arg>` as one literal form the CLI accepts: a hash, PR number, path,
+`A..B`, `last commit`, `last N commits`, `staged` or `since <date>`. Map the
+user's words to it yourself: "the current branch changes" is
+`<default-branch>..HEAD`. When two maps fit, ask which.
+
 ```bash
 RADIN_CLI scope [<arg>]
 ```
