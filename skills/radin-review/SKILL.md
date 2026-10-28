@@ -165,10 +165,12 @@ survivor is Noted, Step 6 says the code is fine. Dismissed is your call:
   rubric, quotes no spec line and shows no incorrect behavior ("I would have
   done it differently").
 
-Print the groups as a numbered list in the order Act on, Consider, Noted,
-Dismissed: number, bucket and reason, category, severity, location, the
-finding in a clause. A group lists each member on a lettered sub-line with its
-location and clause.
+Print the groups as your own reply text, before any dialog, as a numbered list
+in the order Act on, Consider, Noted, Dismissed: number, bucket and reason,
+category, severity, location, the finding in a clause. A group lists each
+member on a lettered sub-line with its location and clause.
+**Why:** the user sees only a truncated one-line summary of a sub-agent's
+result, so the findings reach the user only through text you print.
 
 Then gate on one `AskUserQuestion` with two single-select questions:
 
@@ -176,9 +178,6 @@ Then gate on one `AskUserQuestion` with two single-select questions:
   and Consider). The question text is the whole numbered list above, Noted
   and Dismissed groups included. Each option's `description` lists its groups
   as number, severity, location and the finding in a clause, one per line.
-  **Why:** the user sees only a truncated one-line summary of a sub-agent's
-  result and of long reply text, so only the dialog is sure to show the
-  findings. Printing the list as well is optional.
 - What to do with them: **Add to backlog** or **Tackle now**.
 
 A free-text answer names the numbers you printed, Noted and Dismissed ones
