@@ -137,15 +137,11 @@ run_install_defaults() {
 # and low-complexity tasks the second.
 @test "two picks set the major and minor roles, even when a companion reads stdin" {
   export MOCK_NPX=eat-stdin
-  cd "$REPO_ROOT" && run bash -c "printf '1\\n2\\n1\\n2\\n1\\n4\\n2\\n' | bash ./install.sh"
+  cd "$REPO_ROOT" && run bash -c "printf '1\\n2\\n1\\n2\\n' | bash ./install.sh"
   [ "$status" -eq 0 ]
   grep -q '"model_planning": "opus"' "$TEST_HOME/.claude/.radin/manifest.json"
   grep -q '"model_low": "fable"' "$TEST_HOME/.claude/.radin/manifest.json"
-  grep -q '"effort_planning": "high"' "$TEST_HOME/.claude/.radin/manifest.json"
-  grep -q '"effort_low": "low"' "$TEST_HOME/.claude/.radin/manifest.json"
   run ! grep -rq --exclude=radin-doctor.sh 'RADIN_MODEL_\|RADIN_EFFORT_' "$TEST_HOME/.claude/skills" "$TEST_HOME/.claude/.radin/lib"
-  grep -q 'effort: "high"' "$TEST_HOME/.claude/.radin/lib/radin-prompt-gate.md"
-  grep -q 'effort-low: "low"' "$TEST_HOME/.claude/.radin/lib/radin-prompt-execution.md"
   grep -q 'model: "opus"' "$TEST_HOME/.claude/.radin/lib/radin-prompt-gate.md"
   grep -q 'model: "fable"' "$TEST_HOME/.claude/.radin/lib/radin-prompt-factfind.md"
   grep -q 'model-low: "fable"' "$TEST_HOME/.claude/.radin/lib/radin-prompt-execution.md"

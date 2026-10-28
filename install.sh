@@ -451,7 +451,7 @@ MODEL_MAJOR="sonnet"
 # planner marked `complexity low` needs no design judgement, and a wrong one
 # still meets the dirty-tree check and Phase 6's review. Both take the cheapest tier.
 MODEL_MINOR="haiku"
-# Effort stays unset until a before/after run shows a level that holds quality.
+# Effort stays unset: the Agent tool picks the model's default. No install question sets it.
 EFFORT_MAJOR=""
 EFFORT_MINOR=""
 
@@ -845,20 +845,6 @@ if CBM_BIN="$(cbm_bin)"; then
 	fi
 fi
 
-step "Sub-agent effort"
-# After the package-manager question, so the answers existing installs pipe in order do not shift.
-EFFORTS="unset low medium high xhigh max"
-if prompt_yn "Choose radin-batch's sub-agent effort? (default: unset, the Agent tool decides)"; then
-	# shellcheck disable=SC2086  # word splitting is the point -- one arg per level
-	EFFORT_MAJOR="$(prompt_pick "effort for planning, execution, review and debug sub-agents" 1 $EFFORTS)"
-	# shellcheck disable=SC2086
-	EFFORT_MINOR="$(prompt_pick "effort for fact-finding and low-complexity sub-agents" 1 $EFFORTS)"
-	[ "$EFFORT_MAJOR" != unset ] || EFFORT_MAJOR=""
-	[ "$EFFORT_MINOR" != unset ] || EFFORT_MINOR=""
-	ok "sub-agent effort: ${EFFORT_MAJOR:-unset}, ${EFFORT_MINOR:-unset} for fact-finding and low-complexity tasks"
-else
-	ok "keeping sub-agent effort unset"
-fi
 for f in $(shipped_text_files); do
 	set_role_efforts "$f"
 done
