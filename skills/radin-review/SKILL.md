@@ -63,7 +63,7 @@ Work these rungs in order and stop at the first that yields a spec:
    `facts` line per candidate, oldest first. `source` says how the entry joined: `commit` (the
    task's commit is in scope), `reflog` (a squash or rebase rewrote that
    commit, and the review branch's reflog still lists it), `patch` (a
-   cherry-pick copied the commit under a new hash; the diffs match) or `pending` (an
+   cherry-pick copied the commit under a new hash; the diffs, or the author time and subject, match) or `pending` (an
    open entry recorded on the review branch).
 
    - **Exit 4**: a recorded commit no longer exists and HEAD sits on no branch.

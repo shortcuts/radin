@@ -162,8 +162,8 @@ fi
 # --specs: every task a review of this scope could take as its spec, oldest
 # first. A completed task joins by its recorded commit (`commit`); when a
 # squash or rebase rewrote that commit, by the review branch's reflog
-# (`reflog`); when a cherry-pick copied it under a new hash, by patch-id
-# (`patch`); a still-open entry recorded on the review branch joins as
+# (`reflog`); when a cherry-pick copied it under a new hash, by patch-id, or by author time and subject when the new base changed the
+# patch context (`patch`); a still-open entry recorded on the review branch joins as
 # `pending`. Exit 4: a recorded commit no longer exists and HEAD sits on no
 # branch, so the reflog fallback has nothing to read.
 if [ "${1:-}" = "--specs" ]; then
@@ -176,9 +176,14 @@ if [ "${1:-}" = "--specs" ]; then
 	branch="$(git symbolic-ref --short -q HEAD 2>/dev/null || true)"
 	reflog=""
 	[ -z "$branch" ] || reflog="$(git reflog show --format=%H "$branch" 2>/dev/null || true)"
-	# One patch-id per scope commit, for tasks a cherry-pick re-hashed.
+	# One patch-id and one author-time+subject key per scope commit, for tasks
+	# a cherry-pick re-hashed. The key covers a pick onto another base, where
+	# changed context gives the patch a new id but keeps author time and subject.
 	scope_pids=""
+	scope_keys=""
 	for h in $hashes; do
+		scope_keys="$scope_keys$(git log -1 --format='%at %s' "$h" 2>/dev/null)
+"
 		scope_pids="$scope_pids$(git diff-tree -p "$h" 2>/dev/null | git patch-id --stable | cut -d' ' -f1)
 "
 	done
@@ -219,7 +224,10 @@ if [ "${1:-}" = "--specs" ]; then
 		fi
 		if [ -z "$source" ] && git cat-file -e "$c^{commit}" 2>/dev/null; then
 			pid="$(git diff-tree -p "$c" | git patch-id --stable | cut -d' ' -f1)"
+			key="$(git log -1 --format='%at %s' "$c")"
 			if [ -n "$pid" ] && printf '%s' "$scope_pids" | grep -qxF "$pid"; then
+				source="patch"
+			elif printf '%s' "$scope_keys" | grep -qxF "$key"; then
 				source="patch"
 			fi
 		fi
