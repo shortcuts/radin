@@ -1,5 +1,69 @@
 # Changelog
 
+## [2.1.0](https://github.com/shortcuts/radin/compare/v2.0.0...v2.1.0) (2026-10-29)
+
+
+### Features
+
+* backlog fact verb validates the fact label ([7296505](https://github.com/shortcuts/radin/commit/7296505fb88a8bac40f78124cdd9a13aae09df66))
+* **backlog:** resolve titles in set-deps and add --deps ([22c22dc](https://github.com/shortcuts/radin/commit/22c22dc5016f1ed57ec7c5192423880d24abb1c3))
+* **batch:** refine selected tasks before execution ([e84a0c1](https://github.com/shortcuts/radin/commit/e84a0c1de2376ba118fafbccb6b85bac3a9d5d50))
+* **check-prose:** flag raw git in router prose ([bfeb02e](https://github.com/shortcuts/radin/commit/bfeb02efbc5bc4b193a9def5a5394595f1bbf6a1))
+* **cli:** accept --help on backlog and state, document manual task-done ([7161786](https://github.com/shortcuts/radin/commit/71617864d12cb5bee63c60e1adcdf43eeac71838))
+* **doctor:** fail on a settings.json hook command that does not resolve ([8ad6625](https://github.com/shortcuts/radin/commit/8ad6625d204b496de0bbe19fc62130c7130c93a3))
+* favor epic grouping with context ([a9c8a6d](https://github.com/shortcuts/radin/commit/a9c8a6d70820e006487d60f42e1bfb8264c32b51))
+* **install:** add RADIN_EFFORT_&lt;ROLE&gt; tokens and effort line in radin prompt ([b6e4ab9](https://github.com/shortcuts/radin/commit/b6e4ab94bfb29caa6e8f89995a5942f71a9ea166))
+* **merge:** merge session branches at Phase 5.5 without asking ([e378170](https://github.com/shortcuts/radin/commit/e378170d062c684534102ad2fac904dc0d5e28cb))
+* **merge:** squash task branches at merge so no wip commit reaches base ([8e20181](https://github.com/shortcuts/radin/commit/8e20181b8a170dd1aeda26367621c743340d00ce))
+* order --only accepts order numbers and titles ([4544a38](https://github.com/shortcuts/radin/commit/4544a38aa07276108b36b503d01a71a93741eab9))
+* **record:** append entries without a batch approval gate ([98e0cbc](https://github.com/shortcuts/radin/commit/98e0cbcd6c51c732d054f56783277813179c1c7a))
+* **review:** rate scope risk and end each reply with blind spots ([ab2136a](https://github.com/shortcuts/radin/commit/ab2136afeb29c2a8221421e0939330390faf65db))
+* **run:** offer to settle waiting decisions at the end of a run ([d602c7a](https://github.com/shortcuts/radin/commit/d602c7a5735a9c3898acc07a38fd8ec06b46d9f7))
+* **scope:** add plan-covers column to --attribute ([e505642](https://github.com/shortcuts/radin/commit/e505642b7815af1449ac7355ba8ffc91aa7f23fc))
+* **scope:** print plan and facts columns in scope --specs ([f38609c](https://github.com/shortcuts/radin/commit/f38609c2756707dc9216df428dc1207305a8f8c2))
+* **state:** add leftovers verb listing unmerged radin branches, stashes and foreign worktrees ([695a992](https://github.com/shortcuts/radin/commit/695a992f0a2990337ccf01a7bf57d725ccd84eb5))
+* **state:** add merge verb for clean task-branch merges ([5ed5d78](https://github.com/shortcuts/radin/commit/5ed5d78638c29b95ec325ab8a4eda3ccde2add93))
+* **state:** add preflight verb for run-loop startup ([048a93c](https://github.com/shortcuts/radin/commit/048a93c93164ee236cef35498bba0c742345aaf0))
+* **state:** add resume verb for failed and blocked triage ([026deee](https://github.com/shortcuts/radin/commit/026deeec50e8f78e8aed446d3f271c019c1720fd))
+* **state:** count a task done only when its commit is in the base branch ([31ef0e3](https://github.com/shortcuts/radin/commit/31ef0e3f7079f98a7847b9d6af1895bae7142ce1))
+* **state:** reconcile finished leftover branches at batch start ([93b9158](https://github.com/shortcuts/radin/commit/93b9158b07028d19dd66983445e3fa5153b8f3f6))
+* **state:** render branch, tip, worktree and bisect map into gate prompt ([246ab4f](https://github.com/shortcuts/radin/commit/246ab4fcbfec031576759c71fd9cfd88f8a0e575))
+* **state:** triage radin-batch stashes and apply a claimed one as the task's base ([4590d80](https://github.com/shortcuts/radin/commit/4590d80b49b49619ac21d82d6e5f5a58de1c1d74))
+* **stats:** attribute sub-agent tokens to roles and tasks from transcripts ([e9a6e78](https://github.com/shortcuts/radin/commit/e9a6e78c6cb8c6a80176dbd5bc7e7a2655c5677c))
+* **stats:** show tokens per task and per tool call beside failed, debug and clean% ([4903f26](https://github.com/shortcuts/radin/commit/4903f26f6c0761f8025739ab402ea2a7930155e9))
+* task-report records the planning leaf's PLANNED sizing ([cdaacda](https://github.com/shortcuts/radin/commit/cdaacda0285bd8c1c1781f381d45b5ce87d882aa))
+
+
+### Bug Fixes
+
+* **batch/do:** review at the end ([e82ca12](https://github.com/shortcuts/radin/commit/e82ca12dbf46e4443cb3468fcafe3e2b273298d8))
+* commit stalled task work as wip and move on ([168dff5](https://github.com/shortcuts/radin/commit/168dff54358f9c20b8e8f2322092754c19eb7669))
+* install of ponytail ([7f2257c](https://github.com/shortcuts/radin/commit/7f2257c95d0268a93a8b8f31740c0b094006ba53))
+* install raises codebase-memory hook timeouts to 10 s ([f9372a5](https://github.com/shortcuts/radin/commit/f9372a55bef27341e7f9c578c9762b516624249a))
+* **install:** correct run-loop facts in guidance and rank rule ([5f03641](https://github.com/shortcuts/radin/commit/5f0364193043390c2cb2780a691b9b224fe0e4f5))
+* **install:** fetch main when piped, not latest release ([bdd9bcc](https://github.com/shortcuts/radin/commit/bdd9bcc6c2f02a116c6a07311628b737a1b68975))
+* leaf runs the full suite only when its task needs it ([be8fe11](https://github.com/shortcuts/radin/commit/be8fe11e842be2f1ca429c50c55f5d25d65041ac))
+* **make:** run install.bats serially, GNU parallel is not a dependency ([b7451c7](https://github.com/shortcuts/radin/commit/b7451c7b883173202c5f024ba7b3a0f65a3bb292))
+* pick the execution model by complexity, not category ([1988980](https://github.com/shortcuts/radin/commit/1988980fe829c0f51765dd70275ce348c8e002d6))
+* prevent stalled agents ([cc3fc63](https://github.com/shortcuts/radin/commit/cc3fc63587ce434f9a29124ccd063f89ecbfeabd))
+* prompt script creates state/facts, drop leaf mkdir sentences ([59881d2](https://github.com/shortcuts/radin/commit/59881d21c076aab3c5d383106034b5561b39e78e))
+* record askuserquestion ([13655bd](https://github.com/shortcuts/radin/commit/13655bde32f3c357a4e5d8c5ed17dbf2d243a585))
+* retry attempt ([a0de400](https://github.com/shortcuts/radin/commit/a0de4006ef4b8605894674bd1163c5a9b8cf5c30))
+* review ([655a40f](https://github.com/shortcuts/radin/commit/655a40fd8070a7ed02d59b825e14e33a28323e7f))
+* review ([39d4790](https://github.com/shortcuts/radin/commit/39d479084e819498d16ea5e5d7472e1ea3692b84))
+* review resolve backlog items ([fc775f5](https://github.com/shortcuts/radin/commit/fc775f59bbeb125496154a4611c31ea67990f347))
+* **review:** add findings to thread ([94abe9a](https://github.com/shortcuts/radin/commit/94abe9a5ddb7d8c1248d3223690b732fc4307c03))
+* **review:** find back backlog items on review ([eb14dc2](https://github.com/shortcuts/radin/commit/eb14dc2dbdb5c874e73e151635efaca915b4ec87))
+* **review:** properly surface findings ([eef96af](https://github.com/shortcuts/radin/commit/eef96af86971bc5ee173b8f8f7cf774ade2d2be4))
+* **review:** show triage list in the gate dialog ([f9f9a53](https://github.com/shortcuts/radin/commit/f9f9a538996ea209bdc117e0cff0375337fdbd94))
+* scope retrieval ([2f99797](https://github.com/shortcuts/radin/commit/2f99797eb52dd60662f2847dda8229b79a010209))
+* size tasks at record and plan time, not in a dispatch of their own ([cb58d81](https://github.com/shortcuts/radin/commit/cb58d81b1af38b694cc8f8b82581e4f8aedb0524))
+* size unflagged radin-review entries at add time ([681eb35](https://github.com/shortcuts/radin/commit/681eb35e76109cb26d98d9314e05ee5317a3f10f))
+* **state:** journal the stash commit hash, not stash@{0} ([444d643](https://github.com/shortcuts/radin/commit/444d643cfa2cbfdaac70e2dae18a063a0103fe4c))
+* **state:** land every task branch, finished or not ([9b5d577](https://github.com/shortcuts/radin/commit/9b5d577fa28ff2e9746c1aaf0b057a0686bae50a))
+* **test:** exclude effort tokens from mid-run install check ([1784d78](https://github.com/shortcuts/radin/commit/1784d785799e27caa3b456052097f1f6f25dd7f4))
+* **test:** unset CLAUDE_CONFIG_DIR in cbm-config setup ([830625a](https://github.com/shortcuts/radin/commit/830625aaf16cc02c759cdff08dd16b278ea32032))
+
 ## [2.0.0](https://github.com/shortcuts/radin/compare/v1.0.1...v2.0.0) (2026-10-19)
 
 ### ⚠ BREAKING CHANGES
