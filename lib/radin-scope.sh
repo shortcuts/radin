@@ -163,7 +163,7 @@ fi
 # first. A completed task joins by its recorded commit (`commit`); when a
 # squash or rebase rewrote that commit, by the review branch's reflog
 # (`reflog`); when a cherry-pick copied it under a new hash, by patch-id, or by author time and subject when the new base changed the
-# patch context (`patch`); a still-open entry recorded on the review branch joins as
+# patch context, or by subject alone when the pick was edited or re-authored (`patch`); a still-open entry recorded on the review branch joins as
 # `pending`. Exit 4: a recorded commit no longer exists and HEAD sits on no
 # branch, so the reflog fallback has nothing to read.
 if [ "${1:-}" = "--specs" ]; then
@@ -228,6 +228,9 @@ if [ "${1:-}" = "--specs" ]; then
 			if [ -n "$pid" ] && printf '%s' "$scope_pids" | grep -qxF "$pid"; then
 				source="patch"
 			elif printf '%s' "$scope_keys" | grep -qxF "$key"; then
+				source="patch"
+			# An edited or re-authored pick keeps neither patch-id nor author time.
+			elif printf '%s' "$scope_keys" | cut -d' ' -f2- | grep -qxF "${key#* }"; then
 				source="patch"
 			fi
 		fi
