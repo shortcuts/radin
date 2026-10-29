@@ -47,6 +47,7 @@ Add a row with every new hard rule.
 | Rare-need part of `radin-batch` | `lib/radin-batch-*.md`, read on demand. |
 | A constraint, a decision, or a rule with its reason | `docs/DECISIONS.md`, one bullet: the rule, then `**Why:**`. No layout, verb list or format table: the code and the graph hold those. |
 | A skill's flow, a `radin-run.md` phase, a leaf step, or a task status | `docs/lifecycle/*.mmd`, then `make diagrams` ([diagrams](docs/lifecycle.md)). Commit the `.mmd` and `.svg` together. |
+| The README screenshot | `make screenshot`, then commit `docs/img/tui.svg`. |
 | What ships, a renamed or removed skill or lib file | `SHIPPED`, then `make gen` ([how](docs/DECISIONS.md#platform-and-install)). |
 | Sub-agent model, CLI invocation | Nothing. Write a token and `install.sh` resolves it ([how](docs/DECISIONS.md#platform-and-install)). |
 
