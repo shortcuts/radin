@@ -1,0 +1,2 @@
+# The `[ ... ] || die` guard is intentional: die never returns.
+disable=SC2015

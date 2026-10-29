@@ -181,7 +181,8 @@ JSON
   git -C "$P" checkout -q -b radin/t-one
   echo x >"$P/x.txt"
   git -C "$P" add x.txt
-  git -C "$P" commit -q -m "feat: x"
+  # An old date keeps the squash commit's hash from matching "$h" when both land in the same second.
+  GIT_AUTHOR_DATE="2020-01-01T00:00:00" GIT_COMMITTER_DATE="2020-01-01T00:00:00" git -C "$P" commit -q -m "feat: x"
   h="$(git -C "$P" rev-parse --short=12 HEAD)"
   git -C "$P" checkout -q "$base"
   mkdir -p "$P/.claude/.radin/state/prepared"

@@ -49,6 +49,8 @@ setup_file() {
 make_mocks() {
   BREW_LOG="$TEST_HOME/brew.log"
   export MOCK_BIN MOCK_LOG_DIR="$TEST_HOME"
+  # CI runners set it; the mock records it, which would hide a leak from install.sh.
+  unset HOMEBREW_NO_AUTO_UPDATE
   cc_build "$BATS_TEST_DIRNAME/helpers/mock.c" "$MOCK_SRC_BIN" ||
     skip "a C compiler is needed to build the command mocks"
   cp "$MOCK_SRC_BIN" "$MOCK_BIN/mock"
