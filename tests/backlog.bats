@@ -490,3 +490,14 @@ mkplan() {
 }
 
 # --- add-plan sidecar ---------------------------------------------------------
+
+@test "field and find in a linked worktree with an empty backlog read the main checkout's entry" {
+  cli add fix base <<<b >/dev/null 2>&1
+  git -C "$WORK/proj" -c user.name=t -c user.email=t@t commit -q --allow-empty -m init
+  git -C "$WORK/proj" worktree add -q "$WORK/wt"
+  run bash -c "cd '$WORK/wt' && bash '$CLI' field base TASK_FILE"
+  [ "$status" -eq 0 ]
+  [ "$output" = "$TASKS/base.md" ]
+  run bash -c "cd '$WORK/wt' && bash '$CLI' find base"
+  [ "$status" -eq 0 ]
+}

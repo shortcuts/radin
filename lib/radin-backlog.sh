@@ -102,6 +102,13 @@ require_index() {
 	[ -s "$BACKLOG_INDEX" ] || die "no backlog at $BACKLOG_INDEX"
 }
 
+# A worktree the user made has its own empty backlog while the entries sit in
+# the main checkout, so a read verb borrows the main checkout's index.
+borrow_main_index() {
+	[ -s "$BACKLOG_INDEX" ] || [ "$GIT_DIR_REL" = "$GIT_COMMON_REL" ] || [ ! -s "${GIT_COMMON_REL%/.git}/.claude/.radin/backlog/index.jsonl" ] ||
+		BACKLOG_INDEX="${GIT_COMMON_REL%/.git}/.claude/.radin/backlog/index.jsonl"
+}
+
 TAB="$(printf '\t')"
 # `list` separates with US, not TAB: TAB is IFS whitespace, so an unset
 # priority collapses under `IFS=$TAB read` and shifts depends_on into it.
@@ -942,6 +949,7 @@ list)
 
 find)
 	[ -n "${2:-}" ] || usage_die find "find needs an id or title"
+	borrow_main_index
 	require_index
 	out="$(matches "$2" | fmt_lines)"
 	[ -n "$out" ] || die "no entry matches: $2"
@@ -1143,6 +1151,7 @@ field)
 	query="${2:-}"
 	fname="${3:-}"
 	[ -n "$fname" ] || usage_die field "field needs an id or title and a placeholder name"
+	borrow_main_index
 	require_index
 	# One call per placeholder, each printing that value and nothing else: a
 	# `NAME<TAB>value` listing would put the caller back to picking a line out

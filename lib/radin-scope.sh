@@ -75,6 +75,13 @@ pr_ok() {
 	gh pr view "$1" ${2:-} >/dev/null 2>&1
 }
 
+case "${1:-}" in
+help | --help | -h)
+	sed -n '2,/^set -/{/^set -/!s/^# \{0,1\}//p;}' "$0"
+	exit 0
+	;;
+esac
+
 # --in-scope re-resolves through this same script rather than restructuring
 # every `emit ... ; exit 0` into a capture, so there is one resolution path.
 if [ "${1:-}" = "--in-scope" ]; then
