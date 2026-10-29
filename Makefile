@@ -65,13 +65,13 @@ lint:
 	bash -n $(SH_FILES)
 	shellcheck $(SH_FILES)
 	shfmt -w $(SH_FILES)
-	markdownlint --fix '**/*.md' --ignore node_modules
+	markdownlint --fix '**/*.md' --ignore node_modules --ignore CHANGELOG.md
 
 check:
 	bash -n $(SH_FILES)
 	shellcheck $(SH_FILES)
 	shfmt -d $(SH_FILES)
-	markdownlint '**/*.md' --ignore node_modules
+	markdownlint '**/*.md' --ignore node_modules --ignore CHANGELOG.md
 	scripts/check-prose.sh
 	scripts/shipped.sh check
 
