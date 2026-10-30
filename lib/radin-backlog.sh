@@ -1116,7 +1116,7 @@ order)
 	if [ -n "$RADIN_ONLY" ]; then
 		only_ids=""
 		while IFS= read -r ref; do
-			ref="$(printf '%s' "$ref" | sed 's/^[ \t]*//;s/[ \t]*$//')"
+			ref="$(printf '%s' "$ref" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
 			[ -n "$ref" ] || continue
 			case "$ref" in
 			*[!0-9]*)

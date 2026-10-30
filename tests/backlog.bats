@@ -461,6 +461,17 @@ IDX
   [ "$status" -ne 0 ]
 }
 
+@test "order --only keeps a trailing t on an id (BSD sed reads [ \\t] as a literal t)" {
+  mkdir -p "$TASKS"
+  cat >"$INDEX" <<'IDX'
+{"id":"disk-budget","category":"feat","title":"disk budget","file":"tasks/disk-budget.md","priority":3}
+{"id":"other","category":"feat","title":"other","file":"tasks/other.md","priority":1}
+IDX
+  run cli order --steps --only disk-budget
+  [ "$status" -eq 0 ]
+  [ "${lines[0]}" = "disk-budget"$'\t'"1"$'\t\t'"pending" ]
+}
+
 @test "list --planned appends P for planned tasks and empty for unplanned" {
   cli add feat "planned one" <<<"body"
   cli add feat "unplanned one" <<<"body"
