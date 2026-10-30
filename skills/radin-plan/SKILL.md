@@ -212,9 +212,12 @@ belongs, or "Nothing: the entry's scope is covered in full above.">
 
 Review it with `RADIN_LIB/radin-review-core.md` at level `plan`: scope the
 plan file, spec the `task_file` Step 1 printed. Interactive: dispatch one
-sub-agent whose brief names the core file, the level and both absolute paths,
-and says "read all three in full before reviewing". Non-interactive: read the
-core and run it inline.
+sub-agent whose brief names the core file, the level, both absolute paths and
+a report path, `<repo root>/.claude/.radin/reviews/<UTC YYYYMMDDTHHMMSS>-<task-id>.md`,
+and says "read all three in full before reviewing". Read the file its
+`REPORT:` line names, and treat a missing one as `/radin-review` Step 3 does.
+Non-interactive: read the core
+and run it inline.
 
 Relay the findings before editing anything, then fix each one by editing the
 plan file in place and re-run Step 3's lint. The backlog gains nothing,

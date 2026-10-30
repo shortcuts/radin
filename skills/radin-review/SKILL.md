@@ -104,8 +104,12 @@ Dispatch one sub-agent (`name: "radin-review"`) with a self-contained brief:
 - The skills Step 1's `passes` line names, as extra passes to invoke after
   the core's two.
 
-Keep its report whole, in the order the sub-agent gave it. Step 4 carries it
-to the user.
+- A report path, `<repo root>/.claude/.radin/reviews/<UTC YYYYMMDDTHHMMSS>-<scope slug>.md`,
+  as "write the report there".
+
+Read the file the `REPORT:` line names, whole and in the order written. A
+missing or empty file: `SendMessage` the sub-agent once for it, then report the
+review as inconclusive. Step 4 carries the report to the user.
 
 ## Step 4: Filter, classify, triage
 

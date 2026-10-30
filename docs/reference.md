@@ -58,7 +58,7 @@ Pass them after `bash`: `curl … | bash -s -- --yes`.
 | --- | --- |
 | `<repo>/.claude/.radin/backlog/` | The index and one markdown file per task. |
 | `<repo>/.claude/.radin/plans/` | One plan per planned task. |
-| `<repo>/.claude/.radin/reviews/` | Review output. |
+| `<repo>/.claude/.radin/reviews/` | Review reports, one file per sub-agent review. |
 | `<repo>/.claude/.radin/state/` | Run state: order, session answers, task status, facts. |
 | `~/.claude/.radin/` | The installed CLI, libraries and config backups. |
 

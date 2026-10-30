@@ -116,3 +116,13 @@ End every reply, findings or not, with one line:
 `Blind spots: <what these passes could not catch in this scope>`. Run a check
 for a blind spot first when one repo command covers it, and fold its result
 into the findings. Write `none` only when you ran the changed path.
+
+<!-- if:!LEVEL_diff -->
+## Report file
+
+When the caller names a report path, write the whole Return section there, in
+the format above, and make your final message exactly one line:
+`REPORT: <path> — <n> findings, worst <severity|none>`. Answer the caller's
+extra questions in that file too, after the `Blind spots:` line.
+**Why:** the harness cuts a sub-agent's final message at about 4.9K characters.
+<!-- end -->
