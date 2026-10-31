@@ -97,8 +97,8 @@ TASK_BODY
    Stashed work was triaged as the base of this task. `prepare` then prints
    "applied stash" on stderr: the tree starts from that uncommitted work. Read
    it as a draft: keep what the task needs, fix or finish it, and commit it
-   with your own work. Never revert it wholesale and never run `git stash
-   apply` or `git stash pop` yourself. `prepare` prints "did not apply"
+   with your own work. Never revert it wholesale. Never run `git stash
+   apply` or `git stash pop` on the stash `prepare` made. `prepare` prints "did not apply"
    instead: the tree is clean, so work from scratch.
 <!-- end -->
 <!-- if:ACCEPTANCE -->
@@ -202,9 +202,9 @@ COMMENT_RULE
    three fix rounds on one failure, report `STATUS: FAILED` with its output. A
    test that still passes when the code under test returns nothing pins
    nothing: assert literal expected values.
-   A check that fails outside your diff: save your changes with `git stash -u`,
+   A check that fails outside your diff: save your changes with `git stash push -u -- . ':(exclude).claude/.radin'`,
    re-run that check on the base, then `git stash pop` (pop only when the stash
-   saved something). Red on the base too: fix it in this task through
+   saved something). The exclude keeps the untracked `.claude/.radin/` state in place. Red on the base too: fix it in this task through
    `/caveman:surgical-patch`, as its own commit. A fix out of reach: file it
    with `RADIN_CLI backlog add fix "<short title>" --location "<path:line>"`
    and a body that gives the failing check, its output and the cause, then
