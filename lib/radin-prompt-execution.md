@@ -202,6 +202,13 @@ COMMENT_RULE
    three fix rounds on one failure, report `STATUS: FAILED` with its output. A
    test that still passes when the code under test returns nothing pins
    nothing: assert literal expected values.
+   A check that fails outside your diff: save your changes with `git stash -u`,
+   re-run that check on the base, then `git stash pop` (pop only when the stash
+   saved something). Red on the base too: fix it in this task through
+   `/caveman:surgical-patch`, as its own commit. A fix out of reach: file it
+   with `RADIN_CLI backlog add fix "<short title>" --location "<path:line>"`
+   and a body that gives the failing check, its output and the cause, then
+   finish your own task. A red base never makes the task `INCONCLUSIVE`.
    Fix what the checks surface before step 10.
 9. Stage your task's files (`git add <paths>`, never `.claude/.radin/`) and
    follow the review brief at the end of this prompt at level `diff`: spec the
