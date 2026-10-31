@@ -27,7 +27,7 @@ write_plan() {
     for s in Decisions "Alternatives rejected"; do printf '## %s\nn/a: test\n' "$s"; done
     printf '## Changes\n- `a.txt` - edit\n  You see: a\n'
     for s in "Reach and reuse" "Rubrics triggered" "Modes and states" Order; do printf '## %s\nn/a: test\n' "$s"; done
-    printf '## Testing\n- [ ] run it\n- [ ] Live: run it\n'
+    printf '## Testing\n- [ ] run it\n'
     for s in Risks "Out of scope"; do printf '## %s\nn/a: test\n' "$s"; done
   } >"$1"
 }

@@ -190,11 +190,9 @@ saying why it gates the next, or "Any order.">
 **Prior art:** <an existing test in this repo whose shape the new test copies.>
 **What to test:** <external behavior only: what a caller observes.>
 
-Tests alone are not sufficient verification.
+Read the repo's `AGENTS.md` or `CONTRIBUTING.md` for its live checks and test harness. When none can observe the behavior, add a Changes entry that extends the harness.
 
 - [ ] <one line per check, as the command that runs it>
-- [ ] Live: <the real path a user takes (the CLI command, the TUI key, the
-  request), the command that drives it, and the output that passes>
 
 ## Risks
 

@@ -109,7 +109,7 @@ ACCEPTANCE
    for this task. Follow them rather than re-deriving an approach. Several of
    them cover different parts of the same task, so implement all of them.
    Each `You see:` line under `## Changes` and each `- [ ]` box under
-   `## Testing`, the `Live:` box included, is a check you run.
+   `## Testing` is a check you run.
    Where the code contradicts a plan step: a mechanical deviation (renamed
    function, moved file, adjusted signature) you adjust and record as a
    `**Fact:**` line; a deviation that changes a decision the plan made is
