@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.1.1](https://github.com/shortcuts/radin/compare/v2.1.0...v2.1.1) (2026-10-31)
+
+
+### Bug Fixes
+
+* backlog trimming ([e941b9c](https://github.com/shortcuts/radin/commit/e941b9c2c0bf927b8e559730225922950e20d787))
+* better worktree support ([d4f7e5e](https://github.com/shortcuts/radin/commit/d4f7e5ebd337cd33d905e2d6f7b358eeede31369))
+* leaf fixes a red base or files a fix entry ([4929709](https://github.com/shortcuts/radin/commit/4929709b8cd6940765ac0e13febb1c3a17b238a4))
+* lint on release ([cfe4e96](https://github.com/shortcuts/radin/commit/cfe4e965f331ef792133526aa2d886444cc02165))
+* **prompt:** keep radin state out of the base stash ([cfb14ae](https://github.com/shortcuts/radin/commit/cfb14aed7c682389b778eb6445d7cc27c2262a81))
+* review and plan size truncated ([db50ea4](https://github.com/shortcuts/radin/commit/db50ea4ef89827e4c898a4b87b8ed16251155378))
+
 ## [2.1.0](https://github.com/shortcuts/radin/compare/v2.0.0...v2.1.0) (2026-10-29)
 
 
