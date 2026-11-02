@@ -4,7 +4,7 @@
 `RADIN_CLI state report`
 prints the report itself: the residual-changes check, the commit-location
 lines with what each task built, chose and left open, every `failed`, `blocked` and `deferred` entry with its note, the
-stashes this session created, the skills `task-next` dropped as
+wip commits this session made from uncommitted changes, the skills `task-next` dropped as
 unrunnable by a sub-agent, and the out-of-plan files per task. One thing it cannot do:
 
 - `RADIN_CLI backlog duplicates` finds the duplicate ids and titles manual

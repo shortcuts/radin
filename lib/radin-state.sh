@@ -38,7 +38,7 @@
 #   radin-state.sh report                       # print the finished end-of-session report
 #   radin-state.sh session-set <yes|no> <yes|no>  # persist the worktree and branch answers
 #   radin-state.sh session-get                  # print "worktree<TAB>yes" / "branch<TAB>no", exit 1 if unanswered
-#   radin-state.sh prepare <id>                 # stash a dirty tree, create/reuse the task's tree and branch per session.json, print the dir to work in
+#   radin-state.sh prepare <id>                 # commit a dirty tree, create/reuse the task's tree and branch per session.json, print the dir to work in
 #                                               # also records the branch and tree it chose in state/prepared/<id>.json
 #   radin-state.sh dirty-check                  # git status --porcelain of the current directory, excluding .claude/.radin
 #   radin-state.sh trace <id|commit|branch>     # print "task|commit|branch|worktree|plan|facts|status<TAB>value" per matching task; exit 1 no match, 2 ambiguous
@@ -319,15 +319,13 @@ dirty_files() {
 	git -C "$1" status --porcelain -- . ':(exclude).claude/.radin'
 }
 
-# Stashes everything in tree $1 except .claude/.radin under message $2, prints
-# the stash commit hash. An index such as stash@{0} shifts with the next stash.
-stash_tree() {
-	local before after
-	before="$(git -C "$1" stash list | grep -c . || true)"
-	git -C "$1" stash push -u -m "$2" -- . ':(exclude).claude/.radin' >/dev/null
-	after="$(git -C "$1" stash list | grep -c . || true)"
-	[ "$after" -gt "$before" ] || die "nothing to stash"
-	git -C "$1" rev-parse "stash@{0}"
+# Stages everything in tree $1 except .claude/.radin and commits it with a subject
+# that names the changed files, so the log shows what the commit holds. $2 is the body.
+commit_dirty() {
+	local names
+	git -C "$1" add -A -- . ':(exclude).claude/.radin'
+	names="$(git -C "$1" diff --cached --name-only | awk -F/ '{print $NF}' | awk 'NR<=3{a=a (a?", ":"") $0} END{if (NR>3) a=a " +" NR-3 " more"; print a}')"
+	git -C "$1" commit --no-verify -q -m "wip: update $names" -m "$2" >/dev/null
 }
 
 # Commits everything in tree $1 except .claude/.radin as unfinished work of task
@@ -443,18 +441,18 @@ entry_note() {
 	(cd "$repo_root" && printf '**Progress:** %s\n' "$2" | bash "$LIB_DIR/radin-backlog.sh" append "$1") >/dev/null 2>&1 || true
 }
 
-# Stashes tree $1 when dirty, before task $2 starts in it. Uncommitted work
-# there may be the user's own, so it is never left for a leaf to commit or
-# revert. `prepare` calls it before any checkout, so the work stays on the
-# branch it was made on.
-prepare_stash() {
+# Commits tree $1 when dirty, before task $2 starts in it. Uncommitted work
+# there may be the user's own, so it is saved, never left for a leaf to commit
+# or revert, and never parked in a stash. `prepare` calls it before any
+# checkout, so the work stays on the branch it was made on.
+prepare_commit() {
 	local ref
 	[ -n "$(dirty_files "$1")" ] || return 0
-	ref="$(stash_tree "$1" "radin-batch: uncommitted changes found before task $2")"
-	journal "$ns/state" "stash" "$2" \
-		"$ref in $1 -- uncommitted before task $2 started. Recover: git -C $1 stash apply $ref"
-	printf 'radin: stashed uncommitted changes in %s as %s before task %s. Recover: git -C %s stash apply %s\n' \
-		"$1" "$ref" "$2" "$1" "$ref" >&2
+	commit_dirty "$1" "radin committed these before task $2 started. Amend or split as needed." ||
+		die "cannot commit the uncommitted changes in $1"
+	ref="$(git -C "$1" rev-parse --short HEAD)"
+	journal "$ns/state" "wip-commit" "$2" "$ref in $1 -- uncommitted before task $2 started"
+	printf 'radin: committed uncommitted changes in %s as %s before task %s\n' "$1" "$ref" "$2" >&2
 }
 
 # Prints the journal's stash-triage lines for stash $1; none when untriaged.
@@ -465,7 +463,7 @@ triaged() {
 }
 
 # Applies the stash task $2 claimed (stash-claim) into tree $1, which
-# prepare_stash just cleaned. The stash is never dropped: a failed apply
+# prepare_commit just cleaned. The stash is never dropped: a failed apply
 # resets the tree and leaves it where it was.
 prepare_apply_claim() {
 	local claim="$ns/state/stash-claims/$2" h
@@ -871,9 +869,11 @@ reconcile)
 		fi
 	done
 	[ -n "$(git -C "$repo_root" for-each-ref --format=x refs/heads/radin/)" ] || exit 0
+	# A dirty base never blocks a landing: commit it first and tell the user.
 	if [ -n "$(dirty_files "$repo_root")" ]; then
-		printf 'skipped\t-\tbase checkout dirty\n'
-		exit 0
+		commit_dirty "$repo_root" "radin committed these so the landing is not blocked. Amend or split as needed." ||
+			die "cannot commit the dirty base checkout"
+		printf 'committed\t-\tbase checkout was dirty, saved as %s\n' "$(git -C "$repo_root" rev-parse --short HEAD)"
 	fi
 	git -C "$repo_root" checkout -q "$base" >&2 || die "cannot check out $base"
 	worktrees="$(git -C "$repo_root" worktree list --porcelain)"
@@ -1380,7 +1380,7 @@ prepare)
 	if [ "$worktree" = "yes" ]; then
 		if [ -d "$wt" ]; then
 			# a dead attempt's tree -- reuse it rather than fail on `worktree add`
-			prepare_stash "$wt" "$id"
+			prepare_commit "$wt" "$id"
 		elif git -C "$repo_root" rev-parse --verify --quiet "$branch" >/dev/null 2>&1; then
 			git -C "$repo_root" worktree add "$wt" "$branch" >&2
 		else
@@ -1390,7 +1390,7 @@ prepare)
 		dir="$wt"
 		wt_record="$wt"
 	else
-		prepare_stash "$repo_root" "$id"
+		prepare_commit "$repo_root" "$id"
 		if [ "$branch_mode" = "yes" ]; then
 			if git -C "$repo_root" rev-parse --verify --quiet "$branch" >/dev/null 2>&1; then
 				git -C "$repo_root" checkout "$branch" >&2
@@ -1834,15 +1834,15 @@ report)
 	# Stashes of this session: every stash event since the last steps-init.
 	# Reporting only -- no control flow reads the journal.
 	summary_lines=""
-	stash_block=""
+	wip_block=""
 	dropped_block=""
 	usage_block=""
 	outplan_block=""
 	unproven_block=""
 	if [ -s "$state_dir/journal.jsonl" ]; then
 		from="$(grep -n '"event":"steps-init"' "$state_dir/journal.jsonl" | tail -n1 | cut -d: -f1)"
-		stash_block="$(tail -n "+${from:-1}" "$state_dir/journal.jsonl" |
-			sed -nE 's/.*"event":"stash","id":"[^"]+","detail":"(.*)"\}$/- \1/p')"
+		wip_block="$(tail -n "+${from:-1}" "$state_dir/journal.jsonl" |
+			sed -nE 's/.*"event":"wip-commit","id":"[^"]+","detail":"(.*)"\}$/- \1/p')"
 		# A retried task journals its drops again, hence the dedupe.
 		dropped_block="$(tail -n "+${from:-1}" "$state_dir/journal.jsonl" |
 			sed -nE 's/.*"event":"skill-dropped","id":"[^"]+","detail":"(.*)"\}$/- \1/p' | awk '!seen[$0]++')"
@@ -1863,13 +1863,14 @@ report)
 						printf "- %s: %d dispatches, %d tokens, %d tool uses, %ds\n", k[i], n[k[i]], t[k[i]], u[k[i]], int(m[k[i]] / 1000)}')"
 	fi
 
-	# Residual changes: never committed, parked instead. The user's call.
+	# Residual changes: committed, never left dangling. The summary reports the hash.
 	residual="no residual changes"
 	if [ -n "$(git -C "$repo_root" status --porcelain -- . ':(exclude).claude/.radin' 2>/dev/null)" ]; then
-		ref="$(stash_tree "$repo_root" "radin-batch: session end, untracked to any task")"
-		journal "$state_dir" "stash" "" "radin-batch: session end, untracked to any task"
-		residual="residual changes stashed as $ref"
-		stash_block="${stash_block:+$stash_block$'\n'}- $ref in $repo_root -- session end, untracked to any task. Recover: git -C $repo_root stash pop"
+		commit_dirty "$repo_root" "radin committed these at session end; no task owns them. Amend or split as needed." ||
+			die "cannot commit the residual changes"
+		ref="$(git -C "$repo_root" rev-parse --short HEAD)"
+		journal "$state_dir" "wip-commit" "" "$ref in $repo_root -- left at session end"
+		residual="residual changes committed as $ref"
 	fi
 
 	succeeded=""
@@ -1938,7 +1939,7 @@ report)
 	[ -z "$failed" ] || printf '\nFailed (left in the backlog for retry):%s\n' "$failed"
 	[ -z "$blocked" ] || printf '\nNeeds your decision (left in the backlog, nothing implemented):%s\n' "$blocked"
 	[ -z "$deferred" ] || printf '\nDeferred at your request (left in the backlog):%s\n' "$deferred"
-	[ -z "$stash_block" ] || printf '\nStashes created this session:\n%s\n' "$stash_block"
+	[ -z "$wip_block" ] || printf '\nUncommitted changes committed this session:\n%s\n' "$wip_block"
 	[ -z "$outplan_block" ] || printf '\nOut-of-plan files (commit touched paths its plan'"'"'s Changes does not list):\n%s\n' "$outplan_block"
 	[ -z "$unproven_block" ] || printf '\nAcceptance criteria with no measured Fact line (SUCCESS recorded anyway):\n%s\n' "$unproven_block"
 	[ -z "$dropped_block" ] || printf '\nSkills dropped as unrunnable by a sub-agent (run them yourself):\n%s\n' "$dropped_block"

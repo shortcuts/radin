@@ -90,8 +90,8 @@ TASK_BODY
    `radin/<task-id>` branch you happen to notice. Non-zero exit: stop and
    report `STATUS: FAILED` with its message.
 <!-- if:!STASH_BASE -->
-   The tree starts clean: `prepare` stashes anything it found uncommitted and
-   says where, so no work you did not write is yours to commit or revert.
+   The tree starts clean: `prepare` committed anything it found uncommitted as a
+   `wip:` commit and says where, so no work you did not write is yours to revert.
 <!-- end -->
 <!-- if:STASH_BASE -->
    Stashed work was triaged as the base of this task. `prepare` then prints
