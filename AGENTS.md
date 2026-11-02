@@ -5,13 +5,14 @@ radin is a Claude Code plugin of skills, a CLI, and install glue.
 ## Hard rules
 
 - **bash 3.2** (macOS ships it). Use no associative arrays, `mapfile`, or `${var,,}`. Add no `uname` branch. Resolve tools with `command -v` or `brew shellenv`. Branch only where a tool differs (`md5` versus `md5sum`). Call out every script edit.
-- **`~/.claude` is not ours.** `install.sh` runs `cp` only on radin's own named files, plus `mkdir -p`. It never runs `rm`, deletes with a wildcard, or overwrites a file radin does not ship. Six exceptions:
+- **`~/.claude` is not ours.** `install.sh` runs `cp` only on radin's own named files, plus `mkdir -p`. It never runs `rm`, deletes with a wildcard, or overwrites a file radin does not ship. Seven exceptions:
   1. The `<!-- radin:begin -->`…`<!-- radin:end -->` block in `~/.claude/CLAUDE.md`.
   2. The `lib/radin-cbm-config.sh` snapshot and restore of `settings.json` and `~/.claude.json`.
   3. `skills/unslop/SKILL.md` and `skills/technical-writing/SKILL.md`. `install.sh` fetches both from upstream and overwrites them only when `manifest.json` lists them as radin's own.
   4. `skills/radin-execute`, `skills/radin-implement` and `skills/radin-run`, renamed to `radin-batch` and `radin-do`. `install.sh` removes one only when its `SKILL.md` still has radin's own `name:` line.
   5. `skills/thermo-nuclear`. `install.sh` removes it only when the fresh `thermo-nuclear-code-quality-review` copy is ready. `tests/bash-compat.bats` pins that one `rm`.
   6. `.ponytail-band`. `install.sh` writes `off` only when the file is absent, so ponytail's band starts hidden.
+  7. Two `Read(//…/.claude/.radin/**)` strings in `permissions.allow` of `settings.json`. `radin-cbm-config.sh allow` adds them and `unallow` removes exactly those strings. No other key or rule changes ([why](docs/DECISIONS.md#platform-and-install)).
 
   Call out every `install.sh` edit.
 - **Companion install is advisory.** A failed install prints a warning and the run continues. The installer asks one question: which package manager installs the companions (`brew`, `mise`, or `curl`). radin adds no package manager the user has not already run.
@@ -22,7 +23,7 @@ radin is a Claude Code plugin of skills, a CLI, and install glue.
 | Rule | Enforcer | Gap |
 | --- | --- | --- |
 | bash 3.2 | `tests/bash-compat.bats` | Grep only; no 3.2 interpreter run. |
-| `~/.claude` ownership | `tests/install.bats` ("never overwrites a skill radin did not install"), `tests/bash-compat.bats` (`rm` allowlist), `SHIPPED` (install copies and uninstall removes only listed names) | Foreign content in the `CLAUDE.md` block and settings restore is untested. |
+| `~/.claude` ownership | `tests/cbm-config.bats` (`allow` keeps foreign rules, follows a symlink, `unallow` removes only radin's), `tests/install.bats` ("never overwrites a skill radin did not install"), `tests/bash-compat.bats` (`rm` allowlist), `SHIPPED` (install copies and uninstall removes only listed names) | Foreign content in the `CLAUDE.md` block and settings restore is untested. |
 | One list of shipped files | `scripts/shipped.sh check`, run by `make check` | README row text is hand-written. |
 | Companion install is advisory | `tests/install.bats` ("a failing companion tool...") | None. |
 | One owner per delegation | `tests/skill-names.bats` (every name resolves) | Nothing for "one file per delegation" and graph tool names; review only. |

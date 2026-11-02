@@ -852,6 +852,19 @@ if CBM_BIN="$(cbm_bin)"; then
 	fi
 fi
 
+# Skills and leaves Read radin's own lib/*.md from outside the repo, which
+# prompts on every read. One Read rule per spelling of ~/.claude/.radin in
+# permissions.allow ends that; the uninstaller removes the same rules.
+if [ -x "$HOME/.claude/.radin/bin/radin-cbm-json" ]; then
+	if ! bash "$HOME/.claude/.radin/lib/radin-cbm-config.sh" allow >/dev/null 2>&1 </dev/null; then
+		warn "could not add the Read rule for ~/.claude/.radin to settings.json --"
+		warn "Claude Code will ask before each read of radin's own files."
+	fi
+else
+	warn "no C compiler -- settings.json keeps no Read rule for ~/.claude/.radin,"
+	warn "so Claude Code asks before each read of radin's own files."
+fi
+
 for f in $(shipped_text_files); do
 	set_role_efforts "$f"
 done

@@ -9,6 +9,9 @@
 #
 #   radin-cbm-config.sh install   snapshot, run upstream's config, restore, report
 #   radin repair                  restore from the newest snapshot (after an update)
+#   radin-cbm-config.sh allow     add Read rules for radin's own ~/.claude/.radin to
+#                                 permissions.allow, so no skill or leaf prompts for it
+#   radin-cbm-config.sh unallow   remove exactly those rules (uninstall)
 #
 # Restoring only ever puts back an entry that was in the snapshot and is now
 # missing; upstream's own entries stay, and radin adds none of its own. The
@@ -218,10 +221,28 @@ cmd_repair() {
 	cbm_wired || true
 }
 
+# Both spellings of the path: ~/.claude is often a symlink, and Claude Code
+# matches a Read rule against the path it is asked to read. Rules only, never
+# a Bash rule -- the grant covers radin's own lib/*.md and nothing else.
+allow_rules() {
+	printf '%s\n' "Read(/$CLAUDE_DIR/.radin/**)"
+	[ "$CLAUDE_REAL_DIR" = "$CLAUDE_DIR" ] || printf '%s\n' "Read(/$CLAUDE_REAL_DIR/.radin/**)"
+}
+
+cmd_allow() {
+	local verb="$1" rules=() r
+	while IFS= read -r r; do rules+=("$r"); done <<EOF
+$(allow_rules)
+EOF
+	"$CBM_JSON" "$verb" "$SETTINGS" "${rules[@]}"
+}
+
 case "${1:-}" in
+allow) cmd_allow ensure-allow ;;
+unallow) cmd_allow remove-allow ;;
 install) cmd_install ;;
 repair) cmd_repair ;;
 *)
-	die "usage: radin-cbm-config.sh <install|repair>"
+	die "usage: radin-cbm-config.sh <install|repair|allow|unallow>"
 	;;
 esac

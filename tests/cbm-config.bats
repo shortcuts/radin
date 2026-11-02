@@ -395,3 +395,57 @@ EOF
   [ "$(hook_commands "$TEST_HOME/.claude/settings.json")" = "$(printf '%s\n' "$TEST_HOME/.claude/hooks/cbm-session-reminder" "$TEST_HOME/other-tool-hook" "$TEST_HOME/.local/bin/codebase-memory-mcp")" ]
   grep -q "\"command\": \"$TEST_HOME/.local/bin/codebase-memory-mcp\"" "$TEST_HOME/.claude.json"
 }
+
+# The Read rules stop sub-agents and skills from prompting for radin's own
+# lib/*.md. settings.json is the user's, so the verb must keep what is there
+# and write through a symlink instead of replacing it (the 830625a incident).
+@test "ensure-allow adds the rules once, keeps the user's own, and writes through a symlinked settings.json" {
+  mkdir -p "$TEST_HOME/real"
+  echo '{"permissions": {"allow": ["Bash(make *)"], "deny": ["Bash(rm *)"]}, "env": {"A": "1"}}' > "$TEST_HOME/real/settings.json"
+  ln -s "$TEST_HOME/real/settings.json" "$TEST_HOME/.claude/settings.json"
+  J="$REPO_ROOT/lib/radin-cbm-json"
+  run "$J" ensure-allow "$TEST_HOME/.claude/settings.json" 'Read(//x/.radin/**)' 'Read(//y/.radin/**)'
+  [ "$status" -eq 0 ]
+  run "$J" ensure-allow "$TEST_HOME/.claude/settings.json" 'Read(//x/.radin/**)' 'Read(//y/.radin/**)'
+  [ "$status" -eq 0 ]
+  [ -L "$TEST_HOME/.claude/settings.json" ]
+  [ "$(grep -c 'Read(//x/.radin/\*\*)' "$TEST_HOME/real/settings.json")" -eq 1 ]
+  grep -q 'Read(//y/.radin/\*\*)' "$TEST_HOME/real/settings.json"
+  grep -q 'Bash(make \*)' "$TEST_HOME/real/settings.json"
+  grep -q 'Bash(rm \*)' "$TEST_HOME/real/settings.json"
+  grep -q '"A": "1"' "$TEST_HOME/real/settings.json"
+}
+
+@test "remove-allow drops only the named rules, and leaves a missing or invalid file alone" {
+  J="$REPO_ROOT/lib/radin-cbm-json"
+  echo '{"permissions": {"allow": ["Bash(make *)", "Read(//x/.radin/**)"]}}' > "$TEST_HOME/.claude/settings.json"
+  run "$J" remove-allow "$TEST_HOME/.claude/settings.json" 'Read(//x/.radin/**)'
+  [ "$status" -eq 0 ]
+  run grep -c radin "$TEST_HOME/.claude/settings.json"
+  [ "$output" = 0 ]
+  grep -q 'Bash(make \*)' "$TEST_HOME/.claude/settings.json"
+  run "$J" remove-allow "$TEST_HOME/.claude/none.json" 'Read(//x/.radin/**)'
+  [ "$status" -eq 0 ]
+  [ ! -e "$TEST_HOME/.claude/none.json" ]
+  echo '{bad' > "$TEST_HOME/.claude/settings.json"
+  run "$J" ensure-allow "$TEST_HOME/.claude/settings.json" 'Read(//x/.radin/**)'
+  [ "$status" -ne 0 ]
+  [ "$(cat "$TEST_HOME/.claude/settings.json")" = '{bad' ]
+}
+
+@test "allow writes a Read rule per spelling of ~/.claude, and unallow removes them and nothing else" {
+  rm -rf "$TEST_HOME/.claude"
+  mkdir -p "$TEST_HOME/cfg"
+  ln -s "$TEST_HOME/cfg" "$TEST_HOME/.claude"
+  echo '{"permissions": {"allow": ["Bash(make *)"]}}' > "$TEST_HOME/cfg/settings.json"
+  run bash "$CLI" allow
+  [ "$status" -eq 0 ]
+  real="$(cd "$TEST_HOME/cfg" && pwd -P)"
+  grep -qF "Read(/$TEST_HOME/.claude/.radin/**)" "$TEST_HOME/cfg/settings.json"
+  grep -qF "Read(/$real/.radin/**)" "$TEST_HOME/cfg/settings.json"
+  run bash "$CLI" unallow
+  [ "$status" -eq 0 ]
+  run grep -c '\.radin' "$TEST_HOME/cfg/settings.json"
+  [ "$output" = 0 ]
+  grep -q 'Bash(make \*)' "$TEST_HOME/cfg/settings.json"
+}

@@ -39,6 +39,15 @@ for name in $SHIPPED_SKILLS $RENAMED_SKILLS $RETIRED_SKILLS; do
 	remove_path "$name" "$CLAUDE_DIR/skills/$name"
 done
 
+printf '\nPermissions (%s/settings.json):\n' "$CLAUDE_DIR"
+# Only the Read rules install.sh added; the helper matches whole strings, so a
+# rule the user wrote stays. Runs first because it needs the files removed below.
+if [ -x "$CLAUDE_DIR/.radin/bin/radin-cbm-json" ] && [ -f "$CLAUDE_DIR/.radin/lib/radin-cbm-config.sh" ]; then
+	bash "$CLAUDE_DIR/.radin/lib/radin-cbm-config.sh" unallow || printf '  SKIPPED  settings.json is not valid JSON -- remove the Read(.../.radin/**) rules by hand\n'
+else
+	printf '  SKIPPED  radin-cbm-json not built -- remove any Read(.../.radin/**) rule from settings.json by hand\n'
+fi
+
 printf '\nCLI (%s/.radin/bin):\n' "$CLAUDE_DIR"
 # The ~/.local/bin symlink is removed only when it points at radin's own
 # dispatcher -- anything else there is not ours to delete.

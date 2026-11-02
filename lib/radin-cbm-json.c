@@ -9,6 +9,7 @@
  *   radin-cbm-json adopt-mcp  <staged_claude_json> <claude_json>
  *   radin-cbm-json wired      <settings> <claude_json> <cbm>
  *   radin-cbm-json ensure-mcp <mcp_json> <name> <command>
+ *   radin-cbm-json ensure-allow|remove-allow <settings> <rule>...
  *
  * An empty path argument means "absent".
  *
@@ -29,6 +30,7 @@
  * bar as lib/radin-tui.c. Built by install.sh into
  * ~/.claude/.radin/bin/radin-cbm-json.
  */
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -1250,6 +1252,71 @@ bad:
 	return 1;
 }
 
+/* Adds (add=1) or removes (add=0) exact strings in permissions.allow. Only the
+ * named rules move: every other rule, key and order stays. The path resolves
+ * first because write_file renames over it, which would replace a symlinked
+ * settings.json with a plain file. A missing file is created on add and left
+ * alone on remove. */
+static int edit_allow(const char *arg, int add, int nr, char **rules)
+{
+	int err, i, j, changed = 0;
+	char real[PATH_MAX];
+	const char *path = realpath(arg, real) ? real : arg;
+	JVal *root = parse_file(path, &err), *perms, *allow;
+
+	if (err == 2 || (root && root->kind != J_OBJ))
+		goto bad;
+	if (!root) {
+		if (!add)
+			return 0;
+		root = jnew(J_OBJ);
+	}
+	perms = obj_get(root, "permissions");
+	if (perms && perms->kind != J_OBJ)
+		goto bad;
+	allow = perms ? obj_get(perms, "allow") : NULL;
+	if (allow && allow->kind != J_ARR)
+		goto bad;
+	if (!allow && !add)
+		return 0;
+	if (!allow) {
+		if (!perms) {
+			perms = jnew(J_OBJ);
+			obj_set(root, "permissions", perms);
+		}
+		allow = jnew(J_ARR);
+		obj_set(perms, "allow", allow);
+	}
+	for (j = 0; j < nr; j++) {
+		int at = -1;
+		for (i = 0; i < allow->n; i++) {
+			char *d = allow->items[i]->kind == J_STR ? str_decode(allow->items[i]->raw) : NULL;
+			if (d && !strcmp(d, rules[j]))
+				at = i;
+		}
+		if (add && at < 0) {
+			arr_push(allow, jstr(str_encode(rules[j])));
+			printf("ADDED    %s (permissions.allow %s)\n", path, rules[j]);
+			changed = 1;
+		} else if (!add && at >= 0) {
+			memmove(allow->items + at, allow->items + at + 1,
+			        (size_t)(allow->n - at - 1) * sizeof *allow->items);
+			allow->n--;
+			printf("REMOVED  %s (permissions.allow %s)\n", path, rules[j]);
+			changed = 1;
+		}
+	}
+	if (changed)
+		write_file(path, root);
+	return 0;
+bad:
+	fprintf(stderr,
+	        "radin-cbm-json: %s is not valid JSON -- fix it first, "
+	        "nothing written\n",
+	        path);
+	return 1;
+}
+
 static int usage(void)
 {
 	fprintf(stderr,
@@ -1259,6 +1326,8 @@ static int usage(void)
 	        "       radin-cbm-json wired <settings> <claude_json> <cbm>\n"
 	        "       radin-cbm-json ensure-mcp <mcp_json> <name> <command>\n"
 	        "       radin-cbm-json ensure-env <settings> <key> <value>\n"
+	        "       radin-cbm-json ensure-allow <settings> <rule>...\n"
+	        "       radin-cbm-json remove-allow <settings> <rule>...\n"
 	        "       radin-cbm-json ensure-hook-timeout <settings> <cbm> <seconds>\n"
 	        "       radin-cbm-json dead-hooks <settings>\n");
 	return 1;
@@ -1285,6 +1354,10 @@ int main(int argc, char **argv)
 		return ensure_mcp_entry(argv[2], argv[3], argv[4]);
 	if (!strcmp(argv[1], "ensure-env") && argc == 5)
 		return ensure_env(argv[2], argv[3], argv[4]);
+	if (!strcmp(argv[1], "ensure-allow") && argc >= 4)
+		return edit_allow(argv[2], 1, argc - 3, argv + 3);
+	if (!strcmp(argv[1], "remove-allow") && argc >= 4)
+		return edit_allow(argv[2], 0, argc - 3, argv + 3);
 	if (!strcmp(argv[1], "ensure-hook-timeout") && argc == 5)
 		return ensure_hook_timeout(argv[2], argv[3], atoi(argv[4]));
 	if (!strcmp(argv[1], "dead-hooks") && argc == 3)
