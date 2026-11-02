@@ -294,7 +294,7 @@ next task's dispatch and carry on. The loop stops only at a
 Never verify a `SUCCESS` yourself: no per-task verification sub-agent, and no
 re-reading the diff. That read is the cost the leaf's own verify loop and
 Phase 4.5's gate exist to avoid. A task is finished when `task-report` has recorded it,
-whatever the sub-agent's prose said. A commit still on a side branch counts as done only after the merge. Phase 5.5 lands every task branch, and an unfinished task's branch lands with a follow-up entry (see "A task is done when its commit is in the base branch" in `docs/DECISIONS.md`).
+whatever the sub-agent's prose said. A commit still on a side branch counts as done only after the merge. Phase 4.7 lands every task branch, and an unfinished task's branch lands with a follow-up entry (see "A task is done when its commit is in the base branch" in `docs/DECISIONS.md`).
 
 An entry stays `failed` or `blocked` only after the user explicitly deferred
 it. A deferred entry is not retried within this session, and does not block
@@ -308,9 +308,15 @@ format once per session, then reviews the session's commits and files each
 
 Read `RADIN_LIB/radin-batch-gate.md` and follow it to dispatch the gate.
 
+## Phase 4.7: Merge
+
+Skip it when `RADIN_CLI state session-get` prints `worktree<TAB>no` and `branch<TAB>no`.
+
+Read `RADIN_LIB/radin-batch-merge.md` and follow it to land every task branch, finished or not.
+
 ## Phase 5: Final Summary
 
-Always runs once the loop exits. The CLI prints the summary whole:
+Always runs after Phase 4.7, once every task branch has landed. The CLI prints the summary whole:
 
 ```bash
 RADIN_CLI state report
@@ -320,18 +326,12 @@ Print its output verbatim. Read
 `RADIN_LIB/radin-batch-reporting.md` for the two things it
 cannot do.
 
-Then run `RADIN_CLI state steps-waiting`. Exit 1: go to Phase 5.5. Exit 0
+Then run `RADIN_CLI state steps-waiting`. Exit 1: go to Phase 6. Exit 0
 prints the `waiting` entries this run left, so ask via one `AskUserQuestion`:
 "Settle N open decisions now?" Options: `Yes` / `Later`. `Yes`: settle them per
 "Settling Waiting Entries" in `RADIN_LIB/radin-batch-clarify.md`, then tell the
 user the answered entries are `pending` and re-invoking the skill runs them.
 `Later`: change nothing.
-
-## Phase 5.5: Merge
-
-Skip it when `RADIN_CLI state session-get` prints `worktree<TAB>no` and `branch<TAB>no`.
-
-Read `RADIN_LIB/radin-batch-merge.md` and follow it to land every task branch, finished or not.
 
 ## Phase 6: Review
 

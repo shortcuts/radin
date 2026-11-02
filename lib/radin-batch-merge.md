@@ -1,6 +1,6 @@
 # Shared: radin-batch Merge
 
-`radin-batch` reads this file at Phase 0 on a `leftovers` line, and at Phase 5.5 when `worktree` or `branch` is `yes` in `RADIN_CLI state session-get`.
+`radin-batch` reads this file at Phase 0 on a `leftovers` line, and at Phase 4.7 when `worktree` or `branch` is `yes` in `RADIN_CLI state session-get`.
 
 Run `RADIN_CLI state reconcile` and print its output, unasked. Exit 0: stop. Any branch or worktree it kept is printed with its reason. Exit 3: a branch conflicted, so run `RADIN_CLI prompt merge <the conflict branches>`. Dispatch one sub-agent (`name: "radin-merge"`, the printed `model` and `effort`, when printed) with `Read <the printed prompt path> and follow it.`
 

@@ -1,4 +1,4 @@
-# Template: radin-batch merge prompt (Phase 5.5)
+# Template: radin-batch merge prompt (Phase 4.7)
 
 Rendered by `radin prompt merge`. `lib/radin-prompt.sh` holds the format.
 

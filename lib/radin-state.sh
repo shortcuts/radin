@@ -1885,7 +1885,8 @@ report)
 			ctitle="$(json_get title "$line")"
 			[ -n "$ctitle" ] || ctitle="$cid"
 			csum="$(printf '%s\n' "$summary_lines" | awk -v id="$cid" '$1 == id { s = substr($0, length($1) + 2) } END { gsub(/\\"/, "\"", s); gsub(/\\\\/, "\\", s); print s }')"
-			if [ "$worktree_mode" = "yes" ] || [ "$branch_mode" = "yes" ]; then
+			if { [ "$worktree_mode" = "yes" ] || [ "$branch_mode" = "yes" ]; } &&
+				git -C "$repo_root" rev-parse --verify -q "refs/heads/radin/$cid" >/dev/null; then
 				where=""
 				[ ! -d "$repo_root-$cid" ] || where=" in $repo_root-$cid"
 				succeeded="$(printf '%s\n- %s — %s on radin/%s%s. Merge: git merge radin/%s' \
