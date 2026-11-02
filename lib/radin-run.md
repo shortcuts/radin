@@ -253,8 +253,18 @@ in as `--no-status "<its final line>" --next` instead, an API or network error t
 included: the CLI sends that task back for a retry. A sub-agent with no content at
 all may be idle, so run `ListAgents`. A running one is working: wait. An idle one
 with no `STATUS:` line gets one `SendMessage`: "Finish, then end with a `STATUS:` line."
+Do this whatever its last text says. "Waiting for a background run" is not a reason
+to wait: a leaf receives no background notification, so it never wakes.
 Idle again after that, record `--no-status "idle, no STATUS" --next`. If your
 turn ends first, leave the entry `in_progress` for Phase 0's stuck-recovery.
+
+**Heartbeat.** Right after each `Agent` dispatch, call `CronCreate` once for
+that task with `cron: "7,27,47 * * * *"`, `recurring: true` and the prompt
+"Heartbeat for `<agent name>`: run `ListAgents`." Cron fires only while your
+turn is idle, so it is your wake-up when that leaf stalls. On it, if that
+agent is idle with no `STATUS:` line, follow the rule above. Any other agent
+is not this job's concern. Call `CronDelete` on the job the moment
+`task-report` records that task, and on any job still open at Phase 5.
 
 When the dispatch's completion notification carries a usage block (total tokens,
 tool uses, duration in ms), add `--usage "<kind> <tokens> <tool_uses> <duration_ms>"`
@@ -300,7 +310,7 @@ Read `RADIN_LIB/radin-batch-gate.md` and follow it to dispatch the gate.
 
 ## Phase 5: Final Summary
 
-Always runs once the loop exits, and the CLI prints it whole:
+Always runs once the loop exits. The CLI prints the summary whole:
 
 ```bash
 RADIN_CLI state report
