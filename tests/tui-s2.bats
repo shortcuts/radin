@@ -138,7 +138,7 @@ load helpers/tui
   [ "$status" -eq 0 ]
   run last_frame
   [[ "$output" == *"line 20"* ]]
-  [[ "$output" != *"line 01"* ]]
+  [[ "$output" != *"planned "* ]]
   [ "$(last_pos)" = "[1/2]" ]
 }
 

@@ -131,6 +131,13 @@ write_plan() {
   [ "${lines[1]##*$'\037'}" = "" ]
 }
 
+@test "list --created appends the entry's creation stamp as the last field" {
+  cli add feat "dated task" <<<"body"
+  run cli list --order created --created
+  [ "$status" -eq 0 ]
+  [[ "${lines[0]##*$'\037'}" =~ ^20[0-9]{2}-[0-9]{2}-[0-9]{2}T[0-9:]{8}Z$ ]]
+}
+
 # Epic support will nest a task under tasks/<epic-id>/, so the index's `file`
 # field -- not a composed tasks/<id>.md -- is what every verb must follow.
 nest_task() {

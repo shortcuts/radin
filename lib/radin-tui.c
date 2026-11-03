@@ -28,6 +28,7 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <termios.h>
+#include <time.h>
 #include <unistd.h>
 
 #define MAXT 4096
@@ -51,6 +52,7 @@ static const char *BODY_HINT =
 struct task {
 	char id[SLOT], cat[32], title[SLOT], file[SLOT], prio[32], deps[SLOT], epic[SLOT];
 	char flag[8];
+	char created[32]; /* ISO-8601 UTC stamp; empty on an entry that predates the key */
 	char *meta; /* `backlog meta` lines, read in bulk by load(); never NULL once loaded */
 	int ord;    /* index.jsonl line order, so any sort can be undone */
 };
@@ -794,7 +796,7 @@ static void load(void) {
 	index_stamp(&IDX_MT, &IDX_SZ);
 	load_session();
 	char *out =
-		cli(BACKLOG, &ok, 0, NULL, "list", "--order", "created", "--planned", "--meta", NULL);
+		cli(BACKLOG, &ok, 0, NULL, "list", "--order", "created", "--planned", "--meta", "--created", NULL);
 	for (int i = 0; i < TASK_N; i++) free(T[i].meta);
 	TASK_N = 0;
 	DET_BUILT_W = 0;
@@ -803,11 +805,11 @@ static void load(void) {
 		nl = strchr(line, '\n');
 		size_t llen = nl ? (size_t)(nl - line) : strlen(line);
 		if (llen) {
-			const char *f[8] = {0};
-			size_t fl[8] = {0};
+			const char *f[9] = {0};
+			size_t fl[9] = {0};
 			int nf = 0;
 			const char *s = line, *end = line + llen;
-			while (nf < 8) {
+			while (nf < 9) {
 				const char *sep = memchr(s, US, end - s);
 				f[nf] = s;
 				fl[nf] = sep ? (size_t)(sep - s) : (size_t)(end - s);
@@ -830,6 +832,7 @@ static void load(void) {
 				snprintf(t->flag, sizeof t->flag, "%s", *planned ? planned : " ");
 				/* RS joins the meta lines on one row; newline is what the
 				 * readers split on. */
+				copy_field(t->created, sizeof t->created, f[8] ? f[8] : "", fl[8]);
 				t->meta = xmalloc(fl[7] + 1);
 				memcpy(t->meta, f[7] ? f[7] : "", fl[7]);
 				t->meta[fl[7]] = 0;
@@ -875,6 +878,24 @@ static int clamp_top(int sel, int top, int h) {
 	return top < 0 ? 0 : top;
 }
 
+/* Task age as a short cell ("5d", "3w", "8mo", "2y"), so a stale entry stands
+ * out in the list. Empty when the stamp is missing or unparsable. */
+static void age_cell(const char *iso, char *dst, size_t cap) {
+	struct tm tm;
+	memset(&tm, 0, sizeof tm);
+	dst[0] = 0;
+	if (sscanf(iso, "%d-%d-%dT%d:%d:%dZ", &tm.tm_year, &tm.tm_mon, &tm.tm_mday,
+		   &tm.tm_hour, &tm.tm_min, &tm.tm_sec) != 6) return;
+	tm.tm_year -= 1900;
+	tm.tm_mon -= 1;
+	long d = (long)((time(NULL) - timegm(&tm)) / 86400);
+	if (d < 0) d = 0;
+	if (d < 14) snprintf(dst, cap, "%ldd", d);
+	else if (d < 60) snprintf(dst, cap, "%ldw", d / 7);
+	else if (d < 365) snprintf(dst, cap, "%ldmo", d / 30);
+	else snprintf(dst, cap, "%ldy", d / 365);
+}
+
 /* The task row's fixed-width left part: tree connector, search mark, priority
  * and category cells. Written in one place because the height count, the wrap
  * indent and the colour span all have to agree on where the title starts.
@@ -893,7 +914,9 @@ static int row_prefix(int i, char *buf, size_t cap) {
 	 * category columns line up whether or not the task sits under an epic --
 	 * the connector then only indents the title, which is what it marks. */
 	int at = snprintf(buf, cap, " %s", search_hit(ti) ? "* " : "  ");
-	snprintf(buf + at, cap - at, "%-2.2s %-9.9s %s", T[ti].prio, T[ti].cat, conn);
+	char age[16];
+	age_cell(T[ti].created, age, sizeof age);
+	snprintf(buf + at, cap - at, "%-2.2s %-9.9s %-4.4s %s", T[ti].prio, T[ti].cat, age, conn);
 	return at;
 }
 
@@ -1075,6 +1098,7 @@ static void build_detail(int width) {
 		det_field("id", T[ti].id);
 		det_field("priority", *T[ti].prio ? T[ti].prio : "unset");
 		det_field("planned", T[ti].flag[0] == 'P' ? "yes" : "no");
+		if (*T[ti].created) det_field("created", T[ti].created);
 		if (*T[ti].epic) det_field("epic", T[ti].epic);
 		if (*T[ti].deps) det_field("depends", T[ti].deps);
 		/* Which half of the task the content below the rule is, and the only
@@ -1258,7 +1282,8 @@ static void draw(void) {
 			int n = 0;
 			if (ln == 0) {
 				/* row_prefix's layout: the 2-byte priority cell, a space, the
-				 * 9-byte category cell, a space, then the tree connector. */
+				 * 9-byte category cell, a space, the 4-byte age cell, a space, then the tree
+				 * connector. */
 				int cl = (int)strlen(T[ti].cat);
 				snprintf(text, sizeof text, "%s%.*s", prefix, cut, t);
 				sp[n++] = (struct span){at, 2, prio_colour(T[ti].prio)};

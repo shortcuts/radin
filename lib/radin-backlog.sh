@@ -23,7 +23,7 @@
 #   radin-backlog.sh help [command]              # print every command's usage, or one command's
 #   radin-backlog.sh env [--export]             # print REPO_ROOT/NAMESPACE_DIR/BACKLOG_INDEX/BACKLOG_TASKS_DIR (--export: source-able with export)
 #   radin-backlog.sh show [category]             # print backlog as markdown, or one ## section
-#   radin-backlog.sh list [--order created|priority] [--planned] [--meta]  # print "id<US>category<US>title<US>file<US>priority<US>depends-on-csv" (US = \037), priority-descending by default, unset priorities last (--order created gives index order; --planned appends a P/empty field; --meta appends the `meta` lines joined by RS = \036, so one fork reads every entry's fields)
+#   radin-backlog.sh list [--order created|priority] [--planned] [--meta] [--created]  # print "id<US>category<US>title<US>file<US>priority<US>depends-on-csv" (US = \037), priority-descending by default, unset priorities last (--order created gives index order; --planned appends a P/empty field; --meta appends the `meta` lines joined by RS = \036, so one fork reads every entry's fields; --created appends the entry's ISO creation stamp, empty for an old entry without one)
 #   radin-backlog.sh find <id-or-title>          # print matching "id<TAB>category<TAB>title<TAB>file<TAB>priority<TAB>depends-on-csv" line(s)
 #   radin-backlog.sh count                       # print the number of entries (0 without an index)
 #   radin-backlog.sh add <category> <title> [--skill <name>]... [--acceptance <criterion>]... [--planning needed] [--complexity low|high] [--location <path:line>] [--deps <csv-of-ids-or-titles>]  # create task, body read from stdin, prints its bare id on stdout (the human sentence goes to stderr)
@@ -210,12 +210,13 @@ function row(line, sep) {
 # so `cut -f3-` can never split a row.
 # shellcheck disable=SC2016  # $0 is awk's record, not a shell expansion
 AWK_LIST='
-BEGIN { plan = ENVIRON["RADIN_PLANNED"]; meta = ENVIRON["RADIN_META"]; RS_ = sprintf("%c", 30) }
+BEGIN { plan = ENVIRON["RADIN_PLANNED"]; meta = ENVIRON["RADIN_META"]; cre = ENVIRON["RADIN_CREATED"]; RS_ = sprintf("%c", 30) }
 $0 == "" { next }
 { p = jraw($0, "priority")
   out = row($0, US)
   if (plan != "") out = out US (jhas($0, "plan") ? "P" : "")
   if (meta != "") out = out US metas($0, RS_)
+  if (cre != "") out = out US jstr($0, "created")
   if (p == "") print "1" TAB "0" TAB out
   else print "0" TAB p TAB out }
 '
@@ -909,6 +910,7 @@ list)
 	shift
 	RADIN_PLANNED=""
 	RADIN_META=""
+	RADIN_CREATED=""
 	order=priority
 	while [ $# -gt 0 ]; do
 		case "$1" in
@@ -927,6 +929,10 @@ list)
 			RADIN_META=1
 			shift
 			;;
+		--created)
+			RADIN_CREATED=1
+			shift
+			;;
 		*) usage_die list "unknown list option: $1" ;;
 		esac
 	done
@@ -936,7 +942,7 @@ list)
 	# is what puts every unset priority after every set one.
 	# --order created is index order, which is creation order because
 	# index.jsonl is append-only: the TUI wants a list no mutation reorders.
-	export RADIN_PLANNED RADIN_META
+	export RADIN_PLANNED RADIN_META RADIN_CREATED
 	if [ "$order" = created ]; then
 		awk "$AWK_JSON$AWK_META$AWK_LIST" "$BACKLOG_INDEX" | cut -f3-
 	else
