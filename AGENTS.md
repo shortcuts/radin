@@ -34,7 +34,6 @@ radin is a Claude Code plugin of skills, a CLI, and install glue.
 | Same checks locally and in CI | `make check` and `make test` in `.github/workflows/ci.yml` | Linux run unverified. |
 | Deterministic work lives in the CLI | `scripts/check-prose.sh` raw `git` lint over `lib/radin-run.md` and `lib/radin-batch-*.md` | Other deterministic steps in prose, and a raw `git` outside those files; review only. |
 | Lifecycle diagrams match the skills and the run loop | None; `make diagrams` regenerates the SVGs | Review only. |
-| Critical-path-only tests ([policy](#test-suite-speed)) | None; review only | A new test that guards no install or TUI failure passes unnoticed. |
 
 Add a row with every new hard rule.
 
@@ -132,17 +131,16 @@ The graph tool name lives in one file and must exist in the upstream table ([whi
 
 ## Before committing
 
-- `make lint`, `make check` and `make test` come back clean, and `make test` stays under 30 seconds ([policy](#test-suite-speed)).
+- `make lint`, `make check` and `make test` come back clean.
   - Every tree-only test replays one recorded `install.sh` run. A live run serves only install-time behavior.
   - The mock command is `tests/helpers/mock.c`, one compiled binary, because `/bin/sh` startup costs 20 ms per stub call.
   - No test makes a network request.
 - Update the docs in the same commit: `docs/DECISIONS.md` (a new constraint or decision, as one rule plus its `**Why:**`), `docs/lifecycle/*.mmd` (a changed skill flow, run-loop phase, leaf step or task status), the README (a new skill or companion).
 
-## Test suite speed
+## Test coverage
 
-- Test the critical paths only: the install path (`install.sh`, the `radin` dispatcher, `radin-cbm-*`, `radin-doctor`, `radin-uninstall`, `radin update`) and the TUI path (`lib/radin-tui.c` with the `radin-backlog.sh` verbs it calls).
-- Before you add a test, name the install or TUI step it guards and the failure it catches: a broken step, lost user data, or a half-written `~/.claude`.
+- A feature is stable only when tests verify every path it adds or changes: install, update, doctor, uninstall, the `radin` dispatcher, the TUI, and each host's render.
+- Run the feature end to end and compare the result with its stated behavior before you call it complete.
 - Reject a test that passes only when everything goes right, pins formatting or escape bytes, or repeats another test's case.
-- When a step leaves the critical paths, remove its test and update the "Rule enforcers" row that named it.
 
 See [decisions](docs/DECISIONS.md) · [lifecycle diagrams](docs/lifecycle.md) · [contributing](CONTRIBUTING.md).

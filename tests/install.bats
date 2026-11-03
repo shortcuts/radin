@@ -65,7 +65,7 @@ teardown() {
 
 # Replays setup_file's recorded install: the tree, its stdout and its exit
 # status. Only a test whose subject is install-time behaviour should run
-# install.sh itself -- see AGENTS.md's "Test suite speed".
+# install.sh itself -- see AGENTS.md's "Before committing".
 replay_install() {
   rm -rf "$TEST_HOME/.claude" "$TEST_HOME/.local"
   cp -a "$TEMPLATE/home/.claude" "$TEST_HOME/.claude"
