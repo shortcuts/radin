@@ -6,6 +6,7 @@ skill radin-plan
 skill radin-record
 skill radin-review
 skill radin-stats
+skill radin-teardown
 skill radin-uninstall
 lib radin-namespace.sh
 lib radin-json.sh

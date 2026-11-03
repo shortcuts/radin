@@ -10,6 +10,7 @@
 | `/radin-do` | Record one ad-hoc prompt as a task, plan it when flagged, then execute only that task. |
 | `/radin-review` | Review a commit, PR, directory or range. Triage the findings into backlog tasks. |
 | `/radin-stats` | Print each companion tool's own savings report. |
+| `/radin-teardown` | Stop a running `/radin-batch` or `/radin-do` from starting new tasks. The task in flight, the gate and the merge still finish. |
 | `/radin-uninstall` | Remove what `install.sh` put in `~/.claude`. |
 
 ## CLI

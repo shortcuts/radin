@@ -37,6 +37,7 @@
 #   radin-state.sh recover-reject <id>          # those commits do not satisfy the task: block the entry naming them
 #   radin-state.sh report                       # print the finished end-of-session report
 #   radin-state.sh session-set <yes|no> <yes|no>  # persist the worktree and branch answers
+#   radin-state.sh teardown                     # request a graceful stop: task-next picks nothing new until the next preflight; the gate and merge still run
 #   radin-state.sh session-get                  # print "worktree<TAB>yes" / "branch<TAB>no", exit 1 if unanswered
 #   radin-state.sh prepare <id>                 # commit a dirty tree, create/reuse the task's tree and branch per session.json, print the dir to work in
 #                                               # also records the branch and tree it chose in state/prepared/<id>.json
@@ -1067,6 +1068,7 @@ steps-waiting)
 	;;
 
 preflight)
+	rm -f "$ns/state/teardown"
 	(bash "$LIB_DIR/radin-backlog.sh" reconcile >/dev/null 2>&1) || true
 	if [ "$(bash "$LIB_DIR/radin-backlog.sh" count 2>/dev/null)" = "0" ]; then
 		echo empty
@@ -1440,6 +1442,12 @@ session-set)
 	journal "$ns/state" "session" "" "worktree=$worktree branch=$branch"
 	;;
 
+teardown)
+	[ -d "$ns/state" ] || die "no state dir: $ns/state"
+	[ -f "$ns/state/teardown" ] || journal "$ns/state" "teardown" "" "requested"
+	: >"$ns/state/teardown"
+	;;
+
 session-get)
 	file="$ns/state/session.json"
 	[ -s "$file" ] || exit 1
@@ -1460,6 +1468,8 @@ task-next)
 	# A named id skips the pick -- the debug and clarify retry of a task
 	# already in flight.
 	want="${2:-}"
+	# A teardown request stops new picks; a named re-run of an in-flight task still goes.
+	[ -n "$want" ] || [ ! -e "$ns/state/teardown" ] || exit 1
 	errfile="$(mktemp)"
 	trap 'rm -f "$errfile"' EXIT
 	# Prints the blocked line; a named id has no next task to fall through to.
@@ -2063,6 +2073,6 @@ finding-classes)
 	;;
 
 *)
-	die "unknown command: ${cmd:-<none>} (steps-init|steps-list|steps-open|steps-waiting|answered|retry|task-next|task-report|task-fact|task-diagnosis|task-done|set-status|stuck|preflight|resume|recover|recover-reject|report|session-set|session-get|prepare|dirty-check|trace|completed-show|completed-list|unlanded|session-commits|gate-map|leftovers|stash-triage|stash-claim|reconcile|gate-fix|gate-filed|deps-check|task-dir|journal-tail|plan-covers|review-findings|finding-classes)"
+	die "unknown command: ${cmd:-<none>} (teardown|steps-init|steps-list|steps-open|steps-waiting|answered|retry|task-next|task-report|task-fact|task-diagnosis|task-done|set-status|stuck|preflight|resume|recover|recover-reject|report|session-set|session-get|prepare|dirty-check|trace|completed-show|completed-list|unlanded|session-commits|gate-map|leftovers|stash-triage|stash-claim|reconcile|gate-fix|gate-filed|deps-check|task-dir|journal-tail|plan-covers|review-findings|finding-classes)"
 	;;
 esac

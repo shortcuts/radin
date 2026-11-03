@@ -11,7 +11,7 @@ flowchart TD
   p2 --> p3[Phase 3<br/>persist BACKLOG_STEPS.json]
   p3 --> p35[Phase 3.5<br/>settle open decisions, one grilling]
   p35 --> next{{task-next}}
-  next -- exit 1, nothing left --> p45[Phase 4.5<br/>session gate: lint, format, review]
+  next -- exit 1, nothing left or teardown requested --> p45[Phase 4.5<br/>session gate: lint, format, review]
   p45 -- findings filed, once --> next
   next -- exit 0 --> kind{kind}
   kind -- planning --> leafP[[Planning leaf]]
