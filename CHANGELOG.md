@@ -1,5 +1,27 @@
 # Changelog
 
+## [2.2.0](https://github.com/shortcuts/radin/compare/v2.1.0...v2.2.0) (2026-11-03)
+
+
+### Features
+
+* **install:** allow Read of ~/.claude/.radin in settings.json ([aa27855](https://github.com/shortcuts/radin/commit/aa278553fb16b88e6af48dfddbe800cbbcc9988b))
+* teardown ([e13fecd](https://github.com/shortcuts/radin/commit/e13fecd221690731584b904c9b32e49a270d65b7))
+
+
+### Bug Fixes
+
+* backlog trimming ([e941b9c](https://github.com/shortcuts/radin/commit/e941b9c2c0bf927b8e559730225922950e20d787))
+* better worktree support ([d4f7e5e](https://github.com/shortcuts/radin/commit/d4f7e5ebd337cd33d905e2d6f7b358eeede31369))
+* commit dirty trees instead of stashing or skipping ([bdca693](https://github.com/shortcuts/radin/commit/bdca69375ab7d10925ffc5046243b10c214c2529))
+* leaf fixes a red base or files a fix entry ([4929709](https://github.com/shortcuts/radin/commit/4929709b8cd6940765ac0e13febb1c3a17b238a4))
+* lint on release ([cfe4e96](https://github.com/shortcuts/radin/commit/cfe4e965f331ef792133526aa2d886444cc02165))
+* merge before report ([d5ea741](https://github.com/shortcuts/radin/commit/d5ea74112663bba7b5e1fc8c819b908ee3d2bef2))
+* prevent stalled agents ([903301a](https://github.com/shortcuts/radin/commit/903301accd9817d7e38c734daa731be812f66cef))
+* **prompt:** keep radin state out of the base stash ([cfb14ae](https://github.com/shortcuts/radin/commit/cfb14aed7c682389b778eb6445d7cc27c2262a81))
+* review and plan size truncated ([db50ea4](https://github.com/shortcuts/radin/commit/db50ea4ef89827e4c898a4b87b8ed16251155378))
+* stalled leaf contract ([48acfa7](https://github.com/shortcuts/radin/commit/48acfa70f1eedf1f759f0855f2b50a38161623d1))
+
 ## [2.1.0](https://github.com/shortcuts/radin/compare/v2.0.0...v2.1.0) (2026-10-29)
 
 
