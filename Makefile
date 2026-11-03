@@ -60,7 +60,7 @@ bench-tui:
 screenshot:
 	@scripts/screenshot-tui.sh
 
-SH_FILES = tests/bench-tui.sh scripts/screenshot-tui.sh scripts/shipped.sh install.sh bin/radin lib/radin-namespace.sh lib/radin-json.sh lib/radin-backlog.sh lib/radin-state.sh lib/radin-scope.sh lib/radin-prompt.sh lib/radin-cbm-hooks.sh lib/radin-cbm-config.sh lib/radin-update.sh lib/radin-doctor.sh lib/radin-stats.sh lib/radin-uninstall.sh scripts/check-prose.sh scripts/real-setup-sum.sh scripts/golden-render.sh
+SH_FILES = tests/bench-tui.sh scripts/screenshot-tui.sh scripts/shipped.sh install.sh bin/radin lib/radin-namespace.sh lib/radin-json.sh lib/radin-backlog.sh lib/radin-state.sh lib/radin-scope.sh lib/radin-prompt.sh lib/radin-cbm-hooks.sh lib/radin-cbm-config.sh lib/radin-update.sh lib/radin-doctor.sh lib/radin-stats.sh lib/radin-uninstall.sh scripts/check-prose.sh scripts/real-setup-sum.sh scripts/golden-render.sh scripts/render-host.sh
 
 clean:
 	rm -f lib/radin-tui lib/radin-cbm-json tests/helpers/pty-run tests/helpers/mock

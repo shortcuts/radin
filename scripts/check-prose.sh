@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Usage: check-prose.sh [root]. Four lints, each fails with file:line and the fix.
+# Usage: check-prose.sh [root]. Five lints, each fails with file:line and the fix.
 set -u
+here=$(cd "$(dirname "$0")" && pwd)
 cd "${1:-.}" || exit 2
 rc=0
 
@@ -68,6 +69,24 @@ FNR == 1 { if (FILENAME in done) nextfile; done[FILENAME] = 1; buf = "" }
 ' lib/radin-leaf-contract.md lib/*.md skills/*/SKILL.md) || rc=1
 if [ -n "$dup_hits" ]; then
 	printf '%s\n' "$dup_hits"
+	rc=1
+fi
+
+# A Claude-only string outside a host block breaks the agents render.
+# hosts/forbid-baseline.txt lists the pairs that exist today and only shrinks.
+export LC_ALL=C RADIN_HOSTS_DIR="$PWD/hosts"
+forbid_found=$(for f in skills/*/SKILL.md lib/*.md; do
+	"$here/render-host.sh" --hits "$f" agents | while IFS= read -r s; do printf '%s\t%s\n' "$f" "$s"; done
+done | sort) || rc=1
+forbid_base=$(sort hosts/forbid-baseline.txt 2>/dev/null)
+forbid_new=$(comm -13 <(printf '%s\n' "$forbid_base") <(printf '%s\n' "$forbid_found") | grep .)
+if [ -n "$forbid_new" ]; then
+	printf '%s\n' "$forbid_new" | awk -F'\t' '{ printf "%s: forbidden string \"%s\" outside a host block; wrap it in <!-- host:claude --> or use the name map\n", $1, $2 }'
+	rc=1
+fi
+forbid_stale=$(comm -23 <(printf '%s\n' "$forbid_base") <(printf '%s\n' "$forbid_found") | grep .)
+if [ -n "$forbid_stale" ]; then
+	printf '%s\n' "$forbid_stale" | awk -F'\t' '{ printf "hosts/forbid-baseline.txt: %s no longer holds \"%s\"; delete the line\n", $1, $2 }'
 	rc=1
 fi
 

@@ -33,6 +33,7 @@ radin is a Claude Code plugin of skills, a CLI, and install glue.
 | Tests never touch the real device setup | `make test` runs bats with `CLAUDE_CONFIG_DIR` unset and fails when `scripts/real-setup-sum.sh` differs before and after | A test that reads the keychain or another real path; review only. |
 | Same checks locally and in CI | `make check` and `make test` in `.github/workflows/ci.yml` | Linux run unverified. |
 | Deterministic work lives in the CLI | `scripts/check-prose.sh` raw `git` lint over `lib/radin-run.md` and `lib/radin-batch-*.md` | Other deterministic steps in prose, and a raw `git` outside those files; review only. |
+| Host-specific text lives in host blocks | `scripts/render-host.sh` (marker errors, surviving forbidden string) and the `scripts/check-prose.sh` forbid lint with `hosts/forbid-baseline.txt` | A Claude-only idea worded with no forbidden string; review only. |
 | Lifecycle diagrams match the skills and the run loop | None; `make diagrams` regenerates the SVGs | Review only. |
 | Claude render unchanged | `tests/install.bats` golden render test, `make golden` | Files outside `SKILL.md` and `lib/*.md` are unhashed. |
 
@@ -42,6 +43,7 @@ Add a row with every new hard rule.
 
 | Change | Edit |
 | --- | --- |
+| A host difference in a skill or lib file | A `<!-- host:NAME -->` block in the source. A forbidden string goes in `hosts/forbid-<host>.txt`. |
 | A skill's behavior | `skills/<name>/SKILL.md`, never the installed copy. |
 | Anything deterministic (install, update, doctor, uninstall, backlog, state, TUI) | A `bin/radin` subcommand in `lib/`, never a skill. |
 | Backlog loop of `radin-batch` and `radin-do` | `lib/radin-run.md`. |
