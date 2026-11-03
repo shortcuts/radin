@@ -107,6 +107,32 @@ run_install_defaults() {
   ! grep -q '/radin-show' "$TEMPLATE/home/.claude/CLAUDE.md"
 }
 
+# The golden stores sums, so a failure names the file and both sums, not the lines.
+@test "golden render of the Claude install is unchanged" {
+  replay_install >/dev/null
+  local golden="$REPO_ROOT/tests/golden-claude-render.sha256"
+  local now="$BATS_TEST_TMPDIR/golden-now"
+  "$REPO_ROOT/scripts/golden-render.sh" "$TEST_HOME" >"$now"
+  if [ -n "${GOLDEN_UPDATE:-}" ]; then
+    cp "$now" "$golden"
+    return 0
+  fi
+  run diff -u "$golden" "$now"
+  if [ "$status" -ne 0 ]; then
+    echo "$output"
+    false
+  fi
+}
+
+@test "golden render check fails when an installed skill changes" {
+  replay_install >/dev/null
+  echo "one more word" >>"$TEST_HOME/.claude/skills/radin-do/SKILL.md"
+  "$REPO_ROOT/scripts/golden-render.sh" "$TEST_HOME" >"$BATS_TEST_TMPDIR/golden-now"
+  run diff -u "$REPO_ROOT/tests/golden-claude-render.sha256" "$BATS_TEST_TMPDIR/golden-now"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"skills/radin-do/SKILL.md"* ]]
+}
+
 # Exiting before "Done" leaves a partial ~/.claude, so the run must say so
 # instead of returning success-looking silence. radin's own stack is already
 # complete by then: a vendored tool dies after every token is written.

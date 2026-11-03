@@ -1,4 +1,4 @@
-.PHONY: install update build run test bench-tui screenshot lint check gen diagrams serve-diagrams clean
+.PHONY: install update build run test golden bench-tui screenshot lint check gen diagrams serve-diagrams clean
 
 install:
 	./install.sh
@@ -48,6 +48,10 @@ test: build
 		fi; \
 		exit $$status
 
+# Rewrites the golden sums after an intended change to the Claude render.
+golden:
+	env -u CLAUDE_CONFIG_DIR GOLDEN_UPDATE=1 bats --filter 'golden render of the Claude install' tests/install.bats
+
 # Key-to-frame latency on a seeded 42-task backlog; see tests/bench-tui.sh.
 bench-tui:
 	@tests/bench-tui.sh
@@ -56,7 +60,7 @@ bench-tui:
 screenshot:
 	@scripts/screenshot-tui.sh
 
-SH_FILES = tests/bench-tui.sh scripts/screenshot-tui.sh scripts/shipped.sh install.sh bin/radin lib/radin-namespace.sh lib/radin-json.sh lib/radin-backlog.sh lib/radin-state.sh lib/radin-scope.sh lib/radin-prompt.sh lib/radin-cbm-hooks.sh lib/radin-cbm-config.sh lib/radin-update.sh lib/radin-doctor.sh lib/radin-stats.sh lib/radin-uninstall.sh scripts/check-prose.sh scripts/real-setup-sum.sh
+SH_FILES = tests/bench-tui.sh scripts/screenshot-tui.sh scripts/shipped.sh install.sh bin/radin lib/radin-namespace.sh lib/radin-json.sh lib/radin-backlog.sh lib/radin-state.sh lib/radin-scope.sh lib/radin-prompt.sh lib/radin-cbm-hooks.sh lib/radin-cbm-config.sh lib/radin-update.sh lib/radin-doctor.sh lib/radin-stats.sh lib/radin-uninstall.sh scripts/check-prose.sh scripts/real-setup-sum.sh scripts/golden-render.sh
 
 clean:
 	rm -f lib/radin-tui lib/radin-cbm-json tests/helpers/pty-run tests/helpers/mock

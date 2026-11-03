@@ -33,6 +33,7 @@ A new rule goes here as one bullet: the rule, then `**Why:**`.
 - **`radin update` is the one update path and needs no model.** A dev clone runs `git pull --ff-only` and refuses on a dirty tree. Any other install downloads the newest `install.sh` from `main`. `--update` skips reinstalling a companion that is present but still configures it.
 - **Edit `skills/*/SKILL.md` in this repo, never the installed copy.** `thermo-nuclear`, `unslop` and `technical-writing` are not in this repo.
 - **Install the whole companion, then bracket its destructive write.** `codebase-memory-mcp` installs with `--skip-config`. `radin-cbm-config.sh install` then runs upstream's configuration between a snapshot and a restore. **Why:** upstream [#1200](https://github.com/DeusData/codebase-memory-mcp/issues/1200) replaces the whole `SessionStart` array in `settings.json` and drops other tools' hooks. Leave the bracket in place after the fix. It then prints `INTACT` and covers the next regression. Apply the same test to any future companion.
+- **A source edit that changes the Claude render runs `make golden` and commits the new list.** `tests/golden-claude-render.sha256` holds a sum for each installed `SKILL.md` and `lib/*.md`. **Why:** the list is the proof that Claude users see the same text after a change.
 
 ### Limits of the codebase-memory-mcp bracket
 

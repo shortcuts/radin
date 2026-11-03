@@ -34,6 +34,7 @@ radin is a Claude Code plugin of skills, a CLI, and install glue.
 | Same checks locally and in CI | `make check` and `make test` in `.github/workflows/ci.yml` | Linux run unverified. |
 | Deterministic work lives in the CLI | `scripts/check-prose.sh` raw `git` lint over `lib/radin-run.md` and `lib/radin-batch-*.md` | Other deterministic steps in prose, and a raw `git` outside those files; review only. |
 | Lifecycle diagrams match the skills and the run loop | None; `make diagrams` regenerates the SVGs | Review only. |
+| Claude render unchanged | `tests/install.bats` golden render test, `make golden` | Files outside `SKILL.md` and `lib/*.md` are unhashed. |
 
 Add a row with every new hard rule.
 
