@@ -51,7 +51,7 @@ case "$kind" in
 planning | execution | debug | factfind | gate | merge) ;;
 *) die "unknown prompt kind: $kind" ;;
 esac
-TEMPLATE="$LIB_DIR/radin-prompt-$kind.md"
+TEMPLATE="$MD_DIR/radin-prompt-$kind.md"
 [ -f "$TEMPLATE" ] || die "no template file: $TEMPLATE"
 
 case "$kind" in

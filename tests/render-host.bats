@@ -226,6 +226,22 @@ render_lib() {
   done
 }
 
+@test "prompt.sh finds its templates under hosts/<host>/lib in the installed layout" {
+  render_lib flat claude
+  H="$T/inst"
+  mkdir -p "$H/lib" "$H/hosts/claude"
+  cp "$T"/flat/lib/*.sh "$H/lib/"
+  mkdir "$H/hosts/claude/lib"
+  mv "$T"/flat/lib/*.md "$H/hosts/claude/lib/"
+  git init -q "$H/proj"
+  git -C "$H/proj" config user.email t@t
+  git -C "$H/proj" config user.name t
+  git -C "$H/proj" commit -q --allow-empty -m init
+  (cd "$H/proj" && RADIN_HOST=claude bash "$H/lib/radin-backlog.sh" add fix "t one" <<<"body")
+  run bash -c "cd '$H/proj' && RADIN_HOST=claude bash '$H/lib/radin-prompt.sh' execution t-one"
+  [ "$status" -eq 0 ]
+}
+
 @test "a claude lib without a model line still fails" {
   render_lib broken claude
   grep -v '^`model: "' "$T/broken/lib/radin-prompt-factfind.md" > "$T/broken/f.md"
