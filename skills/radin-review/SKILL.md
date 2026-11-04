@@ -80,7 +80,12 @@ Work these rungs in order and stop at the first that yields a spec:
 
    When every entry is a follow-up, there is no spec, only decisions, and
    Step 6 reports `no spec available`.
+   <!-- host:claude -->
 3. **Ask.** One `AskUserQuestion` offering the top entries from
+   <!-- /host -->
+   <!-- host:agents -->
+3. **Ask.** One ask offering the top 3 entries from
+   <!-- /host -->
    `RADIN_CLI backlog list` as options, with the free-text field carrying a
    path. "There isn't one" falls to rung 4.
 4. **Skip.** No spec: say so once here, and report `no spec available` in
@@ -184,7 +189,12 @@ model that sees the list twice drops the printed one.
 **Why:** the user sees only a truncated one-line summary of a sub-agent's
 result, so the findings reach the user only through text you print.
 
+<!-- host:claude -->
 Then gate on one `AskUserQuestion` with two single-select questions:
+<!-- /host -->
+<!-- host:agents -->
+Then gate on one ask per `RADIN_LIB/radin-ask-rule.md` with two single-select questions:
+<!-- /host -->
 
 - Which groups: **Recommended only** (the Act on groups) or **All** (Act on
   and Consider). The question text is one line: "Which groups, by the list

@@ -60,8 +60,13 @@ that run. The user is present now and the batch is not.
 
 Pick the channel by the Decisions:
 
+<!-- host:claude -->
 - **Up to 4 Decisions, each with discrete options:** one `AskUserQuestion` call.
   Put your recommendation first, marked "(Recommended)".
+<!-- /host -->
+<!-- host:agents -->
+- **Up to 4 Decisions, each with discrete options:** one ask per `RADIN_LIB/radin-ask-rule.md`.
+<!-- /host -->
 - **More than 4, open-ended answers, or answers that depend on each other:** invoke
   `/mattpocock-skills:grilling` on them.
 

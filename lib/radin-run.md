@@ -140,7 +140,12 @@ Exit 0: line 1 is `ids<TAB><csv>`, the scope with every transitive
 dependency. Keep that csv as the scope. Line 2, when present, is
 `dependencies<TAB><csv>`, the tasks the closure added. Exit 1 or 2: show the
 user `RADIN_CLI backlog epics` and any `candidate` lines, and ask which one
+<!-- host:claude -->
 they meant, via one `AskUserQuestion`. Never guess.
+<!-- /host -->
+<!-- host:agents -->
+they meant, via one ask (`RADIN_LIB/radin-ask-rule.md`). Never guess.
+<!-- /host -->
 
 ## Phase 2: Print Order, Select Tasks
 
@@ -156,7 +161,12 @@ questions a prompt may pre-answer.
    One `<order>. <title> (id: <id>)` line per task in final order, then one
    `dependency override:` line per dependency the fix moved up. The verb is
    idempotent, so re-run it here rather than reusing Phase 0's output.
+   <!-- host:claude -->
 2. Ask via one `AskUserQuestion` call with fixed choices:
+   <!-- /host -->
+   <!-- host:agents -->
+2. Ask per `RADIN_LIB/radin-ask-rule.md`, with fixed choices:
+   <!-- /host -->
    - **Task selection** (unless Phase 1 resolved a scope): "Which
      tasks now?" Options: `All of them` /
      `Only the ones I name` / `Just the first one`. `Only the ones I name`
@@ -349,7 +359,12 @@ Print its output verbatim. Read
 cannot do.
 
 Then run `RADIN_CLI state steps-waiting`. Exit 1: go to Phase 6. Exit 0
+<!-- host:claude -->
 prints the `waiting` entries this run left, so ask via one `AskUserQuestion`:
+<!-- /host -->
+<!-- host:agents -->
+prints the `waiting` entries this run left, so ask per `RADIN_LIB/radin-ask-rule.md`:
+<!-- /host -->
 "Settle N open decisions now?" Options: `Yes` / `Later`. `Yes`: settle them per
 "Settling Waiting Entries" in `RADIN_LIB/radin-batch-clarify.md`, then tell the
 user the answered entries are `pending` and re-invoking the skill runs them.

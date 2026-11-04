@@ -125,3 +125,50 @@ lint_root() {
   [ "$status" -eq 1 ]
   [[ "$output" == *'lib/radin-batch-gate.md:1: host block never closed'* ]]
 }
+
+ask_hosts() {
+  mkdir -p "$T/h"
+  cp "$REPO_ROOT/hosts/forbid-claude.txt" "$T/h/"
+  printf 'AskUserQuestion\n' > "$T/h/forbid-agents.txt"
+}
+
+@test "the agents render of each ask site has no AskUserQuestion" {
+  ask_hosts
+  for f in lib/radin-run.md lib/radin-batch-session.md lib/radin-batch-merge.md lib/radin-batch-clarify.md skills/radin-review/SKILL.md skills/radin-record/SKILL.md skills/radin-do/SKILL.md; do
+    run env RADIN_HOSTS_DIR="$T/h" "$RENDER" "$REPO_ROOT/$f" agents
+    [ "$status" -eq 0 ]
+  done
+}
+
+@test "the agents render of each file that asks names the ask rule" {
+  ask_hosts
+  for f in lib/radin-run.md lib/radin-batch-merge.md skills/radin-review/SKILL.md skills/radin-record/SKILL.md skills/radin-do/SKILL.md; do
+    run env RADIN_HOSTS_DIR="$T/h" "$RENDER" "$REPO_ROOT/$f" agents
+    [ "$status" -eq 0 ]
+    [[ "$output" == *radin-ask-rule.md* ]]
+  done
+}
+
+@test "the agents render of the leaf contract names no question tool" {
+  run "$RENDER" "$REPO_ROOT/lib/radin-leaf-contract.md" agents
+  [ "$status" -eq 0 ]
+  [[ "$output" != *AskUserQuestion* ]]
+  [[ "$output" == *"no question tool"* ]]
+}
+
+@test "lint passes a sentence shared by the claude and agents twins of one line" {
+  lint_root
+  printf 'clean\n' > "$T/r/skills/x/SKILL.md"
+  printf '%s\n' '<!-- host:claude -->' 'Read the shared plan file before you start the task.' '<!-- /host -->' '<!-- host:agents -->' 'Read the shared plan file before you start the task.' '<!-- /host -->' > "$T/r/lib/radin-twin.md"
+  run "$REPO_ROOT/scripts/check-prose.sh" "$T/r"
+  [ "$status" -eq 0 ]
+}
+
+@test "lint fails on a sentence repeated outside any host block" {
+  lint_root
+  printf 'clean\n' > "$T/r/skills/x/SKILL.md"
+  printf '%s\n' 'Read the shared plan file before you start the task.' '' 'Read the shared plan file before you start the task.' > "$T/r/lib/radin-twin.md"
+  run "$REPO_ROOT/scripts/check-prose.sh" "$T/r"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *'lib/radin-twin.md:3: repeats lib/radin-twin.md:1; state it once there and point to it'* ]]
+}

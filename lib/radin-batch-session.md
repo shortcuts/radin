@@ -10,7 +10,12 @@ answer changes nothing. `branch` decides only what happens under
 Constraints of `RADIN_LIB/radin-run.md`. Say both when you ask.
 
 Take the invoking prompt's preference if it states one, otherwise ask both in
+<!-- host:claude -->
 the same `AskUserQuestion` call as Phase 2's task selection, so one call
+<!-- /host -->
+<!-- host:agents -->
+the same ask as Phase 2's task selection, so one call
+<!-- /host -->
 covers all three questions. Then persist them:
 
 ```bash

@@ -52,17 +52,20 @@ BEGIN { n = split(allowed, a, "|"); for (i = 1; i <= n; i++) ok[a[i]] = 1 }
 function emit(  s) {
 	s = tolower(buf); gsub(/[^a-z0-9]+/, " ", s); gsub(/^ | $/, "", s); buf = ""
 	if (split(s, w, " ") < 8 || s in ok) return
-	if (s in seen) printf "%s:%d: repeats %s; state it once there and point to it\n", FILENAME, start, seen[s]
-	else seen[s] = FILENAME ":" start
+	if (s in seen) {
+		if (sb && seenb[s] && sb != seenb[s]) return
+		printf "%s:%d: repeats %s; state it once there and point to it\n", FILENAME, start, seen[s]
+	} else { seen[s] = FILENAME ":" start; seenb[s] = sb }
 }
-FNR == 1 { if (FILENAME in done) nextfile; done[FILENAME] = 1; buf = "" }
+FNR == 1 { if (FILENAME in done) nextfile; done[FILENAME] = 1; buf = ""; blk = 0; nb = 0 }
+/^[ \t]*<!-- (host:|\/host)/ { emit(); blk = /host:/ ? ++nb : 0; next }
 /^[ \t]*($|```|#|[-*] |[0-9]+[a-z]?\. |<!--)/ { emit() }
 {
 	line = $0
-	if (buf == "") start = FNR
+	if (buf == "") { start = FNR; sb = blk }
 	while (match(line, /[.!?]([ \t]|$)/)) {
 		buf = buf " " substr(line, 1, RSTART); emit()
-		line = substr(line, RSTART + RLENGTH); start = FNR
+		line = substr(line, RSTART + RLENGTH); start = FNR; sb = blk
 	}
 	if (line ~ /[^ \t]/) buf = buf " " line
 }

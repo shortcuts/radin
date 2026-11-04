@@ -25,7 +25,12 @@ plan needed: go to Step 3.
 
 Exit 0: invoke `/radin-plan` on the id and plan the entry as one unit. Show the
 user a summary of the plan's Outcome and Decisions, then ask with
+<!-- host:claude -->
 `AskUserQuestion`: `Execute`, `I have feedback`, or `Stop`.
+<!-- /host -->
+<!-- host:agents -->
+your question tool (`RADIN_LIB/radin-ask-rule.md`): `Execute`, `I have feedback`, or `Stop`.
+<!-- /host -->
 
 - `Execute`: go to Step 3.
 - Feedback: invoke `/mattpocock-skills:grilling` on the plan's open decisions,

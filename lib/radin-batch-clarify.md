@@ -45,7 +45,12 @@ Route on it:
   the entry or plan doesn't settle. Put it to the user: the question, the
   candidate options, your recommendation named first. A human action goes to
   the user as the action to take, and the result they report is what you
+  <!-- host:claude -->
   append. `AskUserQuestion` suits a closed set of options; prose suits
+  <!-- /host -->
+  <!-- host:agents -->
+  append. Your question tool suits a closed set of options; prose suits
+  <!-- /host -->
   anything that needs explaining.
 
 Once settled, append the resolution to the task's file:
