@@ -5,4 +5,6 @@ isolate_env() {
   export XDG_CONFIG_HOME="$1/.config"
   export CODEX_HOME="$1/.codex"
   unset OPENCODE_CONFIG CLAUDE_CONFIG_DIR
+  # Tests assert on progress lines; install.sh prints them only with details on.
+  export RADIN_DETAILS=1
 }

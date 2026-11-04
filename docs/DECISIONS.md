@@ -57,6 +57,7 @@ A new rule goes here as one bullet: the rule, then `**Why:**`.
 - **`radin update`, `radin uninstall` and `radin doctor` act on every installed host, with no per-host flag.** The manifest records the hosts and the agents CLIs. Uninstall removes the agents render only when no agents CLI remains. **Why:** one run per action keeps a multi-host install from repeating the same setup for each host.
 - **Verification has three layers, and none is optional before the host support counts as stable.** The layers are offline `make test`, an opt-in `make verify-hosts` that drives the real opencode and codex CLIs in an isolated HOME without a model call, and a manual end-to-end checklist on both hosts. **Why:** the offline tests cannot show that a real CLI loads radin's files.
 - **`make verify-hosts` drives the real CLIs with `--standalone`, a stubbed `PATH` and one `HOME` per host.** **Why:** `opencode debug` without `--standalone` reaches the user's background service and real config, and a failing companion download only warns, so the stubs keep the run offline.
+- **A plain install leaves a present companion alone, and `--refresh` upgrades it.** `.radin/bin/.radin-*.sum` and `.radin/cbm-wired.stamp` skip an unchanged C build and an unchanged codebase-memory-mcp wiring. Progress lines print only with `--details` or `RADIN_DETAILS=1`; each step otherwise prints one line with its time. **Why:** reinstalling every companion took ~180s of a ~6s install, and 30 progress lines hid the one warning that needed the user.
 
 ### Limits of the codebase-memory-mcp bracket
 

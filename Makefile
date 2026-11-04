@@ -37,9 +37,7 @@ test: build
 # bats runs without CLAUDE_CONFIG_DIR and the run fails if a real file changes.
 	@before=$$(scripts/real-setup-sum.sh); \
 		GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.fsync GIT_CONFIG_VALUE_0=none \
-		env -u CLAUDE_CONFIG_DIR -u CODEX_HOME -u XDG_CONFIG_HOME -u OPENCODE_CONFIG sh -c 'bats tests/install.bats & install=$$!; \
-			{ ls tests/backlog.bats tests/tui-*.bats; ls tests/*.bats | grep -v -e install -e backlog -e tui-; } | xargs -P 6 -n1 bats; status=$$?; \
-			wait $$install || status=1; exit $$status'; \
+		env -u CLAUDE_CONFIG_DIR -u CODEX_HOME -u XDG_CONFIG_HOME -u OPENCODE_CONFIG sh -c '{ ls tests/install*.bats tests/backlog.bats tests/tui-*.bats; ls tests/*.bats | grep -v -e install -e backlog -e tui-; } | xargs -P $$(getconf _NPROCESSORS_ONLN) -n1 bats; exit $$?'; \
 		status=$$?; \
 		after=$$(scripts/real-setup-sum.sh); \
 		if [ "$$before" != "$$after" ]; then \
@@ -50,7 +48,7 @@ test: build
 
 # Rewrites the golden sums after an intended change to the Claude render.
 golden:
-	env -u CLAUDE_CONFIG_DIR -u CODEX_HOME -u XDG_CONFIG_HOME -u OPENCODE_CONFIG GOLDEN_UPDATE=1 bats --filter 'golden render of the Claude install' tests/install.bats
+	env -u CLAUDE_CONFIG_DIR -u CODEX_HOME -u XDG_CONFIG_HOME -u OPENCODE_CONFIG GOLDEN_UPDATE=1 bats --filter 'golden render of the Claude install' tests/install*.bats
 
 # Opt-in: drives the real opencode and codex CLIs without a model call. Needs a C
 # compiler, about a minute per host, and npm for VERIFY_ARGS=--install-missing.

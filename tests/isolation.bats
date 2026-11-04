@@ -8,7 +8,7 @@ bats_require_minimum_version 1.5.0
   local f missing=""
   for f in "$BATS_TEST_DIRNAME"/*.bats; do
     grep -qE 'HOME=' "$f" || continue
-    grep -q isolate_env "$f" || missing="$missing $(basename "$f")"
+    grep -qE 'isolate_env|load helpers/install' "$f" || missing="$missing $(basename "$f")"
   done
   [ -z "$missing" ] || { echo "no isolate_env in:$missing"; false; }
 }

@@ -24,6 +24,9 @@ fi
 
 YES=""
 UPDATE=""
+REFRESH=""
+# RADIN_DETAILS=1 is --details for runs that cannot pass a flag.
+DETAILS="${RADIN_DETAILS:-}"
 VERBOSE=""
 LIST=""
 DRY=""
@@ -45,7 +48,7 @@ host_detected() {
 }
 
 usage_exit() {
-	printf 'usage: install.sh [--yes] [--verbose] [--update] [--list] [--dry-run] [--force] [--only ID[,ID...]]\n' >&2
+	printf 'usage: install.sh [--yes] [--verbose] [--details] [--update] [--refresh] [--list] [--dry-run] [--force] [--only ID[,ID...]]\n' >&2
 	printf 'hosts: %s\n' "$(host_ids | tr '\n' ' ')" >&2
 	exit 2
 }
@@ -83,6 +86,10 @@ while [ $# -gt 0 ]; do
 	# installed is not reinstalled. Companion tools have their own update
 	# paths; a plain install re-runs every one of them.
 	--update) UPDATE="1" ;;
+	# A plain install leaves a present companion alone; --refresh upgrades each one.
+	--refresh) REFRESH="1" ;;
+	# Prints every progress line. Without it, one line per step.
+	--details) DETAILS="1" ;;
 	--list) LIST="1" ;;
 	--dry-run) DRY="1" ;;
 	--force) FORCE="1" ;;
@@ -133,14 +140,47 @@ if [ -n "$VERBOSE" ]; then
 fi
 
 RAT='🐀'
-info() { printf "%b\n" "${CYAN}${RAT}${RESET} $*"; }
-ok() { printf "%b\n" "${GREEN}${RAT}${RESET} $*"; }
-warn() { printf "%b\n" "${YELLOW}${RAT}${RESET} $*"; }
+# Progress lines (info, ok) show with --details or --verbose. Otherwise each
+# step prints one line with its elapsed time, and only warnings and the final
+# summary break through: a long install must not bury the one line that
+# needs the user.
+LOUD="$DETAILS$VERBOSE"
+TTY_OUT=""
+[ ! -t 1 ] || TTY_OUT="1"
+clear_line() { [ -z "$TTY_OUT" ] || printf '\r\033[K'; }
+say() {
+	clear_line
+	printf "%b\n" "${CYAN}${RAT}${RESET} $*"
+}
+info() { [ -z "$LOUD" ] || say "$*"; }
+ok() { [ -z "$LOUD" ] || printf "%b\n" "${GREEN}${RAT}${RESET} $*"; }
+warn() {
+	clear_line
+	printf "%b\n" "${YELLOW}${RAT}${RESET} $*"
+}
 STEP_N=0
-STEP_TOTAL=8
+STEP_TOTAL=7
+STEP_NAME=""
+STEP_T0=0
+INSTALL_T0="$(date +%s)"
+finish_step() {
+	[ -n "$STEP_NAME" ] || return 0
+	if [ -z "$LOUD" ]; then
+		clear_line
+		printf "%b\n" "${GREEN}✓${RESET} $STEP_NAME ${DIM}($(($(date +%s) - STEP_T0))s)${RESET}"
+	fi
+	STEP_NAME=""
+}
 step() {
+	finish_step
 	STEP_N=$((STEP_N + 1))
-	printf "\n%b\n" "${BOLD}${MAGENTA}${RAT} [$STEP_N/$STEP_TOTAL] $*${RESET}"
+	STEP_NAME="$*"
+	STEP_T0="$(date +%s)"
+	if [ -n "$LOUD" ]; then
+		printf "\n%b\n" "${BOLD}${MAGENTA}${RAT} [$STEP_N/$STEP_TOTAL] $*${RESET}"
+	elif [ -n "$TTY_OUT" ]; then
+		printf "%b" "${DIM}▸ $*…${RESET}"
+	fi
 }
 
 # A child that swallowed fd0 used to end the run here with status 0 and a
@@ -726,6 +766,10 @@ migrate_abort() {
 
 path_taken() { [ -e "$1" ] || [ -L "$1" ]; }
 
+sha256_many() {
+	if command -v sha256sum >/dev/null 2>&1; then xargs -0 sha256sum; else xargs -0 shasum -a 256; fi
+}
+
 # macOS ships shasum only; Linux ships sha256sum.
 sha256_of() {
 	if command -v sha256sum >/dev/null 2>&1; then
@@ -997,7 +1041,7 @@ preflight() {
 
 # Without --force, a render with an unowned target is left out, and so is every host that reads it.
 drop_blocked() {
-	local r id ids keep units u
+	local r id ids keep units u n
 	if [ -z "$FORCE" ]; then
 		for r in $RENDERS; do
 			units="$(awk -F'\t' -v r="$r" '$1 == "unowned" && $3 == r { print $4 }' "$PLAN" | sort -u)"
@@ -1008,13 +1052,15 @@ drop_blocked() {
 				if [ "$(host_field "$id" 3)" = "$r" ]; then ids="$ids $id"; else keep="$keep $id"; fi
 			done
 			ids="${ids# }"
-			while IFS= read -r u; do
-				if [ -n "$DRY" ]; then
-					printf 'conflict %s\n' "$u"
-				else
-					warn "$u exists and radin did not install it: $ids skipped; --force backs it up"
-				fi
-			done <<<"$units"
+			if [ -n "$DRY" ]; then
+				while IFS= read -r u; do printf 'conflict %s\n' "$u"; done <<<"$units"
+			else
+				# One line: 30 near-identical ones buried every other message.
+				n="$(printf '%s\n' "$units" | wc -l | tr -d ' ')"
+				u="$(printf '%s\n' "$units" | head -1)"
+				warn "$u exists and radin did not install it (and $((n - 1)) more): $ids skipped; --force backs it up"
+				[ -z "$LOUD" ] || printf '%s\n' "$units" | sed 's/^/    /'
+			fi
 			[ -z "$DRY" ] || printf 'skip host %s\n' "$ids"
 			[ -z "$UPDATE" ] || HELD="$HELD $ids"
 			SELECTED="${keep# }"
@@ -1121,25 +1167,47 @@ TUI_CC="$(command -v cc || command -v gcc || command -v clang || true)"
 if [ -n "$TUI_CC" ]; then
 	CC_LOG="$(mktemp)"
 	CC_LOG2="$(mktemp)"
+	# A binary whose recorded source hash still matches is not rebuilt: -O2 on
+	# the TUI costs seconds and the source rarely changes between installs.
 	# The two builds share no input or output, so they compile at once.
-	"$TUI_CC" -O2 -o "$RADIN_HOME/bin/radin-tui" \
-		"$RADIN_HOME/lib/radin-tui.c" >"$CC_LOG" 2>&1 &
-	TUI_PID=$!
-	"$TUI_CC" -O2 -o "$RADIN_HOME/bin/radin-cbm-json" \
-		"$RADIN_HOME/lib/radin-cbm-json.c" >"$CC_LOG2" 2>&1 &
-	JSON_PID=$!
-	if wait "$TUI_PID"; then
-		ok "TUI built."
+	TUI_SUM="$(sha256_of "$RADIN_HOME/lib/radin-tui.c")"
+	JSON_SUM="$(sha256_of "$RADIN_HOME/lib/radin-cbm-json.c")"
+	TUI_PID=""
+	JSON_PID=""
+	if [ -x "$RADIN_HOME/bin/radin-tui" ] && [ "$(cat "$RADIN_HOME/bin/.radin-tui.sum" 2>/dev/null)" = "$TUI_SUM" ]; then
+		ok "TUI up to date."
 	else
-		tail -n 20 "$CC_LOG" >&2
-		warn "the TUI failed to build -- every other subcommand still works."
+		"$TUI_CC" -O2 -o "$RADIN_HOME/bin/radin-tui" \
+			"$RADIN_HOME/lib/radin-tui.c" >"$CC_LOG" 2>&1 &
+		TUI_PID=$!
 	fi
-	if wait "$JSON_PID"; then
-		ok "radin-cbm-json built."
+	if [ -x "$RADIN_HOME/bin/radin-cbm-json" ] && [ "$(cat "$RADIN_HOME/bin/.radin-cbm-json.sum" 2>/dev/null)" = "$JSON_SUM" ]; then
+		ok "radin-cbm-json up to date."
 	else
-		tail -n 20 "$CC_LOG2" >&2
-		warn "radin-cbm-json failed to build -- radin cbm-config is unavailable;"
-		warn "the merge-only wiring is used instead."
+		"$TUI_CC" -O2 -o "$RADIN_HOME/bin/radin-cbm-json" \
+			"$RADIN_HOME/lib/radin-cbm-json.c" >"$CC_LOG2" 2>&1 &
+		JSON_PID=$!
+	fi
+	if [ -n "$TUI_PID" ]; then
+		if wait "$TUI_PID"; then
+			printf '%s' "$TUI_SUM" >"$RADIN_HOME/bin/.radin-tui.sum"
+			ok "TUI built."
+		else
+			rm -f "$RADIN_HOME/bin/.radin-tui.sum"
+			tail -n 20 "$CC_LOG" >&2
+			warn "the TUI failed to build -- every other subcommand still works."
+		fi
+	fi
+	if [ -n "$JSON_PID" ]; then
+		if wait "$JSON_PID"; then
+			printf '%s' "$JSON_SUM" >"$RADIN_HOME/bin/.radin-cbm-json.sum"
+			ok "radin-cbm-json built."
+		else
+			rm -f "$RADIN_HOME/bin/.radin-cbm-json.sum"
+			tail -n 20 "$CC_LOG2" >&2
+			warn "radin-cbm-json failed to build -- radin cbm-config is unavailable;"
+			warn "the merge-only wiring is used instead."
+		fi
 	fi
 	rm -f "$CC_LOG" "$CC_LOG2"
 else
@@ -1150,7 +1218,7 @@ install_tool() {
 	local name="$1" install_cmd="$2"
 	# codebase-memory-mcp's installer targets ~/.local/bin, which is not on
 	# PATH in every shell.
-	if [ -n "$UPDATE" ] && { command -v "$name" || [ -x "$HOME/.local/bin/$name" ]; } >/dev/null 2>&1; then
+	if [ -z "$REFRESH" ] && { command -v "$name" || [ -x "$HOME/.local/bin/$name" ]; } >/dev/null 2>&1; then
 		ok "$name already installed."
 		return
 	fi
@@ -1180,8 +1248,19 @@ install_tool() {
 # Prints `enabled` or `disabled` for plugin $1's user-scope install, nothing
 # when it has none. A project-scope install does not count: its hooks run in
 # that one project only. ponytail: second copy in lib/radin-doctor.sh.
+PLUGIN_LIST=""
+# Fills the cache in the caller's shell: plugin_state runs in a $(...) subshell
+# and its own assignment would be lost.
+prime_plugins() {
+	command -v claude >/dev/null 2>&1 || return 0
+	[ -n "$PLUGIN_LIST" ] || PLUGIN_LIST="$(claude plugin list 2>/dev/null || true)"
+}
 plugin_state() {
-	claude plugin list 2>/dev/null | awk -v id="$1" '
+	# One `claude plugin list` per run: each call costs ~1s and the list only
+	# changes through install_plugin_files, which clears the cache.
+	local list="$PLUGIN_LIST"
+	[ -n "$list" ] || list="$(claude plugin list 2>/dev/null || true)"
+	printf '%s\n' "$list" | awk -v id="$1" '
 		/❯ / { cur = ($2 == id); scope = ""; next }
 		cur && /Scope:/ { scope = $2 }
 		cur && scope == "user" && /Status:/ { state = /disabled/ ? "disabled" : "enabled" }
@@ -1190,27 +1269,32 @@ plugin_state() {
 }
 
 install_plugin() {
-	local name="$1" plugin_id="$2"
+	local name="$1" plugin_id="$2" rc
 	# Plugins install through the `claude` CLI and nothing else, so on a machine
 	# without it say so once per plugin instead of asking and then failing.
 	if ! command -v claude >/dev/null 2>&1; then
 		warn "$name skipped: the 'claude' CLI is not on PATH. Install Claude Code, then re-run install.sh."
 		return 0
 	fi
-	install_plugin_files "$@"
+	rc=0
+	prime_plugins
+	install_plugin_files "$@" || rc=$?
+	# 3 means nothing changed, so the cached list is still right.
+	[ "$rc" = 3 ] || PLUGIN_LIST=""
 	# A plugin's hooks run only while it is enabled, and radin's execution
 	# prompt relies on ponytail's SubagentStart hook.
 	[ "$(plugin_state "$plugin_id")" = disabled ] || return 0
 	claude plugin enable --scope user "$plugin_id" >/dev/null 2>&1 </dev/null || true
+	PLUGIN_LIST=""
 	[ "$(plugin_state "$plugin_id")" = enabled ] ||
 		warn "$name is installed but disabled, so its hooks do not run. Run: claude plugin enable --scope user $plugin_id"
 }
 
 install_plugin_files() {
 	local name="$1" plugin_id="$2" marketplace_source="$3"
-	if [ -n "$UPDATE" ] && [ -n "$(plugin_state "$plugin_id")" ]; then
+	if [ -z "$REFRESH" ] && [ -n "$(plugin_state "$plugin_id")" ]; then
 		ok "$name already installed."
-		return
+		return 3
 	fi
 	if [ -n "$(plugin_state "$plugin_id")" ]; then
 		if [ -n "$VERBOSE" ]; then
@@ -1276,74 +1360,41 @@ json_names() {
 	done
 }
 
-set_role_models() {
-	# No `sed -i`: BSD sed (macOS) and GNU sed (Linux) take incompatible forms
-	# of it. Temp-file-plus-mv avoids the divergence entirely.
-	local file="$1" tmp
-	tmp="$(mktemp)"
-	sed -e "s/RADIN_MODEL_PLANNING/${MODEL_MAJOR}/g" \
-		-e "s/RADIN_MODEL_EXECUTION/${MODEL_MAJOR}/g" \
-		-e "s/RADIN_MODEL_REVIEW/${MODEL_MAJOR}/g" \
-		-e "s/RADIN_MODEL_DEBUG/${MODEL_MAJOR}/g" \
-		-e "s/RADIN_MODEL_FACTFIND/${MODEL_MINOR}/g" \
-		-e "s/RADIN_MODEL_LOW/${MODEL_MINOR}/g" \
-		"$file" >"$tmp" && mv "$tmp" "$file"
-	# A surviving token reaches the model as a literal model name and every
-	# dispatch fails -- louder to stop here than to debug that.
-	if grep -q 'RADIN_MODEL_' "$file"; then
-		printf "%b\n" "${RED}${RAT} failed to write the sub-agent models into $file.${RESET} Re-run the installer." >&2
-		exit 1
+# Every render file carries tokens instead of literals: RADIN_MODEL_<ROLE> and
+# RADIN_EFFORT_<ROLE> (claude render only), RADIN_CLI (the bare `radin` once it
+# is on PATH, else the full dispatcher path, so no skill knows which the user
+# picked) and RADIN_LIB (the Read tool needs an absolute path, so a literal
+# `$HOME` would leave the model expanding it before every on-demand doc read).
+# One sed script per render and one pass per file: four passes per file cost
+# seconds across ~60 files.
+# No `sed -i`: BSD sed (macOS) and GNU sed (Linux) take incompatible forms of
+# it. Temp-file-plus-mv avoids the divergence entirely.
+write_token_script() {
+	local r="$1" script="$2"
+	: >"$script"
+	if [ "$r" = claude ]; then
+		printf 's/RADIN_MODEL_%s/%s/g\n' PLANNING "$MODEL_MAJOR" EXECUTION "$MODEL_MAJOR" REVIEW "$MODEL_MAJOR" \
+			DEBUG "$MODEL_MAJOR" FACTFIND "$MODEL_MINOR" LOW "$MODEL_MINOR" >>"$script"
+		printf 's/RADIN_EFFORT_%s/%s/g\n' PLANNING "$EFFORT_MAJOR" EXECUTION "$EFFORT_MAJOR" REVIEW "$EFFORT_MAJOR" \
+			DEBUG "$EFFORT_MAJOR" FACTFIND "$EFFORT_MINOR" LOW "$EFFORT_MINOR" >>"$script"
 	fi
+	printf 's|RADIN_CLI|%s|g\n' "$RADIN_CLI_VALUE" >>"$script"
+	printf 's|RADIN_LIB|%s|g\n' "$RADIN_HOME/hosts/$r/lib" >>"$script"
 }
 
-set_role_efforts() {
-	local file="$1" tmp
-	tmp="$(mktemp)"
-	sed -e "s/RADIN_EFFORT_PLANNING/${EFFORT_MAJOR}/g" \
-		-e "s/RADIN_EFFORT_EXECUTION/${EFFORT_MAJOR}/g" \
-		-e "s/RADIN_EFFORT_REVIEW/${EFFORT_MAJOR}/g" \
-		-e "s/RADIN_EFFORT_DEBUG/${EFFORT_MAJOR}/g" \
-		-e "s/RADIN_EFFORT_FACTFIND/${EFFORT_MINOR}/g" \
-		-e "s/RADIN_EFFORT_LOW/${EFFORT_MINOR}/g" \
-		"$file" >"$tmp" && mv "$tmp" "$file"
-	# A surviving token reaches the Agent call as a literal effort and the
-	# dispatch fails.
-	if grep -q 'RADIN_EFFORT_' "$file"; then
-		printf "%b\n" "${RED}${RAT} failed to write the sub-agent efforts into $file.${RESET} Re-run the installer." >&2
+# A surviving token reaches the model as a literal and every dispatch, CLI call
+# or doc read fails -- louder to stop here than to debug that.
+check_tokens() {
+	local r="$1" stage="$2" pat what hit
+	for pat in 'RADIN_MODEL_:sub-agent models' 'RADIN_EFFORT_:sub-agent efforts' 'RADIN_CLI:CLI invocation' 'RADIN_LIB:lib path'; do
+		# The agents render has no model line, so a survivor there is the render error below.
+		[ "$r" = claude ] || case "$pat" in RADIN_MODEL_* | RADIN_EFFORT_*) continue ;; esac
+		hit="$(grep -rl "${pat%%:*}" "$stage" | head -1 || true)"
+		[ -n "$hit" ] || continue
+		what="${pat#*:}"
+		printf "%b\n" "${RED}${RAT} failed to write the $what into $hit.${RESET} Re-run the installer." >&2
 		exit 1
-	fi
-}
-
-# Skills carry a RADIN_CLI token instead of a hardcoded invocation -- same
-# contract as RADIN_MODEL_<ROLE>. set_cli writes in either the bare `radin`
-# (symlinked onto PATH below) or the full dispatcher path, so no skill knows
-# which the user picked.
-set_cli() {
-	local file="$1" cli="$2" tmp
-	tmp="$(mktemp)"
-	sed 's|RADIN_CLI|'"$cli"'|g' "$file" >"$tmp" && mv "$tmp" "$file"
-	# A surviving token reaches the model as a literal command and every CLI
-	# call fails -- louder to stop here than to debug that.
-	if grep -q 'RADIN_CLI' "$file"; then
-		printf "%b\n" "${RED}${RAT} failed to write the CLI invocation into $file.${RESET} Re-run the installer." >&2
-		exit 1
-	fi
-}
-
-# Skills carry a RADIN_LIB token instead of a literal `$HOME` path
-# -- same contract as RADIN_CLI. The Read tool needs an absolute path, so a
-# literal `$HOME` would leave the model expanding it before every on-demand
-# doc read.
-set_lib() {
-	local file="$1" lib="$2" tmp
-	tmp="$(mktemp)"
-	sed 's|RADIN_LIB|'"$lib"'|g' "$file" >"$tmp" && mv "$tmp" "$file"
-	# A surviving token reaches the model as a literal path and every on-demand
-	# doc read fails -- louder to stop here than to debug that.
-	if grep -q 'RADIN_LIB' "$file"; then
-		printf "%b\n" "${RED}${RAT} failed to write the lib path into $file.${RESET} Re-run the installer." >&2
-		exit 1
-	fi
+	done
 }
 
 RENDER_ERR=""
@@ -1390,14 +1441,22 @@ backup_path() {
 
 # Copies the staged files of one render to their targets by the preflight verdicts.
 publish_stage() {
-	local r="$1" stage="$2" f rel dst st unit written=0 same=0 kept=0
+	local r="$1" stage="$2" f rel dst st unit written=0 same=0 kept=0 pairs lastdir=""
+	pairs="$(mktemp)"
 	while IFS= read -r f; do
 		rel="${f#"$stage"/}"
 		case "$rel" in
 		lib/*) dst="$RADIN_HOME/hosts/$r/lib/${rel#lib/}" ;;
 		*) dst="$(host_skills_dir "$r")/$rel" ;;
 		esac
-		IFS="$TAB" read -r st unit < <(awk -F'\t' -v p="$dst" '$2 == p { print $1 "\t" $4; exit }' "$PLAN")
+		printf '%s\t%s\n' "$dst" "$f"
+	done < <(find "$stage" -type f | sort) >"$pairs"
+	# One awk joins every staged file to its preflight verdict: a fork per file
+	# cost seconds across ~100 files. "-" stands for an empty field, which
+	# `read` with a tab IFS would collapse.
+	while IFS="$TAB" read -r st dst f unit; do
+		[ "$st" != - ] || st=""
+		[ "$unit" != - ] || unit=""
 		if [ "$st" != free ] && [ "$st" != unowned ] && cmp -s "$f" "$dst"; then
 			same=$((same + 1))
 			continue
@@ -1410,11 +1469,20 @@ publish_stage() {
 		fi
 		if [ -n "$unit" ] && { [ "$st" = unowned ] || [ "$st" = edited ]; } && path_taken "$unit"; then
 			backup_path "$unit"
+			lastdir=""
 		fi
-		mkdir -p "$(dirname "$dst")"
+		if [ "${dst%/*}" != "$lastdir" ]; then
+			mkdir -p "${dst%/*}"
+			lastdir="${dst%/*}"
+		fi
 		cp "$f" "$dst"
 		written=$((written + 1))
-	done < <(find "$stage" -type f | sort)
+	done < <(awk -F'\t' '
+		NR == FNR { if (!($2 in st)) { st[$2] = $1; un[$2] = $4 } next }
+		{ s = ($1 in st) ? st[$1] : ""; u = ($1 in un) ? un[$1] : ""
+		  print (s == "" ? "-" : s) "\t" $1 "\t" $2 "\t" (u == "" ? "-" : u) }
+	' "$PLAN" "$pairs")
+	rm -f "$pairs"
 	ok "$r render installed to ${BOLD}$(host_skills_dir "$r")${RESET}: $written written, $same unchanged, $kept kept"
 }
 
@@ -1425,14 +1493,14 @@ install_render() {
 	RENDER_ERR=""
 	stage="$(mktemp -d)"
 	if stage_render "$r" "$stage"; then
+		local script
+		script="$(mktemp)"
+		write_token_script "$r" "$script"
 		while IFS= read -r f; do
-			if [ "$r" = claude ]; then
-				set_role_models "$f"
-				set_role_efforts "$f"
-			fi
-			set_cli "$f" "$RADIN_CLI_VALUE"
-			set_lib "$f" "$RADIN_HOME/hosts/$r/lib"
-		done < <(find "$stage" -type f -name '*.md' | sort)
+			sed -f "$script" "$f" >"$f.tmp" && mv "$f.tmp" "$f"
+		done < <(find "$stage" -type f -name '*.md')
+		rm -f "$script"
+		check_tokens "$r" "$stage"
 		# The agents prompts print no model or effort line; a token left over is a render bug.
 		if [ "$r" = agents ] && grep -rqE 'RADIN_(MODEL|EFFORT)_' "$stage"; then
 			RENDER_ERR="$(grep -rlE 'RADIN_(MODEL|EFFORT)_' "$stage" | head -1): model or effort token survives"
@@ -1625,7 +1693,7 @@ cbm_bin() {
 step "Companion tools"
 THERMO_SKILL="$HOME/.claude/skills/thermo-nuclear/SKILL.md"
 if host_selected claude; then
-	if [ -n "$UPDATE" ] && [ -f "$THERMO_SKILL" ]; then
+	if [ -z "$REFRESH" ] && [ -f "$THERMO_SKILL" ]; then
 		ok "thermo-nuclear already installed."
 	else
 		# thermo-nuclear is vendored via the vercel-labs/skills CLI (agentskills.io
@@ -1891,15 +1959,17 @@ if host_selected codex && command -v codex >/dev/null 2>&1; then
 	info "Codex: open /hooks and trust the new hooks once (caveman, ponytail, rtk, codebase-memory-mcp). radin cannot do this for you."
 fi
 
+# PRESENT/WROTE lines are progress, so they follow --details.
+cbm_claude_md() {
+	if [ -n "$LOUD" ]; then
+		bash "$RADIN_HOME/lib/radin-cbm-hooks.sh" claude-md || true
+	else
+		bash "$RADIN_HOME/lib/radin-cbm-hooks.sh" claude-md >/dev/null || true
+	fi
+}
+
 CBM_AGENT_CONFIG="false"
 if host_selected claude && CBM_BIN="$(cbm_bin)"; then
-	# auto_index is off upstream, which leaves a wired session querying an empty
-	# graph until someone indexes by hand. Idempotent, so it also fixes an
-	# install that predates this line.
-	if ! "$CBM_BIN" config set auto_index true >/dev/null 2>&1; then
-		warn "could not enable codebase-memory-mcp auto-index -- run: codebase-memory-mcp config set auto_index true"
-	fi
-
 	# The whole tool: binary, then upstream's own Claude Code configuration (its
 	# skill, three graph agents, user-scope MCP entry, and the hooks that route
 	# Grep/Glob to the graph).
@@ -1909,7 +1979,24 @@ if host_selected claude && CBM_BIN="$(cbm_bin)"; then
 	# pre-existing hook and MCP entry the write dropped. Their entries stay,
 	# yours come back, and `codebase-memory-mcp update` can be followed by
 	# `radin repair` for the same reason -- the caller names no companion.
-	if [ -x "$RADIN_HOME/bin/radin-cbm-json" ]; then
+	CBM_VER="$("$CBM_BIN" --version 2>/dev/null | head -1 || true)"
+	CBM_STAMP="$RADIN_HOME/cbm-wired.stamp"
+	if [ -x "$RADIN_HOME/bin/radin-cbm-json" ] && [ -z "$REFRESH" ] && [ -n "$CBM_VER" ] &&
+		[ "$(cat "$CBM_STAMP" 2>/dev/null)" = "$CBM_VER" ] &&
+		"$RADIN_HOME/bin/radin-cbm-json" wired "$HOME/.claude/settings.json" "$HOME/.claude.json" codebase-memory-mcp >/dev/null 2>&1; then
+		# Upstream's write takes ~20s and snapshots settings.json each run. The
+		# same binary version with its hooks and MCP entry still in place has
+		# nothing to write; --refresh forces it.
+		CBM_AGENT_CONFIG="true"
+		ok "codebase-memory-mcp wiring already current ($CBM_VER)."
+		cbm_claude_md
+	elif [ -x "$RADIN_HOME/bin/radin-cbm-json" ]; then
+		# auto_index is off upstream, which leaves a wired session querying an
+		# empty graph until someone indexes by hand. Idempotent. It sits in the
+		# stamp miss because the call alone costs ~1.5s.
+		if ! "$CBM_BIN" config set auto_index true >/dev/null 2>&1; then
+			warn "could not enable codebase-memory-mcp auto-index -- run: codebase-memory-mcp config set auto_index true"
+		fi
 		# Same contract as install_tool: the per-item trace (SNAPSHOT/STASHED/
 		# RESTORED/INTACT/CBM, and upstream's own 45-client inventory on a
 		# failed run) is what a failure needs and noise on success, so it all
@@ -1931,15 +2018,16 @@ if host_selected claude && CBM_BIN="$(cbm_bin)"; then
 				warn "but its hooks and MCP entry are in place. Details: ${BOLD}$CBM_LOG${RESET}"
 			else
 				ok "codebase-memory-mcp wired: skill, graph agents, hooks, user-scope MCP (every repo, no per-project step)."
+				[ -z "$CBM_VER" ] || printf '%s' "$CBM_VER" >"$CBM_STAMP"
 			fi
 			# Upstream writes no CLAUDE.md text, and a skill description alone
 			# did not get agents to call the graph (25 calls in 402 sessions).
-			bash "$RADIN_HOME/lib/radin-cbm-hooks.sh" claude-md || true
+			cbm_claude_md
 		else
 			warn "codebase-memory-mcp configuration failed -- radin itself is unaffected."
 			warn "Your own hooks were restored from the snapshot. Details: ${BOLD}$CBM_LOG${RESET}"
 			info "Falling back to radin's merge-only wiring:"
-			bash "$RADIN_HOME/lib/radin-cbm-hooks.sh" claude-md || true
+			cbm_claude_md
 			info "Then run "radin hooks mcp" in each repo for its .mcp.json entry."
 		fi
 	else
@@ -1950,7 +2038,7 @@ if host_selected claude && CBM_BIN="$(cbm_bin)"; then
 		warn "no C compiler -- skipping upstream's own Claude Code configuration:"
 		warn "its write drops other tools' SessionStart hooks (#1200) and radin"
 		warn "needs radin-cbm-json to put them back. Using the merge-only wiring."
-		bash "$RADIN_HOME/lib/radin-cbm-hooks.sh" claude-md || true
+		cbm_claude_md
 		info "Then run "radin hooks mcp" in each repo for its .mcp.json entry."
 	fi
 fi
@@ -1974,6 +2062,7 @@ if host_selected claude; then
 fi
 
 step "Writing install manifest"
+prime_plugins
 # ponytail: three independent copies of this file list already exist
 # (install.sh's own cp lines above, radin-doctor.sh, radin-uninstall.sh) --
 # a fourth here for the manifest. Dedup if that drift ever bites; out of
@@ -2015,13 +2104,25 @@ held_paths() {
 # One entry per line, keyed by the path under $HOME. Taken last, so each digest
 # matches the final bytes; a kept file keeps the digest it had.
 json_files() {
-	local p rel d sep=""
-	while IFS= read -r p; do
-		rel="${p#"$HOME"/}"
-		d="$(awk -F'\t' -v p="$rel" '$1 == p { print $2; exit }' "$KEPT_FILE")"
-		printf '%s\n    "%s": "%s"' "$sep" "$rel" "${d:-$(sha256_of "$p")}"
-		sep=","
-	done < <(owned_paths)
+	local list sums p rel d sep=""
+	list="$(mktemp)"
+	sums="$(mktemp)"
+	owned_paths >"$list"
+	# One hash process for every file: a fork per file cost seconds.
+	tr '\n' '\0' <"$list" | sha256_many | awk '{ h = $1; sub(/^[^ ]+ +\*?/, ""); print $0 "\t" h }' >"$sums"
+	awk -F'\t' -v home="$HOME/" '
+		FILENAME == ARGV[1] { k[$1] = $2; next }
+		FILENAME == ARGV[2] { h[$1] = $2; next }
+		{
+			rel = $0
+			if (index(rel, home) == 1) rel = substr(rel, length(home) + 1)
+			d = (rel in k) ? k[rel] : h[$0]
+			if (d == "") next
+			printf "%s\n    \"%s\": \"%s\"", sep, rel, d
+			sep = ","
+		}' "$KEPT_FILE" "$sums" "$list"
+	rm -f "$list" "$sums"
+	sep=","
 	while IFS= read -r p; do
 		rel="${p#"$HOME"/}"
 		d="$(awk -F'\t' -v p="$rel" '$1 == p { print $2; exit }' <<<"$OWNED_MAP")"
@@ -2109,14 +2210,15 @@ EOF
 drop_tmp
 ok "manifest written to ${BOLD}$MANIFEST_FILE${RESET}"
 
-step "Done"
+finish_step
 INSTALL_DONE="1"
+ELAPSED=$(($(date +%s) - INSTALL_T0))
 if [ -n "$UPDATE" ]; then
-	ok "radin updated. ${DIM}Go be stingy with those tokens.${RESET}"
+	say "radin updated in ${ELAPSED}s. ${DIM}Go be stingy with those tokens.${RESET}"
 else
-	ok "radin installed. ${DIM}Go be stingy with those tokens.${RESET}"
-	info "Open Claude Code in a repo and run ${BOLD}/radin-record${RESET} to file your first"
-	info "task, then ${BOLD}/radin-batch${RESET} to work the backlog. ${BOLD}radin${RESET} opens the TUI."
+	say "radin installed in ${ELAPSED}s. ${DIM}Go be stingy with those tokens.${RESET}"
+	say "Open Claude Code in a repo and run ${BOLD}/radin-record${RESET} to file your first"
+	say "task, then ${BOLD}/radin-batch${RESET} to work the backlog. ${BOLD}radin${RESET} opens the TUI."
 fi
 [ -z "$MIGRATED" ] || warn "restart open Claude sessions: they hold the old path"
-info "${BOLD}radin doctor${RESET} checks this install · ${BOLD}radin update${RESET} updates radin itself."
+say "${BOLD}radin doctor${RESET} checks this install · ${BOLD}radin update${RESET} updates radin itself."

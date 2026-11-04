@@ -232,6 +232,8 @@ if [ "$link_now" = "$RADIN_HOME/bin/radin" ] || [ "$link_now" = "$CLAUDE_DIR/.ra
 fi
 remove_path "radin-tui" "$RADIN_HOME/bin/radin-tui"
 remove_path "radin-cbm-json" "$RADIN_HOME/bin/radin-cbm-json"
+remove_path "build stamp" "$RADIN_HOME/bin/.radin-tui.sum"
+remove_path "build stamp" "$RADIN_HOME/bin/.radin-cbm-json.sum"
 [ -n "$DRY" ] || rmdir "$RADIN_HOME/bin" 2>/dev/null || true
 
 printf '\nLeft untouched:\n'
