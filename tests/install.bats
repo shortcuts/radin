@@ -411,7 +411,7 @@ pick_with_keys() {
   load helpers/pty
   pty_build || skip "a C compiler is needed to build the pty driver"
   local snippet="$TEST_HOME/picker.sh" out="$TEST_HOME/picked"
-  sed -n '/^_pick_nth() {/,/^prompt_yn() {/p' "$REPO_ROOT/install.sh" | sed '$d' > "$snippet"
+  sed -n '/^_pick_nth() {/,/^# A terminal can answer a question/p' "$REPO_ROOT/install.sh" | sed '$d' > "$snippet"
   rm -f "$out"
   "$PTY_RUN" "$TEST_HOME/pick-screen" "$1" bash -c \
     "YES=''; RAT=''; BOLD=''; DIM=''; CYAN=''; YELLOW=''; RED=''; RESET=''; \
@@ -469,6 +469,8 @@ pick_with_keys() {
   [ "$status" -eq 0 ]
   grep -q "install rtk" "$BREW_LOG"
   [[ "$output" != *"Pick 1-"* ]]
+  [[ "$output" != *"Step 1/"* ]]
+  [[ "$output" == *"┌─ Review "* ]]
   manifest="$TEST_HOME/.radin/manifest.json"
   grep -q '"rtk": true' "$manifest"
   # The guidance block is part of "same stack on the next machine".
@@ -1126,42 +1128,92 @@ break_agents_render() {
   [ -f "$TEST_HOME/.claude/skills/radin-batch/SKILL.md" ]
 }
 
-# The host question reads the terminal, so it runs through a pty. Extracting the
-# functions from install.sh keeps them single-sourced there, as pick_with_keys does.
-host_prompt_hosts() {
+# The wizard reads the terminal, so the whole installer runs through a pty. --dry-run
+# stops every write, and the recorded screen is stripped of escape codes.
+wizard_run() {
   pty_build || skip "a C compiler is needed to build the pty driver"
   mock_cli codex
-  local snippet="$TEST_HOME/hosts.sh" out="$TEST_HOME/selected"
-  {
-    sed -n '/^HOSTS=/,/^while \[ \$# -gt 0 \]/p' "$REPO_ROOT/install.sh" | sed '$d'
-    sed -n '/^_pick_nth() {/,/^prompt_yn() {/p' "$REPO_ROOT/install.sh" | sed '$d'
-    sed -n '/^have_tty() {/,/^select_hosts$/p' "$REPO_ROOT/install.sh" | sed '$d'
-  } >"$snippet"
-  "$PTY_RUN" "$TEST_HOME/screen" "$1" bash -c \
-    "YES=''; UPDATE=''; ONLY_SET=''; RAT=''; BOLD=''; DIM=''; CYAN=''; YELLOW=''; RED=''; RESET=''; \
-     info() { :; }; source '$snippet'; select_hosts; echo \"\$SELECTED\" > '$out'" >/dev/null 2>&1
-  SELECTED_HOSTS="$(cat "$out" 2>/dev/null || true)"
+  local keys="$1"
+  shift
+  cd "$REPO_ROOT"
+  WIZ_STATUS=0
+  "$PTY_RUN" "$TEST_HOME/screen" "$keys" bash ./install.sh --dry-run "$@" >/dev/null 2>&1 || WIZ_STATUS="$?"
+  WIZ_SCREEN="$(LC_ALL=C sed 's/\x1b\[[0-9;?]*[A-Za-z]//g' "$TEST_HOME/screen" | LC_ALL=C tr -d '\r')"
 }
 
-@test "a terminal run offers each detected host and installs the ones answered yes" {
-  host_prompt_hosts '\r|k|\r'
-  [ "$SELECTED_HOSTS" = "claude codex" ]
+wizard_count() {
+  printf '%s\n' "$WIZ_SCREEN" | grep -c -- "$1" || true
 }
 
-@test "a terminal run keeps claude only when codex is answered no" {
-  host_prompt_hosts '\r|\r'
-  [ "$SELECTED_HOSTS" = "claude" ]
+@test "the wizard walks Hosts, Models, Package manager and Review, then installs" {
+  wizard_run '\r|\r|\r|\r'
+  [ "$WIZ_STATUS" -eq 0 ]
+  [[ "$WIZ_SCREEN" == *"Step 1/4  Hosts > Models > Package manager > Review"* ]]
+  [[ "$WIZ_SCREEN" == *"> [x] Claude Code"* ]]
+  [[ "$WIZ_SCREEN" == *"[ ] Codex CLI"* ]]
+  [[ "$WIZ_SCREEN" == *"Step 4/4"* ]]
+  [[ "$WIZ_SCREEN" == *"┌─ Review "* ]]
+  [[ "$WIZ_SCREEN" == *"Hosts            Claude Code "* ]]
+  [[ "$WIZ_SCREEN" == *"hosts: claude"* ]]
+  [[ "$WIZ_SCREEN" == *"[1/8] Resolving radin source"* ]]
 }
 
-@test "a terminal run can deselect claude" {
-  host_prompt_hosts 'j\r|k\r'
-  [ "$SELECTED_HOSTS" = "codex" ]
+@test "space ticks a host in the checkbox list" {
+  wizard_run 'j| |\r|\r|\r|\r'
+  [ "$WIZ_STATUS" -eq 0 ]
+  [[ "$WIZ_SCREEN" == *"Hosts            Claude Code, Codex CLI"* ]]
+  [[ "$WIZ_SCREEN" == *"hosts: claude codex"* ]]
 }
 
-@test "a terminal run that answers no to every host exits before any write" {
-  host_prompt_hosts 'j\r|\r'
-  [ -z "$SELECTED_HOSTS" ]
-  [ ! -e "$TEST_HOME/.radin" ]
+@test "unticking every host is refused and the list stays" {
+  wizard_run ' |\r| |\r|\r|\r|\r'
+  [ "$WIZ_STATUS" -eq 0 ]
+  [[ "$WIZ_SCREEN" == *"pick at least one host"* ]]
+  [[ "$WIZ_SCREEN" == *"hosts: claude"* ]]
+}
+
+@test "Left returns to the previous step and keeps its answer" {
+  wizard_run '\r|\033[D|j| |\r|\r|\r|\r'
+  [ "$WIZ_STATUS" -eq 0 ]
+  [ "$(wizard_count 'Step 1/4')" -ge 2 ]
+  [[ "$WIZ_SCREEN" == *"hosts: claude codex"* ]]
+}
+
+@test "Backspace returns to the previous step" {
+  wizard_run '\r|\177|\r|\r|\r|\r|\r'
+  [ "$WIZ_STATUS" -eq 0 ]
+  [ "$(wizard_count 'Step 1/4')" -ge 2 ]
+  [[ "$WIZ_SCREEN" == *"hosts: claude"* ]]
+}
+
+@test "Review Back returns to the package manager step" {
+  wizard_run '\r|\r|\r|j|\r|\r|\r'
+  [ "$WIZ_STATUS" -eq 0 ]
+  [ "$(wizard_count 'Step 3/4')" -ge 2 ]
+  [[ "$WIZ_SCREEN" == *"hosts: claude"* ]]
+}
+
+@test "Review Cancel exits 0 before any write" {
+  wizard_run '\r|\r|\r|j|j|\r'
+  [ "$WIZ_STATUS" -eq 0 ]
+  [[ "$WIZ_SCREEN" == *"nothing selected"* ]]
+  [[ "$WIZ_SCREEN" != *"Resolving radin source"* ]]
+  [[ "$WIZ_SCREEN" != *"install stopped early"* ]]
+}
+
+@test "--update asks nothing and prints the Recap with the kept answers" {
+  replay_install >/dev/null
+  cd "$REPO_ROOT" && run bash ./install.sh --update </dev/null
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"┌─ Recap "* ]]
+  [[ "$output" == *"Models           sonnet: planning, execution, review, debug"* ]]
+  [[ "$output" == *"Package manager  "* ]]
+  [[ "$output" != *"Pick 1-"* ]]
+  [[ "$output" != *"Step 1/"* ]]
+}
+
+@test "step progress totals match the step calls" {
+  [ "$(grep -c '^step "' "$REPO_ROOT/install.sh")" = "$(sed -n 's/^STEP_TOTAL=//p' "$REPO_ROOT/install.sh")" ]
 }
 
 # Ownership: the preflight, kept edits and --force backups.

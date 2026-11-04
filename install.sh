@@ -136,7 +136,12 @@ RAT='🐀'
 info() { printf "%b\n" "${CYAN}${RAT}${RESET} $*"; }
 ok() { printf "%b\n" "${GREEN}${RAT}${RESET} $*"; }
 warn() { printf "%b\n" "${YELLOW}${RAT}${RESET} $*"; }
-step() { printf "\n%b\n" "${BOLD}${MAGENTA}${RAT} $*${RESET}"; }
+STEP_N=0
+STEP_TOTAL=8
+step() {
+	STEP_N=$((STEP_N + 1))
+	printf "\n%b\n" "${BOLD}${MAGENTA}${RAT} [$STEP_N/$STEP_TOTAL] $*${RESET}"
+}
 
 # A child that swallowed fd0 used to end the run here with status 0 and a
 # half-populated ~/.claude, silently. Say so instead.
@@ -156,16 +161,25 @@ _pick_nth() {
 	done
 }
 
+BACK='<back>'
+
+_tui_abort() {
+	printf '\033[?25h' >"$1"
+	stty "$2" <"$1"
+	printf "\n%b\n" "${RED}${RAT} aborted.${RESET}" >"$1"
+	exit 130
+}
+
 _pick_tui() {
 	# Arrow-key picker on a real terminal. Draws to the tty, never to stdout,
 	# so the caller can still capture the chosen option. Returns 1 when the
 	# device can't be put in raw mode, and the numbered fallback takes over.
 	local dev="$1" msg="$2" sel="$3"
 	shift 3
-	local count=$# saved key rest i opt
-	local esc=$'\033' cr=$'\r' etx=$'\003' eot=$'\004'
+	local count=$# saved key rest i opt back=""
+	local esc=$'\033' cr=$'\r' etx=$'\003' eot=$'\004' del=$'\177' bs=$'\010'
 	saved="$(stty -g <"$dev" 2>/dev/null)" || return 1
-	printf "%b\n" "${YELLOW}${RAT} $msg${RESET} ${DIM}(arrows, enter to confirm)${RESET}" >"$dev"
+	printf "%b\n" "${YELLOW}${RAT} $msg${RESET} ${DIM}(arrows, enter to confirm${CAN_BACK:+, left to go back})${RESET}" >"$dev"
 	stty raw -echo <"$dev" 2>/dev/null || return 1
 	printf '\033[?25l' >"$dev"
 	while :; do
@@ -185,12 +199,24 @@ _pick_tui() {
 			# An arrow key arrives as three bytes at once, so no timeout needed.
 			IFS= read -r -n2 rest <"$dev" || break
 			case "$rest" in
-			'[A' | '[D') sel=$((sel > 1 ? sel - 1 : count)) ;;
+			'[A') sel=$((sel > 1 ? sel - 1 : count)) ;;
 			'[B' | '[C') sel=$((sel < count ? sel + 1 : 1)) ;;
+			'[D')
+				if [ -n "${CAN_BACK:-}" ]; then
+					back=1
+					break
+				fi
+				;;
 			esac
 			;;
 		k) sel=$((sel > 1 ? sel - 1 : count)) ;;
 		j) sel=$((sel < count ? sel + 1 : 1)) ;;
+		b | "$del" | "$bs")
+			if [ -n "${CAN_BACK:-}" ]; then
+				back=1
+				break
+			fi
+			;;
 		[1-9])
 			if [ "$key" -le "$count" ]; then
 				sel="$key"
@@ -199,18 +225,101 @@ _pick_tui() {
 		'' | "$cr") break ;;
 		# raw mode turns off ISIG, so Ctrl-C and Ctrl-D arrive as bytes -- honour
 		# them here or the picker becomes unquittable.
-		"$etx" | "$eot")
-			printf '\033[?25h' >"$dev"
-			stty "$saved" <"$dev"
-			printf "\n%b\n" "${RED}${RAT} aborted.${RESET}" >"$dev"
-			exit 130
-			;;
+		"$etx" | "$eot") _tui_abort "$dev" "$saved" ;;
 		esac
 		printf '\033[%dA' "$count" >"$dev"
 	done
-	printf '\033[?25h' >"$dev"
+	printf '\033[%dA\r\033[J\033[?25h' "$((count + 1))" >"$dev"
 	stty "$saved" <"$dev"
-	_pick_nth "$sel" "$@"
+	if [ -n "$back" ]; then
+		printf '%s' "$BACK"
+	else
+		_pick_nth "$sel" "$@"
+	fi
+}
+
+# Checkbox list. Items are "id:Label"; prints the ticked ids in item order,
+# or $BACK. $CHECKED holds the ids ticked on entry.
+_check_tui() {
+	local dev="$1" msg="$2"
+	shift 2
+	local count=$# saved key rest i opt id box sel=1 on=" ${CHECKED:-} " note="" back="" out=""
+	local esc=$'\033' cr=$'\r' etx=$'\003' eot=$'\004' del=$'\177' bs=$'\010'
+	saved="$(stty -g <"$dev" 2>/dev/null)" || return 1
+	printf "%b\n" "${YELLOW}${RAT} $msg${RESET} ${DIM}(space to tick, a for all, enter to confirm${CAN_BACK:+, left to go back})${RESET}" >"$dev"
+	stty raw -echo <"$dev" 2>/dev/null || return 1
+	printf '\033[?25l' >"$dev"
+	while :; do
+		i=1
+		for opt in "$@"; do
+			id="${opt%%:*}"
+			box="[ ]"
+			case "$on" in *" $id "*) box="${GREEN}[x]${RESET}" ;; esac
+			if [ "$i" = "$sel" ]; then
+				printf '\r\033[K %b\r\n' "${CYAN}>${RESET} $box ${BOLD}${opt#*:}${RESET}" >"$dev"
+			else
+				printf '\r\033[K   %b\r\n' "$box ${opt#*:}" >"$dev"
+			fi
+			i=$((i + 1))
+		done
+		printf '\r\033[K%b\r\n' "${RED}$note${RESET}" >"$dev"
+		note=""
+		IFS= read -r -n1 key <"$dev" || break
+		case "$key" in
+		"$esc")
+			IFS= read -r -n2 rest <"$dev" || break
+			case "$rest" in
+			'[A') sel=$((sel > 1 ? sel - 1 : count)) ;;
+			'[B') sel=$((sel < count ? sel + 1 : 1)) ;;
+			'[D')
+				if [ -n "${CAN_BACK:-}" ]; then
+					back=1
+					break
+				fi
+				;;
+			esac
+			;;
+		k) sel=$((sel > 1 ? sel - 1 : count)) ;;
+		j) sel=$((sel < count ? sel + 1 : 1)) ;;
+		' ')
+			id="$(_pick_nth "$sel" "$@")"
+			id="${id%%:*}"
+			case "$on" in
+			*" $id "*) on="${on/ $id / }" ;;
+			*) on="$on$id " ;;
+			esac
+			;;
+		a)
+			out=""
+			for opt in "$@"; do out="$out ${opt%%:*}"; done
+			if [ "$on" = "$out " ]; then on=" "; else on="$out "; fi
+			;;
+		b | "$del" | "$bs")
+			if [ -n "${CAN_BACK:-}" ]; then
+				back=1
+				break
+			fi
+			;;
+		'' | "$cr")
+			if [ -n "${on// /}" ]; then break; fi
+			note="   pick at least one host"
+			;;
+		"$etx" | "$eot") _tui_abort "$dev" "$saved" ;;
+		esac
+		printf '\033[%dA' "$((count + 1))" >"$dev"
+	done
+	printf '\033[%dA\r\033[J\033[?25h' "$((count + 2))" >"$dev"
+	stty "$saved" <"$dev"
+	if [ -n "$back" ]; then
+		printf '%s' "$BACK"
+		return
+	fi
+	out=""
+	for opt in "$@"; do
+		id="${opt%%:*}"
+		case "$on" in *" $id "*) out="$out $id" ;; esac
+	done
+	printf '%s' "${out# }"
 }
 
 _pick_numbered() {
@@ -269,10 +378,6 @@ prompt_pick() {
 	_pick_nth "$default" "$@"
 }
 
-prompt_yn() {
-	[ "$(prompt_pick "$1" 2 "yes" "no")" = "yes" ]
-}
-
 printf "%b\n" "${BOLD}${MAGENTA}"
 printf "%s\n" "  🐀 radin — stingy on tokens, generous on backlog throughput"
 printf "%b\n" "${RESET}${DIM}  Installs backlog-workflow skills into ~/.claude, plus the whole curated"
@@ -285,10 +390,16 @@ have_tty() {
 	[ ! -f "$0" ] && (: </dev/tty) 2>/dev/null
 }
 
+# No `brew shellenv` eval: it prepends brew's bin to PATH and would shadow a
+# version-manager python3 (mise/pyenv) with brew's -- probing the wrong
+# interpreter in the pyexpat preflight below. brew itself is called via $BREW.
+BREW="$(command -v brew || true)"
+MISE="$(command -v mise || true)"
+
 # --only wins; an update reuses the manifest (no manifest hosts key means a v1 install, claude only);
-# a terminal gets one question per detected host; anything else installs claude.
+# anything else installs claude. The wizard's Hosts step widens that on a terminal.
 select_hosts() {
-	local id ids="" want="" default
+	local id want=""
 	[ -z "$ONLY_SET" ] || return 0
 	if [ -n "$UPDATE" ]; then
 		for id in $(manifest_list hosts); do
@@ -298,40 +409,257 @@ select_hosts() {
 		select_ids "${want:-claude}"
 		return
 	fi
-	if have_tty; then
-		for id in $(host_ids); do
-			host_detected "$id" && ids="$ids $id"
-		done
-		case "$ids" in
-		" claude" | "") ;;
+	select_ids claude
+}
+
+# Every sub-agent role ships a distinct RADIN_MODEL_<ROLE> token instead of a
+# model name, so no model is forced. Roles share a model by group: major for
+# planning, execution, review and debug; minor for fact-finding and low-complexity tasks.
+MODEL_MAJOR="sonnet"
+# Fact-finding retrieves a checkable fact and its prompt requires the evidence
+# that establishes it, so the router can reject a wrong answer. A task the
+# planner marked `complexity low` needs no design judgement, and a wrong one
+# still meets the dirty-tree check and Phase 6's review. Both take the cheapest tier.
+MODEL_MINOR="haiku"
+# radin-batch is a skill running in the user's own thread, so its own model
+# is whatever they picked with /model. Only its leaf sub-agents get a choice.
+# The Agent tool takes a family alias, never a version: Claude Code resolves
+# it to that family's current model.
+MODELS="fable opus sonnet haiku"
+SONNET_INDEX=3
+HAIKU_INDEX=4
+MODELS_PICKED=""
+# rtk ships in more than one package manager. Installing it with brew on a
+# mise-managed machine leaves behind a manager the user never chose, so the
+# one question is which manager to install through. `curl` keeps rtk's
+# own upstream installer.
+PKG_MGR="curl"
+CHECKED=""
+CAN_BACK=""
+
+wiz_detected() {
+	local id
+	for id in $(host_ids); do
+		if host_detected "$id"; then printf ' %s' "$id"; fi
+	done
+}
+
+wiz_steps() {
+	local steps=""
+	if [ -z "$UPDATE" ]; then
+		if [ -z "$ONLY_SET" ] && have_tty; then
+			case "$(wiz_detected)" in " claude" | "") ;; *) steps="hosts" ;; esac
+		fi
+		if host_selected claude; then steps="$steps models"; fi
+		if [ -n "$BREW$MISE" ]; then steps="$steps pkg"; fi
+	fi
+	printf '%s' "${steps# } review"
+}
+
+wiz_label() {
+	case "$1" in
+	hosts) printf 'Hosts' ;;
+	models) printf 'Models' ;;
+	pkg) printf 'Package manager' ;;
+	*) printf 'Review' ;;
+	esac
+}
+
+wiz_header() {
+	local pos="$1" total="$2" names="$3" i=1 n line=""
+	for n in $names; do
+		if [ "$i" -lt "$pos" ]; then
+			line="$line${GREEN}$(wiz_label "$n")${RESET} > "
+		elif [ "$i" = "$pos" ]; then
+			line="$line${BOLD}${CYAN}$(wiz_label "$n")${RESET} > "
+		else
+			line="$line${DIM}$(wiz_label "$n")${RESET} > "
+		fi
+		i=$((i + 1))
+	done
+	printf "\n%b\n\n" "${BOLD}Step $pos/$total${RESET}  ${line% > }"
+}
+
+wiz_hosts() {
+	local id
+	set --
+	for id in $(wiz_detected); do
+		set -- "$@" "$id:$(host_field "$id" 2)"
+	done
+	_check_tui /dev/tty "Install radin for" "$@" || printf '%s' "$CHECKED"
+}
+
+# Prints "default", "<major> <minor>", or $BACK. Left from the first list
+# returns to the question, left from the question leaves the step.
+wiz_models() {
+	local st=1 outer="$CAN_BACK" yn major="" minor=""
+	while :; do
+		case "$st" in
+		1)
+			CAN_BACK="$outer"
+			yn="$(prompt_pick "Choose radin-batch's sub-agent models? (defaults: sonnet, haiku for fact-finding and low-complexity tasks)" 2 yes no)"
+			if [ "$yn" = "$BACK" ]; then
+				printf '%s' "$BACK"
+				return
+			fi
+			if [ "$yn" = yes ]; then
+				st=2
+			else
+				printf 'default'
+				return
+			fi
+			;;
+		2)
+			CAN_BACK=1
+			# shellcheck disable=SC2086  # word splitting is the point -- one arg per model
+			major="$(prompt_pick "planning, execution, review and debug sub-agents" "$SONNET_INDEX" $MODELS)"
+			if [ "$major" = "$BACK" ]; then st=1; else st=3; fi
+			;;
 		*)
-			for id in $ids; do
-				default=2
-				[ "$id" != claude ] || default=1
-				if [ "$(prompt_pick "Install radin for $(host_field "$id" 2)?" "$default" yes no)" = yes ]; then
-					want="$want,$id"
-				fi
-			done
-			if [ -z "$want" ]; then
+			CAN_BACK=1
+			# shellcheck disable=SC2086
+			minor="$(prompt_pick "fact-finding and low-complexity sub-agents" "$HAIKU_INDEX" $MODELS)"
+			if [ "$minor" = "$BACK" ]; then
+				st=2
+			else
+				printf '%s %s' "$major" "$minor"
+				return
+			fi
+			;;
+		esac
+	done
+}
+
+wiz_pkg() {
+	set --
+	if [ -n "$BREW" ]; then set -- "$@" brew; fi
+	if [ -n "$MISE" ]; then set -- "$@" mise; fi
+	prompt_pick "install rtk through" 1 "$@" curl
+}
+
+_rep() {
+	local n="$1" out=""
+	while [ "$n" -gt 0 ]; do
+		out="${out}─"
+		n=$((n - 1))
+	done
+	printf '%s' "$out"
+}
+
+_row() { printf '%-16s %s' "$1" "$2"; }
+
+review_box() {
+	local title="$1" id hosts="" rows line w=${#1}
+	for id in $SELECTED; do
+		hosts="$hosts, $(host_field "$id" 2)"
+	done
+	rows="$(_row Hosts "${hosts#, }")"
+	if host_selected claude; then
+		rows="$rows
+$(_row Models "$MODEL_MAJOR: planning, execution, review, debug")
+$(_row "" "$MODEL_MINOR: fact-finding, low-complexity")"
+	else
+		rows="$rows
+$(_row Models "n/a, Claude Code not selected")"
+	fi
+	rows="$rows
+$(_row "Package manager" "$PKG_MGR")
+$(_row "Install into" "$(printf '~%s' "${RADIN_HOME#"$HOME"}")")"
+	WIZ_BOX=2
+	while IFS= read -r line; do
+		[ "${#line}" -le "$w" ] || w=${#line}
+		WIZ_BOX=$((WIZ_BOX + 1))
+	done <<<"$rows"
+	printf "%b\n" "${CYAN}┌─${RESET} ${BOLD}$title${RESET} ${CYAN}$(_rep $((w - ${#title} - 1)))┐${RESET}"
+	while IFS= read -r line; do
+		printf "%b\n" "${CYAN}│${RESET} $(printf '%-*s' "$w" "$line") ${CYAN}│${RESET}"
+	done <<<"$rows"
+	printf "%b\n" "${CYAN}└$(_rep $((w + 2)))┘${RESET}"
+}
+
+wizard() {
+	local steps total pos=1 name r interactive="" majmin WIZ_BOX=0 WIZ_DRAWN=0
+	have_tty && interactive=1
+	if [ -n "$UPDATE" ]; then
+		MODEL_MAJOR="$(manifest_value model_planning)"
+		MODEL_MAJOR="${MODEL_MAJOR:-sonnet}"
+		MODEL_MINOR="$(manifest_value model_factfind)"
+		MODEL_MINOR="${MODEL_MINOR:-haiku}"
+		PKG_MGR="$(manifest_value package_manager)"
+		PKG_MGR="${PKG_MGR:-curl}"
+	fi
+	case "$(wiz_detected)" in *" claude"*) CHECKED=claude ;; esac
+	while :; do
+		steps="$(wiz_steps)"
+		# shellcheck disable=SC2086  # word splitting is the point -- one arg per step
+		total="$(set -- $steps && echo $#)"
+		[ "$pos" -le "$total" ] || pos="$total"
+		# shellcheck disable=SC2086
+		name="$(_pick_nth "$pos" $steps)"
+		CAN_BACK=""
+		[ "$pos" -le 1 ] || CAN_BACK=1
+		WIZ_DRAWN=0
+		if [ -n "$interactive" ] && [ -z "$UPDATE" ]; then
+			wiz_header "$pos" "$total" "$steps"
+			WIZ_DRAWN=3
+		fi
+		r=""
+		case "$name" in
+		hosts) r="$(wiz_hosts)" ;;
+		models) r="$(wiz_models)" ;;
+		pkg) r="$(wiz_pkg)" ;;
+		*)
+			if [ -n "$UPDATE" ]; then
+				review_box "Recap"
+				return 0
+			fi
+			review_box "Review"
+			[ -n "$interactive" ] || return 0
+			WIZ_DRAWN=$((WIZ_DRAWN + WIZ_BOX))
+			r="$(prompt_pick "Install radin with these answers?" 1 Install Back Cancel)"
+			case "$r" in
+			Install) return 0 ;;
+			Cancel)
 				INSTALL_DONE="1"
 				info "nothing selected"
 				exit 0
-			fi
-			select_ids "${want#,}"
-			return
+				;;
+			esac
+			r="$BACK"
 			;;
 		esac
-	fi
-	select_ids claude
+		if [ "$r" = "$BACK" ] || [ "$r" = Back ]; then
+			pos=$((pos - 1))
+		else
+			case "$name" in
+			hosts)
+				CHECKED="$r"
+				select_ids "${r// /,}"
+				;;
+			models)
+				if [ "$r" = default ]; then
+					MODELS_PICKED=""
+					MODEL_MAJOR="sonnet"
+					MODEL_MINOR="haiku"
+				else
+					MODELS_PICKED=1
+					majmin="$r"
+					MODEL_MAJOR="${majmin% *}"
+					MODEL_MINOR="${majmin#* }"
+				fi
+				;;
+			pkg) PKG_MGR="$r" ;;
+			esac
+			pos=$((pos + 1))
+		fi
+		if [ "$WIZ_DRAWN" -gt 0 ]; then
+			printf '\033[%dA\r\033[J' "$WIZ_DRAWN"
+		fi
+	done
 }
 select_hosts
+wizard
 info "hosts: $SELECTED"
-
-# No `brew shellenv` eval: it prepends brew's bin to PATH and would shadow a
-# version-manager python3 (mise/pyenv) with brew's -- probing the wrong
-# interpreter in the pyexpat preflight below. brew itself is called via $BREW.
-BREW="$(command -v brew || true)"
-MISE="$(command -v mise || true)"
 
 GITHUB_REPO="shortcuts/radin"
 TARBALL_BASE="https://github.com/$GITHUB_REPO/archive"
@@ -947,15 +1275,6 @@ install_plugin_files() {
 	rm -f "$log"
 }
 
-# Every sub-agent role ships a distinct RADIN_MODEL_<ROLE> token instead of a
-# model name, so no model is forced. Roles share a model by group: major for
-# planning, execution, review and debug; minor for fact-finding and low-complexity tasks.
-MODEL_MAJOR="sonnet"
-# Fact-finding retrieves a checkable fact and its prompt requires the evidence
-# that establishes it, so the router can reject a wrong answer. A task the
-# planner marked `complexity low` needs no design judgement, and a wrong one
-# still meets the dirty-tree check and Phase 6's review. Both take the cheapest tier.
-MODEL_MINOR="haiku"
 # Effort stays unset: the Agent tool picks the model's default. No install question sets it.
 EFFORT_MAJOR=""
 EFFORT_MINOR=""
@@ -1162,27 +1481,11 @@ install_render() {
 }
 
 step "Sub-agent models"
-# radin-batch is a skill running in the user's own thread, so its own model
-# is whatever they picked with /model. Only its leaf sub-agents get a choice.
-# The Agent tool takes a family alias, never a version: Claude Code resolves
-# it to that family's current model.
-MODELS="fable opus sonnet haiku"
-SONNET_INDEX=3
-HAIKU_INDEX=4
 if [ -n "$UPDATE" ]; then
-	# An update keeps the recorded answer instead of asking again.
-	MODEL_MAJOR="$(manifest_value model_planning)"
-	MODEL_MAJOR="${MODEL_MAJOR:-sonnet}"
-	MODEL_MINOR="$(manifest_value model_factfind)"
-	MODEL_MINOR="${MODEL_MINOR:-haiku}"
 	ok "keeping sub-agent models: $MODEL_MAJOR, $MODEL_MINOR for fact-finding and low-complexity tasks"
 elif ! host_selected claude; then
 	:
-elif prompt_yn "Choose radin-batch's sub-agent models? (defaults: sonnet, haiku for fact-finding and low-complexity tasks)"; then
-	# shellcheck disable=SC2086  # word splitting is the point -- one arg per model
-	MODEL_MAJOR="$(prompt_pick "planning, execution, review and debug sub-agents" "$SONNET_INDEX" $MODELS)"
-	# shellcheck disable=SC2086
-	MODEL_MINOR="$(prompt_pick "fact-finding and low-complexity sub-agents" "$HAIKU_INDEX" $MODELS)"
+elif [ -n "$MODELS_PICKED" ]; then
 	ok "sub-agent models: $MODEL_MAJOR, $MODEL_MINOR for fact-finding and low-complexity tasks"
 else
 	ok "keeping default sub-agent models (sonnet; haiku for fact-finding and low-complexity tasks)"
@@ -1418,24 +1721,6 @@ else
 	done
 fi
 
-# rtk ships in more than one package manager. Installing it with brew on a
-# mise-managed machine leaves behind a manager the user never chose, so the
-# one question here is which manager to install through. `curl` keeps rtk's
-# own upstream installer.
-# An update keeps the recorded answer instead of asking again.
-PKG_MGR=""
-[ -z "$UPDATE" ] || PKG_MGR="$(manifest_value package_manager)"
-PKG_CHOICES=""
-[ -n "$BREW" ] && PKG_CHOICES="$PKG_CHOICES brew"
-[ -n "$MISE" ] && PKG_CHOICES="$PKG_CHOICES mise"
-if [ -n "$PKG_MGR" ]; then
-	:
-elif [ -n "$PKG_CHOICES" ] && [ -z "$UPDATE" ]; then
-	# shellcheck disable=SC2086  # word splitting is the point -- one arg per manager
-	PKG_MGR="$(prompt_pick "install rtk through" 1 $PKG_CHOICES "curl")"
-else
-	PKG_MGR="curl"
-fi
 # Neither manager is asked for codebase-memory-mcp -- its own installer
 # resolves OS/arch and verifies checksums, which radin doesn't reimplement.
 RTK_INSTALL_CMD="$(rtk_cmd "$PKG_MGR")"
