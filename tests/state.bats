@@ -272,3 +272,80 @@ JSON
   run state report
   [[ "$output" == *"Nothing verified these commits yet"* ]]
 }
+
+# t-one done on radin/t-one (unmerged); t-two depends on it. Both write shared.txt.
+stack_setup() {
+  base="$(git -C "$P" branch --show-current)"
+  (cd "$P" && bash "$REPO_ROOT/lib/radin-backlog.sh" add fix "t two" --deps t-one <<<"body") >/dev/null
+  printf 'one\n' >"$P/shared.txt"
+  git -C "$P" add shared.txt
+  git -C "$P" commit -q -m "add shared"
+  git -C "$P" checkout -q -b radin/t-one
+  printf 'one\nfrom-one\n' >"$P/shared.txt"
+  git -C "$P" commit -qam "feat: t-one"
+  git -C "$P" checkout -q "$base"
+  mkdir -p "$P/.claude/.radin/state/unmerged"
+  git -C "$P" rev-parse --short=12 radin/t-one >"$P/.claude/.radin/state/unmerged/t-one"
+  printf 't-one\t1\t\tpending\nt-two\t2\tt-one\tpending\n' | state steps-init >/dev/null
+  state session-set yes no
+}
+
+@test "deps-check resolves an unmerged dependency to its branch tip; two unmerged siblings still block" {
+  stack_setup
+  run state deps-check t-two
+  [ "$status" -eq 0 ]
+  [ "$output" = "t-one"$'\t'"$(git -C "$P" rev-parse --short=12 radin/t-one)" ]
+  (cd "$P" && bash "$REPO_ROOT/lib/radin-backlog.sh" add fix "t three" <<<"body" &&
+    bash "$REPO_ROOT/lib/radin-backlog.sh" add fix "t four" --deps t-one,t-three <<<"body") >/dev/null
+  git -C "$P" checkout -q -b radin/t-three "$base"
+  git -C "$P" commit -q --allow-empty -m "feat: t-three"
+  git -C "$P" checkout -q "$base"
+  : >"$P/.claude/.radin/state/unmerged/t-three"
+  printf 't-one\t1\t\tpending\nt-three\t2\t\tpending\nt-four\t3\tt-one,t-three\tpending\n' | state steps-init >/dev/null
+  run state deps-check t-four
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"waiting on dependency"* ]]
+}
+
+@test "prepare starts a dependent on its unmerged dependency's branch and records the stack" {
+  stack_setup
+  run state prepare t-two
+  [ "$status" -eq 0 ]
+  dir="${lines[${#lines[@]}-1]}"
+  [ "$(git -C "$dir" show HEAD:shared.txt)" = "$(printf 'one\nfrom-one')" ]
+  [ "$(cat "$P/.claude/.radin/state/stacked/t-two")" = "t-one $(git -C "$P" rev-parse --short=12 radin/t-one)" ]
+}
+
+@test "reconcile lands a stack in dependency order, one squash per task, even when both edit the same line" {
+  stack_setup
+  run state prepare t-two
+  dir="${lines[${#lines[@]}-1]}"
+  printf 'one\nfrom-two\n' >"$dir/shared.txt"
+  git -C "$dir" commit -qam "feat: t-two"
+  git -C "$P" rev-parse --short=12 radin/t-two >"$P/.claude/.radin/state/unmerged/t-two"
+  run state reconcile
+  [ "$status" -eq 0 ]
+  [[ "$output" == *$'merged\tradin/t-one\t'*$'\n'*$'merged\tradin/t-two\t'* ]]
+  [ "$(git -C "$P" log --format=%s "$base" | sed -n '1,2p' | paste -sd, -)" = "feat: t-two,feat: t-one" ]
+  [ "$(cat "$P/shared.txt")" = "$(printf 'one\nfrom-two')" ]
+  [ "$(state completed-list | cut -f1 | sort | paste -sd, -)" = "t-one,t-two" ]
+  [ -z "$(git -C "$P" branch --list 'radin/*')" ]
+  [ ! -e "$P/.claude/.radin/state/stacked/t-two" ]
+}
+
+@test "reconcile leaves a dependent waiting while its parent branch conflicts" {
+  stack_setup
+  run state prepare t-two
+  dir="${lines[${#lines[@]}-1]}"
+  echo two >"$dir/two.txt"
+  git -C "$dir" add two.txt
+  git -C "$dir" commit -qm "feat: t-two"
+  git -C "$P" rev-parse --short=12 radin/t-two >"$P/.claude/.radin/state/unmerged/t-two"
+  printf 'clash\n' >"$P/shared.txt"
+  git -C "$P" commit -qam "base clash"
+  run state reconcile
+  [ "$status" -eq 3 ]
+  [[ "$output" == *$'conflict\tradin/t-one'* ]]
+  [[ "$output" == *$'skipped\tradin/t-two\twaiting on radin/t-one'* ]]
+  [ -n "$(git -C "$P" branch --list radin/t-two)" ]
+}

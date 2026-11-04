@@ -7,6 +7,6 @@ stateDiagram-v2
   in_progress --> pending: no STATUS line or dirty tree (wip commit), retry
   failed --> in_progress: debug pass, then re-run
   blocked --> in_progress: user settles the question
-  pending --> blocked: dependency unresolved or MAX_ATTEMPTS
+  pending --> blocked: dependency unresolved (an unmerged one stacks) or MAX_ATTEMPTS
   failed --> [*]: reconcile lands its branch, Finish entry filed
   blocked --> [*]: reconcile lands its branch, Finish entry filed

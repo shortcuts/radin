@@ -395,7 +395,7 @@ record_landed() {
 	mkdir -p "$ns/state/prepared"
 	: >"$ns/state/prepared/$id.merged"
 	if (cd "$repo_root" && bash "$LIB_DIR/radin-state.sh" task-done "$id" "$hash") >&2; then
-		rm -f "$ns/state/unmerged/$id" "$ns/state/landing/$id" "$ns/state/landing/$id.follow-up" "$ns/state/conflict/$id"
+		rm -f "$ns/state/unmerged/$id" "$ns/state/landing/$id" "$ns/state/landing/$id.follow-up" "$ns/state/conflict/$id" "$ns/state/stacked/$id"
 	else
 		printf 'merge: landed %s but could not record it done, it stays blocked\n' "$id" >&2
 		journal "$ns/state" "done-unmerged" "$id" "merged into the base but task-done failed"
@@ -538,12 +538,48 @@ dirty_recover() {
 		"$order" "$title" "$2" "$hash"
 }
 
-# Prints "dep<TAB>hash" per dependency of task $1. Returns 1, naming the first
-# unresolved one on stderr.
+# Prints the id of the unmerged dependency of task $1 whose branch holds every
+# other unmerged dependency's tip: the branch the task stacks on. Prints
+# nothing when no dependency is unmerged, or none of them holds the rest.
+stack_parent() {
+	local dep cands="" c o ok
+	for dep in $(deps_csv "$(entry_line "$steps" "$1")" | tr ',' ' '); do
+		completed_get "$dep" >/dev/null && continue
+		[ -e "$ns/state/unmerged/$dep" ] || continue
+		git -C "$repo_root" rev-parse --verify -q "refs/heads/radin/$dep" >/dev/null 2>&1 || continue
+		cands="$cands $dep"
+	done
+	for c in $cands; do
+		ok=1
+		for o in $cands; do
+			git -C "$repo_root" merge-base --is-ancestor "radin/$o" "radin/$c" || ok=0
+		done
+		if [ "$ok" = 1 ]; then
+			printf '%s\n' "$c"
+			return 0
+		fi
+	done
+}
+
+# Prints how many live parent branches sit under task $1's stack mark.
+stack_depth() {
+	local id="$1" d=0 p
+	while p="$(cut -d' ' -f1 "$ns/state/stacked/$id" 2>/dev/null)" && [ -n "$p" ] &&
+		git -C "$repo_root" rev-parse --verify -q "refs/heads/radin/$p" >/dev/null 2>&1; do
+		d=$((d + 1))
+		id="$p"
+	done
+	printf '%s\n' "$d"
+}
+
+# Prints "dep<TAB>hash" per dependency of task $1. A dependency done on an
+# unmerged branch counts as resolved when $1 can stack on it, and prints its
+# branch tip. Returns 1, naming the first unresolved one on stderr.
 deps_check() {
-	local entry deps dep hash dep_line dep_status old_ifs
+	local entry deps dep hash dep_line dep_status old_ifs parent
 	entry="$(entry_line "$steps" "$1")"
 	[ -n "$entry" ] || die "no entry with id: $1"
+	parent="$(stack_parent "$1")"
 	deps="$(deps_csv "$entry")"
 	[ -n "$deps" ] || return 0
 	old_ifs="$IFS"
@@ -557,6 +593,9 @@ deps_check() {
 	for dep in "$@"; do
 		[ -n "$dep" ] || continue
 		if hash="$(completed_get "$dep")"; then
+			printf '%s\t%s\n' "$dep" "$hash"
+		elif [ -n "$parent" ] && [ -e "$ns/state/unmerged/$dep" ] &&
+			hash="$(git -C "$repo_root" rev-parse --short=12 "refs/heads/radin/$dep" 2>/dev/null)"; then
 			printf '%s\t%s\n' "$dep" "$hash"
 		else
 			dep_status="missing from $steps"
@@ -881,7 +920,8 @@ reconcile)
 	worktrees="$(git -C "$repo_root" worktree list --porcelain)"
 	merged=""
 	conflicts=""
-	for rb in $(git -C "$repo_root" for-each-ref --format='%(refname:short)' refs/heads/radin/); do
+	for rb in $(git -C "$repo_root" for-each-ref --format='%(refname:short)' refs/heads/radin/ |
+		while IFS= read -r b; do printf '%s %s\n' "$(stack_depth "${b#radin/}")" "$b"; done | sort -n -s -k1,1 | cut -d' ' -f2); do
 		rid="${rb#radin/}"
 		if [ -f "$steps" ] && [ "$(json_get status "$(entry_line "$steps" "$rid")")" = in_progress ]; then
 			printf 'skipped\t%s\tin progress\n' "$rb"
@@ -890,6 +930,28 @@ reconcile)
 		wt="$(branch_worktree "$worktrees" "$rb")"
 		[ -z "$wt" ] || [ ! -d "$wt" ] || [ -z "$(dirty_files "$wt")" ] ||
 			wip_commit "$wt" "$rid" "Left uncommitted in $wt; reconcile landed it." >/dev/null
+		if [ -f "$ns/state/stacked/$rid" ]; then
+			sparent="$(cut -d' ' -f1 "$ns/state/stacked/$rid")"
+			if git -C "$repo_root" rev-parse --verify -q "refs/heads/radin/$sparent" >/dev/null 2>&1; then
+				printf 'skipped\t%s\twaiting on radin/%s\n' "$rb" "$sparent"
+				continue
+			fi
+			# The parent landed as a squash: replay only this task's commits onto the base.
+			rdir="$repo_root"
+			[ -z "$wt" ] || [ ! -d "$wt" ] || rdir="$wt"
+			if git -C "$rdir" rebase --onto "$base" "$(cut -d' ' -f2 "$ns/state/stacked/$rid")" "$rb" >&2; then
+				rm -f "$ns/state/stacked/$rid"
+				git -C "$repo_root" checkout -q "$base" >&2
+			else
+				git -C "$rdir" rebase --abort >&2 || true
+				git -C "$repo_root" checkout -q "$base" >&2
+				mkdir -p "$ns/state/conflict"
+				git -C "$repo_root" rev-parse --short=12 "$rb" >"$ns/state/conflict/$rid"
+				printf 'conflict\t%s\n' "$rb"
+				conflicts="${conflicts:+$conflicts,}$rb"
+				continue
+			fi
+		fi
 		tip="$(git -C "$repo_root" rev-parse --short=12 "$rb")"
 		if landed "$tip" "$base"; then
 			# A branch with commits whose work is already in the base still finishes its task.
@@ -1385,6 +1447,10 @@ prepare)
 	branch="radin/$id"
 	wt="$repo_root-$id"
 	wt_record=""
+	parent="$(stack_parent "$id")"
+	start=""
+	[ -z "$parent" ] || start="radin/$parent"
+	made=""
 	if [ "$worktree" = "yes" ]; then
 		if [ -d "$wt" ]; then
 			# a dead attempt's tree -- reuse it rather than fail on `worktree add`
@@ -1392,7 +1458,8 @@ prepare)
 		elif git -C "$repo_root" rev-parse --verify --quiet "$branch" >/dev/null 2>&1; then
 			git -C "$repo_root" worktree add "$wt" "$branch" >&2
 		else
-			git -C "$repo_root" worktree add "$wt" -b "$branch" >&2
+			git -C "$repo_root" worktree add "$wt" -b "$branch" ${start:+"$start"} >&2
+			made=1
 		fi
 		journal "$ns/state" "prepare" "$id" "worktree=$wt branch=$branch"
 		dir="$wt"
@@ -1403,13 +1470,21 @@ prepare)
 			if git -C "$repo_root" rev-parse --verify --quiet "$branch" >/dev/null 2>&1; then
 				git -C "$repo_root" checkout "$branch" >&2
 			else
-				git -C "$repo_root" checkout -b "$branch" >&2
+				git -C "$repo_root" checkout -b "$branch" ${start:+"$start"} >&2
+				made=1
 			fi
 			journal "$ns/state" "prepare" "$id" "branch=$branch"
 		else
 			journal "$ns/state" "prepare" "$id" "current checkout, current branch"
 		fi
 		dir="$repo_root"
+	fi
+	if [ -n "$made" ]; then
+		rm -f "$ns/state/stacked/$id"
+		if [ -n "$parent" ]; then
+			mkdir -p "$ns/state/stacked"
+			printf '%s %s\n' "$parent" "$(git -C "$repo_root" rev-parse --short=12 "$start")" >"$ns/state/stacked/$id"
+		fi
 	fi
 	prepare_apply_claim "$dir" "$id"
 	# The branch is read here, after the git commands and nowhere else: a
