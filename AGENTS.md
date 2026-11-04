@@ -5,7 +5,7 @@ radin is a Claude Code plugin of skills, a CLI, and install glue.
 ## Hard rules
 
 - **bash 3.2** (macOS ships it). Use no associative arrays, `mapfile`, or `${var,,}`. Add no `uname` branch. Resolve tools with `command -v` or `brew shellenv`. Branch only where a tool differs (`md5` versus `md5sum`). Call out every script edit.
-- **`~/.claude` is not ours.** `~/.radin` is. `install.sh` writes `.sh`, `.c` and `.txt` only under `~/.radin/lib` and `.md` only under `~/.radin/hosts/<host>/lib`. It runs `cp` only on radin's own named files, plus `mkdir -p`. It never runs `rm`, deletes with a wildcard, or overwrites a file radin does not ship. Eight exceptions:
+- **`~/.claude` is not ours.** `~/.radin` is. `install.sh` writes `.sh`, `.c` and `.txt` only under `~/.radin/lib` and `.md` only under `~/.radin/hosts/<host>/lib`. It runs `cp` only on radin's own named files, plus `mkdir -p`. It never runs `rm`, deletes with a wildcard, or overwrites a file radin does not ship. Nine exceptions:
   1. The `<!-- radin:begin -->`…`<!-- radin:end -->` block in `~/.claude/CLAUDE.md`.
   2. The `lib/radin-cbm-config.sh` snapshot (kept in `~/.radin/backups`) and restore of `settings.json` and `~/.claude.json`.
   3. `skills/unslop/SKILL.md` and `skills/technical-writing/SKILL.md`. `install.sh` fetches both from upstream and overwrites them only when `manifest.json` lists them as radin's own.
@@ -14,6 +14,7 @@ radin is a Claude Code plugin of skills, a CLI, and install glue.
   6. `.ponytail-band`. `install.sh` writes `off` only when the file is absent, so ponytail's band starts hidden.
   7. Two `Read(//…/.radin/**)` strings in `permissions.allow` of `settings.json`. `radin-cbm-config.sh allow` adds them and `unallow` removes exactly those strings and the two legacy `Read(//…/.claude/.radin/**)` ones. `unallow-legacy` removes the legacy pair alone, after a migration. No other key or rule changes ([why](docs/DECISIONS.md#platform-and-install)).
   8. `~/.claude/.radin`. `install.sh` moves it once to `~/.radin` with `mv`, only when it holds a radin manifest, through `~/.radin.migrating`. A foreign `~/.radin` or a leftover staging directory aborts before any write ([why](docs/DECISIONS.md#platform-and-install)).
+  9. `--force` moves an unowned or edited radin-named path to `~/.radin/backups` with `mv`, then installs radin's file. It runs no `rm` there. Without `--force` that path stops its host or stays as the user left it ([why](docs/DECISIONS.md#platform-and-install)).
 
   Call out every `install.sh` edit.
 - **Companion install is advisory.** A failed install prints a warning and the run continues. The installer asks one question: which package manager installs the companions (`brew`, `mise`, or `curl`). radin adds no package manager the user has not already run.
@@ -28,6 +29,8 @@ radin is a Claude Code plugin of skills, a CLI, and install glue.
 | Migration of `~/.claude/.radin` aborts before any write | `tests/install.bats` (foreign `~/.radin`, failed `mv`, leftover staging directory, half-migrated, symlinked `~/.claude`, old updater) | An interrupted copy on a real second device is untested. |
 | Rendered `.md` only under `~/.radin/hosts/<host>/lib` | `tests/install.bats` layout test, `scripts/shipped.sh check` (`lib` versus `hostlib` kinds) | None. |
 | One list of shipped files | `scripts/shipped.sh check`, run by `make check` | README row text is hand-written. |
+| Install changes only paths radin owns | `tests/install.bats` (the unowned, edited and `--force` tests) | A foreign file inside a radin skill directory is overlaid, not checked. |
+| A forbid hit stops one host | `tests/install.bats` (the claude and agents render-failure tests) | None. |
 | Companion install is advisory | `tests/install.bats` ("a failing companion tool...") | None. |
 | One owner per delegation | `tests/skill-names.bats` (every name resolves) | Nothing for "one file per delegation" and graph tool names; review only. |
 | One owner per prose rule | `LEAF_CONTRACT`, `EXPLORE_RULE`, `OPEN_DECISIONS_RULE` and `PLANNING_RULE` tokens, `scripts/check-prose.sh` (new verbatim sentence copy) | A paraphrase or contradiction; review only. |

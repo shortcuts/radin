@@ -410,12 +410,22 @@ migrate_abort() {
 
 path_taken() { [ -e "$1" ] || [ -L "$1" ]; }
 
+# macOS ships shasum only; Linux ships sha256sum.
+sha256_of() {
+	if command -v sha256sum >/dev/null 2>&1; then
+		sha256sum "$1" | cut -d' ' -f1
+	else
+		shasum -a 256 "$1" | cut -d' ' -f1
+	fi
+}
+
 # Two renames, not one: a cross-device `mv` copies, then deletes, and a copy
 # that dies halfway must not leave a ~/.radin that passes radin_home_at.
 migrate_home() {
 	radin_home_at "$OLD_HOME" || return 0
 	if [ -n "$DRY" ]; then
 		info "would move $OLD_HOME to $RADIN_HOME"
+		[ -f "$MANIFEST_FILE" ] || MANIFEST_FILE="$OLD_HOME/manifest.json"
 		return 0
 	fi
 	if path_taken "$RADIN_HOME"; then
@@ -483,29 +493,197 @@ set_renders() {
 	RENDERS="${RENDERS# }"
 }
 
-# One path per line for every file radin writes into a manifest `files` entry.
-# Read from the source tree, so a dry run and a real run list the same files.
-owned_paths() {
-	local r s f
+# Files outside any host render. radin's own home: every run replaces them.
+neutral_paths() {
+	local f
 	for f in $SHIPPED_LIB; do printf '%s\n' "$RADIN_HOME/lib/$f"; done
 	printf '%s\n' "$RADIN_HOME/bin/radin"
-	for r in $RENDERS; do
-		for f in $SHIPPED_HOSTLIB; do printf '%s\n' "$RADIN_HOME/hosts/$r/lib/$f"; done
-		for s in $SHIPPED_SKILLS; do
-			if [ -d "$RADIN_ROOT/skills/$s" ]; then
-				(cd "$RADIN_ROOT/skills" && find "$s" -type f | sort) | sed "s|^|$(host_skills_dir "$r")/|"
-			else
-				printf '%s/%s/\n' "$(host_skills_dir "$r")" "$s"
-			fi
-		done
+}
+
+# Files one render writes, one path per line. Read from the source tree, so a
+# dry run and a real run list the same files.
+render_paths() {
+	local s f
+	for f in $SHIPPED_HOSTLIB; do printf '%s\n' "$RADIN_HOME/hosts/$1/lib/$f"; done
+	for s in $SHIPPED_SKILLS; do
+		if [ -d "$RADIN_ROOT/skills/$s" ]; then
+			(cd "$RADIN_ROOT/skills" && find "$s" -type f | sort) | sed "s|^|$(host_skills_dir "$1")/|"
+		else
+			printf '%s/%s/\n' "$(host_skills_dir "$1")" "$s"
+		fi
 	done
 }
 
+# One path per line for every file radin writes into a manifest `files` entry.
+owned_paths() {
+	local r
+	neutral_paths
+	for r in $RENDERS; do render_paths "$r"; done
+}
+
+TAB="$(printf '\t')"
+# `key<TAB>value` lines of a flat string map in the previous manifest.
+manifest_map() {
+	[ -f "$MANIFEST_FILE" ] || return 0
+	sed -n '/^  "'"$1"'": {/,/^  }/p' "$MANIFEST_FILE" | sed -n 's/^    "\(.*\)": "\(.*\)",\{0,1\}$/\1'"$TAB"'\2/p'
+}
+
+# A manifest from before `files` owns every path of a skill or hostlib file it names.
+OWNED_MAP=""
+PREV_BACKUPS=""
+LEGACY_MANIFEST=""
+load_ownership() {
+	OWNED_MAP="$(manifest_map files)"
+	PREV_BACKUPS="$(manifest_map backups)"
+	if [ -f "$MANIFEST_FILE" ] && ! grep -q '^  "files": {' "$MANIFEST_FILE"; then LEGACY_MANIFEST="1"; fi
+}
+
+legacy_owned() {
+	local s
+	[ -n "$LEGACY_MANIFEST" ] || return 1
+	case "$1" in
+	.claude/skills/*)
+		s="${1#.claude/skills/}"
+		case " $(manifest_list skills) " in *" ${s%%/*} "*) return 0 ;; esac
+		;;
+	.radin/hosts/claude/lib/*)
+		case " $(manifest_list hostlib) " in *" ${1##*/} "*) return 0 ;; esac
+		;;
+	esac
+	return 1
+}
+
+# Prints the recorded digest of a path under $HOME, empty for a legacy owner.
+# Returns 1 when the previous manifest does not own the path.
+owned_digest() {
+	local d
+	if d="$(printf '%s\n' "$OWNED_MAP" | awk -F'\t' -v p="$1" '$1 == p { print $2; f = 1 } END { exit !f }')"; then
+		printf '%s' "$d"
+	else
+		legacy_owned "$1"
+	fi
+}
+
+# free: nothing there. current: radin's, bytes as recorded. edited: radin's,
+# bytes changed since. unowned: there, and the manifest does not list it.
+classify() {
+	local want
+	path_taken "$1" || {
+		echo free
+		return
+	}
+	want="$(owned_digest "${1#"$HOME"/}")" || {
+		echo unowned
+		return
+	}
+	if [ -z "$want" ] || { [ -f "$1" ] && [ ! -L "$1" ] && [ "$(sha256_of "$1")" = "$want" ]; }; then
+		echo current
+	else
+		echo edited
+	fi
+}
+
+# The skill directory that holds a path, nothing for a lib file.
+skill_dir_of() {
+	local base s
+	for base in "$HOME/.claude/skills" "$HOME/.agents/skills"; do
+		case "$1" in
+		"$base"/*)
+			s="${1#"$base"/}"
+			printf '%s/%s' "$base" "${s%%/*}"
+			return
+			;;
+		esac
+	done
+}
+
+# One line per host-specific target: state, path, render, unit to back up.
+# A skill directory with no owned SKILL.md is unowned as a whole.
+PLAN="$(mktemp)"
+KEPT_FILE="$(mktemp)"
+BACKUPS_FILE="$(mktemp)"
+preflight() {
+	local r p st unit d
+	load_ownership
+	: >"$PLAN"
+	for r in $RENDERS; do
+		while IFS= read -r p; do
+			st=free
+			unit=""
+			case "$p" in
+			*/) ;;
+			*)
+				st="$(classify "$p")"
+				unit="$p"
+				d="$(skill_dir_of "$p")"
+				if [ -n "$d" ] && [ -d "$d" ]; then
+					case "$(classify "$d/SKILL.md")" in free | unowned) st=unowned unit="$d" ;; esac
+				fi
+				;;
+			esac
+			printf '%s\t%s\t%s\t%s\n' "$st" "$p" "$r" "$unit" >>"$PLAN"
+		done < <(render_paths "$r")
+	done
+}
+
+# Without --force, a render with an unowned target is left out, and so is every host that reads it.
+drop_blocked() {
+	local r id ids keep units u
+	if [ -z "$FORCE" ]; then
+		for r in $RENDERS; do
+			units="$(awk -F'\t' -v r="$r" '$1 == "unowned" && $3 == r { print $4 }' "$PLAN" | sort -u)"
+			[ -n "$units" ] || continue
+			ids=""
+			keep=""
+			for id in $SELECTED; do
+				if [ "$(host_field "$id" 3)" = "$r" ]; then ids="$ids $id"; else keep="$keep $id"; fi
+			done
+			ids="${ids# }"
+			while IFS= read -r u; do
+				if [ -n "$DRY" ]; then
+					printf 'conflict %s\n' "$u"
+				else
+					warn "$u exists and radin did not install it: $ids skipped; --force backs it up"
+				fi
+			done <<<"$units"
+			[ -z "$DRY" ] || printf 'skip host %s\n' "$ids"
+			SELECTED="${keep# }"
+			awk -F'\t' -v r="$r" '$3 != r' "$PLAN" >"$PLAN.new" && mv "$PLAN.new" "$PLAN"
+		done
+	fi
+	set_renders
+	[ -n "$SELECTED" ] || end_empty
+}
+
+drop_tmp() { rm -f "$PLAN" "$PLAN.new" "$KEPT_FILE" "$BACKUPS_FILE"; }
+
+end_empty() {
+	drop_tmp
+	INSTALL_DONE="1"
+	printf "%b\n" "${RED}${RAT} every selected host was skipped: nothing is installed.${RESET}" >&2
+	exit 1
+}
+
 dry_run_report() {
-	local p mgr
-	info "dry run: nothing below is written or run"
-	info "hosts: $SELECTED${FORCE:+ (--force: backups come with the preflight)}"
-	while IFS= read -r p; do printf 'write %s\n' "$p"; done < <(owned_paths)
+	local st p r unit mgr backed=""
+	info "hosts: $SELECTED${FORCE:+ (--force)}"
+	while IFS= read -r p; do printf 'write %s\n' "$p"; done < <(neutral_paths)
+	while IFS="$TAB" read -r st p r unit; do
+		if [ "$st" = edited ] && [ -z "$FORCE" ]; then
+			printf 'keep %s\n' "$p"
+			continue
+		fi
+		case "$st" in
+		unowned | edited)
+			case "$backed" in *"|$unit|"*) ;; *)
+				printf 'backup %s\n' "$unit"
+				backed="$backed|$unit|"
+				;;
+			esac
+			;;
+		esac
+		printf 'write %s\n' "$p"
+	done <"$PLAN"
 	printf 'write %s\n' "$RADIN_HOME/install_root" "$MANIFEST_FILE" "$RADIN_HOME/bin/radin-tui" \
 		"$RADIN_HOME/bin/radin-cbm-json" "$HOME/.local/bin/radin"
 	if host_selected claude; then
@@ -523,26 +701,20 @@ dry_run_report() {
 			"claude plugin install mattpocock-skills@claude-plugins-official"
 	fi
 }
+set_renders
+[ -z "$DRY" ] || info "dry run: nothing below is written or run"
+preflight
+drop_blocked
 [ -z "$DRY" ] || {
-	set_renders
 	dry_run_report
+	drop_tmp
 	INSTALL_DONE="1"
 	exit 0
 }
-set_renders
 mkdir -p "$RADIN_HOME/lib"
 for f in $SHIPPED_LIB; do
 	cp "$RADIN_ROOT/lib/$f" "$RADIN_HOME/lib/"
 done
-if host_selected claude; then
-	mkdir -p "$HOME/.claude/skills" "$RADIN_HOME/hosts/claude/lib"
-	for f in $SHIPPED_HOSTLIB; do
-		cp "$RADIN_ROOT/lib/$f" "$RADIN_HOME/hosts/claude/lib/"
-	done
-	for s in $SHIPPED_SKILLS; do
-		cp -r "$RADIN_ROOT/skills/$s" "$HOME/.claude/skills/"
-	done
-fi
 
 # A moved home still holds the pre-split rendered .md files and retired libs.
 if [ -n "$MIGRATED" ]; then
@@ -551,14 +723,6 @@ if [ -n "$MIGRATED" ]; then
 	done
 fi
 
-# Only a dir whose SKILL.md still names itself is radin's own to remove.
-if host_selected claude; then
-	for s in $RENAMED_SKILLS $RETIRED_SKILLS; do
-		if grep -qx "name: $s" "$HOME/.claude/skills/$s/SKILL.md" 2>/dev/null; then
-			rm -rf "$HOME/.claude/skills/$s"
-		fi
-	done
-fi
 mkdir -p "$RADIN_HOME/bin"
 cp "$RADIN_ROOT/bin/radin" "$RADIN_HOME/bin/"
 chmod +x "$RADIN_HOME/bin/radin"
@@ -590,7 +754,6 @@ if [ -n "$TUI_CC" ]; then
 else
 	warn "no C compiler found -- skipping the TUI. Use \`radin backlog show\`."
 fi
-ok "skills installed"
 
 install_tool() {
 	local name="$1" install_cmd="$2"
@@ -722,14 +885,6 @@ MODEL_MINOR="haiku"
 EFFORT_MAJOR=""
 EFFORT_MINOR=""
 
-# A file with no token is a no-op, so every pass runs over every SKILL.md and
-# lib/*.md and keeps no list of its own.
-shipped_text_files() {
-	local s f
-	for s in $SHIPPED_SKILLS; do printf '%s\n' "$(host_skills_dir "$1")/$s/SKILL.md"; done
-	for f in $SHIPPED_HOSTLIB; do printf '%s\n' "$RADIN_HOME/hosts/$1/lib/$f"; done
-}
-
 # Quoted JSON array body of a space-separated name list.
 json_names() {
 	local n sep=""
@@ -809,22 +964,22 @@ set_lib() {
 	fi
 }
 
-AGENTS_RENDER_ERR=""
-stage_agents_file() {
-	AGENTS_RENDER_ERR="$("$RADIN_ROOT/scripts/render-host.sh" "$1" agents 2>&1 >"$2")" && return 0
-	AGENTS_RENDER_ERR="${AGENTS_RENDER_ERR:-$1: render failed}"
+RENDER_ERR=""
+render_file() {
+	RENDER_ERR="$("$RADIN_ROOT/scripts/render-host.sh" "$1" "$3" 2>&1 >"$2")" && return 0
+	RENDER_ERR="${RENDER_ERR:-$1: render failed}"
 	return 1
 }
 
-stage_agents_tree() {
+stage_render() {
 	local f s
-	mkdir -p "$1/lib"
+	mkdir -p "$2/lib"
 	for f in $SHIPPED_HOSTLIB; do
-		stage_agents_file "$RADIN_ROOT/lib/$f" "$1/lib/$f" || return 1
+		render_file "$RADIN_ROOT/lib/$f" "$2/lib/$f" "$1" || return 1
 	done
 	for s in $SHIPPED_SKILLS; do
-		cp -r "$RADIN_ROOT/skills/$s" "$1/"
-		stage_agents_file "$RADIN_ROOT/skills/$s/SKILL.md" "$1/$s/SKILL.md" || return 1
+		cp -r "$RADIN_ROOT/skills/$s" "$2/"
+		render_file "$RADIN_ROOT/skills/$s/SKILL.md" "$2/$s/SKILL.md" "$1" || return 1
 	done
 }
 
@@ -836,42 +991,96 @@ install_host_companions() {
 		warn "$cli CLI not found: radin's own files are installed, companion steps skipped"
 }
 
-# Renders into a stage dir first, so one bad file leaves Codex and opencode out
-# and writes nothing, while the other hosts go on.
-install_agents_render() {
-	local id stage f s keep=""
-	case " $RENDERS " in *" agents "*) ;; *) return 0 ;; esac
+STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
+# A backup beside the original would load as a second skill of the same name.
+backup_path() {
+	local rel="${1#"$HOME"/}" dst n=0
+	dst="$RADIN_HOME/backups/$STAMP/$rel"
+	while path_taken "$dst"; do
+		n=$((n + 1))
+		dst="$RADIN_HOME/backups/$STAMP/$rel.$n"
+	done
+	mkdir -p "$(dirname "$dst")"
+	mv "$1" "$dst"
+	printf '%s\t%s\n' "${dst#"$HOME"/}" "$rel" >>"$BACKUPS_FILE"
+	info "backed up $1 to $dst"
+}
+
+# Copies the staged files of one render to their targets by the preflight verdicts.
+publish_stage() {
+	local r="$1" stage="$2" f rel dst st unit written=0 same=0 kept=0
+	while IFS= read -r f; do
+		rel="${f#"$stage"/}"
+		case "$rel" in
+		lib/*) dst="$RADIN_HOME/hosts/$r/lib/${rel#lib/}" ;;
+		*) dst="$(host_skills_dir "$r")/$rel" ;;
+		esac
+		IFS="$TAB" read -r st unit < <(awk -F'\t' -v p="$dst" '$2 == p { print $1 "\t" $4; exit }' "$PLAN")
+		if [ "$st" != free ] && [ "$st" != unowned ] && cmp -s "$f" "$dst"; then
+			same=$((same + 1))
+			continue
+		fi
+		if [ "$st" = edited ] && [ -z "$FORCE" ]; then
+			printf '%s\t%s\n' "${dst#"$HOME"/}" "$(owned_digest "${dst#"$HOME"/}")" >>"$KEPT_FILE"
+			warn "kept $dst: you edited it (--force replaces it)"
+			kept=$((kept + 1))
+			continue
+		fi
+		if [ -n "$unit" ] && { [ "$st" = unowned ] || [ "$st" = edited ]; } && path_taken "$unit"; then
+			backup_path "$unit"
+		fi
+		mkdir -p "$(dirname "$dst")"
+		cp "$f" "$dst"
+		written=$((written + 1))
+	done < <(find "$stage" -type f | sort)
+	ok "$r render installed to ${BOLD}$(host_skills_dir "$r")${RESET}: $written written, $same unchanged, $kept kept"
+}
+
+# Renders into a stage dir first, so one bad file leaves its hosts out and
+# writes nothing, while the other renders go on.
+install_render() {
+	local r="$1" id stage f s keep=""
+	RENDER_ERR=""
 	stage="$(mktemp -d)"
-	if stage_agents_tree "$stage"; then
+	if stage_render "$r" "$stage"; then
 		while IFS= read -r f; do
+			if [ "$r" = claude ]; then
+				set_role_models "$f"
+				set_role_efforts "$f"
+			fi
 			set_cli "$f" "$RADIN_CLI_VALUE"
-			set_lib "$f" "$RADIN_HOME/hosts/agents/lib"
-		done < <(find "$stage" -type f -name '*.md')
+			set_lib "$f" "$RADIN_HOME/hosts/$r/lib"
+		done < <(find "$stage" -type f -name '*.md' | sort)
 		# The agents prompts print no model or effort line; a token left over is a render bug.
-		if grep -rqE 'RADIN_(MODEL|EFFORT)_' "$stage"; then
-			AGENTS_RENDER_ERR="$(grep -rlE 'RADIN_(MODEL|EFFORT)_' "$stage" | head -1): model or effort token survives"
+		if [ "$r" = agents ] && grep -rqE 'RADIN_(MODEL|EFFORT)_' "$stage"; then
+			RENDER_ERR="$(grep -rlE 'RADIN_(MODEL|EFFORT)_' "$stage" | head -1): model or effort token survives"
 		fi
 	fi
-	if [ -z "$AGENTS_RENDER_ERR" ]; then
-		mkdir -p "$RADIN_HOME/hosts/agents/lib" "$HOME/.agents/skills"
-		for f in $SHIPPED_HOSTLIB; do
-			cp "$stage/lib/$f" "$RADIN_HOME/hosts/agents/lib/"
-		done
-		for s in $SHIPPED_SKILLS; do
-			cp -r "$stage/$s" "$HOME/.agents/skills/"
-		done
-		ok "agents render installed to ${BOLD}$HOME/.agents/skills${RESET}"
+	if [ -z "$RENDER_ERR" ]; then
+		publish_stage "$r" "$stage"
+		if [ "$r" = claude ]; then
+			# Only a dir whose SKILL.md still names itself is radin's own to remove.
+			for s in $RENAMED_SKILLS $RETIRED_SKILLS; do
+				if grep -qx "name: $s" "$HOME/.claude/skills/$s/SKILL.md" 2>/dev/null; then
+					rm -rf "$HOME/.claude/skills/$s"
+				fi
+			done
+		fi
 		for id in $SELECTED; do
-			[ "$(host_field "$id" 3)" != agents ] || install_host_companions "$id"
+			if [ "$(host_field "$id" 3)" = "$r" ] && [ "$r" = agents ]; then install_host_companions "$id"; fi
 		done
 	else
-		warn "agents render failed: $AGENTS_RENDER_ERR"
-		warn "Codex and opencode are left out of this install."
+		warn "$r render failed: $RENDER_ERR"
 		for id in $SELECTED; do
-			[ "$(host_field "$id" 3)" = agents ] || keep="$keep $id"
+			if [ "$(host_field "$id" 3)" = "$r" ]; then
+				warn "$id is left out of this install."
+			else
+				keep="$keep $id"
+			fi
 		done
 		SELECTED="${keep# }"
 		set_renders
+		[ -n "$SELECTED" ] || end_empty
 	fi
 	rm -rf "$stage"
 }
@@ -901,19 +1110,6 @@ elif prompt_yn "Choose radin-batch's sub-agent models? (defaults: sonnet, haiku 
 	ok "sub-agent models: $MODEL_MAJOR, $MODEL_MINOR for fact-finding and low-complexity tasks"
 else
 	ok "keeping default sub-agent models (sonnet; haiku for fact-finding and low-complexity tasks)"
-fi
-if host_selected claude; then
-	for f in $(shipped_text_files claude); do
-		tmp="$(mktemp)"
-		if "$RADIN_ROOT/scripts/render-host.sh" "$f" claude >"$tmp"; then
-			mv "$tmp" "$f"
-		else
-			rm -f "$tmp"
-			printf "%b\n" "${RED}${RAT} could not render $f for claude${RESET}" >&2
-			exit 1
-		fi
-		set_role_models "$f"
-	done
 fi
 
 step "radin CLI on PATH"
@@ -947,13 +1143,8 @@ else
 		;;
 	esac
 fi
-if host_selected claude; then
-	for f in $(shipped_text_files claude); do
-		set_cli "$f" "$RADIN_CLI_VALUE"
-		set_lib "$f" "$RADIN_HOME/hosts/claude/lib"
-	done
-fi
-install_agents_render
+for r in $RENDERS; do install_render "$r"; done
+ok "skills installed"
 
 step "Agent guidance"
 # A short section in ~/.claude/CLAUDE.md telling Claude when to reach for
@@ -1225,12 +1416,6 @@ if host_selected claude; then
 	fi
 fi
 
-if host_selected claude; then
-	for f in $(shipped_text_files claude); do
-		set_role_efforts "$f"
-	done
-fi
-
 step "Writing install manifest"
 # ponytail: three independent copies of this file list already exist
 # (install.sh's own cp lines above, radin-doctor.sh, radin-uninstall.sh) --
@@ -1257,21 +1442,23 @@ json_bool_plugin() {
 	fi
 }
 
-# macOS ships shasum only; Linux ships sha256sum.
-sha256_of() {
-	if command -v sha256sum >/dev/null 2>&1; then
-		sha256sum "$1" | cut -d' ' -f1
-	else
-		shasum -a 256 "$1" | cut -d' ' -f1
-	fi
-}
-# One entry per line, keyed by the path under $HOME. Taken last, so each digest matches the final bytes.
+# One entry per line, keyed by the path under $HOME. Taken last, so each digest
+# matches the final bytes; a kept file keeps the digest it had.
 json_files() {
-	local p sep=""
+	local p rel d sep=""
 	while IFS= read -r p; do
-		printf '%s\n    "%s": "%s"' "$sep" "${p#"$HOME"/}" "$(sha256_of "$p")"
+		rel="${p#"$HOME"/}"
+		d="$(awk -F'\t' -v p="$rel" '$1 == p { print $2; exit }' "$KEPT_FILE")"
+		printf '%s\n    "%s": "%s"' "$sep" "$rel" "${d:-$(sha256_of "$p")}"
 		sep=","
 	done < <(owned_paths)
+}
+json_backups() {
+	{
+		printf '%s\n' "$PREV_BACKUPS"
+		cat "$BACKUPS_FILE"
+	} |
+		awk -F'\t' 'NF == 2 { printf "%s\n    \"%s\": \"%s\"", sep, $1, $2; sep = "," }'
 }
 AGENTS_CLIS=""
 for id in $SELECTED; do
@@ -1320,9 +1507,12 @@ cat >"$MANIFEST_FILE" <<EOF
     "technical-writing": $(json_bool_pstack technical-writing)
   },
   "files": {$(json_files)
+  },
+  "backups": {$(json_backups)
   }
 }
 EOF
+drop_tmp
 ok "manifest written to ${BOLD}$MANIFEST_FILE${RESET}"
 
 step "Done"

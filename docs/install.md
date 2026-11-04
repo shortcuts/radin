@@ -35,6 +35,16 @@ To update the companions too, run `install.sh` again.
 The first install after the move to `~/.radin` relocates `~/.claude/.radin` there.
 It then asks you to restart open Claude sessions, because they hold the old path.
 
+## Existing files
+
+The installer checks every skill and lib file it writes against `~/.radin/manifest.json` before it writes any.
+
+- A path radin did not install stops that host. The other hosts install. Codex and opencode share one render, so they stop together.
+- A file you edited after radin installed it stays as it is. The installer prints `kept <path>`.
+- `--force` moves either one to `~/.radin/backups/<timestamp>/` and installs radin's file. The manifest `backups` map lists each move.
+
+`--dry-run` prints `conflict`, `keep` and `backup` lines for the same cases and writes nothing.
+
 ## Repair hooks after a companion update
 
 After `codebase-memory-mcp update`, run:

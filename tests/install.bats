@@ -959,3 +959,163 @@ host_prompt_hosts() {
   [ -z "$SELECTED_HOSTS" ]
   [ ! -e "$TEST_HOME/.radin" ]
 }
+
+# Ownership: the preflight, kept edits and --force backups.
+
+home_sum() {
+  (cd "$TEST_HOME" && find . -type f | sort | while IFS= read -r f; do printf '%s %s\n' "$f" "$(sha256_file "$f")"; done)
+}
+
+manifest_digest_of() {
+  sed -n 's|^    "'"$1"'": "\(.*\)",\{0,1\}$|\1|p' "$TEST_HOME/.radin/manifest.json"
+}
+
+foreign_skill() {
+  mkdir -p "$TEST_HOME/$1"
+  printf 'mine\n' >"$TEST_HOME/$1/SKILL.md"
+}
+
+@test "an unowned skill stops the claude host and writes nothing" {
+  agents_root
+  foreign_skill .claude/skills/radin-batch
+  local before
+  before="$(home_sum)"
+  run install_from "$AROOT" --yes --only claude
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"exists and radin did not install it"* ]]
+  [ "$before" = "$(home_sum)" ]
+  [ ! -e "$TEST_HOME/.radin" ]
+}
+
+@test "an unowned claude skill drops claude and still installs codex" {
+  mock_cli codex
+  agents_root
+  foreign_skill .claude/skills/radin-batch
+  run install_from "$AROOT" --yes --only claude,codex
+  [ "$status" -eq 0 ]
+  [ "$(manifest_array hosts)" = '"codex"' ]
+  [ "$(cat "$TEST_HOME/.claude/skills/radin-batch/SKILL.md")" = mine ]
+  [ -f "$TEST_HOME/.agents/skills/radin-batch/SKILL.md" ]
+}
+
+@test "an unowned agents skill drops codex and opencode together" {
+  mock_cli codex
+  mock_cli opencode
+  agents_root
+  foreign_skill .agents/skills/radin-batch
+  local before
+  before="$(home_sum)"
+  run install_from "$AROOT" --yes --only codex,opencode
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"codex opencode skipped"* ]]
+  [ "$before" = "$(home_sum)" ]
+}
+
+@test "--force backs an unowned skill up under ~/.radin/backups and records it" {
+  agents_root
+  foreign_skill .claude/skills/radin-batch
+  run install_from "$AROOT" --yes --only claude --force
+  [ "$status" -eq 0 ]
+  local backup
+  backup="$(find "$TEST_HOME/.radin/backups" -path '*/.claude/skills/radin-batch/SKILL.md')"
+  [ "$(cat "$backup")" = mine ]
+  [ "$(head -c 3 "$TEST_HOME/.claude/skills/radin-batch/SKILL.md")" = "---" ]
+  grep -q '"backups": {' "$TEST_HOME/.radin/manifest.json"
+  grep -q '": ".claude/skills/radin-batch"' "$TEST_HOME/.radin/manifest.json"
+  [ ! -e "$TEST_HOME/.claude/skills/radin-batch.bak" ]
+}
+
+@test "a re-run on an unchanged install rewrites no render file" {
+  mock_cli codex
+  agents_root
+  install_from "$AROOT" --yes --only claude,codex >/dev/null
+  touch "$BATS_TEST_TMPDIR/marker"
+  sleep 1
+  run install_from "$AROOT" --yes --update
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"0 written"* ]]
+  run find "$TEST_HOME/.claude/skills"/radin-* "$TEST_HOME/.agents/skills" "$TEST_HOME/.radin/hosts" -type f -newer "$BATS_TEST_TMPDIR/marker"
+  [ -z "$output" ]
+}
+
+@test "a skill the user edited is kept, with its old digest, on every re-run" {
+  agents_root
+  install_from "$AROOT" --yes --only claude >/dev/null
+  local f="$TEST_HOME/.claude/skills/radin-do/SKILL.md" d
+  d="$(manifest_digest_of .claude/skills/radin-do/SKILL.md)"
+  printf 'my edit\n' >>"$f"
+  run install_from "$AROOT" --yes --update
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"kept $f"* ]]
+  grep -qx 'my edit' "$f"
+  [ "$(manifest_digest_of .claude/skills/radin-do/SKILL.md)" = "$d" ]
+  run install_from "$AROOT" --yes --update
+  [[ "$output" == *"kept $f"* ]]
+}
+
+@test "--force replaces an edited skill and backs the edit up" {
+  agents_root
+  install_from "$AROOT" --yes --only claude >/dev/null
+  local f="$TEST_HOME/.claude/skills/radin-do/SKILL.md"
+  printf 'my edit\n' >>"$f"
+  run install_from "$AROOT" --yes --update --force
+  [ "$status" -eq 0 ]
+  run grep -qx 'my edit' "$f"
+  [ "$status" -eq 1 ]
+  grep -qx 'my edit' "$(find "$TEST_HOME/.radin/backups" -path '*/.claude/skills/radin-do/SKILL.md')"
+  [ "$(manifest_digest_of .claude/skills/radin-do/SKILL.md)" = "$(sha256_file "$f")" ]
+}
+
+@test "a v1 manifest owns its skills, so an update replaces them without a conflict" {
+  agents_root
+  install_from "$AROOT" --yes --only claude >/dev/null
+  local m="$TEST_HOME/.radin/manifest.json" f="$TEST_HOME/.claude/skills/radin-do/SKILL.md"
+  sed -e '/"manifest_version"/d' -e '/"hosts"/d' -e '/"agents_clis"/d' \
+    -e '/"files": {/,/^  }/d' -e 's/^  },$/  }/' "$m" >"$m.new"
+  mv "$m.new" "$m"
+  printf 'my edit\n' >>"$f"
+  run install_from "$AROOT" --yes --update
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"did not install it"* ]]
+  run grep -qx 'my edit' "$f"
+  [ "$status" -eq 1 ]
+}
+
+@test "a claude render that fails leaves claude out and keeps codex" {
+  mock_cli codex
+  agents_root
+  : >"$AROOT/lib/skill-names-claude.txt"
+  run install_from "$AROOT" --yes --only claude,codex
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"claude render failed"* ]]
+  [ "$(manifest_array hosts)" = '"codex"' ]
+  [ ! -e "$TEST_HOME/.claude/skills/radin-batch" ]
+  [ -f "$TEST_HOME/.agents/skills/radin-batch/SKILL.md" ]
+}
+
+@test "--dry-run reports a conflict and a kept edit and writes nothing" {
+  agents_root
+  foreign_skill .claude/skills/radin-batch
+  local before
+  before="$(home_sum)"
+  run install_from "$AROOT" --yes --dry-run --only claude
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"conflict $TEST_HOME/.claude/skills/radin-batch"* ]]
+  [[ "$output" == *"skip host claude"* ]]
+  [ "$before" = "$(home_sum)" ]
+  rm -rf "$TEST_HOME/.claude"
+  install_from "$AROOT" --yes --only claude >/dev/null
+  printf 'my edit\n' >>"$TEST_HOME/.claude/skills/radin-do/SKILL.md"
+  run install_from "$AROOT" --yes --dry-run --only claude
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"keep $TEST_HOME/.claude/skills/radin-do/SKILL.md"* ]]
+}
+
+@test "all three hosts build the C helpers once" {
+  mock_cli codex
+  mock_cli opencode
+  agents_root
+  run install_from "$AROOT" --yes --only claude,codex,opencode
+  [ "$status" -eq 0 ]
+  [ "$(wc -l <"$TEST_HOME/cc.log" | tr -d ' ')" = 2 ]
+}
