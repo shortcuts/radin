@@ -4,7 +4,7 @@
 # companion tools (rtk, codebase-memory-mcp, caveman, ponytail,
 # mattpocock-skills, and the unslop and technical-writing skills) are reachable. Never mutates anything -- mirrors install.sh's own
 # "advisory only" stance on companion tools.
-# Installed to ~/.claude/.radin/lib/radin-doctor.sh by install.sh.
+# Installed to ~/.radin/lib/radin-doctor.sh by install.sh.
 #
 # Usage: radin-doctor.sh
 # Exit: 0 if every expected agent/skill/lib file is present, every lib
@@ -15,10 +15,12 @@
 set -euo pipefail
 
 CLAUDE_DIR="$HOME/.claude"
+RADIN_HOME="$HOME/.radin"
 MISSING=0
 # BEGIN shipped (generated from SHIPPED by scripts/shipped.sh; run make gen, never edit)
 SHIPPED_SKILLS="radin-batch radin-do radin-plan radin-record radin-review radin-stats radin-teardown radin-uninstall"
-SHIPPED_LIB="radin-host.sh radin-namespace.sh radin-json.sh radin-backlog.sh radin-tui.c radin-cbm-json.c radin-state.sh radin-scope.sh radin-prompt.sh radin-prompt-planning.md radin-prompt-execution.md radin-prompt-debug.md radin-prompt-factfind.md radin-prompt-gate.md radin-prompt-merge.md radin-leaf-contract.md radin-comment-rule.md radin-explore-rule.md radin-open-decisions.md radin-ask-rule.md radin-complexity-rule.md radin-planning-rule.md radin-prioritization.md radin-batch-recovery.md radin-batch-reporting.md radin-batch-gate.md radin-batch-merge.md radin-batch-clarify.md radin-batch-session.md radin-batch-resume.md radin-run.md radin-review-core.md radin-cbm-hooks.sh radin-cbm-config.sh radin-update.sh radin-stats.sh radin-doctor.sh radin-uninstall.sh skill-names-claude.txt skill-names-agents.txt"
+SHIPPED_LIB="radin-host.sh radin-namespace.sh radin-json.sh radin-backlog.sh radin-tui.c radin-cbm-json.c radin-state.sh radin-scope.sh radin-prompt.sh radin-cbm-hooks.sh radin-cbm-config.sh radin-update.sh radin-stats.sh radin-doctor.sh radin-uninstall.sh skill-names-claude.txt skill-names-agents.txt"
+SHIPPED_HOSTLIB="radin-prompt-planning.md radin-prompt-execution.md radin-prompt-debug.md radin-prompt-factfind.md radin-prompt-gate.md radin-prompt-merge.md radin-leaf-contract.md radin-comment-rule.md radin-explore-rule.md radin-open-decisions.md radin-ask-rule.md radin-complexity-rule.md radin-planning-rule.md radin-prioritization.md radin-batch-recovery.md radin-batch-reporting.md radin-batch-gate.md radin-batch-merge.md radin-batch-clarify.md radin-batch-session.md radin-batch-resume.md radin-run.md radin-review-core.md"
 # END shipped
 
 check_file() {
@@ -88,10 +90,10 @@ for name in $SHIPPED_SKILLS thermo-nuclear; do
 	check_file "$name" "$CLAUDE_DIR/skills/$name/SKILL.md"
 done
 
-printf '\nLib (%s/.radin/lib):\n' "$CLAUDE_DIR"
-printf '\nCLI (%s/.radin/bin):\n' "$CLAUDE_DIR"
-check_lib_script "radin (dispatcher)" "$CLAUDE_DIR/.radin/bin/radin"
-if [ "$(readlink "$HOME/.local/bin/radin" 2>/dev/null)" = "$CLAUDE_DIR/.radin/bin/radin" ]; then
+printf '\nLib (%s/lib):\n' "$RADIN_HOME"
+printf '\nCLI (%s/bin):\n' "$RADIN_HOME"
+check_lib_script "radin (dispatcher)" "$RADIN_HOME/bin/radin"
+if [ "$(readlink "$HOME/.local/bin/radin" 2>/dev/null)" = "$RADIN_HOME/bin/radin" ]; then
 	printf '  %-20s symlinked into ~/.local/bin\n' "radin (PATH)"
 else
 	printf '  %-20s not on PATH (optional; skills fall back to the full path)\n' "radin (PATH)"
@@ -99,9 +101,14 @@ fi
 
 for name in $SHIPPED_LIB; do
 	case "$name" in
-	*.sh) check_lib_script "$name" "$CLAUDE_DIR/.radin/lib/$name" ;;
-	*) check_file "$name" "$CLAUDE_DIR/.radin/lib/$name" ;;
+	*.sh) check_lib_script "$name" "$RADIN_HOME/lib/$name" ;;
+	*) check_file "$name" "$RADIN_HOME/lib/$name" ;;
 	esac
+done
+
+printf '\nLib (%s/hosts/claude/lib):\n' "$RADIN_HOME"
+for name in $SHIPPED_HOSTLIB; do
+	check_file "$name" "$RADIN_HOME/hosts/claude/lib/$name"
 done
 
 # install.sh swaps every RADIN_* token for the recorded answer. One
@@ -113,7 +120,7 @@ printf '\nInstall-time substitutions:\n'
 token_dirs=""
 for name in $SHIPPED_SKILLS; do token_dirs="$token_dirs $CLAUDE_DIR/skills/$name"; done
 # shellcheck disable=SC2086  # one path per shipped skill
-if grep -rq --exclude=radin-doctor.sh 'RADIN_MODEL_\|RADIN_EFFORT_\|RADIN_CLI ' $token_dirs "$CLAUDE_DIR/.radin/lib" 2>/dev/null; then
+if grep -rq --exclude=radin-doctor.sh 'RADIN_MODEL_\|RADIN_EFFORT_\|RADIN_CLI ' $token_dirs "$RADIN_HOME/lib" "$RADIN_HOME/hosts/claude/lib" 2>/dev/null; then
 	printf '  INVALID  unsubstituted RADIN_ token -- re-run install.sh\n'
 	MISSING=$((MISSING + 1))
 else
@@ -121,7 +128,7 @@ else
 fi
 
 printf '\nHook commands (%s/settings.json):\n' "$CLAUDE_DIR"
-json_helper="$CLAUDE_DIR/.radin/bin/radin-cbm-json"
+json_helper="$RADIN_HOME/bin/radin-cbm-json"
 if [ ! -x "$json_helper" ]; then
 	printf '  SKIPPED  hook commands (radin-cbm-json not built)\n'
 elif [ ! -f "$CLAUDE_DIR/settings.json" ]; then
@@ -159,8 +166,8 @@ if command -v codebase-memory-mcp >/dev/null 2>&1 || [ -x "$HOME/.local/bin/code
 	else
 		printf '  MISSING  MCP server entry -- re-run install.sh, or radin hooks mcp here\n'
 	fi
-	if [ -d "$CLAUDE_DIR/.radin/backups" ]; then
-		printf '  OK       config snapshots in %s/.radin/backups\n' "$CLAUDE_DIR"
+	if [ -d "$RADIN_HOME/backups" ]; then
+		printf '  OK       config snapshots in %s/backups\n' "$RADIN_HOME"
 	fi
 fi
 

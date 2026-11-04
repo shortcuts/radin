@@ -5,12 +5,12 @@
 setup() {
   SRC="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
   WORK="$(cd "$(mktemp -d)" && pwd -P)"
-  # bin/radin hardcodes $HOME/.claude/.radin/lib, so a fake HOME links to the repo.
+  # bin/radin hardcodes $HOME/.radin/lib, so a fake HOME links to the repo.
   export HOME="$WORK/home"
-  mkdir -p "$HOME/.claude/.radin" "$WORK/proj"
-  ln -s "$SRC/lib" "$HOME/.claude/.radin/lib"
-  ln -s "$SRC/bin" "$HOME/.claude/.radin/bin"
-  RADIN="$HOME/.claude/.radin/bin/radin"
+  mkdir -p "$HOME/.radin" "$WORK/proj"
+  ln -s "$SRC/lib" "$HOME/.radin/lib"
+  ln -s "$SRC/bin" "$HOME/.radin/bin"
+  RADIN="$HOME/.radin/bin/radin"
   unset RADIN_HOST
   cd "$WORK/proj"
 }

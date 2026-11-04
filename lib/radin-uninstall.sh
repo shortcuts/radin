@@ -1,22 +1,23 @@
 #!/usr/bin/env bash
-# Removes everything install.sh copies into ~/.claude. Never touches
+# Removes everything install.sh copies into ~/.radin and ~/.claude. Never touches
 # thermo-nuclear (not vendored by this repo), the unslop and technical-writing
 # skills (fetched from cursor/plugins at install time), companion tools (advisory
 # installs), ~/.claude/radin (the fetched source copy), or any per-repo
 # .claude/.radin/ backlog directory -- see AGENTS.md's Constraints section.
-# Installed to ~/.claude/.radin/lib/radin-uninstall.sh by install.sh.
+# Installed to ~/.radin/lib/radin-uninstall.sh by install.sh.
 #
 # Usage: radin-uninstall.sh
 # Must stay bash-3.2-compatible (macOS /bin/bash).
 set -euo pipefail
 
 CLAUDE_DIR="$HOME/.claude"
+RADIN_HOME="$HOME/.radin"
 # BEGIN shipped (generated from SHIPPED by scripts/shipped.sh; run make gen, never edit)
 SHIPPED_SKILLS="radin-batch radin-do radin-plan radin-record radin-review radin-stats radin-teardown radin-uninstall"
-SHIPPED_LIB="radin-host.sh radin-namespace.sh radin-json.sh radin-backlog.sh radin-tui.c radin-cbm-json.c radin-state.sh radin-scope.sh radin-prompt.sh radin-prompt-planning.md radin-prompt-execution.md radin-prompt-debug.md radin-prompt-factfind.md radin-prompt-gate.md radin-prompt-merge.md radin-leaf-contract.md radin-comment-rule.md radin-explore-rule.md radin-open-decisions.md radin-ask-rule.md radin-complexity-rule.md radin-planning-rule.md radin-prioritization.md radin-batch-recovery.md radin-batch-reporting.md radin-batch-gate.md radin-batch-merge.md radin-batch-clarify.md radin-batch-session.md radin-batch-resume.md radin-run.md radin-review-core.md radin-cbm-hooks.sh radin-cbm-config.sh radin-update.sh radin-stats.sh radin-doctor.sh radin-uninstall.sh skill-names-claude.txt skill-names-agents.txt"
+SHIPPED_LIB="radin-host.sh radin-namespace.sh radin-json.sh radin-backlog.sh radin-tui.c radin-cbm-json.c radin-state.sh radin-scope.sh radin-prompt.sh radin-cbm-hooks.sh radin-cbm-config.sh radin-update.sh radin-stats.sh radin-doctor.sh radin-uninstall.sh skill-names-claude.txt skill-names-agents.txt"
+SHIPPED_HOSTLIB="radin-prompt-planning.md radin-prompt-execution.md radin-prompt-debug.md radin-prompt-factfind.md radin-prompt-gate.md radin-prompt-merge.md radin-leaf-contract.md radin-comment-rule.md radin-explore-rule.md radin-open-decisions.md radin-ask-rule.md radin-complexity-rule.md radin-planning-rule.md radin-prioritization.md radin-batch-recovery.md radin-batch-reporting.md radin-batch-gate.md radin-batch-merge.md radin-batch-clarify.md radin-batch-session.md radin-batch-resume.md radin-run.md radin-review-core.md"
 RENAMED_SKILLS="radin-execute radin-implement radin-run"
 RETIRED_SKILLS="radin-update radin-show radin-doctor radin-setup-hooks"
-RETIRED_LIB="radin-tui.sh radin-crg-hooks.sh radin-execute-recovery.md radin-execute-reporting.md radin-execute-gate.md radin-execute-review.md radin-execute-clarify.md radin-execute-session.md radin-execute-resume.md radin-batch-review.md"
 # END shipped
 
 # rm -rf works on a plain file same as a directory -- one helper covers
@@ -42,26 +43,31 @@ done
 printf '\nPermissions (%s/settings.json):\n' "$CLAUDE_DIR"
 # Only the Read rules install.sh added; the helper matches whole strings, so a
 # rule the user wrote stays. Runs first because it needs the files removed below.
-if [ -x "$CLAUDE_DIR/.radin/bin/radin-cbm-json" ] && [ -f "$CLAUDE_DIR/.radin/lib/radin-cbm-config.sh" ]; then
-	bash "$CLAUDE_DIR/.radin/lib/radin-cbm-config.sh" unallow || printf '  SKIPPED  settings.json is not valid JSON -- remove the Read(.../.radin/**) rules by hand\n'
+if [ -x "$RADIN_HOME/bin/radin-cbm-json" ] && [ -f "$RADIN_HOME/lib/radin-cbm-config.sh" ]; then
+	bash "$RADIN_HOME/lib/radin-cbm-config.sh" unallow || printf '  SKIPPED  settings.json is not valid JSON -- remove the Read(.../.radin/**) rules by hand\n'
 else
 	printf '  SKIPPED  radin-cbm-json not built -- remove any Read(.../.radin/**) rule from settings.json by hand\n'
 fi
 
-printf '\nCLI (%s/.radin/bin):\n' "$CLAUDE_DIR"
+printf '\nCLI (%s/bin):\n' "$RADIN_HOME"
 # The ~/.local/bin symlink is removed only when it points at radin's own
 # dispatcher -- anything else there is not ours to delete.
-if [ "$(readlink "$HOME/.local/bin/radin" 2>/dev/null)" = "$CLAUDE_DIR/.radin/bin/radin" ]; then
+link_now="$(readlink "$HOME/.local/bin/radin" 2>/dev/null || true)"
+if [ "$link_now" = "$RADIN_HOME/bin/radin" ] || [ "$link_now" = "$CLAUDE_DIR/.radin/bin/radin" ]; then
 	remove_path "radin (~/.local/bin symlink)" "$HOME/.local/bin/radin"
 fi
-remove_path "radin (dispatcher)" "$CLAUDE_DIR/.radin/bin/radin"
-remove_path "radin-tui" "$CLAUDE_DIR/.radin/bin/radin-tui"
-remove_path "radin-cbm-json" "$CLAUDE_DIR/.radin/bin/radin-cbm-json"
+remove_path "radin (dispatcher)" "$RADIN_HOME/bin/radin"
+remove_path "radin-tui" "$RADIN_HOME/bin/radin-tui"
+remove_path "radin-cbm-json" "$RADIN_HOME/bin/radin-cbm-json"
 
-printf '\nLib (%s/.radin/lib):\n' "$CLAUDE_DIR"
-for name in $SHIPPED_LIB $RETIRED_LIB; do
+printf '\nLib (%s/lib):\n' "$RADIN_HOME"
+for name in $SHIPPED_LIB; do
 	# This script goes last: bash reads a script as it runs.
-	[ "$name" = radin-uninstall.sh ] || remove_path "$name" "$CLAUDE_DIR/.radin/lib/$name"
+	[ "$name" = radin-uninstall.sh ] || remove_path "$name" "$RADIN_HOME/lib/$name"
+done
+printf '\nLib (%s/hosts/claude/lib):\n' "$RADIN_HOME"
+for name in $SHIPPED_HOSTLIB; do
+	remove_path "$name" "$RADIN_HOME/hosts/claude/lib/$name"
 done
 
 printf '\nLeft untouched:\n'
@@ -73,8 +79,8 @@ done
 # remover instead of assuming brew. headroom stays listed for installs made by
 # a radin that still shipped it.
 PKG_MGR=""
-if [ -f "$CLAUDE_DIR/.radin/manifest.json" ]; then
-	PKG_MGR="$(sed -n 's/.*"package_manager": *"\([^"]*\)".*/\1/p' "$CLAUDE_DIR/.radin/manifest.json" | head -1)"
+if [ -f "$RADIN_HOME/manifest.json" ]; then
+	PKG_MGR="$(sed -n 's/.*"package_manager": *"\([^"]*\)".*/\1/p' "$RADIN_HOME/manifest.json" | head -1)"
 fi
 case "$PKG_MGR" in
 brew) RTK_REMOVE="brew uninstall rtk" ;;
@@ -104,10 +110,10 @@ fi
 printf '  %s\n' "Any <repo-root>/.mcp.json entry for codebase-memory-mcp -- per-repo config, delete it by hand"
 # Copies of the user's own settings.json / .claude.json, taken before upstream
 # rewrote them. Deleting someone's only copy of their config is not radin's call.
-if [ -d "$CLAUDE_DIR/.radin/backups" ]; then
-	printf '  %s\n' "$CLAUDE_DIR/.radin/backups holds copies of your settings.json -- your data, your call"
+if [ -d "$RADIN_HOME/backups" ]; then
+	printf '  %s\n' "$RADIN_HOME/backups holds copies of your settings.json -- your data, your call"
 fi
 
 printf '\nradin removed from ~/.claude.\n'
 
-remove_path "radin-uninstall.sh (this script)" "$CLAUDE_DIR/.radin/lib/radin-uninstall.sh"
+remove_path "radin-uninstall.sh (this script)" "$RADIN_HOME/lib/radin-uninstall.sh"

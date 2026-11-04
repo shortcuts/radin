@@ -22,15 +22,16 @@
 # restores rather than rolls back, so it cannot undo the configuration
 # (`codebase-memory-mcp uninstall` does); and `repair` reads the newest
 # snapshot, which after one install already holds upstream's own entries.
-# Installed to ~/.claude/.radin/lib/radin-cbm-config.sh by install.sh.
+# Installed to ~/.radin/lib/radin-cbm-config.sh by install.sh.
 # Must stay bash-3.2-compatible (macOS /bin/bash).
 set -euo pipefail
 
 CLAUDE_DIR="$HOME/.claude"
+RADIN_HOME="$HOME/.radin"
 SETTINGS="$CLAUDE_DIR/settings.json"
 # Claude Code's user-scope config, where upstream writes the MCP server entry.
 CLAUDE_JSON="$HOME/.claude.json"
-BACKUP_DIR="$CLAUDE_DIR/.radin/backups"
+BACKUP_DIR="$RADIN_HOME/backups"
 CBM_NAME="codebase-memory-mcp"
 # Upstream refuses every write under a symlinked ~/.claude and then drops
 # Claude Code from its target list without failing (#1722, closed unresolved):
@@ -50,10 +51,10 @@ STAGED_CLAUDE_JSON="$CLAUDE_REAL_DIR/.claude.json"
 
 # Every JSON read and write here is C (lib/radin-cbm-json.c) -- radin ships
 # bash and C only, and this script holds no JSON knowledge of its own. Next to
-# this script in a dev checkout, in ~/.claude/.radin/bin once install.sh has
+# this script in a dev checkout, in ~/.radin/bin once install.sh has
 # built it.
 CBM_JSON="$(cd "$(dirname "$0")" && pwd)/radin-cbm-json"
-[ -x "$CBM_JSON" ] || CBM_JSON="$HOME/.claude/.radin/bin/radin-cbm-json"
+[ -x "$CBM_JSON" ] || CBM_JSON="$RADIN_HOME/bin/radin-cbm-json"
 
 die() {
 	printf 'radin-cbm-config: %s\n' "$*" >&2
@@ -225,6 +226,14 @@ cmd_repair() {
 # matches a Read rule against the path it is asked to read. Rules only, never
 # a Bash rule -- the grant covers radin's own lib/*.md and nothing else.
 allow_rules() {
+	local real="$RADIN_HOME"
+	[ ! -d "$RADIN_HOME" ] || real="$(cd "$RADIN_HOME" && pwd -P)"
+	printf '%s\n' "Read(/$RADIN_HOME/**)"
+	[ "$real" = "$RADIN_HOME" ] || printf '%s\n' "Read(/$real/**)"
+}
+
+# The pre-~/.radin spellings: unallow removes them so no stale grant stays.
+legacy_allow_rules() {
 	printf '%s\n' "Read(/$CLAUDE_DIR/.radin/**)"
 	[ "$CLAUDE_REAL_DIR" = "$CLAUDE_DIR" ] || printf '%s\n' "Read(/$CLAUDE_REAL_DIR/.radin/**)"
 }
@@ -233,6 +242,7 @@ cmd_allow() {
 	local verb="$1" rules=() r
 	while IFS= read -r r; do rules+=("$r"); done <<EOF
 $(allow_rules)
+$([ "$verb" = remove-allow ] && legacy_allow_rules)
 EOF
 	"$CBM_JSON" "$verb" "$SETTINGS" "${rules[@]}"
 }

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Deterministic operations on radin-batch's per-session state files
 # (BACKLOG_STEPS.json, completed.json), so the orchestrator never hand-edits
-# JSON in its own prose. Installed to ~/.claude/.radin/lib/radin-state.sh by
+# JSON in its own prose. Installed to ~/.radin/lib/radin-state.sh by
 # install.sh.
 #
 # Both files are JSONL (one compact JSON object per line) -- same convention

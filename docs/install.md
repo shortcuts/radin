@@ -42,7 +42,7 @@ radin repair
 
 That update reruns a config write that drops other tools' hooks. `radin repair` restores them.
 radin keeps a snapshot of `~/.claude/settings.json` and `~/.claude.json` in
-`~/.claude/.radin/backups/` and never deletes one.
+`~/.radin/backups/` and never deletes one.
 
 ## Uninstall radin
 

@@ -16,9 +16,9 @@ names() { # kind ("skill", "lib", "renamed skill", ...) -> its names, one per li
 # Each script gets only the lists it reads, so shellcheck sees no unused one.
 vars_for() {
 	case "$1" in
-	install.sh) echo "SHIPPED_SKILLS SHIPPED_LIB RENAMED_SKILLS RETIRED_SKILLS" ;;
-	lib/radin-doctor.sh) echo "SHIPPED_SKILLS SHIPPED_LIB" ;;
-	*) echo "SHIPPED_SKILLS SHIPPED_LIB RENAMED_SKILLS RETIRED_SKILLS RETIRED_LIB" ;;
+	install.sh) echo "SHIPPED_SKILLS SHIPPED_LIB SHIPPED_HOSTLIB RENAMED_SKILLS RETIRED_SKILLS" ;;
+	lib/radin-doctor.sh) echo "SHIPPED_SKILLS SHIPPED_LIB SHIPPED_HOSTLIB" ;;
+	*) echo "SHIPPED_SKILLS SHIPPED_LIB SHIPPED_HOSTLIB RENAMED_SKILLS RETIRED_SKILLS" ;;
 	esac
 }
 
@@ -26,6 +26,7 @@ kind_of() {
 	case "$1" in
 	SHIPPED_SKILLS) echo skill ;;
 	SHIPPED_LIB) echo lib ;;
+	SHIPPED_HOSTLIB) echo hostlib ;;
 	RENAMED_SKILLS) echo "renamed skill" ;;
 	RETIRED_SKILLS) echo "retired skill" ;;
 	RETIRED_LIB) echo "retired lib" ;;
@@ -69,16 +70,22 @@ gen)
 	;;
 check)
 	bad=0
-	awk 'NF && $1 !~ /^#/ && !((NF == 2 && ($1 == "skill" || $1 == "lib")) || (NF == 3 && ($1 == "renamed" || $1 == "retired") && ($2 == "skill" || $2 == "lib"))) { printf "shipped: SHIPPED line %d (%s) has no known kind: use skill, lib, renamed skill, retired skill or retired lib\n", NR, $0; e = 1 } END { exit e }' SHIPPED >&2 || bad=1
+	awk 'NF && $1 !~ /^#/ && !((NF == 2 && ($1 == "skill" || $1 == "lib" || $1 == "hostlib")) || (NF == 3 && ($1 == "renamed" || $1 == "retired") && ($2 == "skill" || $2 == "lib"))) { printf "shipped: SHIPPED line %d (%s) has no known kind: use skill, lib, hostlib, renamed skill, retired skill or retired lib\n", NR, $0; e = 1 } END { exit e }' SHIPPED >&2 || bad=1
 	for s in $(names skill); do [ -f "skills/$s/SKILL.md" ] || fail "SHIPPED lists skill $s but skills/$s/SKILL.md is missing: create it or delete the line"; done
 	for l in $(names lib); do [ -f "lib/$l" ] || fail "SHIPPED lists lib $l but lib/$l is missing: create it or delete the line"; done
+	for l in $(names hostlib); do [ -f "lib/$l" ] || fail "SHIPPED lists hostlib $l but lib/$l is missing: create it or delete the line"; done
+	for l in $(names lib); do case "$l" in *.md) fail "lib $l is rendered: change its SHIPPED kind to hostlib" ;; esac done
+	for l in $(names hostlib); do case "$l" in *.md) ;; *) fail "hostlib $l is host-neutral: change its SHIPPED kind to lib" ;; esac done
 	for d in skills/*/; do
 		s="$(basename "$d")"
 		names skill | grep -qx "$s" || fail "skills/$s exists but is not in SHIPPED: add \"skill $s\" to SHIPPED, then run make gen"
 	done
 	for f in $(git ls-files --cached --others --exclude-standard lib); do
 		l="${f#lib/}"
-		names lib | grep -qx "$l" || fail "$f is tracked but not in SHIPPED: add \"lib $l\" to SHIPPED, then run make gen"
+		grep -qx "$l" <<<"$(
+			names lib
+			names hostlib
+		)" || fail "$f is tracked but not in SHIPPED: add \"lib $l\" (or hostlib for .md) to SHIPPED, then run make gen"
 	done
 	for f in $TARGETS; do
 		render "$f" >"$BLK"

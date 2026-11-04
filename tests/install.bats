@@ -67,8 +67,9 @@ teardown() {
 # status. Only a test whose subject is install-time behaviour should run
 # install.sh itself -- see AGENTS.md's "Before committing".
 replay_install() {
-  rm -rf "$TEST_HOME/.claude" "$TEST_HOME/.local"
+  rm -rf "$TEST_HOME/.claude" "$TEST_HOME/.radin" "$TEST_HOME/.local"
   cp -a "$TEMPLATE/home/.claude" "$TEST_HOME/.claude"
+  cp -a "$TEMPLATE/home/.radin" "$TEST_HOME/.radin"
   [ -d "$TEMPLATE/home/.local" ] && cp -a "$TEMPLATE/home/.local" "$TEST_HOME/.local"
   for log in brew.log; do
     [ -f "$TEMPLATE/home/$log" ] && cp "$TEMPLATE/home/$log" "$TEST_HOME/$log"
@@ -98,10 +99,10 @@ run_install_defaults() {
   [ "$(cat "$TEMPLATE/status")" -eq 0 ]
   grep -q 'Done' "$TEMPLATE/output"
   [ -f "$TEMPLATE/home/.claude/skills/radin-batch/SKILL.md" ]
-  [ -f "$TEMPLATE/home/.claude/.radin/lib/radin-backlog.sh" ]
-  [ -f "$TEMPLATE/home/.claude/.radin/manifest.json" ]
-  [ -x "$TEMPLATE/home/.claude/.radin/bin/radin-tui" ]
-  [ -x "$TEMPLATE/home/.claude/.radin/bin/radin-cbm-json" ]
+  [ -f "$TEMPLATE/home/.radin/lib/radin-backlog.sh" ]
+  [ -f "$TEMPLATE/home/.radin/manifest.json" ]
+  [ -x "$TEMPLATE/home/.radin/bin/radin-tui" ]
+  [ -x "$TEMPLATE/home/.radin/bin/radin-cbm-json" ]
   # Agents read the backlog through the CLI.
   grep -q 'what is pending: run `.* backlog show`' "$TEMPLATE/home/.claude/CLAUDE.md"
   ! grep -q '/radin-show' "$TEMPLATE/home/.claude/CLAUDE.md"
@@ -109,9 +110,9 @@ run_install_defaults() {
 
 @test "installed radin-run.md holds no host marker and keeps the claude loop" {
   replay_install >/dev/null
-  run grep -c '<!-- /\?host' "$TEST_HOME/.claude/.radin/lib/radin-run.md"
+  run grep -c '<!-- /\?host' "$TEST_HOME/.radin/hosts/claude/lib/radin-run.md"
   [ "$output" = 0 ]
-  grep -q 'Claude Code decides foreground or background' "$TEST_HOME/.claude/.radin/lib/radin-run.md"
+  grep -q 'Claude Code decides foreground or background' "$TEST_HOME/.radin/hosts/claude/lib/radin-run.md"
 }
 
 # The golden stores sums, so a failure names the file and both sums, not the lines.
@@ -150,7 +151,7 @@ run_install_defaults() {
   [[ "$output" == *"partial install"* ]]
   [ -L "$TEST_HOME/.local/bin/radin" ]
   # Effort tokens are written after the companion step, so a mid-run death leaves them.
-  [ -z "$(grep -rl --include='*.md' 'RADIN_CLI\|RADIN_LIB\|RADIN_MODEL_' "$TEST_HOME/.claude/skills" "$TEST_HOME/.claude/.radin/lib")" ]
+  [ -z "$(grep -rl --include='*.md' 'RADIN_CLI\|RADIN_LIB\|RADIN_MODEL_' "$TEST_HOME/.claude/skills" "$TEST_HOME/.radin/lib")" ]
   grep -q 'radin:begin' "$TEST_HOME/.claude/CLAUDE.md"
 }
 
@@ -160,12 +161,12 @@ run_install_defaults() {
 # every dispatch would fail, so no installed file may keep one.
 @test "writes a model into every sub-agent role, leaving no marker behind" {
   run_install_defaults
-  run ! grep -rq --exclude=radin-doctor.sh 'RADIN_MODEL_\|RADIN_EFFORT_' "$TEST_HOME/.claude/skills" "$TEST_HOME/.claude/.radin/lib"
-  grep -q 'effort: ""' "$TEST_HOME/.claude/.radin/lib/radin-prompt-gate.md"
-  grep -q '"effort_planning": ""' "$TEST_HOME/.claude/.radin/manifest.json"
-  grep -q 'model: "sonnet"' "$TEST_HOME/.claude/.radin/lib/radin-prompt-gate.md"
-  grep -q 'model: "haiku"' "$TEST_HOME/.claude/.radin/lib/radin-prompt-factfind.md"
-  grep -q 'model-low: "haiku"' "$TEST_HOME/.claude/.radin/lib/radin-prompt-execution.md"
+  run ! grep -rq --exclude=radin-doctor.sh 'RADIN_MODEL_\|RADIN_EFFORT_' "$TEST_HOME/.claude/skills" "$TEST_HOME/.radin/lib"
+  grep -q 'effort: ""' "$TEST_HOME/.radin/hosts/claude/lib/radin-prompt-gate.md"
+  grep -q '"effort_planning": ""' "$TEST_HOME/.radin/manifest.json"
+  grep -q 'model: "sonnet"' "$TEST_HOME/.radin/hosts/claude/lib/radin-prompt-gate.md"
+  grep -q 'model: "haiku"' "$TEST_HOME/.radin/hosts/claude/lib/radin-prompt-factfind.md"
+  grep -q 'model-low: "haiku"' "$TEST_HOME/.radin/hosts/claude/lib/radin-prompt-execution.md"
 }
 
 # Two picks, one per model group: the major roles take the first, fact-finding
@@ -174,12 +175,12 @@ run_install_defaults() {
   export MOCK_NPX=eat-stdin
   cd "$REPO_ROOT" && run bash -c "printf '1\\n2\\n1\\n2\\n' | bash ./install.sh"
   [ "$status" -eq 0 ]
-  grep -q '"model_planning": "opus"' "$TEST_HOME/.claude/.radin/manifest.json"
-  grep -q '"model_low": "fable"' "$TEST_HOME/.claude/.radin/manifest.json"
-  run ! grep -rq --exclude=radin-doctor.sh 'RADIN_MODEL_\|RADIN_EFFORT_' "$TEST_HOME/.claude/skills" "$TEST_HOME/.claude/.radin/lib"
-  grep -q 'model: "opus"' "$TEST_HOME/.claude/.radin/lib/radin-prompt-gate.md"
-  grep -q 'model: "fable"' "$TEST_HOME/.claude/.radin/lib/radin-prompt-factfind.md"
-  grep -q 'model-low: "fable"' "$TEST_HOME/.claude/.radin/lib/radin-prompt-execution.md"
+  grep -q '"model_planning": "opus"' "$TEST_HOME/.radin/manifest.json"
+  grep -q '"model_low": "fable"' "$TEST_HOME/.radin/manifest.json"
+  run ! grep -rq --exclude=radin-doctor.sh 'RADIN_MODEL_\|RADIN_EFFORT_' "$TEST_HOME/.claude/skills" "$TEST_HOME/.radin/lib"
+  grep -q 'model: "opus"' "$TEST_HOME/.radin/hosts/claude/lib/radin-prompt-gate.md"
+  grep -q 'model: "fable"' "$TEST_HOME/.radin/hosts/claude/lib/radin-prompt-factfind.md"
+  grep -q 'model-low: "fable"' "$TEST_HOME/.radin/hosts/claude/lib/radin-prompt-execution.md"
 }
 
 # install.sh, radin-doctor.sh and radin-uninstall.sh each keep their own list
@@ -187,13 +188,13 @@ run_install_defaults() {
 # catches a file added to one list and forgotten in another.
 @test "doctor finds and uninstall removes exactly what install ships" {
   run_install_defaults
-  run bash "$TEST_HOME/.claude/.radin/lib/radin-doctor.sh"
+  run bash "$TEST_HOME/.radin/lib/radin-doctor.sh"
   [ "$status" -eq 0 ]
   [[ "$output" == *"All expected files present."* ]]
   [[ "$output" == *"no unsubstituted token left"* ]]
-  run bash "$TEST_HOME/.claude/.radin/lib/radin-uninstall.sh"
+  run bash "$TEST_HOME/.radin/lib/radin-uninstall.sh"
   [ "$status" -eq 0 ]
-  [ -z "$(find "$TEST_HOME/.claude/.radin/lib" "$TEST_HOME/.claude/.radin/bin" -type f)" ]
+  [ -z "$(find "$TEST_HOME/.radin/lib" "$TEST_HOME/.radin/hosts/claude/lib" "$TEST_HOME/.radin/bin" -type f)" ]
   [ -z "$(ls "$TEST_HOME/.claude/skills" | grep '^radin-')" ]
   [ -f "$TEST_HOME/.claude/skills/thermo-nuclear/SKILL.md" ]
 }
@@ -201,10 +202,10 @@ run_install_defaults() {
 @test "writes an install manifest listing installed files and companion tools" {
   run run_install_defaults
   [ "$status" -eq 0 ]
-  manifest="$TEST_HOME/.claude/.radin/manifest.json"
+  manifest="$TEST_HOME/.radin/manifest.json"
   [ -f "$manifest" ]
   grep -q '"version"' "$manifest"
-  for f in "$TEST_HOME"/.claude/.radin/lib/* "$TEST_HOME"/.claude/skills/radin-*; do
+  for f in "$TEST_HOME"/.radin/lib/* "$TEST_HOME"/.claude/skills/radin-*; do
     grep -q "\"${f##*/}\"" "$manifest"
   done
   grep -q '"rtk": true' "$manifest"
@@ -218,7 +219,7 @@ run_install_defaults() {
     f="$TEST_HOME/.claude/skills/$s/SKILL.md"
     [ "$(head -c 3 "$f")" = "---" ]
     run ! grep -q 'disable-model-invocation' "$f"
-    grep -q "\"$s\": true" "$TEST_HOME/.claude/.radin/manifest.json"
+    grep -q "\"$s\": true" "$TEST_HOME/.radin/manifest.json"
   done
 }
 
@@ -229,8 +230,8 @@ run_install_defaults() {
   [ "$status" -eq 0 ]
   [ "$(cat "$TEST_HOME/.claude/skills/unslop/SKILL.md")" = mine ]
   [[ "$output" == *"unslop skipped"* ]]
-  grep -q '"unslop": false' "$TEST_HOME/.claude/.radin/manifest.json"
-  grep -q '"technical-writing": true' "$TEST_HOME/.claude/.radin/manifest.json"
+  grep -q '"unslop": false' "$TEST_HOME/.radin/manifest.json"
+  grep -q '"technical-writing": true' "$TEST_HOME/.radin/manifest.json"
 }
 
 @test "install removes the skills radin renamed and keeps a foreign one of that name" {
@@ -257,7 +258,7 @@ run_install_defaults() {
   [ "$status" -eq 0 ]
   [ "$(cat "$TEST_HOME/.claude/skills/unslop/SKILL.md")" = kept ]
   [[ "$output" == *"download failed"* ]]
-  grep -q '"unslop": true' "$TEST_HOME/.claude/.radin/manifest.json"
+  grep -q '"unslop": true' "$TEST_HOME/.radin/manifest.json"
 }
 
 # The guidance block rewrites only what sits between its own markers, so
@@ -277,7 +278,7 @@ run_install_defaults() {
   [ "$(grep -c '<!-- radin:end -->' "$claude_md")" -eq 1 ]
   grep -q '/radin-record' "$claude_md"
   [ "$(cat "$TEST_HOME/.claude/.ponytail-band")" = off ]
-  grep -q '"claude_md_guidance": true' "$TEST_HOME/.claude/.radin/manifest.json"
+  grep -q '"claude_md_guidance": true' "$TEST_HOME/.radin/manifest.json"
   # A re-run must not grow the file by one blank line each time.
   [ "$(wc -l < "$claude_md")" -eq "$before" ]
 }
@@ -285,10 +286,31 @@ run_install_defaults() {
 @test "installs the radin CLI dispatcher and the ~/.local/bin symlink" {
   # Asserted on the recorded tree: the symlink names its own $TEMPLATE home, so
   # a replay into another $HOME could not be checked.
-  [ -x "$TEMPLATE/home/.claude/.radin/bin/radin" ]
+  [ -x "$TEMPLATE/home/.radin/bin/radin" ]
   [ -L "$TEMPLATE/home/.local/bin/radin" ]
-  [ "$(readlink "$TEMPLATE/home/.local/bin/radin")" = "$TEMPLATE/home/.claude/.radin/bin/radin" ]
-  grep -q '"cli_on_path": true' "$TEMPLATE/home/.claude/.radin/manifest.json"
+  [ "$(readlink "$TEMPLATE/home/.local/bin/radin")" = "$TEMPLATE/home/.radin/bin/radin" ]
+  grep -q '"cli_on_path": true' "$TEMPLATE/home/.radin/manifest.json"
+}
+
+@test "layout: .md only under hosts/claude/lib, neutral files only under lib, no ~/.claude/.radin" {
+  run_install_defaults >/dev/null
+  [ -z "$(find "$TEST_HOME/.radin/lib" -name '*.md')" ]
+  [ -z "$(find "$TEST_HOME/.radin/hosts/claude/lib" -type f ! -name '*.md')" ]
+  [ -f "$TEST_HOME/.radin/hosts/claude/lib/radin-run.md" ]
+  [ ! -e "$TEST_HOME/.claude/.radin" ]
+}
+
+@test "manifest lists the rendered libs under hostlib" {
+  grep -q '"hostlib": \[.*"radin-run.md"' "$TEMPLATE/home/.radin/manifest.json"
+}
+
+@test "a ~/.local/bin/radin link to the legacy dispatcher is relinked" {
+  mkdir -p "$TEST_HOME/.local/bin"
+  ln -s "$TEST_HOME/.claude/.radin/bin/radin" "$TEST_HOME/.local/bin/radin"
+  run real_install
+  [ "$status" -eq 0 ]
+  [ "$(readlink "$TEST_HOME/.local/bin/radin")" = "$TEST_HOME/.radin/bin/radin" ]
+  grep -q '"cli_on_path": true' "$TEST_HOME/.radin/manifest.json"
 }
 
 # Skills carry a RADIN_CLI token; set_cli resolves it to whichever invocation
@@ -296,8 +318,8 @@ run_install_defaults() {
 # dispatcher path is written -- bare `radin` would break every skill here.
 @test "RADIN_CLI resolves to the full path when ~/.local/bin is off PATH" {
   run_install_defaults
-  run ! grep -rq --exclude=radin-doctor.sh 'RADIN_CLI' "$TEST_HOME/.claude/skills" "$TEST_HOME/.claude/.radin/lib"
-  grep -q '"$HOME/.claude/.radin/bin/radin" backlog' "$TEST_HOME/.claude/.radin/lib/radin-run.md"
+  run ! grep -rq --exclude=radin-doctor.sh 'RADIN_CLI' "$TEST_HOME/.claude/skills" "$TEST_HOME/.radin/lib"
+  grep -q '"$HOME/.radin/bin/radin" backlog' "$TEST_HOME/.radin/hosts/claude/lib/radin-run.md"
 }
 
 # radin-batch and radin-do read lib docs with the Read tool, which
@@ -306,14 +328,14 @@ run_install_defaults() {
 # $TEMPLATE/home, which is the HOME the recorded run resolved against.
 @test "RADIN_LIB resolves to the installed lib directory" {
   run_install_defaults
-  run_doc="$TEST_HOME/.claude/.radin/lib/radin-run.md"
+  run_doc="$TEST_HOME/.radin/hosts/claude/lib/radin-run.md"
   run ! grep -rq 'RADIN_LIB' "$TEST_HOME/.claude/skills" "$run_doc"
-  run ! grep -q '$HOME/.claude/.radin/lib' "$run_doc"
-  grep -q "$TEMPLATE/home/.claude/.radin/lib/radin-batch-clarify.md" "$run_doc"
-  grep -q "$TEMPLATE/home/.claude/.radin/lib/radin-batch-gate.md" "$run_doc"
+  run ! grep -q '$HOME/.radin/lib' "$run_doc"
+  grep -q "$TEMPLATE/home/.radin/hosts/claude/lib/radin-batch-clarify.md" "$run_doc"
+  grep -q "$TEMPLATE/home/.radin/hosts/claude/lib/radin-batch-gate.md" "$run_doc"
   run ! grep -q 'full check suite' "$run_doc"
   for s in radin-batch radin-do; do
-    grep -q "$TEMPLATE/home/.claude/.radin/lib/radin-run.md" "$TEST_HOME/.claude/skills/$s/SKILL.md"
+    grep -q "$TEMPLATE/home/.radin/hosts/claude/lib/radin-run.md" "$TEST_HOME/.claude/skills/$s/SKILL.md"
   done
 }
 
@@ -321,20 +343,20 @@ run_install_defaults() {
   run_install_defaults
   # cd out of the repo: namespace resolution would otherwise count radin's own backlog.
   cd "$TEST_HOME"
-  run env HOME="$TEST_HOME" bash "$TEST_HOME/.claude/.radin/bin/radin" backlog count
+  run env HOME="$TEST_HOME" bash "$TEST_HOME/.radin/bin/radin" backlog count
   [ "$status" -eq 0 ]
   [ "$output" = "0" ]
-  run env HOME="$TEST_HOME" bash "$TEST_HOME/.claude/.radin/bin/radin" nope
+  run env HOME="$TEST_HOME" bash "$TEST_HOME/.radin/bin/radin" nope
   [ "$status" -ne 0 ]
 }
 
 @test "radin help prints the usage text, bare radin off a tty fails with it" {
   run_install_defaults
-  run env HOME="$TEST_HOME" bash "$TEST_HOME/.claude/.radin/bin/radin" help
+  run env HOME="$TEST_HOME" bash "$TEST_HOME/.radin/bin/radin" help
   [ "$status" -eq 0 ]
   [[ "$output" == *"usage: radin"* ]]
   # `run` captures stdout through a pipe, so this is the non-tty path.
-  run env HOME="$TEST_HOME" bash "$TEST_HOME/.claude/.radin/bin/radin"
+  run env HOME="$TEST_HOME" bash "$TEST_HOME/.radin/bin/radin"
   [ "$status" -ne 0 ]
   [[ "$output" == *"usage: radin"* ]]
 }
@@ -344,7 +366,7 @@ run_install_defaults() {
   pty_build || skip "a C compiler is needed to build the pty driver"
   cd "$TEST_HOME"
   run env HOME="$TEST_HOME" "$PTY_RUN" "$TEST_HOME/screen" "q" \
-    bash "$TEST_HOME/.claude/.radin/bin/radin"
+    bash "$TEST_HOME/.radin/bin/radin"
   [ "$status" -eq 0 ]
   run cat "$TEST_HOME/screen"
   [[ "$output" == *"no tasks"* ]]
@@ -372,8 +394,8 @@ run_install_defaults() {
   [[ "$output" != *"OpenCode:"* ]]
   [[ "$output" != *"hooks: SessionStart"* ]]
   [[ "$output" != *"wired: skill"* ]]
-  grep -q '^PARTIAL ' "$TEST_HOME/.claude/.radin/cbm-config.log"
-  grep -q 'OpenCode:' "$TEST_HOME/.claude/.radin/cbm-config.log"
+  grep -q '^PARTIAL ' "$TEST_HOME/.radin/cbm-config.log"
+  grep -q 'OpenCode:' "$TEST_HOME/.radin/cbm-config.log"
 }
 
 # The arrow-key picker only draws on a real terminal, so it gets driven through
@@ -441,7 +463,7 @@ pick_with_keys() {
   [ "$status" -eq 0 ]
   grep -q "install rtk" "$BREW_LOG"
   [[ "$output" != *"Pick 1-"* ]]
-  manifest="$TEST_HOME/.claude/.radin/manifest.json"
+  manifest="$TEST_HOME/.radin/manifest.json"
   grep -q '"rtk": true' "$manifest"
   # The guidance block is part of "same stack on the next machine".
   grep -q '"claude_md_guidance": true' "$manifest"
@@ -458,7 +480,7 @@ pick_with_keys() {
   [[ "$(cat "$TEST_HOME/mise.log")" == *"aqua:rtk-ai/rtk"* ]]
   [[ "$(cat "$TEST_HOME/mise.log")" != *"headroom"* ]]
   [ ! -s "$TEST_HOME/brew.log" ] || [[ "$(cat "$TEST_HOME/brew.log")" != *"install rtk"* ]]
-  grep -q '"package_manager": "mise"' "$TEST_HOME/.claude/.radin/manifest.json"
+  grep -q '"package_manager": "mise"' "$TEST_HOME/.radin/manifest.json"
 }
 
 # ponytail's SubagentStart hook is what puts its ladder in every execution
@@ -499,7 +521,7 @@ pick_with_keys() {
 # answer comes from the manifest the previous install wrote.
 @test "--update reconfigures every companion and installs only the missing ones" {
   replay_install >/dev/null
-  manifest="$TEST_HOME/.claude/.radin/manifest.json"
+  manifest="$TEST_HOME/.radin/manifest.json"
   grep -q '"package_manager": "brew"' "$manifest"
   rm -f "$TEST_HOME"/*.log
   for t in rtk codebase-memory-mcp; do
@@ -519,7 +541,7 @@ pick_with_keys() {
   run bash -c "printf '' | bash ./install.sh --update"
   [ "$status" -eq 0 ]
   [[ "$output" == *"keeping sub-agent models: opus, fable for fact-finding and low-complexity tasks"* ]]
-  grep -q 'opus' "$TEST_HOME/.claude/.radin/lib/radin-prompt-planning.md"
+  grep -q 'opus' "$TEST_HOME/.radin/hosts/claude/lib/radin-prompt-planning.md"
   grep -q '"package_manager": "brew"' "$manifest"
   [ ! -e "$TEST_HOME/brew.log" ]
   [ ! -e "$TEST_HOME/npx.log" ]
@@ -536,6 +558,6 @@ pick_with_keys() {
 @test "the install records its source root for radin update" {
   run run_install_defaults
   [ "$status" -eq 0 ]
-  [ "$(cat "$TEST_HOME/.claude/.radin/install_root")" = "$REPO_ROOT" ]
+  [ "$(cat "$TEST_HOME/.radin/install_root")" = "$REPO_ROOT" ]
 }
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Deterministic backlog operations, so agents/skills don't hand-edit backlog
-# storage. Installed to ~/.claude/.radin/lib/radin-backlog.sh by install.sh.
+# storage. Installed to ~/.radin/lib/radin-backlog.sh by install.sh.
 #
 # Storage: $BACKLOG_INDEX is a JSONL file (one compact JSON object per line,
 # one per task: {"id":...,"category":...,"title":...,"file":...}), plus the

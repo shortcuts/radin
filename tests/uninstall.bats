@@ -12,24 +12,27 @@ teardown() {
 }
 
 install_all_expected() {
-  mkdir -p "$TEST_HOME/.claude/.radin/lib" "$TEST_HOME/.claude/.radin/bin"
-  printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/bin/radin"
+  mkdir -p "$TEST_HOME/.radin/lib" "$TEST_HOME/.radin/bin" "$TEST_HOME/.radin/hosts/claude/lib"
+  printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.radin/bin/radin"
   for name in $(awk '$1 == "skill" { print $2 }' "$REPO_ROOT/SHIPPED") thermo-nuclear; do
     mkdir -p "$TEST_HOME/.claude/skills/$name"
     : > "$TEST_HOME/.claude/skills/$name/SKILL.md"
   done
   for name in $(awk '$1 == "lib" { print $2 }' "$REPO_ROOT/SHIPPED"); do
     case "$name" in
-      *.sh) printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/$name" ;;
-      *) : > "$TEST_HOME/.claude/.radin/lib/$name" ;;
+      *.sh) printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.radin/lib/$name" ;;
+      *) : > "$TEST_HOME/.radin/lib/$name" ;;
     esac
   done
-  cp "$CLI" "$TEST_HOME/.claude/.radin/lib/radin-uninstall.sh"
+  for name in $(awk '$1 == "hostlib" { print $2 }' "$REPO_ROOT/SHIPPED"); do
+    : > "$TEST_HOME/.radin/hosts/claude/lib/$name"
+  done
+  cp "$CLI" "$TEST_HOME/.radin/lib/radin-uninstall.sh"
 }
 
 @test "leaves thermo-nuclear untouched" {
   install_all_expected
-  run env HOME="$TEST_HOME" bash "$TEST_HOME/.claude/.radin/lib/radin-uninstall.sh"
+  run env HOME="$TEST_HOME" bash "$TEST_HOME/.radin/lib/radin-uninstall.sh"
   [ "$status" -eq 0 ]
   [ -f "$TEST_HOME/.claude/skills/thermo-nuclear/SKILL.md" ]
   [[ "$output" == *"thermo-nuclear"*"not vendored"* ]]
@@ -39,7 +42,7 @@ install_all_expected() {
   install_all_expected
   mkdir -p "$TEST_HOME/.claude/skills/unslop"
   : > "$TEST_HOME/.claude/skills/unslop/SKILL.md"
-  run env HOME="$TEST_HOME" bash "$TEST_HOME/.claude/.radin/lib/radin-uninstall.sh"
+  run env HOME="$TEST_HOME" bash "$TEST_HOME/.radin/lib/radin-uninstall.sh"
   [ "$status" -eq 0 ]
   [ -f "$TEST_HOME/.claude/skills/unslop/SKILL.md" ]
   [[ "$output" == *"unslop"*"cursor/plugins"* ]]
@@ -47,7 +50,7 @@ install_all_expected() {
 
 @test "prints manual removal commands for advisory companion tools" {
   install_all_expected
-  run env HOME="$TEST_HOME" bash "$TEST_HOME/.claude/.radin/lib/radin-uninstall.sh"
+  run env HOME="$TEST_HOME" bash "$TEST_HOME/.radin/lib/radin-uninstall.sh"
   [ "$status" -eq 0 ]
   [[ "$output" == *"codebase-memory-mcp uninstall"* ]]
   [[ "$output" == *"claude plugin uninstall caveman@caveman"* ]]
@@ -57,8 +60,8 @@ install_all_expected() {
 # brew command on a mise machine would name a tool the user never installed.
 @test "names the removal command of the recorded package manager" {
   install_all_expected
-  printf '{\n  "package_manager": "mise"\n}\n' > "$TEST_HOME/.claude/.radin/manifest.json"
-  run env HOME="$TEST_HOME" bash "$TEST_HOME/.claude/.radin/lib/radin-uninstall.sh"
+  printf '{\n  "package_manager": "mise"\n}\n' > "$TEST_HOME/.radin/manifest.json"
+  run env HOME="$TEST_HOME" bash "$TEST_HOME/.radin/lib/radin-uninstall.sh"
   [ "$status" -eq 0 ]
   [[ "$output" == *"mise rm -g aqua:rtk-ai/rtk"* ]]
   [[ "$output" == *"mise rm -g pipx:headroom-ai"* ]]

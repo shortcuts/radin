@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Assembles one radin-batch sub-agent prompt, so the router never reads the
 # template file, never substitutes a placeholder, and never sends a leaf the
-# steps its task does not have. Installed to ~/.claude/.radin/lib/radin-prompt.sh
+# steps its task does not have. Installed to ~/.radin/lib/radin-prompt.sh
 # by install.sh.
 #
 # Usage:
@@ -37,6 +37,8 @@ die() {
 }
 
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+MD_DIR="$LIB_DIR/../hosts/${RADIN_HOST:-claude}/lib"
+[ -d "$MD_DIR" ] || MD_DIR="$LIB_DIR"
 
 kind="${1:-}"
 id="${2:-}"
@@ -80,18 +82,18 @@ fence() {
 
 body="$(fence "$TEMPLATE")"
 [ -n "$body" ] || die "no fenced prompt in $TEMPLATE"
-leaf_contract="$(fence "$LIB_DIR/radin-leaf-contract.md")"
-[ -n "$leaf_contract" ] || die "no fenced contract in $LIB_DIR/radin-leaf-contract.md"
-comment_rule="$(fence "$LIB_DIR/radin-comment-rule.md")"
-[ -n "$comment_rule" ] || die "no fenced rule in $LIB_DIR/radin-comment-rule.md"
-explore_rule="$(fence "$LIB_DIR/radin-explore-rule.md")"
-[ -n "$explore_rule" ] || die "no fenced rule in $LIB_DIR/radin-explore-rule.md"
-open_decisions_rule="$(fence "$LIB_DIR/radin-open-decisions.md")"
-[ -n "$open_decisions_rule" ] || die "no fenced rule in $LIB_DIR/radin-open-decisions.md"
-complexity_rule="$(fence "$LIB_DIR/radin-complexity-rule.md")"
-[ -n "$complexity_rule" ] || die "no fenced rule in $LIB_DIR/radin-complexity-rule.md"
-planning_rule="$(fence "$LIB_DIR/radin-planning-rule.md")"
-[ -n "$planning_rule" ] || die "no fenced rule in $LIB_DIR/radin-planning-rule.md"
+leaf_contract="$(fence "$MD_DIR/radin-leaf-contract.md")"
+[ -n "$leaf_contract" ] || die "no fenced contract in $MD_DIR/radin-leaf-contract.md"
+comment_rule="$(fence "$MD_DIR/radin-comment-rule.md")"
+[ -n "$comment_rule" ] || die "no fenced rule in $MD_DIR/radin-comment-rule.md"
+explore_rule="$(fence "$MD_DIR/radin-explore-rule.md")"
+[ -n "$explore_rule" ] || die "no fenced rule in $MD_DIR/radin-explore-rule.md"
+open_decisions_rule="$(fence "$MD_DIR/radin-open-decisions.md")"
+[ -n "$open_decisions_rule" ] || die "no fenced rule in $MD_DIR/radin-open-decisions.md"
+complexity_rule="$(fence "$MD_DIR/radin-complexity-rule.md")"
+[ -n "$complexity_rule" ] || die "no fenced rule in $MD_DIR/radin-complexity-rule.md"
+planning_rule="$(fence "$MD_DIR/radin-planning-rule.md")"
+[ -n "$planning_rule" ] || die "no fenced rule in $MD_DIR/radin-planning-rule.md"
 
 # One `eval` of the CLI's own export lines, rather than parsing them: the
 # namespace is this script's only input that is not an argument.
@@ -269,7 +271,7 @@ body="$(printf '%s\n' "$body" | strip_guards "$active")"
 
 review_core=""
 if [ "$kind" = execution ]; then
-	review_core="$(strip_guards " LEVEL_diff " <"$LIB_DIR/radin-review-core.md")"
+	review_core="$(strip_guards " LEVEL_diff " <"$MD_DIR/radin-review-core.md")"
 fi
 
 sub_token LEAF_CONTRACT "$leaf_contract"

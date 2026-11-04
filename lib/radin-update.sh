@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 # radin update: refresh radin itself by re-running install.sh in --update mode
 # (radin's own steps and questions, no companion installer).
-# Installed to ~/.claude/.radin/lib/radin-update.sh by install.sh.
+# Installed to ~/.radin/lib/radin-update.sh by install.sh.
 #
 # Usage: radin update [--yes]
 # Must stay bash-3.2-compatible (macOS /bin/bash).
 set -euo pipefail
 
-ROOT_FILE="$HOME/.claude/.radin/install_root"
+RADIN_HOME="$HOME/.radin"
+ROOT_FILE="$RADIN_HOME/install_root"
 INSTALLER_URL="https://raw.githubusercontent.com/shortcuts/radin/main/install.sh"
 
 SRC=""

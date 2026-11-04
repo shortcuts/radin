@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Deterministic review-scope resolution for radin-review, so the skill
 # doesn't probe git/gh by hand.
-# Installed to ~/.claude/.radin/lib/radin-scope.sh by install.sh.
+# Installed to ~/.radin/lib/radin-scope.sh by install.sh.
 #
 # Usage: radin-scope.sh [arg]
 #        radin-scope.sh --in-scope [arg]   # classify "path:line" lines on stdin

@@ -17,23 +17,26 @@ teardown() {
 }
 
 install_all_expected() {
-  mkdir -p "$TEST_HOME/.claude/.radin/lib" "$TEST_HOME/.claude/.radin/bin"
-  printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/bin/radin"
+  mkdir -p "$TEST_HOME/.radin/lib" "$TEST_HOME/.radin/bin" "$TEST_HOME/.radin/hosts/claude/lib"
+  printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.radin/bin/radin"
   for name in $(awk '$1 == "skill" { print $2 }' "$REPO_ROOT/SHIPPED") thermo-nuclear; do
     mkdir -p "$TEST_HOME/.claude/skills/$name"
     : > "$TEST_HOME/.claude/skills/$name/SKILL.md"
   done
   for name in $(awk '$1 == "lib" { print $2 }' "$REPO_ROOT/SHIPPED"); do
     case "$name" in
-      *.sh) printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.claude/.radin/lib/$name" ;;
-      *) : > "$TEST_HOME/.claude/.radin/lib/$name" ;;
+      *.sh) printf '#!/usr/bin/env bash\ntrue\n' > "$TEST_HOME/.radin/lib/$name" ;;
+      *) : > "$TEST_HOME/.radin/lib/$name" ;;
     esac
+  done
+  for name in $(awk '$1 == "hostlib" { print $2 }' "$REPO_ROOT/SHIPPED"); do
+    : > "$TEST_HOME/.radin/hosts/claude/lib/$name"
   done
 }
 
 @test "exits 1 and reports MISSING for an absent on-demand lib file" {
   install_all_expected
-  rm "$TEST_HOME/.claude/.radin/lib/radin-batch-recovery.md"
+  rm "$TEST_HOME/.radin/hosts/claude/lib/radin-batch-recovery.md"
   run env HOME="$TEST_HOME" bash "$CLI"
   [ "$status" -eq 1 ]
   [[ "$output" == *"MISSING  radin-batch-recovery.md"* ]]
@@ -49,7 +52,7 @@ install_all_expected() {
 
 @test "exits 1 and reports INVALID for a lib script with bad syntax" {
   install_all_expected
-  printf 'if [ true\n' > "$TEST_HOME/.claude/.radin/lib/radin-backlog.sh"
+  printf 'if [ true\n' > "$TEST_HOME/.radin/lib/radin-backlog.sh"
   run env HOME="$TEST_HOME" bash "$CLI"
   [ "$status" -eq 1 ]
   [[ "$output" == *"INVALID  radin-backlog.sh"* ]]
@@ -140,7 +143,7 @@ JSON
 
 with_helper() {
   install_all_expected
-  cp "$REPO_ROOT/lib/radin-cbm-json" "$TEST_HOME/.claude/.radin/bin/radin-cbm-json"
+  cp "$REPO_ROOT/lib/radin-cbm-json" "$TEST_HOME/.radin/bin/radin-cbm-json"
 }
 
 @test "exits 1 and names a hook command that is not on PATH" {

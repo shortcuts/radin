@@ -34,7 +34,8 @@ for arg in "$@"; do
 	[ "$arg" = "--update" ] && UPDATE="1"
 done
 
-MANIFEST_FILE="$HOME/.claude/.radin/manifest.json"
+RADIN_HOME="$HOME/.radin"
+MANIFEST_FILE="$RADIN_HOME/manifest.json"
 # Flat `"key": value` lookup in the previous manifest. Prints nothing for a
 # missing key, so every caller keeps its own default.
 manifest_value() {
@@ -139,19 +140,23 @@ ok "Using radin source at ${BOLD}$RADIN_ROOT${RESET}"
 MANIFEST_VERSION="dev"
 [ -f "$RADIN_ROOT/.radin-version" ] && MANIFEST_VERSION="$(cat "$RADIN_ROOT/.radin-version")"
 
-step "Installing skills into ~/.claude"
-mkdir -p "$HOME/.claude/skills" "$HOME/.claude/.radin/lib"
+step "Installing radin into ~/.radin and skills into ~/.claude"
+mkdir -p "$HOME/.claude/skills" "$RADIN_HOME/lib" "$RADIN_HOME/hosts/claude/lib"
 # Explicit names from SHIPPED, not lib/* or skills/* globs: install.sh may only
 # copy files radin itself named (AGENTS.md Constraints), and a stray file in a
 # dev clone must not ship.
 # BEGIN shipped (generated from SHIPPED by scripts/shipped.sh; run make gen, never edit)
 SHIPPED_SKILLS="radin-batch radin-do radin-plan radin-record radin-review radin-stats radin-teardown radin-uninstall"
-SHIPPED_LIB="radin-host.sh radin-namespace.sh radin-json.sh radin-backlog.sh radin-tui.c radin-cbm-json.c radin-state.sh radin-scope.sh radin-prompt.sh radin-prompt-planning.md radin-prompt-execution.md radin-prompt-debug.md radin-prompt-factfind.md radin-prompt-gate.md radin-prompt-merge.md radin-leaf-contract.md radin-comment-rule.md radin-explore-rule.md radin-open-decisions.md radin-ask-rule.md radin-complexity-rule.md radin-planning-rule.md radin-prioritization.md radin-batch-recovery.md radin-batch-reporting.md radin-batch-gate.md radin-batch-merge.md radin-batch-clarify.md radin-batch-session.md radin-batch-resume.md radin-run.md radin-review-core.md radin-cbm-hooks.sh radin-cbm-config.sh radin-update.sh radin-stats.sh radin-doctor.sh radin-uninstall.sh skill-names-claude.txt skill-names-agents.txt"
+SHIPPED_LIB="radin-host.sh radin-namespace.sh radin-json.sh radin-backlog.sh radin-tui.c radin-cbm-json.c radin-state.sh radin-scope.sh radin-prompt.sh radin-cbm-hooks.sh radin-cbm-config.sh radin-update.sh radin-stats.sh radin-doctor.sh radin-uninstall.sh skill-names-claude.txt skill-names-agents.txt"
+SHIPPED_HOSTLIB="radin-prompt-planning.md radin-prompt-execution.md radin-prompt-debug.md radin-prompt-factfind.md radin-prompt-gate.md radin-prompt-merge.md radin-leaf-contract.md radin-comment-rule.md radin-explore-rule.md radin-open-decisions.md radin-ask-rule.md radin-complexity-rule.md radin-planning-rule.md radin-prioritization.md radin-batch-recovery.md radin-batch-reporting.md radin-batch-gate.md radin-batch-merge.md radin-batch-clarify.md radin-batch-session.md radin-batch-resume.md radin-run.md radin-review-core.md"
 RENAMED_SKILLS="radin-execute radin-implement radin-run"
 RETIRED_SKILLS="radin-update radin-show radin-doctor radin-setup-hooks"
 # END shipped
 for f in $SHIPPED_LIB; do
-	cp "$RADIN_ROOT/lib/$f" "$HOME/.claude/.radin/lib/"
+	cp "$RADIN_ROOT/lib/$f" "$RADIN_HOME/lib/"
+done
+for f in $SHIPPED_HOSTLIB; do
+	cp "$RADIN_ROOT/lib/$f" "$RADIN_HOME/hosts/claude/lib/"
 done
 for s in $SHIPPED_SKILLS; do
 	cp -r "$RADIN_ROOT/skills/$s" "$HOME/.claude/skills/"
@@ -163,9 +168,9 @@ for s in $RENAMED_SKILLS $RETIRED_SKILLS; do
 		rm -rf "$HOME/.claude/skills/$s"
 	fi
 done
-mkdir -p "$HOME/.claude/.radin/bin"
-cp "$RADIN_ROOT/bin/radin" "$HOME/.claude/.radin/bin/"
-chmod +x "$HOME/.claude/.radin/bin/radin"
+mkdir -p "$RADIN_HOME/bin"
+cp "$RADIN_ROOT/bin/radin" "$RADIN_HOME/bin/"
+chmod +x "$RADIN_HOME/bin/radin"
 
 # The TUI and the cbm-config JSON helper are C, so they are the two files
 # built here rather than copied. Advisory like a companion tool: a box with no
@@ -175,15 +180,15 @@ chmod +x "$HOME/.claude/.radin/bin/radin"
 TUI_CC="$(command -v cc || command -v gcc || command -v clang || true)"
 if [ -n "$TUI_CC" ]; then
 	CC_LOG="$(mktemp)"
-	if "$TUI_CC" -O2 -o "$HOME/.claude/.radin/bin/radin-tui" \
-		"$HOME/.claude/.radin/lib/radin-tui.c" >"$CC_LOG" 2>&1; then
+	if "$TUI_CC" -O2 -o "$RADIN_HOME/bin/radin-tui" \
+		"$RADIN_HOME/lib/radin-tui.c" >"$CC_LOG" 2>&1; then
 		ok "TUI built."
 	else
 		tail -n 20 "$CC_LOG" >&2
 		warn "the TUI failed to build -- every other subcommand still works."
 	fi
-	if "$TUI_CC" -O2 -o "$HOME/.claude/.radin/bin/radin-cbm-json" \
-		"$HOME/.claude/.radin/lib/radin-cbm-json.c" >"$CC_LOG" 2>&1; then
+	if "$TUI_CC" -O2 -o "$RADIN_HOME/bin/radin-cbm-json" \
+		"$RADIN_HOME/lib/radin-cbm-json.c" >"$CC_LOG" 2>&1; then
 		ok "radin-cbm-json built."
 	else
 		tail -n 20 "$CC_LOG" >&2
@@ -460,7 +465,7 @@ EFFORT_MINOR=""
 shipped_text_files() {
 	local s f
 	for s in $SHIPPED_SKILLS; do printf '%s\n' "$HOME/.claude/skills/$s/SKILL.md"; done
-	for f in $SHIPPED_LIB; do case "$f" in *.md) printf '%s\n' "$HOME/.claude/.radin/lib/$f" ;; esac done
+	for f in $SHIPPED_HOSTLIB; do printf '%s\n' "$RADIN_HOME/hosts/claude/lib/$f"; done
 }
 
 # Quoted JSON array body of a space-separated name list.
@@ -526,14 +531,14 @@ set_cli() {
 	fi
 }
 
-# Skills carry a RADIN_LIB token instead of a literal `$HOME/.claude/.radin/lib`
+# Skills carry a RADIN_LIB token instead of a literal `$HOME/.radin/hosts/claude/lib`
 # -- same contract as RADIN_CLI. The Read tool needs an absolute path, so a
 # literal `$HOME` would leave the model expanding it before every on-demand
 # doc read.
 set_lib() {
 	local file="$1" tmp
 	tmp="$(mktemp)"
-	sed 's|RADIN_LIB|'"$HOME/.claude/.radin/lib"'|g' "$file" >"$tmp" && mv "$tmp" "$file"
+	sed 's|RADIN_LIB|'"$RADIN_HOME/hosts/claude/lib"'|g' "$file" >"$tmp" && mv "$tmp" "$file"
 	# A surviving token reaches the model as a literal path and every on-demand
 	# doc read fails -- louder to stop here than to debug that.
 	if grep -q 'RADIN_LIB' "$file"; then
@@ -581,7 +586,7 @@ done
 step "radin CLI on PATH"
 # One `radin <backlog|state|scope|hooks|repair|doctor|uninstall>`
 # command instead of long lib paths in every Bash call. The dispatcher always
-# lands in ~/.claude/.radin/bin; this only symlinks it into ~/.local/bin.
+# lands in ~/.radin/bin; this only symlinks it into ~/.local/bin.
 # Never overwrites: an existing non-radin `radin` there is named and left
 # alone, and skills then fall back to the full dispatcher path.
 CLI_ON_PATH="false"
@@ -589,10 +594,11 @@ CLI_ON_PATH="false"
 # the symlink exists AND ~/.local/bin is on PATH; the full dispatcher path
 # otherwise. Written into the RADIN_CLI token by set_cli below.
 # shellcheck disable=SC2016  # $HOME must stay literal in the installed file
-RADIN_CLI_VALUE='"$HOME/.claude/.radin/bin/radin"'
-CLI_TARGET="$HOME/.claude/.radin/bin/radin"
+RADIN_CLI_VALUE='"$HOME/.radin/bin/radin"'
+CLI_TARGET="$RADIN_HOME/bin/radin"
 CLI_LINK="$HOME/.local/bin/radin"
-if [ -e "$CLI_LINK" ] && [ "$(readlink "$CLI_LINK" 2>/dev/null)" != "$CLI_TARGET" ]; then
+CLI_LINK_NOW="$(readlink "$CLI_LINK" 2>/dev/null || true)"
+if [ -e "$CLI_LINK" ] && [ "$CLI_LINK_NOW" != "$CLI_TARGET" ] && [ "$CLI_LINK_NOW" != "$HOME/.claude/.radin/bin/radin" ]; then
 	warn "$CLI_LINK exists and isn't radin's -- leaving it alone; skills use the full path."
 else
 	mkdir -p "$HOME/.local/bin"
@@ -814,19 +820,19 @@ if CBM_BIN="$(cbm_bin)"; then
 	# pre-existing hook and MCP entry the write dropped. Their entries stay,
 	# yours come back, and `codebase-memory-mcp update` can be followed by
 	# `radin repair` for the same reason -- the caller names no companion.
-	if [ -x "$HOME/.claude/.radin/bin/radin-cbm-json" ]; then
+	if [ -x "$RADIN_HOME/bin/radin-cbm-json" ]; then
 		# Same contract as install_tool: the per-item trace (SNAPSHOT/STASHED/
 		# RESTORED/INTACT/CBM, and upstream's own 45-client inventory on a
 		# failed run) is what a failure needs and noise on success, so it all
 		# stays in one log and never reaches the terminal. Its own exit code
 		# only says whether the graph came out wired: a PARTIAL run exits 0,
 		# so read that back out of the log rather than claiming success.
-		CBM_LOG="$HOME/.claude/.radin/cbm-config.log"
+		CBM_LOG="$RADIN_HOME/cbm-config.log"
 		if [ -n "$VERBOSE" ]; then
-			bash "$HOME/.claude/.radin/lib/radin-cbm-config.sh" install </dev/null 2>&1 | tee "$CBM_LOG"
+			bash "$RADIN_HOME/lib/radin-cbm-config.sh" install </dev/null 2>&1 | tee "$CBM_LOG"
 			CBM_STATUS="${PIPESTATUS[0]}"
 		else
-			bash "$HOME/.claude/.radin/lib/radin-cbm-config.sh" install >"$CBM_LOG" 2>&1 </dev/null
+			bash "$RADIN_HOME/lib/radin-cbm-config.sh" install >"$CBM_LOG" 2>&1 </dev/null
 			CBM_STATUS="$?"
 		fi
 		if [ "$CBM_STATUS" = 0 ]; then
@@ -839,12 +845,12 @@ if CBM_BIN="$(cbm_bin)"; then
 			fi
 			# Upstream writes no CLAUDE.md text, and a skill description alone
 			# did not get agents to call the graph (25 calls in 402 sessions).
-			bash "$HOME/.claude/.radin/lib/radin-cbm-hooks.sh" claude-md || true
+			bash "$RADIN_HOME/lib/radin-cbm-hooks.sh" claude-md || true
 		else
 			warn "codebase-memory-mcp configuration failed -- radin itself is unaffected."
 			warn "Your own hooks were restored from the snapshot. Details: ${BOLD}$CBM_LOG${RESET}"
 			info "Falling back to radin's merge-only wiring:"
-			bash "$HOME/.claude/.radin/lib/radin-cbm-hooks.sh" claude-md || true
+			bash "$RADIN_HOME/lib/radin-cbm-hooks.sh" claude-md || true
 			info "Then run "radin hooks mcp" in each repo for its .mcp.json entry."
 		fi
 	else
@@ -855,21 +861,21 @@ if CBM_BIN="$(cbm_bin)"; then
 		warn "no C compiler -- skipping upstream's own Claude Code configuration:"
 		warn "its write drops other tools' SessionStart hooks (#1200) and radin"
 		warn "needs radin-cbm-json to put them back. Using the merge-only wiring."
-		bash "$HOME/.claude/.radin/lib/radin-cbm-hooks.sh" claude-md || true
+		bash "$RADIN_HOME/lib/radin-cbm-hooks.sh" claude-md || true
 		info "Then run "radin hooks mcp" in each repo for its .mcp.json entry."
 	fi
 fi
 
 # Skills and leaves Read radin's own lib/*.md from outside the repo, which
-# prompts on every read. One Read rule per spelling of ~/.claude/.radin in
+# prompts on every read. One Read rule per spelling of ~/.radin in
 # permissions.allow ends that; the uninstaller removes the same rules.
-if [ -x "$HOME/.claude/.radin/bin/radin-cbm-json" ]; then
-	if ! bash "$HOME/.claude/.radin/lib/radin-cbm-config.sh" allow >/dev/null 2>&1 </dev/null; then
-		warn "could not add the Read rule for ~/.claude/.radin to settings.json --"
+if [ -x "$RADIN_HOME/bin/radin-cbm-json" ]; then
+	if ! bash "$RADIN_HOME/lib/radin-cbm-config.sh" allow >/dev/null 2>&1 </dev/null; then
+		warn "could not add the Read rule for ~/.radin to settings.json --"
 		warn "Claude Code will ask before each read of radin's own files."
 	fi
 else
-	warn "no C compiler -- settings.json keeps no Read rule for ~/.claude/.radin,"
+	warn "no C compiler -- settings.json keeps no Read rule for ~/.radin,"
 	warn "so Claude Code asks before each read of radin's own files."
 fi
 
@@ -903,10 +909,10 @@ json_bool_plugin() {
 	fi
 }
 
-mkdir -p "$HOME/.claude/.radin"
+mkdir -p "$RADIN_HOME"
 # `radin update` reads this to decide between `git pull` in a dev clone and a
 # fresh tarball download.
-printf '%s\n' "$RADIN_ROOT" >"$HOME/.claude/.radin/install_root"
+printf '%s\n' "$RADIN_ROOT" >"$RADIN_HOME/install_root"
 INSTALLED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 cat >"$MANIFEST_FILE" <<EOF
 {
@@ -931,6 +937,7 @@ cat >"$MANIFEST_FILE" <<EOF
   "cli_on_path": $CLI_ON_PATH,
   "skills": [$(json_names "$SHIPPED_SKILLS thermo-nuclear")],
   "lib": [$(json_names "$SHIPPED_LIB")],
+  "hostlib": [$(json_names "$SHIPPED_HOSTLIB")],
   "companion_tools": {
     "rtk": $(json_bool_cmd rtk),
     "codebase-memory-mcp": $(cbm_bin >/dev/null 2>&1 && printf 'true' || printf 'false'),

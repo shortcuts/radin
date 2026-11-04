@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 # radin CLI dispatcher: one command on PATH instead of long
-# `bash ~/.claude/.radin/lib/radin-<name>.sh` invocations in every skill.
-# Installed to ~/.claude/.radin/bin/radin and symlinked into ~/.local/bin
+# `bash ~/.radin/lib/radin-<name>.sh` invocations in every skill.
+# Installed to ~/.radin/bin/radin and symlinked into ~/.local/bin
 # by install.sh. Must stay bash-3.2-compatible (macOS /bin/bash).
 set -euo pipefail
 
-LIB="$HOME/.claude/.radin/lib"
+RADIN_HOME="$HOME/.radin"
+LIB="$RADIN_HOME/lib"
 
 usage() {
 	printf 'usage: radin [--host claude|agents] <backlog|state|scope|prompt|stats|hooks|wire|repair|update|doctor|uninstall> [args]\n'
@@ -38,11 +39,11 @@ cmd="${1:-}"
 # pipe can never get trapped in a full-screen app.
 if [ -z "$cmd" ] && [ -t 1 ]; then
 	# The only compiled artifact; install.sh builds it from lib/radin-tui.c.
-	[ -x "$HOME/.claude/.radin/bin/radin-tui" ] || {
+	[ -x "$RADIN_HOME/bin/radin-tui" ] || {
 		printf 'radin: TUI not built (no C compiler at install time). Use "radin backlog show".\n' >&2
 		exit 1
 	}
-	RADIN_LIB="$LIB" exec "$HOME/.claude/.radin/bin/radin-tui"
+	RADIN_LIB="$LIB" exec "$RADIN_HOME/bin/radin-tui"
 fi
 
 case "$cmd" in

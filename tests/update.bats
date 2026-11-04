@@ -8,7 +8,7 @@ setup() {
   TEST_HOME="$(mktemp -d)"
   MOCK_BIN="$(mktemp -d)"
   export PATH="$MOCK_BIN:/usr/bin:/bin:/usr/sbin:/sbin"
-  mkdir -p "$TEST_HOME/.claude/.radin"
+  mkdir -p "$TEST_HOME/.radin"
 
   # A curl that writes a stub installer, so the tarball path is testable
   # without the network.
@@ -41,7 +41,7 @@ make_clone() {
   git -C "$clone" commit -qm init
   git -C "$clone" remote add origin "$upstream"
   git -C "$clone" push -q -u origin HEAD:main
-  printf '%s\n' "$clone" > "$TEST_HOME/.claude/.radin/install_root"
+  printf '%s\n' "$clone" > "$TEST_HOME/.radin/install_root"
   printf '%s' "$clone"
 }
 
@@ -67,7 +67,7 @@ make_clone() {
 @test "downloads the newest installer when the source is a tarball install" {
   mkdir -p "$TEST_HOME/.claude/radin"
   : > "$TEST_HOME/.claude/radin/.radin-version"
-  printf '%s\n' "$TEST_HOME/.claude/radin" > "$TEST_HOME/.claude/.radin/install_root"
+  printf '%s\n' "$TEST_HOME/.claude/radin" > "$TEST_HOME/.radin/install_root"
   run env HOME="$TEST_HOME" bash "$CLI"
   [ "$status" -eq 0 ]
   [[ "$output" == *"downloaded installer args: --update"* ]]

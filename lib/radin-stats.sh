@@ -2,7 +2,7 @@
 # radin stats: how the skill stack is used on this device.
 # Reads Claude Code transcripts (skills, slash commands, sub-agents and their
 # outcomes) and every radin repo's journal. Read-only. Installed to
-# ~/.claude/.radin/lib/radin-stats.sh by install.sh.
+# ~/.radin/lib/radin-stats.sh by install.sh.
 # Must stay bash-3.2-compatible (macOS /bin/bash).
 #
 #   radin-stats.sh [--since YYYY-MM-DD] [--repos-root DIR] [--no-transcripts] [--no-repos] [--no-companions]

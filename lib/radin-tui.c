@@ -1,6 +1,6 @@
 /* Full-screen backlog browser for humans: list, view, create, edit,
  * recategorize and delete tasks without an agent in the loop. Compiled by
- * install.sh to ~/.claude/.radin/bin/radin-tui, reached as `radin tui`.
+ * install.sh to ~/.radin/bin/radin-tui, reached as `radin tui`.
  *
  * Every mutation and every read goes through radin-backlog.sh /
  * radin-state.sh, so the index/task-file contract stays in one place -- this

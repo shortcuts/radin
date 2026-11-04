@@ -28,7 +28,7 @@
  * All allocation is malloc with no free: the process does one job and exits.
  * Must compile clean under `cc -O2` with no dependency beyond libc, the same
  * bar as lib/radin-tui.c. Built by install.sh into
- * ~/.claude/.radin/bin/radin-cbm-json.
+ * ~/.radin/bin/radin-cbm-json.
  */
 #include <limits.h>
 #include <stdio.h>

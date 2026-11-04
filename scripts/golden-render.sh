@@ -22,8 +22,8 @@ hash_stdin() {
 
 norm() {
 	# shellcheck disable=SC2016  # the literal $HOME is the text the installer bakes
-	sed -e 's|[^"[:space:]]*/\.claude/\.radin/lib|@RADIN_LIB@|g' \
-		-e 's|"\$HOME/\.claude/\.radin/bin/radin"|@RADIN_CLI@|g' |
+	sed -e 's|[^"[:space:]]*/\.radin/hosts/claude/lib|@RADIN_LIB@|g' \
+		-e 's|"\$HOME/\.radin/bin/radin"|@RADIN_CLI@|g' |
 		hash_stdin
 }
 
@@ -35,7 +35,5 @@ one() { # key file -> one sum line; a missing file fails the script
 
 {
 	for s in $(names skill); do one "skills/$s/SKILL.md" "$home/.claude/skills/$s/SKILL.md"; done
-	for l in $(names lib); do
-		case "$l" in *.md) one "lib/$l" "$home/.claude/.radin/lib/$l" ;; esac
-	done
+	for l in $(names hostlib); do one "lib/$l" "$home/.radin/hosts/claude/lib/$l"; done
 } | LC_ALL=C sort -k2

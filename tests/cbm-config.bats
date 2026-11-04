@@ -170,7 +170,7 @@ EOF
   [[ "$output" == *STASHED*cbm-session-reminder* ]]
   [ ! -f "$TEST_HOME/.claude/hooks/cbm-session-reminder" ]
   [ -f "$TEST_HOME/.claude/hooks/my-own-hook.sh" ]
-  run bash -c "cat \"$TEST_HOME\"/.claude/.radin/backups/hooks.*/cbm-session-reminder"
+  run bash -c "cat \"$TEST_HOME\"/.radin/backups/hooks.*/cbm-session-reminder"
   [[ "$output" == *someone-else* ]]
 }
 
@@ -231,13 +231,13 @@ EOF
   [ "$(cat "$TEST_HOME/.claude/settings.json")" = "$before" ]
 }
 
-@test "snapshots land in ~/.claude/.radin/backups and are never removed" {
+@test "snapshots land in ~/.radin/backups and are never removed" {
   stub_cbm
   echo '{"model": "opus"}' > "$TEST_HOME/.claude/settings.json"
   run bash "$CLI" install
   [ "$status" -eq 0 ]
-  [ "$(ls "$TEST_HOME/.claude/.radin/backups" | grep -c '^settings.json\.')" -eq 1 ]
-  grep -q '"model": "opus"' "$TEST_HOME/.claude/.radin/backups/"settings.json.*.bak
+  [ "$(ls "$TEST_HOME/.radin/backups" | grep -c '^settings.json\.')" -eq 1 ]
+  grep -q '"model": "opus"' "$TEST_HOME/.radin/backups/"settings.json.*.bak
 }
 
 @test "a failed upstream install still restores from the snapshot" {
@@ -287,7 +287,7 @@ EOF
   run bash "$CLI" repair
   [ "$status" -ne 0 ]
   [ "$(cat "$TEST_HOME/.claude/settings.json")" = "not json" ]
-  grep -q '"model": "opus"' "$TEST_HOME/.claude/.radin/backups/"settings.json.*.bak
+  grep -q '"model": "opus"' "$TEST_HOME/.radin/backups/"settings.json.*.bak
 }
 
 # Reproduces upstream #1722: writes under a symlinked ~/.claude are refused,
@@ -433,19 +433,28 @@ EOF
   [ "$(cat "$TEST_HOME/.claude/settings.json")" = '{bad' ]
 }
 
-@test "allow writes a Read rule per spelling of ~/.claude, and unallow removes them and nothing else" {
-  rm -rf "$TEST_HOME/.claude"
-  mkdir -p "$TEST_HOME/cfg"
-  ln -s "$TEST_HOME/cfg" "$TEST_HOME/.claude"
-  echo '{"permissions": {"allow": ["Bash(make *)"]}}' > "$TEST_HOME/cfg/settings.json"
+@test "allow writes a Read rule per spelling of ~/.radin, and unallow removes them and nothing else" {
+  mkdir -p "$TEST_HOME/rcfg" "$TEST_HOME/.claude"
+  ln -s "$TEST_HOME/rcfg" "$TEST_HOME/.radin"
+  echo '{"permissions": {"allow": ["Bash(make *)"]}}' > "$TEST_HOME/.claude/settings.json"
   run bash "$CLI" allow
   [ "$status" -eq 0 ]
-  real="$(cd "$TEST_HOME/cfg" && pwd -P)"
-  grep -qF "Read(/$TEST_HOME/.claude/.radin/**)" "$TEST_HOME/cfg/settings.json"
-  grep -qF "Read(/$real/.radin/**)" "$TEST_HOME/cfg/settings.json"
+  real="$(cd "$TEST_HOME/rcfg" && pwd -P)"
+  grep -qF "Read(/$TEST_HOME/.radin/**)" "$TEST_HOME/.claude/settings.json"
+  grep -qF "Read(/$real/**)" "$TEST_HOME/.claude/settings.json"
   run bash "$CLI" unallow
   [ "$status" -eq 0 ]
-  run grep -c '\.radin' "$TEST_HOME/cfg/settings.json"
+  run grep -c '\.radin' "$TEST_HOME/.claude/settings.json"
   [ "$output" = 0 ]
-  grep -q 'Bash(make \*)' "$TEST_HOME/cfg/settings.json"
+  grep -q 'Bash(make \*)' "$TEST_HOME/.claude/settings.json"
+}
+
+@test "unallow also removes the legacy ~/.claude/.radin rules and keeps a foreign rule" {
+  mkdir -p "$TEST_HOME/.claude"
+  echo "{\"permissions\": {\"allow\": [\"Read(//x/**)\", \"Read(/$TEST_HOME/.claude/.radin/**)\", \"Read(/$TEST_HOME/.radin/**)\"]}}" > "$TEST_HOME/.claude/settings.json"
+  run bash "$CLI" unallow
+  [ "$status" -eq 0 ]
+  run grep -c '\.radin' "$TEST_HOME/.claude/settings.json"
+  [ "$output" = 0 ]
+  grep -qF 'Read(//x/**)' "$TEST_HOME/.claude/settings.json"
 }

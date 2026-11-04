@@ -11,18 +11,19 @@
 # shape it has -- an existing definition is never redefined.
 # No settings.json hook: codebase-memory-mcp keeps the graph current from its
 # own background watcher, so a PostToolUse reindex would pay for nothing.
-# Installed to ~/.claude/.radin/lib/radin-cbm-hooks.sh by install.sh.
+# Installed to ~/.radin/lib/radin-cbm-hooks.sh by install.sh.
 # Must stay bash-3.2-compatible (macOS /bin/bash).
 set -euo pipefail
 
 CLAUDE_DIR="$HOME/.claude"
+RADIN_HOME="$HOME/.radin"
 CBM_NAME="codebase-memory-mcp"
 CBM_BIN="$CBM_NAME"
 # The .mcp.json read and write is C (lib/radin-cbm-json.c) -- radin ships bash
 # and C only, and this script holds no JSON knowledge of its own. Next to this
-# script in a dev checkout, in ~/.claude/.radin/bin once install.sh built it.
+# script in a dev checkout, in ~/.radin/bin once install.sh built it.
 CBM_JSON="$(cd "$(dirname "$0")" && pwd)/radin-cbm-json"
-[ -x "$CBM_JSON" ] || CBM_JSON="$HOME/.claude/.radin/bin/radin-cbm-json"
+[ -x "$CBM_JSON" ] || CBM_JSON="$RADIN_HOME/bin/radin-cbm-json"
 
 die() {
 	printf 'radin-cbm-hooks: %s\n' "$*" >&2
