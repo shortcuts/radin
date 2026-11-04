@@ -116,3 +116,12 @@ lint_root() {
   [[ "$output" != *SendMessage* ]]
   [[ "$output" != *run_in_background* ]]
 }
+
+@test "lint fails on a malformed host marker in a lib file" {
+  lint_root
+  printf 'clean\n' > "$T/r/skills/x/SKILL.md"
+  printf '<!-- host:claude -->\nbody\n' > "$T/r/lib/radin-batch-gate.md"
+  run "$REPO_ROOT/scripts/check-prose.sh" "$T/r"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *'lib/radin-batch-gate.md:1: host block never closed'* ]]
+}
