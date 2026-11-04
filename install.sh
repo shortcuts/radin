@@ -471,6 +471,26 @@ PONYTAIL_CODEX_CMD="codex plugin marketplace add DietrichGebert/ponytail && code
 RTK_CODEX_CMD="rtk init -g --codex"
 # shellcheck disable=SC2016  # eval expands $CBM_BIN once cbm_bin has set it
 CBM_CODEX_CMD='"$CBM_BIN" install -y --clients=codex'
+OPENCODE_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/opencode"
+# OPENCODE_CONFIG names one file, not a dir: it takes the allow rule only.
+if [ -n "${OPENCODE_CONFIG:-}" ] && [ -f "$OPENCODE_CONFIG" ]; then
+	OPENCODE_CONFIG_FILE="$OPENCODE_CONFIG"
+else
+	OPENCODE_CONFIG_FILE="$OPENCODE_DIR/opencode.json"
+fi
+# kind|description, one agent file each. No ":" or "#", so the YAML value stays plain.
+OPENCODE_KINDS="planning|radin leaf that plans one backlog entry
+execution|radin leaf that implements one planned task and commits it
+review|radin leaf that reviews a staged diff
+debug|radin leaf that diagnoses a failed task
+factfind|radin leaf that answers one factual question
+gate|radin leaf that gates a finished session
+merge|radin leaf that merges task branches"
+CAVEMAN_OPENCODE_CMD="curl -fsSL https://raw.githubusercontent.com/JuliusBrussee/caveman/main/install.sh | bash -s -- --only opencode --non-interactive"
+PONYTAIL_OPENCODE_CMD="opencode plugin add @dietrichgebert/ponytail"
+RTK_OPENCODE_CMD="rtk init -g --opencode"
+# shellcheck disable=SC2016  # eval expands $CBM_BIN once cbm_bin has set it
+CBM_OPENCODE_CMD='"$CBM_BIN" install -y --clients=opencode'
 # `skills@latest`: a bare `skills` reuses whatever CLI version npx cached.
 THERMO_INSTALL_CMD='npx -y skills@latest add "https://github.com/cursor/plugins/tree/main/cursor-team-kit/skills/thermo-nuclear-code-quality-review" -g -a claude-code -y'
 # brew refreshes its formula index before installing: with that refresh
@@ -545,6 +565,13 @@ owned_paths() {
 	local r
 	neutral_paths
 	for r in $RENDERS; do render_paths "$r"; done
+	if host_selected opencode; then opencode_paths; fi
+}
+
+opencode_paths() {
+	printf '%s\n' "$OPENCODE_KINDS" | while IFS='|' read -r k _; do
+		printf '%s\n' "$OPENCODE_DIR/agents/radin-$k.md"
+	done
 }
 
 TAB="$(printf '\t')"
@@ -729,6 +756,11 @@ dry_run_report() {
 	if host_selected codex; then
 		printf 'write %s\n' "$CODEX_HOME_DIR/AGENTS.md"
 		printf 'run %s\n' "$CAVEMAN_CODEX_CMD" "$PONYTAIL_CODEX_CMD" "$RTK_CODEX_CMD" "$CBM_CODEX_CMD"
+	fi
+	if host_selected opencode; then
+		printf 'write %s\n' "$OPENCODE_DIR/AGENTS.md" "$OPENCODE_CONFIG_FILE"
+		opencode_paths | while IFS= read -r p; do printf 'write %s\n' "$p"; done
+		printf 'run %s\n' "$CAVEMAN_OPENCODE_CMD" "$PONYTAIL_OPENCODE_CMD" "$RTK_OPENCODE_CMD" "$CBM_OPENCODE_CMD"
 	fi
 	if agents_selected; then
 		agents_skill_rows | while read -r n _ b f; do
@@ -1019,7 +1051,7 @@ stage_render() {
 	done
 }
 
-# Only warns: the Codex companion steps run after rtk and codebase-memory-mcp are installed.
+# Only warns: the Codex and opencode companion steps run after rtk and codebase-memory-mcp are installed.
 install_host_companions() {
 	local cli
 	cli="$(host_field "$1" 4)"
@@ -1200,6 +1232,29 @@ write_guidance() {
 	mv "$tmp" "$file"
 }
 
+install_opencode_agents() {
+	local k desc p st tmp
+	mkdir -p "$OPENCODE_DIR/agents"
+	while IFS='|' read -r k desc; do
+		p="$OPENCODE_DIR/agents/radin-$k.md"
+		tmp="$(mktemp)"
+		sed -e "s|RADIN_AGENT_DESC|$desc|" -e "s|RADIN_AGENT_KIND|$k|" "$RADIN_ROOT/hosts/opencode-agent.md" >"$tmp"
+		st="$(classify "$p")"
+		if [ "$st" = edited ] || [ "$st" = unowned ]; then
+			if [ -z "$FORCE" ]; then
+				printf '%s\t%s\n' "${p#"$HOME"/}" "$(owned_digest "${p#"$HOME"/}" || printf -- -)" >>"$KEPT_FILE"
+				warn "kept $p: you edited it (--force replaces it)"
+				rm -f "$tmp"
+				continue
+			fi
+			backup_path "$p"
+		fi
+		cp "$tmp" "$p"
+		rm -f "$tmp"
+	done <<<"$OPENCODE_KINDS"
+	ok "opencode agents written to ${BOLD}$OPENCODE_DIR/agents${RESET}"
+}
+
 step "Agent guidance"
 # A short section in ~/.claude/CLAUDE.md telling Claude when to reach for
 # radin's skills (same pattern codebase-memory-mcp uses). Kept between
@@ -1228,11 +1283,8 @@ survive past one conversation. Reach for it instead of ad-hoc task tracking:
 	ok "radin section written to ${BOLD}$CLAUDE_MD${RESET} (between radin:begin/end markers)"
 fi
 
-CODEX_GUIDANCE="false"
-if host_selected codex; then
-	CODEX_GUIDANCE="true"
-	# shellcheck disable=SC2016  # backticks here are markdown code spans, not command substitution
-	write_guidance "$CODEX_HOME_DIR/AGENTS.md" '<!-- radin:begin -->
+# shellcheck disable=SC2016  # backticks here are markdown code spans, not command substitution
+AGENTS_GUIDANCE_BODY='<!-- radin:begin -->
 ## radin
 
 radin keeps a per-repo backlog in `<repo-root>/.agents/.radin/` so tasks
@@ -1245,7 +1297,20 @@ survive past one conversation. Reach for it instead of ad-hoc task tracking:
 - Never hand-edit files under `.agents/.radin/`. Every backlog operation goes through the `'"$RADIN_CLI_VALUE"' --host agents backlog` CLI.
 - Never guess on a broad or ambiguous ask: use the `grilling` skill and let the user settle it before radin writes anything.
 <!-- radin:end -->'
+
+CODEX_GUIDANCE="false"
+if host_selected codex; then
+	CODEX_GUIDANCE="true"
+	write_guidance "$CODEX_HOME_DIR/AGENTS.md" "$AGENTS_GUIDANCE_BODY"
 	ok "radin section written to ${BOLD}$CODEX_HOME_DIR/AGENTS.md${RESET} (between radin:begin/end markers)"
+fi
+
+OPENCODE_GUIDANCE="false"
+if host_selected opencode; then
+	OPENCODE_GUIDANCE="true"
+	write_guidance "$OPENCODE_DIR/AGENTS.md" "$AGENTS_GUIDANCE_BODY"
+	ok "radin section written to ${BOLD}$OPENCODE_DIR/AGENTS.md${RESET} (between radin:begin/end markers)"
+	install_opencode_agents
 fi
 
 # Its own installer's default target isn't on PATH in every shell, so resolve
@@ -1416,6 +1481,58 @@ if host_selected codex && command -v codex >/dev/null 2>&1; then
 	else
 		warn "codebase-memory-mcp not found: skipping its Codex config."
 	fi
+fi
+
+# Goes in after the companions: plugin add and cbm both write opencode's global config.
+OPENCODE_ALLOW=""
+opencode_allow_rule() {
+	local f="$OPENCODE_CONFIG_FILE" real rc=0 json sep="" g
+	mkdir -p "$RADIN_HOME"
+	real="$(cd "$RADIN_HOME" && pwd -P)"
+	set -- "$RADIN_HOME/**"
+	[ "$real" = "$RADIN_HOME" ] || set -- "$@" "$real/**"
+	if [ ! -e "$f" ] && [ -e "$OPENCODE_DIR/opencode.jsonc" ]; then
+		rc=1
+	elif [ -x "$RADIN_HOME/bin/radin-cbm-json" ]; then
+		mkdir -p "$(dirname "$f")"
+		"$RADIN_HOME/bin/radin-cbm-json" ensure-ext-dir "$f" "$@" || rc=$?
+	else
+		rc=1
+	fi
+	if [ "$rc" -eq 0 ]; then
+		OPENCODE_ALLOW="$f"
+		return 0
+	fi
+	json='{"permission":{"external_directory":{'
+	for g in "$@"; do
+		json="$json$sep\"$g\":\"allow\""
+		sep=","
+	done
+	warn "could not edit the opencode config safely: merge this rule into ${f}:"
+	printf '%s\n' "$json}}}"
+}
+if host_selected opencode; then
+	if [ -f "$OPENCODE_CONFIG_FILE" ]; then
+		mkdir -p "$RADIN_HOME/backups"
+		cp "$OPENCODE_CONFIG_FILE" "$RADIN_HOME/backups/opencode.json.$STAMP.bak"
+		info "opencode config copied to $RADIN_HOME/backups/opencode.json.$STAMP.bak: restore it by hand if a companion replaces your settings."
+	fi
+	if command -v opencode >/dev/null 2>&1; then
+		# The *-opencode names match no binary, so --update reruns each step.
+		install_tool "caveman-opencode" "$CAVEMAN_OPENCODE_CMD"
+		install_tool "ponytail-opencode" "$PONYTAIL_OPENCODE_CMD"
+		if command -v rtk >/dev/null 2>&1; then
+			install_tool "rtk-opencode" "$RTK_OPENCODE_CMD"
+		else
+			warn "rtk not found: skipping rtk init for opencode."
+		fi
+		if CBM_BIN="$(cbm_bin)"; then
+			install_tool "codebase-memory-mcp-opencode" "$CBM_OPENCODE_CMD"
+		else
+			warn "codebase-memory-mcp not found: skipping its opencode config."
+		fi
+	fi
+	opencode_allow_rule
 fi
 
 # Codex and opencode have no plugin: fetch each skill radin invokes, unpinned like
@@ -1623,6 +1740,8 @@ cat >"$MANIFEST_FILE" <<EOF
   "effort_low": "$EFFORT_MINOR",
   "claude_md_guidance": $CLAUDE_MD_GUIDANCE,
   "codex_guidance": $CODEX_GUIDANCE,
+  "opencode_guidance": $OPENCODE_GUIDANCE,
+  "opencode_allow": "$OPENCODE_ALLOW",
   "cbm_agent_config": $CBM_AGENT_CONFIG,
   "cli_on_path": $CLI_ON_PATH,
   "hosts": [$(json_names "$SELECTED")],

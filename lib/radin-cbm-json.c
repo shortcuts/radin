@@ -1317,6 +1317,78 @@ bad:
 	return 1;
 }
 
+/* Sets (add=1) or deletes (add=0) permission.external_directory.<glob> in an
+ * opencode config. The value is a glob-to-action map; a plain string there is
+ * a blanket action radin must not rewrite, so it exits 3 and writes nothing.
+ * Exit 1 covers anything that is not plain JSON, JSONC included. */
+static int edit_ext_dir(const char *arg, int add, int nr, char **globs)
+{
+	int err, j, changed = 0;
+	char real[PATH_MAX];
+	const char *path = realpath(arg, real) ? real : arg;
+	JVal *root = parse_file(path, &err), *perms, *ext, *cur;
+
+	if (err == 2 || (root && root->kind != J_OBJ)) {
+		fprintf(stderr,
+		        "radin-cbm-json: %s is not valid JSON -- fix it first, "
+		        "nothing written\n",
+		        path);
+		return 1;
+	}
+	if (!root) {
+		if (!add)
+			return 0;
+		root = jnew(J_OBJ);
+	}
+	perms = obj_get(root, "permission");
+	ext = perms ? obj_get(perms, "external_directory") : NULL;
+	if ((perms && perms->kind != J_OBJ) || (ext && ext->kind != J_OBJ)) {
+		fprintf(stderr,
+		        "radin-cbm-json: %s: permission.external_directory is not an object -- "
+		        "nothing written\n",
+		        path);
+		return 3;
+	}
+	if (!ext && !add)
+		return 0;
+	if (!ext) {
+		if (!perms) {
+			perms = jnew(J_OBJ);
+			obj_set(root, "permission", perms);
+		}
+		ext = jnew(J_OBJ);
+		obj_set(perms, "external_directory", ext);
+	}
+	for (j = 0; j < nr; j++) {
+		char *key = str_encode(globs[j]);
+		cur = obj_get(ext, key);
+		if (add) {
+			char *v = cur && cur->kind == J_STR ? str_decode(cur->raw) : NULL;
+			if (v && !strcmp(v, "allow"))
+				continue;
+			obj_set(ext, key, jstr(str_encode("allow")));
+			printf("ADDED    %s (permission.external_directory %s)\n", path, globs[j]);
+			changed = 1;
+		} else if (cur) {
+			JMem *m, *prev = NULL;
+			for (m = ext->head; m; prev = m, m = m->next)
+				if (!strcmp(m->key, key))
+					break;
+			if (prev)
+				prev->next = m->next;
+			else
+				ext->head = m->next;
+			if (ext->tail == m)
+				ext->tail = prev;
+			printf("REMOVED  %s (permission.external_directory %s)\n", path, globs[j]);
+			changed = 1;
+		}
+	}
+	if (changed)
+		write_file(path, root);
+	return 0;
+}
+
 static int usage(void)
 {
 	fprintf(stderr,
@@ -1328,6 +1400,8 @@ static int usage(void)
 	        "       radin-cbm-json ensure-env <settings> <key> <value>\n"
 	        "       radin-cbm-json ensure-allow <settings> <rule>...\n"
 	        "       radin-cbm-json remove-allow <settings> <rule>...\n"
+	        "       radin-cbm-json ensure-ext-dir <config> <glob>...\n"
+	        "       radin-cbm-json remove-ext-dir <config> <glob>...\n"
 	        "       radin-cbm-json ensure-hook-timeout <settings> <cbm> <seconds>\n"
 	        "       radin-cbm-json dead-hooks <settings>\n");
 	return 1;
@@ -1358,6 +1432,10 @@ int main(int argc, char **argv)
 		return edit_allow(argv[2], 1, argc - 3, argv + 3);
 	if (!strcmp(argv[1], "remove-allow") && argc >= 4)
 		return edit_allow(argv[2], 0, argc - 3, argv + 3);
+	if (!strcmp(argv[1], "ensure-ext-dir") && argc >= 4)
+		return edit_ext_dir(argv[2], 1, argc - 3, argv + 3);
+	if (!strcmp(argv[1], "remove-ext-dir") && argc >= 4)
+		return edit_ext_dir(argv[2], 0, argc - 3, argv + 3);
 	if (!strcmp(argv[1], "ensure-hook-timeout") && argc == 5)
 		return ensure_hook_timeout(argv[2], argv[3], atoi(argv[4]));
 	if (!strcmp(argv[1], "dead-hooks") && argc == 3)

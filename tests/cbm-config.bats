@@ -474,3 +474,51 @@ EOF
   grep -qF "Read(/$TEST_HOME/.radin/**)" "$TEST_HOME/.claude/settings.json"
   grep -qF 'Read(//x/**)' "$TEST_HOME/.claude/settings.json"
 }
+
+@test "ensure-ext-dir creates a missing config, adds once, keeps foreign keys, and writes through a symlink" {
+  J="$REPO_ROOT/lib/radin-cbm-json"
+  run "$J" ensure-ext-dir "$TEST_HOME/new.json" '/h/.radin/**'
+  [ "$status" -eq 0 ]
+  [[ "$output" == "ADDED "*"(permission.external_directory /h/.radin/**)" ]]
+  [ "$(tr -d ' \n' <"$TEST_HOME/new.json")" = '{"permission":{"external_directory":{"/h/.radin/**":"allow"}}}' ]
+  mkdir -p "$TEST_HOME/real"
+  echo '{"plugin": ["a"], "permission": {"bash": "ask", "external_directory": {"/x/**": "deny"}}}' >"$TEST_HOME/real/opencode.json"
+  ln -s "$TEST_HOME/real/opencode.json" "$TEST_HOME/opencode.json"
+  "$J" ensure-ext-dir "$TEST_HOME/opencode.json" '/h/.radin/**'
+  run "$J" ensure-ext-dir "$TEST_HOME/opencode.json" '/h/.radin/**'
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+  [ -L "$TEST_HOME/opencode.json" ]
+  [ "$(grep -c '/h/.radin/\*\*' "$TEST_HOME/real/opencode.json")" -eq 1 ]
+  grep -q '"plugin"' "$TEST_HOME/real/opencode.json"
+  grep -q '"bash": "ask"' "$TEST_HOME/real/opencode.json"
+  grep -q '"/x/\*\*": "deny"' "$TEST_HOME/real/opencode.json"
+}
+
+@test "remove-ext-dir drops only the named glob" {
+  J="$REPO_ROOT/lib/radin-cbm-json"
+  echo '{"permission": {"external_directory": {"/a/**": "allow", "/h/.radin/**": "allow", "/b/**": "ask"}}}' >"$TEST_HOME/o.json"
+  run "$J" remove-ext-dir "$TEST_HOME/o.json" '/h/.radin/**'
+  [ "$status" -eq 0 ]
+  [[ "$output" == "REMOVED "* ]]
+  [ -z "$(grep radin "$TEST_HOME/o.json")" ]
+  grep -q '"/a/\*\*": "allow"' "$TEST_HOME/o.json"
+  grep -q '"/b/\*\*": "ask"' "$TEST_HOME/o.json"
+  run "$J" remove-ext-dir "$TEST_HOME/none.json" '/h/.radin/**'
+  [ "$status" -eq 0 ]
+  [ ! -e "$TEST_HOME/none.json" ]
+}
+
+@test "ensure-ext-dir exits 1 on JSONC and 3 on a string external_directory, writing nothing" {
+  J="$REPO_ROOT/lib/radin-cbm-json"
+  printf '{\n  // mine\n  "plugin": []\n}\n' >"$TEST_HOME/c.json"
+  cp "$TEST_HOME/c.json" "$TEST_HOME/c.orig"
+  run "$J" ensure-ext-dir "$TEST_HOME/c.json" '/h/.radin/**'
+  [ "$status" -eq 1 ]
+  cmp "$TEST_HOME/c.json" "$TEST_HOME/c.orig"
+  echo '{"permission": {"external_directory": "ask"}}' >"$TEST_HOME/s.json"
+  cp "$TEST_HOME/s.json" "$TEST_HOME/s.orig"
+  run "$J" ensure-ext-dir "$TEST_HOME/s.json" '/h/.radin/**'
+  [ "$status" -eq 3 ]
+  cmp "$TEST_HOME/s.json" "$TEST_HOME/s.orig"
+}
