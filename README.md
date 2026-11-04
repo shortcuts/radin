@@ -56,7 +56,7 @@ Pick hosts with `--only`. Each row installs one host:
 | `--force` | Moves a conflicting file to `~/.radin/backups/` and installs radin's file |
 | `--yes` | Accepts every default |
 
-Without `--only`, a terminal runs a step-by-step wizard (hosts as a checkbox list, models, package manager, review) and Left or Backspace goes back one step. `claude` starts ticked.
+Without `--only`, a terminal runs a step-by-step wizard (hosts as a checkbox list, models, package manager) and Left or Backspace goes back one step. `claude` starts ticked.
 Without a terminal, the installer installs `claude` only.
 
 Per-host details: [Codex](docs/hosts/codex.md), [opencode](docs/hosts/opencode.md).

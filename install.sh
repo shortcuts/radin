@@ -453,15 +453,14 @@ wiz_steps() {
 		if host_selected claude; then steps="$steps models"; fi
 		if [ -n "$BREW$MISE" ]; then steps="$steps pkg"; fi
 	fi
-	printf '%s' "${steps# } review"
+	printf '%s' "${steps# }"
 }
 
 wiz_label() {
 	case "$1" in
 	hosts) printf 'Hosts' ;;
 	models) printf 'Models' ;;
-	pkg) printf 'Package manager' ;;
-	*) printf 'Review' ;;
+	*) printf 'Package manager' ;;
 	esac
 }
 
@@ -565,10 +564,8 @@ $(_row Models "n/a, Claude Code not selected")"
 	rows="$rows
 $(_row "Package manager" "$PKG_MGR")
 $(_row "Install into" "$(printf '~%s' "${RADIN_HOME#"$HOME"}")")"
-	WIZ_BOX=2
 	while IFS= read -r line; do
 		[ "${#line}" -le "$w" ] || w=${#line}
-		WIZ_BOX=$((WIZ_BOX + 1))
 	done <<<"$rows"
 	printf "%b\n" "${CYAN}┌─${RESET} ${BOLD}$title${RESET} ${CYAN}$(_rep $((w - ${#title} - 1)))┐${RESET}"
 	while IFS= read -r line; do
@@ -578,7 +575,7 @@ $(_row "Install into" "$(printf '~%s' "${RADIN_HOME#"$HOME"}")")"
 }
 
 wizard() {
-	local steps total pos=1 name r interactive="" majmin WIZ_BOX=0 WIZ_DRAWN=0
+	local steps total pos=1 name r interactive="" majmin WIZ_DRAWN=0
 	have_tty && interactive=1
 	if [ -n "$UPDATE" ]; then
 		MODEL_MAJOR="$(manifest_value model_planning)"
@@ -593,7 +590,11 @@ wizard() {
 		steps="$(wiz_steps)"
 		# shellcheck disable=SC2086  # word splitting is the point -- one arg per step
 		total="$(set -- $steps && echo $#)"
-		[ "$pos" -le "$total" ] || pos="$total"
+		if [ "$pos" -gt "$total" ]; then
+			# The box is a summary, not a question: the last answer starts the install.
+			if [ -n "$UPDATE" ]; then review_box "Recap"; else review_box "Review"; fi
+			return 0
+		fi
 		# shellcheck disable=SC2086
 		name="$(_pick_nth "$pos" $steps)"
 		CAN_BACK=""
@@ -607,28 +608,9 @@ wizard() {
 		case "$name" in
 		hosts) r="$(wiz_hosts)" ;;
 		models) r="$(wiz_models)" ;;
-		pkg) r="$(wiz_pkg)" ;;
-		*)
-			if [ -n "$UPDATE" ]; then
-				review_box "Recap"
-				return 0
-			fi
-			review_box "Review"
-			[ -n "$interactive" ] || return 0
-			WIZ_DRAWN=$((WIZ_DRAWN + WIZ_BOX))
-			r="$(prompt_pick "Install radin with these answers?" 1 Install Back Cancel)"
-			case "$r" in
-			Install) return 0 ;;
-			Cancel)
-				INSTALL_DONE="1"
-				info "nothing selected"
-				exit 0
-				;;
-			esac
-			r="$BACK"
-			;;
+		*) r="$(wiz_pkg)" ;;
 		esac
-		if [ "$r" = "$BACK" ] || [ "$r" = Back ]; then
+		if [ "$r" = "$BACK" ]; then
 			pos=$((pos - 1))
 		else
 			case "$name" in

@@ -46,7 +46,7 @@ radin is a Claude Code plugin of skills, a CLI, and install glue.
 | A three-host lifecycle leaves no radin file | The three-host lifecycle test in `tests/install.bats` | The real CLIs are not run; `make verify-hosts` owns that. |
 | Real CLIs load radin's files | `make verify-hosts` (opt-in) and `tests/verify-hosts.bats` | Linux and opencode 1.x unverified; opencode skills are a file check only. |
 | `--dry-run` changes nothing | `tests/install.bats` ("--dry-run lists the writes the real run makes and changes nothing") | Companion command text is printed, not run. |
-| Install asks every question before the first write | `tests/install.bats` wizard cases (forward, back, checkbox, Review cancel, `--update` Recap, `--yes` and `STEP_TOTAL`) | A terminal that rejects raw mode falls back to numbered prompts with no back; review only. |
+| Install asks every question before the first write | `tests/install.bats` wizard cases (forward, back, checkbox, `--update` Recap, `--yes` and `STEP_TOTAL`) | A terminal that rejects raw mode falls back to numbered prompts with no back; review only. |
 | A selected host with no CLI still installs | `tests/install.bats` ("a selected host without its CLI warns...") | None. |
 | `radin update` keeps a failed host in the manifest | `tests/install.bats` ("--update leaves a host whose render fails untouched...") | None. |
 | Same checks locally and in CI | `make check` and `make test` in `.github/workflows/ci.yml` | Linux run unverified. |

@@ -1145,13 +1145,12 @@ wizard_count() {
   printf '%s\n' "$WIZ_SCREEN" | grep -c -- "$1" || true
 }
 
-@test "the wizard walks Hosts, Models, Package manager and Review, then installs" {
-  wizard_run '\r|\r|\r|\r'
+@test "the wizard walks Hosts, Models and Package manager, prints the Review box and installs" {
+  wizard_run '\r|\r|\r'
   [ "$WIZ_STATUS" -eq 0 ]
-  [[ "$WIZ_SCREEN" == *"Step 1/4  Hosts > Models > Package manager > Review"* ]]
+  [[ "$WIZ_SCREEN" == *"Step 1/3  Hosts > Models > Package manager"* ]]
   [[ "$WIZ_SCREEN" == *"> [x] Claude Code"* ]]
   [[ "$WIZ_SCREEN" == *"[ ] Codex CLI"* ]]
-  [[ "$WIZ_SCREEN" == *"Step 4/4"* ]]
   [[ "$WIZ_SCREEN" == *"┌─ Review "* ]]
   [[ "$WIZ_SCREEN" == *"Hosts            Claude Code "* ]]
   [[ "$WIZ_SCREEN" == *"hosts: claude"* ]]
@@ -1159,46 +1158,31 @@ wizard_count() {
 }
 
 @test "space ticks a host in the checkbox list" {
-  wizard_run 'j| |\r|\r|\r|\r'
+  wizard_run 'j| |\r|\r|\r'
   [ "$WIZ_STATUS" -eq 0 ]
   [[ "$WIZ_SCREEN" == *"Hosts            Claude Code, Codex CLI"* ]]
   [[ "$WIZ_SCREEN" == *"hosts: claude codex"* ]]
 }
 
 @test "unticking every host is refused and the list stays" {
-  wizard_run ' |\r| |\r|\r|\r|\r'
+  wizard_run ' |\r| |\r|\r|\r'
   [ "$WIZ_STATUS" -eq 0 ]
   [[ "$WIZ_SCREEN" == *"pick at least one host"* ]]
   [[ "$WIZ_SCREEN" == *"hosts: claude"* ]]
 }
 
 @test "Left returns to the previous step and keeps its answer" {
-  wizard_run '\r|\033[D|j| |\r|\r|\r|\r'
+  wizard_run '\r|\033[D|j| |\r|\r|\r'
   [ "$WIZ_STATUS" -eq 0 ]
-  [ "$(wizard_count 'Step 1/4')" -ge 2 ]
+  [ "$(wizard_count 'Step 1/3')" -ge 2 ]
   [[ "$WIZ_SCREEN" == *"hosts: claude codex"* ]]
 }
 
 @test "Backspace returns to the previous step" {
-  wizard_run '\r|\177|\r|\r|\r|\r|\r'
+  wizard_run '\r|\177|\r|\r|\r|\r'
   [ "$WIZ_STATUS" -eq 0 ]
-  [ "$(wizard_count 'Step 1/4')" -ge 2 ]
+  [ "$(wizard_count 'Step 1/3')" -ge 2 ]
   [[ "$WIZ_SCREEN" == *"hosts: claude"* ]]
-}
-
-@test "Review Back returns to the package manager step" {
-  wizard_run '\r|\r|\r|j|\r|\r|\r'
-  [ "$WIZ_STATUS" -eq 0 ]
-  [ "$(wizard_count 'Step 3/4')" -ge 2 ]
-  [[ "$WIZ_SCREEN" == *"hosts: claude"* ]]
-}
-
-@test "Review Cancel exits 0 before any write" {
-  wizard_run '\r|\r|\r|j|j|\r'
-  [ "$WIZ_STATUS" -eq 0 ]
-  [[ "$WIZ_SCREEN" == *"nothing selected"* ]]
-  [[ "$WIZ_SCREEN" != *"Resolving radin source"* ]]
-  [[ "$WIZ_SCREEN" != *"install stopped early"* ]]
 }
 
 @test "--update asks nothing and prints the Recap with the kept answers" {
