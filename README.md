@@ -35,8 +35,34 @@ radin installs that stack and wires it into the harness.
 curl -fsSL https://raw.githubusercontent.com/shortcuts/radin/main/install.sh | bash
 ```
 
-You need `curl`, `tar`, `bash` and the `claude` CLI. Add `-s -- --yes` to accept every default.
+You need `curl`, `tar`, `bash` and the CLI of each host you pick. Add `-s -- --yes` to accept every default.
 Update, repair and uninstall: [docs/install.md](docs/install.md).
+
+Pick hosts with `--only`. Each row installs one host:
+
+| Host | Install command | What auto-activates |
+| --- | --- | --- |
+| Claude Code | `curl -fsSL <url> \| bash -s -- --only claude` | Skills in `~/.claude/skills`. A radin block in `~/.claude/CLAUDE.md`. Companion hooks in `~/.claude/settings.json` |
+| Codex CLI | `curl -fsSL <url> \| bash -s -- --only codex` | Skills in `~/.agents/skills`. A radin block in `$CODEX_HOME/AGENTS.md`. Hooks run after you trust them in `/hooks` |
+| opencode | `curl -fsSL <url> \| bash -s -- --only opencode` | Skills in `~/.agents/skills`. A radin block in `~/.config/opencode/AGENTS.md`. Seven `radin-<kind>.md` agents. An allow rule for `~/.radin/**` |
+
+`<url>` is the `install.sh` URL in the first command. Pass a comma list to install several hosts: `--only claude,codex`.
+
+| Flag | What it does |
+| --- | --- |
+| `--only ID[,ID...]` | Installs the listed hosts. IDs: `claude`, `codex`, `opencode` |
+| `--list` | Prints each host ID, its label and whether it is detected. Changes nothing |
+| `--dry-run` | Prints every write and command. Writes nothing |
+| `--force` | Moves a conflicting file to `~/.radin/backups/` and installs radin's file |
+| `--yes` | Accepts every default |
+
+Without `--only`, a terminal asks one yes or no per detected host, with `claude` preselected.
+Without a terminal, the installer installs `claude` only.
+
+Per-host details: [Codex](docs/hosts/codex.md), [opencode](docs/hosts/opencode.md).
+
+**Claude migration:** the first install after this change moves `~/.claude/.radin` to `~/.radin`.
+Restart open Claude sessions.
 
 ## Use it
 
@@ -102,6 +128,7 @@ Caveats on unpinned fetches and config repair: [docs/how-it-works.md](docs/how-i
 | --- | --- |
 | Try radin step by step | [Tutorial](docs/tutorial.md) |
 | Install, update or uninstall | [Install guide](docs/install.md) |
+| Set up Codex or opencode | [Codex](docs/hosts/codex.md), [opencode](docs/hosts/opencode.md) |
 | Do one specific thing | [How-to guides](docs/guides.md) |
 | Look up a command, field or key | [Reference](docs/reference.md) |
 | Understand the design | [How radin works](docs/how-it-works.md), [lifecycle diagrams](docs/lifecycle.md), [decisions](docs/DECISIONS.md) |
