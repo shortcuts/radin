@@ -17,6 +17,7 @@ you.
 
 ## Core Constraints
 
+<!-- host:claude -->
 - **Claude Code decides foreground or background**, so send every `Agent` call
   with no `run_in_background`. A backgrounded leaf's result reaches you as a
   completion notification in a later turn: wait for it, then report that task's
@@ -24,6 +25,10 @@ you.
   records one on disk, so a dispatch that hands back nothing leaves it
   unfinished: its `attempts` is already bumped, and Phase 0's stuck-recovery
   owns it next run.
+<!-- /host -->
+<!-- host:agents -->
+- **Dispatch blocks.** Start each leaf with your sub-agent tool and wait until it finishes. Its final message is the result, and no notification arrives later. Only `state task-report` gives a task its **terminal status**. A dispatch that hands back nothing leaves the task unfinished: its `attempts` is already bumped, and Phase 0's stuck-recovery owns it next run.
+<!-- /host -->
 - **The user's answers are binding.** Carry each one forward exactly as given:
   the task selection, the worktree and branch preferences, and the
   concurrency rule below are decisions, not hints. This holds most for a `no`.
@@ -224,12 +229,17 @@ order:
 
 `kind` is `planning` for an entry radin-record flagged as needing a plan that
 has none yet, else `execution`. A planning leaf with no `STATUS:` line goes in as `--no-status` like any other; it retries until `MAX_ATTEMPTS`, then `task-next` blocks it.
+<!-- host:claude -->
 `STATUS: BLOCKED (FACT|DECISION)`
 routes per Clarifying Ambiguity. Dispatch the prompt as one
 `Agent` call with exactly that model, that effort when an `effort` line printed, `name: "radin-<kind>-<task id>"`
 (`kind` is `planning`, `execution`, `debug` or `factfind`), and this text,
 and nothing else. The name lets a usage report show which task and role cost
 the most:
+<!-- /host -->
+<!-- host:agents -->
+Start the prompt with your sub-agent tool and wait for it to finish. Pass that model when a `model` line printed, that effort when an `effort` line printed, and the agent name `radin-<kind>-<task id>` (`kind` is `planning`, `execution`, `debug` or `factfind`). The prompt text is this, and nothing else. A usage report uses the name to show which task and role cost the most. A result of `STATUS: BLOCKED (FACT|DECISION)` routes per Clarifying Ambiguity:
+<!-- /host -->
 
 ```
 Read <the prompt path> and follow it.
@@ -247,6 +257,7 @@ records the terminal state and prints the report line. A planning leaf's `STATUS
 RADIN_CLI state task-report "<task id>" "<the sub-agent's STATUS: line>" --next
 ```
 
+<!-- host:claude -->
 Two dispatches hand back no such line. A last line that is not a `STATUS:`
 line, because the agent asked something, hit an interactive skill, or died mid-turn, goes
 in as `--no-status "<its final line>" --next` instead, an API or network error text
@@ -257,7 +268,12 @@ Do this whatever its last text says. "Waiting for a background run" is not a rea
 to wait: a leaf receives no background notification, so it never wakes.
 Idle again after that, record `--no-status "idle, no STATUS" --next`. If your
 turn ends first, leave the entry `in_progress` for Phase 0's stuck-recovery.
+<!-- /host -->
+<!-- host:agents -->
+A dispatch can end with no `STATUS:` line: the agent asked something, hit an interactive skill, died mid-turn, or returned an API or network error. Record it as `--no-status "<its final line>" --next`, and the CLI sends the task back for a retry. A leaf that returns is finished, so send it no nudge. When the host says the leaf still runs, wait again. When your turn ends first, Phase 0's stuck-recovery takes the `in_progress` entry next run.
+<!-- /host -->
 
+<!-- host:claude -->
 **Heartbeat.** Right after each `Agent` dispatch, call `CronCreate` once for
 that task with `cron: "7,27,47 * * * *"`, `recurring: true` and the prompt
 "Heartbeat for `<agent name>`: run `ListAgents`." Cron fires only while your
@@ -265,7 +281,9 @@ turn is idle, so it is your wake-up when that leaf stalls. On it, if that
 agent is idle with no `STATUS:` line, follow the rule above. Any other agent
 is not this job's concern. Call `CronDelete` on the job the moment
 `task-report` records that task, and on any job still open at Phase 5.
+<!-- /host -->
 
+<!-- host:claude -->
 When the dispatch's completion notification carries a usage block (total tokens,
 tool uses, duration in ms), add `--usage "<kind> <tokens> <tool_uses> <duration_ms>"`
 to that task's next `task-report` call, `kind` being `planning`, `execution`,
@@ -273,6 +291,10 @@ to that task's next `task-report` call, `kind` being `planning`, `execution`,
 dispatch's usage rides on the re-run's `task-report`, one `--usage` per dispatch.
 No usage block, no flag; a synchronous result's `totalTokens` counts only the
 final request, so it never supplies the number.
+<!-- /host -->
+<!-- host:agents -->
+Pass no `--usage` flag.
+<!-- /host -->
 
 Your whole message to the user about this task is the call's report: every line above its `next` line, copied verbatim. Then route on that `next` line. A re-run names the task: `task-next "<task id>"`
 claims it again and bumps `attempts`, so the cap still ends it.

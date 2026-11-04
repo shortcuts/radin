@@ -107,3 +107,12 @@ lint_root() {
   [ "$status" -eq 1 ]
   [[ "$output" == *'no longer holds "SendMessage"; delete the line'* ]]
 }
+
+@test "the agents render of radin-run.md names no Claude dispatch tool" {
+  run "$RENDER" --hits "$REPO_ROOT/lib/radin-run.md" agents
+  [ "$status" -eq 0 ]
+  [[ "$output" != *ListAgents* ]]
+  [[ "$output" != *CronCreate* ]]
+  [[ "$output" != *SendMessage* ]]
+  [[ "$output" != *run_in_background* ]]
+}

@@ -567,6 +567,14 @@ else
 	ok "keeping default sub-agent models (sonnet; haiku for fact-finding and low-complexity tasks)"
 fi
 for f in $(shipped_text_files); do
+	tmp="$(mktemp)"
+	if "$RADIN_ROOT/scripts/render-host.sh" "$f" claude >"$tmp"; then
+		mv "$tmp" "$f"
+	else
+		rm -f "$tmp"
+		printf "%b\n" "${RED}${RAT} could not render $f for claude${RESET}" >&2
+		exit 1
+	fi
 	set_role_models "$f"
 done
 

@@ -9,10 +9,6 @@ lib/radin-prompt-execution.md	/ponytail:
 lib/radin-prompt-gate.md	/caveman:
 lib/radin-review-core.md	/ponytail:
 lib/radin-run.md	AskUserQuestion
-lib/radin-run.md	CronCreate
-lib/radin-run.md	ListAgents
-lib/radin-run.md	SendMessage
-lib/radin-run.md	run_in_background
 skills/radin-do/SKILL.md	/mattpocock-skills:
 skills/radin-do/SKILL.md	AskUserQuestion
 skills/radin-plan/SKILL.md	/mattpocock-skills:

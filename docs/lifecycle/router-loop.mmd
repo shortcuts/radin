@@ -17,10 +17,12 @@ flowchart TD
   kind -- planning --> leafP[[Planning leaf]]
   kind -- execution --> leafE[[Execution leaf]]
   leafE -- STATUS line --> report[task-report]
-  leafE -. idle, no STATUS .-> nudge[ListAgents, one nudge]
-  hb([per-task cron heartbeat, 20 min]) -. fires .-> nudge
+  leafE -. idle, no STATUS .-> nudge[claude: ListAgents, one nudge]
+  hb([claude: per-task cron heartbeat, 20 min]) -. fires .-> nudge
   nudge --> report
   leafP -- STATUS line --> report
+  leafE -. agents: leaf returns, no STATUS .-> report
+  leafP -. agents: leaf returns, no STATUS .-> report
   report -- commit on a side branch --> blocked[blocked until the merge lands]
   report --> route{next}
   route -- continue --> next

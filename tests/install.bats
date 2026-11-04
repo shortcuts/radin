@@ -107,6 +107,13 @@ run_install_defaults() {
   ! grep -q '/radin-show' "$TEMPLATE/home/.claude/CLAUDE.md"
 }
 
+@test "installed radin-run.md holds no host marker and keeps the claude loop" {
+  replay_install >/dev/null
+  run grep -c '<!-- /\?host' "$TEST_HOME/.claude/.radin/lib/radin-run.md"
+  [ "$output" = 0 ]
+  grep -q 'Claude Code decides foreground or background' "$TEST_HOME/.claude/.radin/lib/radin-run.md"
+}
+
 # The golden stores sums, so a failure names the file and both sums, not the lines.
 @test "golden render of the Claude install is unchanged" {
   replay_install >/dev/null

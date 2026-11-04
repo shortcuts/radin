@@ -18,8 +18,9 @@ setup() {
   # delegations: a workflow command and two placeholder skill names.
   EXAMPLES="deep-research frontend-design other-skill"
   # Not skill names at all: `bin` comes off a `/bin/bash` shebang path, `dev`
-  # off awk's `/dev/stderr` in lib/radin-backlog.sh.
-  NOT_SKILLS="bin dev"
+  # off awk's `/dev/stderr` in lib/radin-backlog.sh, `host` off the
+  # `<!-- /host -->` marker that closes a host block.
+  NOT_SKILLS="bin dev host"
 }
 
 # Slash tokens, allowing leading markdown emphasis, backticks, quotes and one
