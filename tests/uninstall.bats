@@ -7,6 +7,8 @@ setup() {
   REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
   CLI="$REPO_ROOT/lib/radin-uninstall.sh"
   TEST_HOME="$(mktemp -d)"
+  load helpers/isolate
+  isolate_env "$TEST_HOME"
 }
 
 teardown() {

@@ -13,6 +13,8 @@ setup() {
   TEST_HOME="$(mktemp -d)"
   MOCK_BIN="$(mktemp -d)"
   export HOME="$TEST_HOME"
+  load helpers/isolate
+  isolate_env "$TEST_HOME"
   unset CLAUDE_CONFIG_DIR
   export PATH="$MOCK_BIN:/usr/bin:/bin:/usr/sbin:/sbin"
   # $HOME moved, so the stub cannot find its own literals by ~; tell it where.

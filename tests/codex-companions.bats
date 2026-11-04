@@ -10,6 +10,8 @@ setup() {
   TEST_HOME="$(mktemp -d)"
   MOCK_BIN="$(mktemp -d)"
   export HOME="$TEST_HOME"
+  load helpers/isolate
+  isolate_env "$TEST_HOME"
   export CODEX_HOME="$TEST_HOME/codex-home"
   export PATH="$MOCK_BIN:/usr/bin:/bin:/usr/sbin:/sbin"
   export MOCK_BIN MOCK_LOG_DIR="$TEST_HOME"

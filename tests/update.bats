@@ -6,6 +6,8 @@ setup() {
   REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
   CLI="$REPO_ROOT/lib/radin-update.sh"
   TEST_HOME="$(mktemp -d)"
+  load helpers/isolate
+  isolate_env "$TEST_HOME"
   MOCK_BIN="$(mktemp -d)"
   export PATH="$MOCK_BIN:/usr/bin:/bin:/usr/sbin:/sbin"
   mkdir -p "$TEST_HOME/.radin"

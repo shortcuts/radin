@@ -9,6 +9,8 @@ setup() {
   TEST_HOME="$(mktemp -d)"
   MOCK_BIN="$(mktemp -d)"
   export HOME="$TEST_HOME"
+  load helpers/isolate
+  isolate_env "$TEST_HOME"
   printf '#!/bin/sh\n' > "$MOCK_BIN/codebase-memory-mcp"
   chmod +x "$MOCK_BIN/codebase-memory-mcp"
   export PATH="$MOCK_BIN:/usr/bin:/bin:/usr/sbin:/sbin"

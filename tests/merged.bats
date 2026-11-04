@@ -6,6 +6,8 @@ setup() {
   SRC="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
   WORK="$(cd "$(mktemp -d)" && pwd -P)"
   export HOME="$WORK/home"
+  load helpers/isolate
+  isolate_env "$HOME"
   mkdir -p "$HOME/.radin" "$WORK/proj"
   ln -s "$SRC/lib" "$HOME/.radin/lib"
   ln -s "$SRC/bin" "$HOME/.radin/bin"

@@ -5,6 +5,8 @@ setup() {
   REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
   CLI="$REPO_ROOT/lib/radin-doctor.sh"
   TEST_HOME="$(mktemp -d)"
+  load helpers/isolate
+  isolate_env "$TEST_HOME"
   MOCK_BIN="$(mktemp -d)"
   export PATH="$MOCK_BIN:/usr/bin:/bin:/usr/sbin:/sbin"
   load helpers/pty

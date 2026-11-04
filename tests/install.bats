@@ -11,7 +11,8 @@ setup() {
 
   TEST_HOME="$(mktemp -d)"
   MOCK_BIN="$(mktemp -d)"
-  export HOME="$TEST_HOME"
+  load helpers/isolate
+  isolate_env "$TEST_HOME"
   export PATH="$MOCK_BIN:/usr/bin:/bin:/usr/sbin:/sbin"
   load helpers/pty
   MOCK_SRC_BIN="$BATS_FILE_TMPDIR/mock"
@@ -27,6 +28,8 @@ setup_file() {
   TEST_HOME="$TEMPLATE/home"
   MOCK_BIN="$TEMPLATE/bin"
   mkdir -p "$TEST_HOME" "$MOCK_BIN"
+  load helpers/isolate
+  isolate_env "$TEST_HOME"
   load helpers/pty
   MOCK_SRC_BIN="$BATS_FILE_TMPDIR/mock"
   make_mocks
@@ -819,6 +822,47 @@ assert_no_agents_marker() {
   [ ! -e "$TEST_HOME/.radin/manifest.json" ]
 }
 
+@test "a three-host lifecycle keeps foreign content and leaves no radin file" {
+  mock_cli codex
+  mock_cli opencode
+  agents_root
+  rm -f "$MOCK_BIN/cc" "$MOCK_BIN/gcc" "$MOCK_BIN/clang"
+  mkdir -p "$TEST_HOME/.claude" "$TEST_HOME/.codex" "$TEST_HOME/.config/opencode"
+  printf 'mine\n' >"$TEST_HOME/.claude/CLAUDE.md"
+  printf 'mine\n' >"$TEST_HOME/.codex/AGENTS.md"
+  printf 'mine\n' >"$TEST_HOME/.config/opencode/AGENTS.md"
+  printf '{"permission":{"external_directory":{"/keep/**":"allow"}}}\n' >"$TEST_HOME/.config/opencode/opencode.json"
+  foreign_skill .claude/skills/foreign
+  foreign_skill .agents/skills/foreign
+  (cd "$TEST_HOME" && find . -type f | sort) >"$BATS_TEST_TMPDIR/seeded"
+  run install_from "$AROOT" --yes --only claude,codex,opencode
+  [ "$status" -eq 0 ]
+  assert_no_agents_marker
+  run bash "$TEST_HOME/.radin/lib/radin-doctor.sh"
+  [ "$status" -eq 0 ]
+  local before after
+  before="$(home_sum | grep -v -e '^\./\.radin/manifest\.json ' -e '\.log ' -e '^\./\.radin/backups/')"
+  run install_from "$AROOT" --yes --only claude,codex,opencode
+  [ "$status" -eq 0 ]
+  after="$(home_sum | grep -v -e '^\./\.radin/manifest\.json ' -e '\.log ' -e '^\./\.radin/backups/')"
+  [ "$before" = "$after" ]
+  run bash "$TEST_HOME/.radin/lib/radin-uninstall.sh"
+  [ "$status" -eq 0 ]
+  [ "$(cat "$TEST_HOME/.claude/CLAUDE.md")" = mine ]
+  [ "$(cat "$TEST_HOME/.codex/AGENTS.md")" = mine ]
+  [ "$(cat "$TEST_HOME/.config/opencode/AGENTS.md")" = mine ]
+  grep -q '/keep/\*\*' "$TEST_HOME/.config/opencode/opencode.json"
+  run grep -s '\.radin/\*\*' "$TEST_HOME/.config/opencode/opencode.json"
+  [ "$status" -ne 0 ]
+  [ -f "$TEST_HOME/.claude/skills/foreign/SKILL.md" ]
+  [ -f "$TEST_HOME/.agents/skills/foreign/SKILL.md" ]
+  local left
+  left="$(cd "$TEST_HOME" && find . -type f | sort | comm -23 - "$BATS_TEST_TMPDIR/seeded" |
+    grep -v -e '\.log$' -e '^\./\.claude/\.ponytail-band$' -e '^\./\.claude/settings\.json$' -e '^\./\.radin/backups/' -e '^\./\.agents/skills/' -e '^\./\.claude/skills/' || true)"
+  [ -z "$left" ] || { echo "left behind: $left"; false; }
+  [ -z "$(ls "$TEST_HOME/.claude/skills" "$TEST_HOME/.agents/skills" | grep '^radin-')" ]
+}
+
 @test "--update keeps the manifest hosts and asks nothing" {
   mock_cli codex
   agents_root
@@ -933,6 +977,21 @@ break_agents_render() {
   grep -q UPDATE-MARKER "$TEST_HOME/.radin/hosts/agents/lib/radin-run.md"
 }
 
+@test "--update --dry-run lists writes and changes no byte" {
+  mock_cli codex
+  agents_root
+  install_from "$AROOT" --yes --only claude,codex >/dev/null
+  update_marker
+  local before
+  before="$(home_sum)"
+  run install_from "$AROOT" --update --dry-run
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"write "* ]]
+  [ "$before" = "$(home_sum)" ]
+  run grep -c UPDATE-MARKER "$TEST_HOME/.radin/hosts/agents/lib/radin-run.md" "$TEST_HOME/.radin/hosts/claude/lib/radin-run.md"
+  [ "$status" -eq 1 ]
+}
+
 @test "--update holds a host whose path radin does not own" {
   mock_cli codex
   agents_root
@@ -1013,6 +1072,19 @@ break_agents_render() {
   [ -f "$TEST_HOME/.agents/skills/radin-batch/SKILL.md" ]
   [ "$(manifest_array hosts)" = '"codex"' ]
   [ "$(manifest_array agents_clis)" = '"codex"' ]
+}
+
+@test "every selected host installs its files when no host CLI exists" {
+  agents_root
+  rm -f "$MOCK_BIN/claude"
+  run install_from "$AROOT" --yes --only claude,codex,opencode
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"codex CLI not found"* ]]
+  [[ "$output" == *"opencode CLI not found"* ]]
+  [ "$(manifest_array hosts)" = '"claude", "codex", "opencode"' ]
+  [ -f "$TEST_HOME/.claude/skills/radin-batch/SKILL.md" ]
+  [ -f "$TEST_HOME/.agents/skills/radin-batch/SKILL.md" ]
+  [ -f "$TEST_HOME/.config/opencode/agents/radin-review.md" ]
 }
 
 @test "an unknown host id or flag exits 2 before any write" {

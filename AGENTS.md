@@ -18,7 +18,7 @@ radin is a Claude Code plugin of skills, a CLI, and install glue.
 
   Call out every `install.sh` edit.
 - **Companion install is advisory.** A failed install prints a warning and the run continues. The installer asks one question: which package manager installs the companions (`brew`, `mise`, or `curl`). radin adds no package manager the user has not already run.
-- **Tests never touch the real device setup.** No test reads or writes the real `~/.claude`, `~/.config/.claude`, `~/.claude.json`, the `CLAUDE_CONFIG_DIR` target or the keychain. Tests use mocks and stubs under an isolated `HOME`.
+- **Tests never touch the real device setup.** No test reads or writes the real `~/.claude`, `~/.config/.claude`, `~/.claude.json`, `~/.codex`, `~/.config/opencode`, the `CLAUDE_CONFIG_DIR`, `CODEX_HOME` or `OPENCODE_CONFIG` target or the keychain. Tests use mocks and stubs under an isolated `HOME`, `XDG_CONFIG_HOME` and `CODEX_HOME`.
 
 ## Rule enforcers
 
@@ -36,7 +36,14 @@ radin is a Claude Code plugin of skills, a CLI, and install glue.
 | One owner per prose rule | `LEAF_CONTRACT`, `EXPLORE_RULE`, `OPEN_DECISIONS_RULE` and `PLANNING_RULE` tokens, `scripts/check-prose.sh` (new verbatim sentence copy) | A paraphrase or contradiction; review only. |
 | Name each companion directly, no guard or escape clause | `scripts/check-prose.sh` guard phrases | A paraphrase escapes the phrase list. |
 | A test must be able to fail | `scripts/check-prose.sh` bare `! cmd` lint | Other vacuous patterns; review only. |
-| Tests never touch the real device setup | `make test` runs bats with `CLAUDE_CONFIG_DIR` unset and fails when `scripts/real-setup-sum.sh` differs before and after | A test that reads the keychain or another real path; review only. |
+| Tests never touch the real device setup | `make test` runs bats with `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `XDG_CONFIG_HOME` and `OPENCODE_CONFIG` unset and fails when `scripts/real-setup-sum.sh` differs before and after; `tests/helpers/isolate.bash` isolates each file | A test that reads the keychain or another real path; review only. |
+| `radin --host` keeps separate state dirs | `tests/host.bats` | None. |
+| Merged backlog reads only | `tests/merged.bats`, `tests/tui-merge.bats` | None. |
+| `radin doctor` checks every installed host | `tests/doctor.bats` | The real CLI probes (Codex `/hooks`, opencode version) run against stubs. |
+| `radin uninstall` removes only bytes radin still owns | `tests/uninstall.bats`, the three-host lifecycle test in `tests/install.bats` | Foreign text inside a radin block is stripped with it. |
+| The agents render names no Claude-only tool and holds no model line | `hosts/forbid-agents.txt`, `scripts/check-prose.sh` forbid lint, `tests/render-host.bats` | A paraphrase of a tool name; review only. |
+| Every host path variable is isolated | `tests/isolation.bats`, `tests/real-setup-sum.bats` | None. |
+| A three-host lifecycle leaves no radin file | The three-host lifecycle test in `tests/install.bats` | The real CLIs are not run; `make verify-hosts` owns that. |
 | `--dry-run` changes nothing | `tests/install.bats` ("--dry-run lists the writes the real run makes and changes nothing") | Companion command text is printed, not run. |
 | A selected host with no CLI still installs | `tests/install.bats` ("a selected host without its CLI warns...") | None. |
 | `radin update` keeps a failed host in the manifest | `tests/install.bats` ("--update leaves a host whose render fails untouched...") | None. |

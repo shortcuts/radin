@@ -7,6 +7,8 @@ setup() {
   WORK="$(cd "$(mktemp -d)" && pwd -P)"
   # bin/radin hardcodes $HOME/.radin/lib, so a fake HOME links to the repo.
   export HOME="$WORK/home"
+  load helpers/isolate
+  isolate_env "$HOME"
   mkdir -p "$HOME/.radin" "$WORK/proj"
   ln -s "$SRC/lib" "$HOME/.radin/lib"
   ln -s "$SRC/bin" "$HOME/.radin/bin"
