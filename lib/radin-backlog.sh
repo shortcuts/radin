@@ -710,7 +710,13 @@ meta_of_line() {
 # recurse (docs/DECISIONS.md has the why for each).
 # Written with the leading slash a user would type, so tests/skill-names.bats
 # pins each one to a skill radin or a companion actually ships.
-SKILL_DENY="/mattpocock-skills:grilling /mattpocock-skills:research /deep-research /radin-batch /radin-plan /radin-review"
+# shortcut: an agents-host instruction with no slash ("Invoke grilling") is not detected; revisit when the host instruction format settles.
+skill_deny_list() {
+	local g r
+	g="$(radin_skill grilling)"
+	r="$(radin_skill research)"
+	printf '/%s /%s /deep-research /radin-batch /radin-plan /radin-review' "${g#/}" "${r#/}"
+}
 
 # The canonical skill instruction sentence, in one place: `add --skill` and
 # `set-meta skills` both compose it here, so no skill writes it by hand.
@@ -734,7 +740,7 @@ skill_denied() {
 	local name
 	name="$(skill_token "$1")"
 	[ -n "$name" ] || return 1
-	case " $SKILL_DENY " in *" /$name "*) return 0 ;; esac
+	case " $(skill_deny_list) " in *" /$name "*) return 0 ;; esac
 	# The one class that needs a filesystem check: any saved workflow command.
 	[ ! -f "$REPO_ROOT/.claude/workflows/$name.md" ] || return 0
 	[ ! -f "$HOME/.claude/workflows/$name.md" ] || return 0

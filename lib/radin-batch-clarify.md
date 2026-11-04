@@ -17,7 +17,7 @@ Route on it:
   file.
 
   **Outside the working directory.** This means third-party API or library behavior, a
-  spec, or a service's own reference. Invoke `/mattpocock-skills:research`
+  spec, or a service's own reference. Invoke `@@skill:research@@`
   yourself, once per question, all the invocations in the same message. If it
   asks you anything, drop it, never wait on it, and
   treat the question as `STATUS: NOT FOUND` below. Otherwise give it the
@@ -84,7 +84,7 @@ entry as `pending`.
 ## Settling Waiting Entries
 
 Phase 0 and Phase 5 of `RADIN_LIB/radin-run.md` read this section for every
-`waiting` entry. Invoke `/mattpocock-skills:grilling` once for all of them,
+`waiting` entry. Invoke `@@skill:grilling@@` once for all of them,
 one question at a time, your recommendation first. Append each answer as
 above, then run `RADIN_CLI state answered "<task id>"`. An entry the user
 explicitly defers again keeps its `blocked` status and its `deferred:` note.

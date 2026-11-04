@@ -141,21 +141,21 @@ Commits landed after this task's plan was written and touched the files
    `STATUS: BLOCKED (DECISION)` describing it, and guess nothing.
 <!-- end -->
 <!-- if:CAT_fix -->
-4. Invoke `/caveman:surgical-patch` and implement through it: the narrowest
+4. Invoke `@@skill:surgical-patch@@` and implement through it: the narrowest
    layer that fixes it, with regression proof.
 <!-- end -->
 <!-- if:CAT_refactor -->
-4. Invoke `/caveman:safe-refactor` and implement through it: verification
+4. Invoke `@@skill:safe-refactor@@` and implement through it: verification
    brackets the structural edit.
 <!-- end -->
 <!-- if:CAT_feat -->
-4. Invoke `/caveman:lean-build` and implement through it: reuse first, with an
+4. Invoke `@@skill:lean-build@@` and implement through it: reuse first, with an
    explicit stop condition.
 <!-- end -->
 <!-- if:CAT_chore -->
 4. No category skill applies: the ladder below is the whole discipline.
 <!-- end -->
-   Apply the `/ponytail:ponytail` ladder in every case: the minimum code that
+   Apply the `@@skill:ponytail@@` ladder in every case: the minimum code that
    satisfies the task, reusing what the repo already has. Its SubagentStart
    hook already put the ladder in your context, so invoke no skill for it.
 5. Where the task changes behavior (not a pure deletion/rename), add or update a unit
@@ -206,7 +206,7 @@ COMMENT_RULE
    `git stash push -u -- . ':(exclude).claude/.radin'`, re-run that check on
    the base, then `git stash pop` (pop only when the stash saved something).
    The exclude keeps the untracked `.claude/.radin/` state in place. Red on
-   the base too: fix it in this task through `/caveman:surgical-patch`, as its
+   the base too: fix it in this task through `@@skill:surgical-patch@@`, as its
    own commit. A fix out of reach: file it
    with `RADIN_CLI backlog add fix "<short title>" --location "<path:line>"`
    and a body that gives the failing check, its output and the cause, then
@@ -219,7 +219,7 @@ COMMENT_RULE
    restage and review again. Two rounds at most: a `critical` still standing
    then is `STATUS: FAILED` with its citation. Fix a `nit` finding only when
    it sits in a file you staged.
-10. Invoke the `/caveman:caveman-commit` skill to draft the commit message, then commit.
+10. Invoke the `@@skill:caveman-commit@@` skill to draft the commit message, then commit.
 11. Run `RADIN_CLI state dirty-check` from the tree
    step 2 handed you, so the check covers the files you actually touched.
    Delete any scratch file or script you created only to iterate. If anything

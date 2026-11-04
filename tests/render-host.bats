@@ -172,3 +172,65 @@ ask_hosts() {
   [ "$status" -eq 1 ]
   [[ "$output" == *'lib/radin-twin.md:3: repeats lib/radin-twin.md:1; state it once there and point to it'* ]]
 }
+
+@test "a skill token renders each host's value" {
+  src 'Invoke `@@skill:grilling@@` now, then @@skill:ponytail-review@@.'
+  run "$RENDER" "$T/in.md" claude
+  [ "$status" -eq 0 ]
+  [ "$output" = 'Invoke `/mattpocock-skills:grilling` now, then /ponytail:ponytail-review.' ]
+  run "$RENDER" "$T/in.md" agents
+  [ "$status" -eq 0 ]
+  [ "$output" = 'Invoke `grilling` now, then ponytail-review.' ]
+}
+
+@test "an unknown skill name fails with FILE:LINE" {
+  src ok 'x @@skill:nope@@'
+  run "$RENDER" "$T/in.md" agents
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"in.md:2: unknown skill name \"nope\""* ]]
+}
+
+@test "a malformed skill token fails with FILE:LINE" {
+  src '@@skill:Bad Name@@'
+  run "$RENDER" "$T/in.md" claude
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"in.md:1: malformed skill token"* ]]
+}
+
+@test "a missing skill-names table fails" {
+  src one
+  mkdir -p "$T/empty"
+  RADIN_LIB_DIR="$T/empty" run "$RENDER" "$T/in.md" claude
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"in.md: no skill-names-claude.txt"* ]]
+}
+
+@test "a token in a dropped host block is ignored" {
+  src '<!-- host:claude -->' '@@skill:nope@@' '<!-- /host -->' '@@skill:research@@'
+  run "$RENDER" "$T/in.md" agents
+  [ "$status" -eq 0 ]
+  [ "$output" = research ]
+}
+
+@test "lint fails on a skill name outside the table and on a token missing from it" {
+  lint_root
+  printf 'clean\n' > "$T/r/skills/x/SKILL.md"
+  cp "$REPO_ROOT"/lib/skill-names-*.txt "$T/r/lib/"
+  printf '# /ponytail:ponytail\n' > "$T/r/lib/radin-scope.sh"
+  run "$REPO_ROOT/scripts/check-prose.sh" "$T/r"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"lib/radin-scope.sh:1: skill name outside the table; use radin_skill NAME"* ]]
+  printf 'clean\n' > "$T/r/lib/radin-scope.sh"
+  printf '@@skill:nope@@\n' > "$T/r/skills/x/SKILL.md"
+  run "$REPO_ROOT/scripts/check-prose.sh" "$T/r"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"skills/x/SKILL.md:1: skill nope is not in lib/skill-names-claude.txt"* ]]
+}
+
+@test "radin-scope.sh names the host's own ponytail passes" {
+  mkdir -p "$T/d"
+  run bash "$REPO_ROOT/lib/radin-scope.sh" "$T/d"
+  [[ "$output" == *$'passes\t/ponytail:ponytail-audit /ponytail:ponytail-debt'* ]]
+  RADIN_HOST=agents run bash "$REPO_ROOT/lib/radin-scope.sh" "$T/d"
+  [[ "$output" == *$'passes\tponytail-audit ponytail-debt'* ]]
+}

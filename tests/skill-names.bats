@@ -81,3 +81,31 @@ skill_tokens() {
     false
   }
 }
+
+@test "both skill-name tables hold the same keys, with valid and matching values" {
+  cd "$REPO_ROOT/lib"
+  keys() { grep -vE '^(#|$)' "$1" | awk '{ print $1 }'; }
+  [ "$(keys skill-names-claude.txt)" = "$(keys skill-names-agents.txt)" ]
+  while read -r k v; do
+    a="$(awk -v k="$k" '$1 == k { print $2 }' skill-names-agents.txt)"
+    case "$v" in
+      /*:*) prefix="${v#/}"; prefix="${prefix%%:*}"; case " $PLUGINS " in *" $prefix "*) ;; *) echo "bad plugin $v"; false ;; esac; name="${v##*:}" ;;
+      /*) name="${v#/}"; case " $COMPANIONS " in *" $name "*) ;; *) echo "bad companion $v"; false ;; esac ;;
+      *) echo "claude value without slash: $v"; false ;;
+    esac
+    [ "$a" = "$name" ] || { echo "$k: agents value $a, want $name"; false; }
+    [ "$k" = "$name" ] || { echo "$k: key differs from skill name $name"; false; }
+  done < <(grep -vE '^(#|$)' skill-names-claude.txt)
+}
+
+@test "every @@skill:NAME@@ token in the sources resolves in both tables" {
+  cd "$REPO_ROOT"
+  run grep -ohE '@@skill:[a-z0-9-]+@@' skills/*/SKILL.md lib/*.md lib/*.sh
+  [ "$status" -eq 0 ]
+  for t in $(printf '%s\n' "$output" | sort -u); do
+    k="${t#@@skill:}"; k="${k%@@}"
+    for h in claude agents; do
+      awk -v k="$k" '$1 == k { f = 1 } END { exit !f }' lib/skill-names-$h.txt || { echo "$k missing from $h"; false; }
+    done
+  done
+}

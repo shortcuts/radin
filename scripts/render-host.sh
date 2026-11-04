@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 # Usage: render-host.sh [--hits] FILE HOST
 # Prints FILE as HOST sees it: keeps text outside <!-- host:NAME[,NAME] --> ... <!-- /host -->
-# blocks, keeps a block body only when HOST is listed, drops the marker lines.
+# blocks, keeps a block body only when HOST is listed, drops the marker lines, and replaces each
+# @@skill:NAME@@ with HOST's value from lib/skill-names-HOST.txt (RADIN_LIB_DIR overrides lib/).
 # Fails on a bad marker (FILE:LINE: reason) or a string from hosts/forbid-HOST.txt that survives.
 # --hits prints each surviving string and exits 0. HOST names are the files hosts/forbid-*.txt.
 # Must stay bash-3.2-compatible (macOS /bin/bash).
 set -euo pipefail
 hosts_dir=${RADIN_HOSTS_DIR:-$(dirname "$0")/../hosts}
+lib_dir=${RADIN_LIB_DIR:-$(dirname "$0")/../lib}
 hits=0
 if [ "${1:-}" = --hits ]; then
 	hits=1
@@ -30,12 +32,32 @@ valid=$(cd "$hosts_dir" && for f in forbid-*.txt; do
 	f=${f#forbid-}
 	echo "${f%.txt}"
 done | tr '\n' ' ')
+names_file=$lib_dir/skill-names-$host.txt
+[ -f "$names_file" ] || {
+	echo "$file: no skill-names-$host.txt" >&2
+	exit 1
+}
 out=$(mktemp)
 trap 'rm -f "$out"' EXIT
 
-awk -v file="$file" -v host="$host" -v valid="$valid" '
+awk -v file="$file" -v host="$host" -v valid="$valid" -v names="$names_file" '
 function fail(n, why) { printf "%s:%d: %s\n", file, n, why > "/dev/stderr"; bad = 1; exit 1 }
-BEGIN { nv = split(valid, v, " "); for (i = 1; i <= nv; i++) ok[v[i]] = 1 }
+function subst(line, n,   res, i, rest, name) {
+	res = ""
+	while ((i = index(line, "@@skill:")) > 0) {
+		rest = substr(line, i + 8)
+		if (!match(rest, /^[a-z0-9-]+@@/)) fail(n, "malformed skill token")
+		name = substr(rest, 1, RLENGTH - 2)
+		if (!(name in sk)) fail(n, "unknown skill name \"" name "\"")
+		res = res substr(line, 1, i - 1) sk[name]
+		line = substr(rest, RLENGTH + 1)
+	}
+	return res line
+}
+BEGIN {
+	nv = split(valid, v, " "); for (i = 1; i <= nv; i++) ok[v[i]] = 1
+	while ((getline l < names) > 0) { if (l ~ /^[ \t]*(#|$)/) continue; k = l; sub(/[ \t].*$/, "", k); val = l; sub(/^[^ \t]*[ \t]+/, "", val); sk[k] = val }
+}
 /<!-- host:|<!-- \/host/ {
 	if ($0 ~ /^[ \t]*<!-- \/host -->[ \t]*$/) {
 		if (!open) fail(FNR, "<!-- /host --> with no open block")
@@ -52,7 +74,7 @@ BEGIN { nv = split(valid, v, " "); for (i = 1; i <= nv; i++) ok[v[i]] = 1 }
 	}
 	open = FNR; next
 }
-!open || keep { print }
+!open || keep { print subst($0, FNR) }
 END { if (!bad && open) fail(open, "host block never closed") }
 ' "$file" >"$out"
 

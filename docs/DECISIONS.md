@@ -64,6 +64,7 @@ Read these before you change `lib/radin-cbm-config.sh` or tell a user they are c
 
 ## Skills and sub-agents
 
+- **A companion skill name is a token, and one table per host spells it.** Prose writes `@@skill:NAME@@`. `scripts/render-host.sh` and `radin_skill NAME` in `lib/radin-host.sh` read `lib/skill-names-HOST.txt`. The claude value is today's text (`/ponytail:ponytail-review`). The agents value is the bare name. **Why:** one table feeds the renderer and the scripts, so a name lives in one place per host. A script on the agents host cannot detect a skill instruction written with no slash (`SKILL_DENY`). The instruction format on those hosts is not settled.
 - **Every entry point is a skill.** **Why:** Claude Code removes `AskUserQuestion` from every sub-agent, and a sub-agent's prose reaches only the calling session. As an agent, radin-batch's Phase 2 gate could never ask. As a skill it runs in the user's thread, asks, accepts interruption and resumes from disk.
 - **A sub-agent is a leaf.** It has no prose channel to the user, no `AskUserQuestion`, and no `Workflow`. A prompt that sends one into a skill that asks in prose (`/grilling`), launches a workflow (`/deep-research`) or spawns a background agent and waits (`/research`) ends its turn with no `STATUS:` line. The task then hangs `in_progress`.
   - Needing a fact: dispatch radin's own synchronous fact-finder, never a third-party research skill.

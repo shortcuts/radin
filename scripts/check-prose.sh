@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Usage: check-prose.sh [root]. Five lints, each fails with file:line and the fix.
+# Usage: check-prose.sh [root]. Six lints, each fails with file:line and the fix.
 set -u
 here=$(cd "$(dirname "$0")" && pwd)
 cd "${1:-.}" || exit 2
@@ -96,5 +96,25 @@ if [ -n "$forbid_stale" ]; then
 	printf '%s\n' "$forbid_stale" | awk -F'\t' '{ printf "hosts/forbid-baseline.txt: %s no longer holds \"%s\"; delete the line\n", $1, $2 }'
 	rc=1
 fi
+
+# A companion skill name lives in lib/skill-names-HOST.txt. Scripts read it with radin_skill; prose uses @@skill:NAME@@.
+name_hits=$(grep -nHE '/(mattpocock-skills|ponytail|caveman):|/thermo-nuclear' lib/*.sh)
+if [ -n "$name_hits" ]; then
+	printf '%s\n' "$name_hits" | awk -F: '{ printf "%s:%s: skill name outside the table; use radin_skill NAME\n", $1, $2 }'
+	rc=1
+fi
+for tbl in lib/skill-names-*.txt; do
+	[ -f "$tbl" ] || continue
+	grep -noHE '@@skill:[a-z0-9-]+@@' skills/*/SKILL.md lib/*.md lib/*.sh | while IFS=: read -r f n tok; do
+		k=${tok#@@skill:}
+		k=${k%@@}
+		awk -v k="$k" '$1 == k { f = 1 } END { exit !f }' "$tbl" || printf '%s:%s: skill %s is not in %s\n' "$f" "$n" "$k" "$tbl"
+	done
+done >"${TMPDIR:-/tmp}/check-prose.$$"
+if [ -s "${TMPDIR:-/tmp}/check-prose.$$" ]; then
+	cat "${TMPDIR:-/tmp}/check-prose.$$"
+	rc=1
+fi
+rm -f "${TMPDIR:-/tmp}/check-prose.$$"
 
 exit "$rc"

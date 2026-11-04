@@ -48,10 +48,10 @@ Invoke the passes for the level against the scope:
 <!-- if:!LEVEL_diff -->
 | `plan` | none |
 <!-- end -->
-| `diff` | `/ponytail:ponytail-review` |
+| `diff` | `@@skill:ponytail-review@@` |
 <!-- if:!LEVEL_diff -->
-| `session`, `high` | `/thermo-nuclear`, `/ponytail:ponytail-review` |
-| `session`, `low` | `/ponytail:ponytail-review` |
+| `session`, `high` | `@@skill:thermo-nuclear@@`, `@@skill:ponytail-review@@` |
+| `session`, `low` | `@@skill:ponytail-review@@` |
 <!-- end -->
 
 Then report:

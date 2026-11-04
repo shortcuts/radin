@@ -33,7 +33,7 @@ your question tool (`RADIN_LIB/radin-ask-rule.md`): `Execute`, `I have feedback`
 <!-- /host -->
 
 - `Execute`: go to Step 3.
-- Feedback: invoke `/mattpocock-skills:grilling` on the plan's open decisions,
+- Feedback: invoke `@@skill:grilling@@` on the plan's open decisions,
   revise the plan file in place, show the summary again, and ask again. Loop
   until `Execute` or `Stop`.
 

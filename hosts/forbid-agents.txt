@@ -8,3 +8,4 @@ run_in_background
 /ponytail:
 /caveman:
 ~/.claude
+/thermo-nuclear

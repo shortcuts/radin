@@ -519,3 +519,15 @@ mkplan() {
   run bash -c "cd '$WORK/wt' && bash '$CLI' find base"
   [ "$status" -eq 0 ]
 }
+
+@test "SKILLS_DROPPED drops only the host's own grilling spelling" {
+  for h in claude agents; do
+    RADIN_HOST=$h cli add fix a --skill /mattpocock-skills:grilling --skill /grilling <<<b >/dev/null 2>&1
+  done
+  run cli field a SKILLS_DROPPED
+  [ "$status" -eq 0 ]
+  [ "$output" = "Invoke /mattpocock-skills:grilling to tackle this task." ]
+  RADIN_HOST=agents run cli field a SKILLS_DROPPED
+  [ "$status" -eq 0 ]
+  [ "$output" = "Invoke /grilling to tackle this task." ]
+}

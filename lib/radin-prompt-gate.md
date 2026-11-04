@@ -20,8 +20,8 @@ The session's branches, one per line: branch, tip, worktree, oldest session
 commit, TAB-separated.
 GATE_MAP
 
-Red: fix forward on that branch through `/caveman:surgical-patch`, commit
-through `/caveman:caveman-commit`, and re-run the checks. Leave the tree clean.
+Red: fix forward on that branch through `@@skill:surgical-patch@@`, commit
+through `@@skill:caveman-commit@@`, and re-run the checks. Leave the tree clean.
 
 <!-- if:GATE_REVIEW -->
 Review: once the checks are green, read RADIN_LIB/radin-review-core.md and

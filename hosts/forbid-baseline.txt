@@ -1,13 +1,2 @@
-lib/radin-batch-clarify.md	/mattpocock-skills:
-lib/radin-prompt-debug.md	/mattpocock-skills:
-lib/radin-prompt-execution.md	/caveman:
-lib/radin-prompt-execution.md	/ponytail:
-lib/radin-prompt-gate.md	/caveman:
-lib/radin-review-core.md	/ponytail:
-skills/radin-do/SKILL.md	/mattpocock-skills:
-skills/radin-plan/SKILL.md	/mattpocock-skills:
-skills/radin-record/SKILL.md	/mattpocock-skills:
 skills/radin-review/SKILL.md	SendMessage
-skills/radin-stats/SKILL.md	/caveman:
-skills/radin-stats/SKILL.md	/ponytail:
 skills/radin-uninstall/SKILL.md	~/.claude

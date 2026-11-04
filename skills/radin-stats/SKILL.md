@@ -16,11 +16,11 @@ ledger). Display each output as-is.
 Run all four without probing. A source that is not installed fails visibly;
 that failure is the skip, so do not retry it.
 
-- **`/caveman:caveman-stats`** -- measured: real per-session token usage and
+- **`@@skill:caveman-stats@@`** -- measured: real per-session token usage and
   savings, read from the session log itself.
-- **`/ponytail:ponytail-gain`** -- benchmark: ponytail's published scoreboard.
+- **`@@skill:ponytail-gain@@`** -- benchmark: ponytail's published scoreboard.
   Not this session, and not this repo.
-- **`/ponytail:ponytail-debt`** -- measured: ponytail's per-repo ledger of
+- **`@@skill:ponytail-debt@@`** -- measured: ponytail's per-repo ledger of
   deferred shortcuts, if the repo has one.
 - **`radin stats`** -- measured: skill, slash-command and sub-agent use on this device, per vendor, plus each radin repo's journal totals. Read from Claude Code transcripts, so it covers every companion. It also prints `rtk gain` and `caveman-stats.js --all`.
 

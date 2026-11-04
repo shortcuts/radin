@@ -69,7 +69,7 @@ For each sub-task, in order:
    - Third-party API or library behavior local code cannot confirm: read the
      entry's `**Fact:**` lines and the `facts` file Step 1 printed first.
      Still open, interactive: hand the question to
-     `/mattpocock-skills:research` naming
+     `@@skill:research@@` naming
      `<repo root>/.claude/.radin/state/facts/<task-id>.md` as the file to write
      to, plan the parts that do not hinge on it meanwhile, then record it:
 
@@ -86,7 +86,7 @@ For each sub-task, in order:
    with the user. Non-interactive: write on.
 5. Apply the ponytail ladder already in your context to produce the plan.
    When the plan places a new module boundary or reshapes an interface,
-   invoke `/mattpocock-skills:codebase-design` for that part. Write it to the
+   invoke `@@skill:codebase-design@@` for that part. Write it to the
    template below. Non-interactive: a question the entry, the repo and this
    conversation cannot answer ends the run as a report line, not an open
    decision in the plan.
@@ -223,7 +223,7 @@ because nobody has written this code yet.
 
 A finding that the approach itself is wrong, or that leaves a decision for
 the executor to invent, outruns an edit. Interactive: invoke
-`/mattpocock-skills:grilling` over those findings, one at a time, and fold
+`@@skill:grilling@@` over those findings, one at a time, and fold
 each settled answer into `## Decisions` before the next. Non-interactive:
 report the finding and stop.
 

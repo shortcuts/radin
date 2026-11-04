@@ -68,7 +68,7 @@ Pick the channel by the Decisions:
 - **Up to 4 Decisions, each with discrete options:** one ask per `RADIN_LIB/radin-ask-rule.md`.
 <!-- /host -->
 - **More than 4, open-ended answers, or answers that depend on each other:** invoke
-  `/mattpocock-skills:grilling` on them.
+  `@@skill:grilling@@` on them.
 
 **The test:** does Step 5's list show a question for the user to answer? Then it
 belongs here. Step 5 asks only whether the split, the dependencies and the plan

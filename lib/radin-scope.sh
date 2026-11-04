@@ -49,6 +49,9 @@
 # Must stay bash-3.2-compatible (macOS /bin/bash).
 set -euo pipefail
 
+# shellcheck disable=SC1091
+. "$(dirname "${BASH_SOURCE[0]}")/radin-host.sh"
+
 TAB="$(printf '\t')"
 
 die() {
@@ -62,7 +65,7 @@ emit() {
 	# at levels diff and session, and a repeat reviews the diff twice.
 	local passes
 	case "$1" in
-	dir) passes='/ponytail:ponytail-audit /ponytail:ponytail-debt' ;;
+	dir) passes="$(radin_skill ponytail-audit) $(radin_skill ponytail-debt)" ;;
 	*) passes='' ;;
 	esac
 	printf 'type\t%s\nscope\t%s\ncommand\t%s\npasses\t%s\n' "$1" "$2" "$3" "$passes"
