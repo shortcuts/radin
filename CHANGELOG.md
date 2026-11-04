@@ -1,5 +1,50 @@
 # Changelog
 
+## [3.0.0](https://github.com/shortcuts/radin/compare/v2.2.0...v3.0.0) (2026-11-04)
+
+
+### ⚠ BREAKING CHANGES
+
+* move ~/.claude/.radin to ~/.radin on install
+* move radin home to ~/.radin with rendered md under hosts/claude/lib
+
+### Features
+
+* agents variant of leaf contract, explore rule and review dispatch ([277195b](https://github.com/shortcuts/radin/commit/277195bd995f85a6e2b1d351a8f2f43d27bf1610))
+* agents variant of the run loop in radin-run.md ([b638b63](https://github.com/shortcuts/radin/commit/b638b63c67b34cf5ce6d438f5a6888aa3f6ce570))
+* **backlog:** merge claude and agents backlogs read-only in the CLI and TUI ([2fdaccf](https://github.com/shortcuts/radin/commit/2fdaccf5d3a637f81e1072d24523b8c10660a218))
+* **doctor:** check every installed host from the manifest ([7b1ab34](https://github.com/shortcuts/radin/commit/7b1ab34623ae9c9b1dddd0dada5ed3be3be2d08e))
+* global --host flag selects per-host state directory ([2f257dc](https://github.com/shortcuts/radin/commit/2f257dc85d31db7803ddd7648c7317bb10fb681d))
+* host render engine with marker blocks and forbid lists ([35d307e](https://github.com/shortcuts/radin/commit/35d307ef416bb934b9cfdd44d73db9c1ffe12f24))
+* host-neutral ask wording in the agents render ([b673058](https://github.com/shortcuts/radin/commit/b6730581ad2ba0bf13e03440edd73e5f868c0713))
+* install.sh host selection, flags and manifest v2 ([2b2e5c1](https://github.com/shortcuts/radin/commit/2b2e5c13367fc2138b430f1d29b99f5f1be9ce57))
+* **install:** ask every question in one stepper wizard ([29fbb9f](https://github.com/shortcuts/radin/commit/29fbb9f9786a35c7a6c5320b817cef32459f350c))
+* **install:** fetch companion skills for the agents host ([09e3fdf](https://github.com/shortcuts/radin/commit/09e3fdf9d1aa6ce723095b638a1e67c3de5a704f))
+* **install:** render per host, preflight targets, track digests ([1e50f2d](https://github.com/shortcuts/radin/commit/1e50f2d7930238521d3f5e7bee605e544370c393))
+* **install:** run Codex companion steps and write AGENTS.md guidance ([b063752](https://github.com/shortcuts/radin/commit/b0637528eee66ee827270cbdc3f457d169102ab8))
+* **install:** write opencode agents, guidance and allow rule, run opencode companions ([fa3aea1](https://github.com/shortcuts/radin/commit/fa3aea12815bdc5219a423fe194f79c551fc03d6))
+* move ~/.claude/.radin to ~/.radin on install ([a862f46](https://github.com/shortcuts/radin/commit/a862f46a57584b2626ae065aa5cc8807655c0e4f))
+* move radin home to ~/.radin with rendered md under hosts/claude/lib ([bf87e95](https://github.com/shortcuts/radin/commit/bf87e95e0b9ce8c9944e6129a1aadfb93e91b5b9))
+* per-host skill-name tables for companion skills ([616b04a](https://github.com/shortcuts/radin/commit/616b04ab1efef950e96e968975128b6dda5261f6))
+* **prompt:** drop model and effort lines on agents host ([c784864](https://github.com/shortcuts/radin/commit/c784864115372dbd1c6d03a2c0c79c660ec83c77))
+* **radin-record:** pick decision channel by clarity and complexity ([e8c8f2d](https://github.com/shortcuts/radin/commit/e8c8f2d833f72ccca178b19403f56352b7589cff))
+* **state:** stack a task on its unmerged dependency's branch ([9c34410](https://github.com/shortcuts/radin/commit/9c3441031418cac2a46f25e06e0a6d462c62aa7a))
+* **uninstall:** remove every host's radin files in one global run ([73e603f](https://github.com/shortcuts/radin/commit/73e603f9fff52e1b2c741aff0b554c00192cba0a))
+* **update:** keep a failed host in the manifest and ask nothing ([ffbd8fe](https://github.com/shortcuts/radin/commit/ffbd8fe1a73752ae96bb6315dbbd2088a34f004b))
+* **verify-hosts:** drive real opencode and codex CLIs without a model call ([123febe](https://github.com/shortcuts/radin/commit/123febe8c91345228777d9e82f41221a8c662456))
+
+
+### Bug Fixes
+
+* **lint:** fail forbid lint on a bad host marker ([410d7d7](https://github.com/shortcuts/radin/commit/410d7d7e7ed605a9fe4595e1cb78e6e1bfb51e7b))
+* **recovery:** drop model and effort tokens from the agents render ([6ad4eb7](https://github.com/shortcuts/radin/commit/6ad4eb781fc4816cdaddadcaf946947f5328dac9))
+* **report:** say the session gate reviewed only when it ran ([c400264](https://github.com/shortcuts/radin/commit/c400264c68748e480a80e39f55b10a288e717036))
+
+
+### Performance Improvements
+
+* **install:** skip present companions, one line per step, shard install tests ([8fe2c92](https://github.com/shortcuts/radin/commit/8fe2c92a3d50852c9ffbdd57edbe21e8c60b108d))
+
 ## [2.2.0](https://github.com/shortcuts/radin/compare/v2.1.0...v2.2.0) (2026-11-03)
 
 
