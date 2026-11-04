@@ -1120,22 +1120,28 @@ chmod +x "$RADIN_HOME/bin/radin"
 TUI_CC="$(command -v cc || command -v gcc || command -v clang || true)"
 if [ -n "$TUI_CC" ]; then
 	CC_LOG="$(mktemp)"
-	if "$TUI_CC" -O2 -o "$RADIN_HOME/bin/radin-tui" \
-		"$RADIN_HOME/lib/radin-tui.c" >"$CC_LOG" 2>&1; then
+	CC_LOG2="$(mktemp)"
+	# The two builds share no input or output, so they compile at once.
+	"$TUI_CC" -O2 -o "$RADIN_HOME/bin/radin-tui" \
+		"$RADIN_HOME/lib/radin-tui.c" >"$CC_LOG" 2>&1 &
+	TUI_PID=$!
+	"$TUI_CC" -O2 -o "$RADIN_HOME/bin/radin-cbm-json" \
+		"$RADIN_HOME/lib/radin-cbm-json.c" >"$CC_LOG2" 2>&1 &
+	JSON_PID=$!
+	if wait "$TUI_PID"; then
 		ok "TUI built."
 	else
 		tail -n 20 "$CC_LOG" >&2
 		warn "the TUI failed to build -- every other subcommand still works."
 	fi
-	if "$TUI_CC" -O2 -o "$RADIN_HOME/bin/radin-cbm-json" \
-		"$RADIN_HOME/lib/radin-cbm-json.c" >"$CC_LOG" 2>&1; then
+	if wait "$JSON_PID"; then
 		ok "radin-cbm-json built."
 	else
-		tail -n 20 "$CC_LOG" >&2
+		tail -n 20 "$CC_LOG2" >&2
 		warn "radin-cbm-json failed to build -- radin cbm-config is unavailable;"
 		warn "the merge-only wiring is used instead."
 	fi
-	rm -f "$CC_LOG"
+	rm -f "$CC_LOG" "$CC_LOG2"
 else
 	warn "no C compiler found -- skipping the TUI. Use \`radin backlog show\`."
 fi
@@ -1670,16 +1676,34 @@ fi
 # they arrive. A skill directory radin did not install is never touched; a
 # failed or non-frontmatter download keeps the previous copy. Advisory.
 PSTACK_OWNED=""
+# The pstack fetches and the rtk and codebase-memory-mcp installs touch
+# disjoint paths and wait on the network, so they run at once. Each install
+# logs to a file that is replayed in the old order. --verbose streams, so it
+# stays serial.
+PSTACK_PRE="$(mktemp -d)"
+RTK_INSTALL_CMD="$(rtk_cmd "$PKG_MGR")"
+if host_selected claude; then
+	for n in unslop technical-writing; do
+		curl -fsSL "$PSTACK_RAW/$n/SKILL.md" -o "$PSTACK_PRE/$n" </dev/null 2>/dev/null &
+	done
+fi
+if [ -z "$VERBOSE" ]; then
+	BG_RTK="$(mktemp)"
+	BG_CBM="$(mktemp)"
+	(install_tool "rtk" "$RTK_INSTALL_CMD") >"$BG_RTK" 2>&1 &
+	(install_tool "codebase-memory-mcp" "$CBM_INSTALL_CMD") >"$BG_CBM" 2>&1 &
+fi
+wait
 install_pstack_skill() {
 	local name="$1" dir="$HOME/.claude/skills/$1" tmp mine=""
 	[ "$(manifest_value "$name")" = true ] && mine=1
 	if [ -d "$dir" ] && [ -z "$mine" ]; then
 		warn "$name skipped: $dir exists and radin did not install it."
+		rm -f "$PSTACK_PRE/$name"
 		return 0
 	fi
-	tmp="$(mktemp)"
-	if curl -fsSL "$PSTACK_RAW/$name/SKILL.md" -o "$tmp" </dev/null 2>/dev/null &&
-		[ "$(head -c 3 "$tmp")" = "---" ]; then
+	tmp="$PSTACK_PRE/$name"
+	if [ "$(head -c 3 "$tmp" 2>/dev/null)" = "---" ]; then
 		mkdir -p "$dir"
 		# Same strip as thermo-nuclear: upstream's disable-model-invocation also
 		# blocks radin's own sub-agents.
@@ -1705,8 +1729,11 @@ fi
 
 # Neither manager is asked for codebase-memory-mcp -- its own installer
 # resolves OS/arch and verifies checksums, which radin doesn't reimplement.
-RTK_INSTALL_CMD="$(rtk_cmd "$PKG_MGR")"
-install_tool "rtk" "$RTK_INSTALL_CMD"
+if [ -n "$VERBOSE" ]; then
+	install_tool "rtk" "$RTK_INSTALL_CMD"
+else
+	cat "$BG_RTK"
+fi
 
 # codebase-memory-mcp ships one static binary and its own installer resolves
 # OS/arch and verifies checksums, so radin delegates instead of reimplementing
@@ -1715,7 +1742,13 @@ install_tool "rtk" "$RTK_INSTALL_CMD"
 # definitions and SessionStart/SubagentStart/PreToolUse hooks into ~/.claude
 # across 45 client surfaces. radin owns every ~/.claude write, and
 # `radin hooks` does the two it wants, merge-only.
-install_tool "codebase-memory-mcp" "$CBM_INSTALL_CMD"
+if [ -n "$VERBOSE" ]; then
+	install_tool "codebase-memory-mcp" "$CBM_INSTALL_CMD"
+else
+	cat "$BG_CBM"
+	rm -f "$BG_RTK" "$BG_CBM"
+fi
+rmdir "$PSTACK_PRE" 2>/dev/null || true
 
 if host_selected claude; then
 	# caveman ships as a Claude Code plugin (not an npm package) -- installs via
