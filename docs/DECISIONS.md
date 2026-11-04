@@ -41,6 +41,10 @@ A new rule goes here as one bullet: the rule, then `**Why:**`.
 - **Edit `skills/*/SKILL.md` in this repo, never the installed copy.** `thermo-nuclear`, `unslop` and `technical-writing` are not in this repo.
 - **Install the whole companion, then bracket its destructive write.** `codebase-memory-mcp` installs with `--skip-config`. `radin-cbm-config.sh install` then runs upstream's configuration between a snapshot and a restore. **Why:** upstream [#1200](https://github.com/DeusData/codebase-memory-mcp/issues/1200) replaces the whole `SessionStart` array in `settings.json` and drops other tools' hooks. Leave the bracket in place after the fix. It then prints `INTACT` and covers the next regression. Apply the same test to any future companion.
 - **A source edit that changes the Claude render runs `make golden` and commits the new list.** `tests/golden-claude-render.sha256` holds a sum for each installed `SKILL.md` and `lib/*.md`. **Why:** the list is the proof that Claude users see the same text after a change.
+- **Codex companions run after the companion installers, not in the per-CLI hook.** `install.sh` runs caveman, ponytail, `rtk init -g --codex` and `codebase-memory-mcp install -y --clients=codex` once rtk and codebase-memory-mcp exist. **Why:** `install_host_companions` runs during the render, before those two binaries are installed.
+- **`hooks.json` is copied to `~/.radin/backups`, never restored.** radin edits no `config.toml`, `hooks.json` or role file in `$CODEX_HOME`. **Why:** `radin-cbm-json restore` handles Claude's two files, and the Codex `hooks.json` shape is unverified.
+- **The Codex codebase-memory-mcp step is unverified against [#1200](https://github.com/DeusData/codebase-memory-mcp/issues/1200).** The installer may replace the `SessionStart` array in `hooks.json`. **Why:** no Codex binary was available to run it, so the backup copy is the only guard.
+- **Trusting new Codex hooks is the user's step.** The installer prints it and `radin` cannot do it. **Why:** Codex asks the user to review new hooks once in `/hooks`.
 
 ### Limits of the codebase-memory-mcp bracket
 

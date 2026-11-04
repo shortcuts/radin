@@ -465,6 +465,12 @@ RETIRED_LIB="radin-tui.sh radin-crg-hooks.sh radin-execute-recovery.md radin-exe
 # END shipped
 PSTACK_RAW="https://raw.githubusercontent.com/cursor/plugins/refs/heads/main/pstack/skills"
 CBM_INSTALL_CMD="curl -fsSL https://raw.githubusercontent.com/DeusData/codebase-memory-mcp/main/install.sh | bash -s -- --skip-config"
+CODEX_HOME_DIR="${CODEX_HOME:-$HOME/.codex}"
+CAVEMAN_CODEX_CMD="curl -fsSL https://raw.githubusercontent.com/JuliusBrussee/caveman/main/install.sh | bash -s -- --only codex --non-interactive"
+PONYTAIL_CODEX_CMD="codex plugin marketplace add DietrichGebert/ponytail && codex plugin add ponytail@ponytail"
+RTK_CODEX_CMD="rtk init -g --codex"
+# shellcheck disable=SC2016  # eval expands $CBM_BIN once cbm_bin has set it
+CBM_CODEX_CMD='"$CBM_BIN" install -y --clients=codex'
 # `skills@latest`: a bare `skills` reuses whatever CLI version npx cached.
 THERMO_INSTALL_CMD='npx -y skills@latest add "https://github.com/cursor/plugins/tree/main/cursor-team-kit/skills/thermo-nuclear-code-quality-review" -g -a claude-code -y'
 # brew refreshes its formula index before installing: with that refresh
@@ -719,6 +725,10 @@ dry_run_report() {
 			"curl -fsSL $PSTACK_RAW/unslop/SKILL.md" "curl -fsSL $PSTACK_RAW/technical-writing/SKILL.md" \
 			"claude plugin install caveman@caveman" "claude plugin install ponytail@ponytail" \
 			"claude plugin install mattpocock-skills@claude-plugins-official"
+	fi
+	if host_selected codex; then
+		printf 'write %s\n' "$CODEX_HOME_DIR/AGENTS.md"
+		printf 'run %s\n' "$CAVEMAN_CODEX_CMD" "$PONYTAIL_CODEX_CMD" "$RTK_CODEX_CMD" "$CBM_CODEX_CMD"
 	fi
 	if agents_selected; then
 		agents_skill_rows | while read -r n _ b f; do
@@ -1009,7 +1019,7 @@ stage_render() {
 	done
 }
 
-# Companion steps for Codex and opencode belong here. A missing CLI never fails the run.
+# Only warns: the Codex companion steps run after rtk and codebase-memory-mcp are installed.
 install_host_companions() {
 	local cli
 	cli="$(host_field "$1" 4)"
@@ -1172,6 +1182,24 @@ fi
 for r in $RENDERS; do install_render "$r"; done
 ok "skills installed"
 
+write_guidance() {
+	local file="$1" body="$2" tmp
+	mkdir -p "$(dirname "$file")"
+	touch "$file"
+	tmp="$(mktemp)"
+	# Strip any previous radin block, then append the current one -- idempotent
+	# across re-runs. The second awk drops the blank lines the strip leaves at the
+	# end (interior ones are held and reprinted), so a re-run stops growing the
+	# file by one newline each time.
+	awk '/^<!-- radin:begin -->$/ { skip = 1 } !skip { print } /^<!-- radin:end -->$/ { skip = 0 }' \
+		"$file" |
+		awk 'NF { while (pending-- > 0) print ""; pending = 0; print; next } { pending++ }' \
+			>"$tmp"
+	[ ! -s "$tmp" ] || printf '\n' >>"$tmp"
+	printf '%s\n' "$body" >>"$tmp"
+	mv "$tmp" "$file"
+}
+
 step "Agent guidance"
 # A short section in ~/.claude/CLAUDE.md telling Claude when to reach for
 # radin's skills (same pattern codebase-memory-mcp uses). Kept between
@@ -1196,20 +1224,28 @@ survive past one conversation. Reach for it instead of ad-hoc task tracking:
 - Never guess on a broad or ambiguous ask: invoke `/mattpocock-skills:grilling` and let the user settle it before radin writes anything.
 <!-- radin:end -->'
 	CLAUDE_MD="$HOME/.claude/CLAUDE.md"
-	touch "$CLAUDE_MD"
-	GUIDANCE_TMP="$(mktemp)"
-	# Strip any previous radin block, then append the current one -- idempotent
-	# across re-runs. The second awk drops the blank lines the strip leaves at the
-	# end (interior ones are held and reprinted), so a re-run stops growing the
-	# file by one newline each time.
-	awk '/^<!-- radin:begin -->$/ { skip = 1 } !skip { print } /^<!-- radin:end -->$/ { skip = 0 }' \
-		"$CLAUDE_MD" |
-		awk 'NF { while (pending-- > 0) print ""; pending = 0; print; next } { pending++ }' \
-			>"$GUIDANCE_TMP"
-	[ ! -s "$GUIDANCE_TMP" ] || printf '\n' >>"$GUIDANCE_TMP"
-	printf '%s\n' "$RADIN_GUIDANCE" >>"$GUIDANCE_TMP"
-	mv "$GUIDANCE_TMP" "$CLAUDE_MD"
+	write_guidance "$CLAUDE_MD" "$RADIN_GUIDANCE"
 	ok "radin section written to ${BOLD}$CLAUDE_MD${RESET} (between radin:begin/end markers)"
+fi
+
+CODEX_GUIDANCE="false"
+if host_selected codex; then
+	CODEX_GUIDANCE="true"
+	# shellcheck disable=SC2016  # backticks here are markdown code spans, not command substitution
+	write_guidance "$CODEX_HOME_DIR/AGENTS.md" '<!-- radin:begin -->
+## radin
+
+radin keeps a per-repo backlog in `<repo-root>/.agents/.radin/` so tasks
+survive past one conversation. Reach for it instead of ad-hoc task tracking:
+
+- A bug, idea, or follow-up comes up mid-session: record it with the `radin-record` skill.
+- The user asks what is pending: run `'"$RADIN_CLI_VALUE"' --host agents backlog show` and print its output. One entry needs a plan first: `radin-plan` skill.
+- The user wants the backlog worked through: `radin-batch` skill (it plans the entries `radin-record` flagged, then executes), or `radin-do` skill for one ad-hoc task. A code review whose findings should become tasks: `radin-review` skill.
+- The user asks to mark a task done by hand: run `'"$RADIN_CLI_VALUE"' --host agents state task-done <id> <commit-hash>` (hash from `git rev-parse --short=12 HEAD`). `backlog --help` and `state --help` list every verb.
+- Never hand-edit files under `.agents/.radin/`. Every backlog operation goes through the `'"$RADIN_CLI_VALUE"' --host agents backlog` CLI.
+- Never guess on a broad or ambiguous ask: use the `grilling` skill and let the user settle it before radin writes anything.
+<!-- radin:end -->'
+	ok "radin section written to ${BOLD}$CODEX_HOME_DIR/AGENTS.md${RESET} (between radin:begin/end markers)"
 fi
 
 # Its own installer's default target isn't on PATH in every shell, so resolve
@@ -1360,6 +1396,28 @@ if host_selected claude; then
 	install_plugin "mattpocock-skills" "mattpocock-skills@claude-plugins-official" "anthropics/claude-plugins-official"
 fi
 
+if host_selected codex && command -v codex >/dev/null 2>&1; then
+	if [ -f "$CODEX_HOME_DIR/hooks.json" ]; then
+		mkdir -p "$RADIN_HOME/backups"
+		cp "$CODEX_HOME_DIR/hooks.json" "$RADIN_HOME/backups/hooks.json.$STAMP.bak"
+		info "hooks.json copied to $RADIN_HOME/backups/hooks.json.$STAMP.bak: restore it by hand if a companion replaces your hooks."
+	fi
+	# The *-codex names match no binary, so --update reruns each step.
+	install_tool "caveman-codex" "$CAVEMAN_CODEX_CMD"
+	install_tool "ponytail-codex" "$PONYTAIL_CODEX_CMD"
+	if command -v rtk >/dev/null 2>&1; then
+		install_tool "rtk-codex" "$RTK_CODEX_CMD"
+	else
+		warn "rtk not found: skipping rtk init for Codex."
+	fi
+	# Unverified against codebase-memory-mcp #1200 for Codex: its installer may replace the SessionStart array in hooks.json.
+	if CBM_BIN="$(cbm_bin)"; then
+		install_tool "codebase-memory-mcp-codex" "$CBM_CODEX_CMD"
+	else
+		warn "codebase-memory-mcp not found: skipping its Codex config."
+	fi
+fi
+
 # Codex and opencode have no plugin: fetch each skill radin invokes, unpinned like
 # unslop, into ~/.agents/skills. All files of a row land together or not at all,
 # so a SKILL.md never links a missing sibling. Advisory.
@@ -1403,6 +1461,9 @@ if agents_selected; then
 	done < <(agents_skill_rows)
 else
 	AGENTS_SKILLS_OWNED=" $(manifest_list agents_skills) "
+fi
+if host_selected codex && command -v codex >/dev/null 2>&1; then
+	info "Codex: open /hooks and trust the new hooks once (caveman, ponytail, rtk, codebase-memory-mcp). radin cannot do this for you."
 fi
 
 CBM_AGENT_CONFIG="false"
@@ -1561,6 +1622,7 @@ cat >"$MANIFEST_FILE" <<EOF
   "effort_factfind": "$EFFORT_MINOR",
   "effort_low": "$EFFORT_MINOR",
   "claude_md_guidance": $CLAUDE_MD_GUIDANCE,
+  "codex_guidance": $CODEX_GUIDANCE,
   "cbm_agent_config": $CBM_AGENT_CONFIG,
   "cli_on_path": $CLI_ON_PATH,
   "hosts": [$(json_names "$SELECTED")],
