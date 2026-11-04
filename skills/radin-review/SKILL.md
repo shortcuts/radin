@@ -96,7 +96,12 @@ Work these rungs in order and stop at the first that yields a spec:
 When the invoking prompt hands over a core review's findings for this scope,
 skip the dispatch and relay those.
 
+<!-- host:claude -->
 Dispatch one sub-agent (`name: "radin-review"`) with a self-contained brief:
+<!-- /host -->
+<!-- host:agents -->
+Dispatch one sub-agent named `radin-review` with a self-contained brief:
+<!-- /host -->
 
 - `Read RADIN_LIB/radin-review-core.md and follow it at level session` (level
   `diff` for a `staged` scope).
@@ -112,9 +117,17 @@ Dispatch one sub-agent (`name: "radin-review"`) with a self-contained brief:
 - A report path, `<repo root>/.claude/.radin/reviews/<UTC YYYYMMDDTHHMMSS>-<scope slug>.md`,
   as "write the report there".
 
+<!-- host:claude -->
 Read the file the `REPORT:` line names, whole and in the order written. A
 missing or empty file: `SendMessage` the sub-agent once for it, then report the
 review as inconclusive. Step 4 carries the report to the user.
+<!-- /host -->
+<!-- host:agents -->
+Read the file the `REPORT:` line names, whole and in the order written. A
+missing or empty file: message the sub-agent once for it with the host's
+agent-message tool, then report the review as inconclusive. Step 4 carries the
+report to the user.
+<!-- /host -->
 
 ## Step 4: Filter, classify, triage
 

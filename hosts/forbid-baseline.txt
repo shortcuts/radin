@@ -1,2 +1,1 @@
-skills/radin-review/SKILL.md	SendMessage
 skills/radin-uninstall/SKILL.md	~/.claude

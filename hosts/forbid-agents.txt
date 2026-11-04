@@ -9,3 +9,7 @@ run_in_background
 /caveman:
 ~/.claude
 /thermo-nuclear
+ToolSearch
+Monitor
+TaskStop
+Workflow

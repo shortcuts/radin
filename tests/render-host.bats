@@ -156,6 +156,52 @@ ask_hosts() {
   [[ "$output" == *"no question tool"* ]]
 }
 
+@test "the agents render of the leaf contract and explore rule names no claude-only tool" {
+  for f in lib/radin-leaf-contract.md lib/radin-explore-rule.md; do
+    run "$RENDER" "$REPO_ROOT/$f" agents
+    [ "$status" -eq 0 ]
+    [[ "$output" != *Monitor* ]]
+    [[ "$output" != *Workflow* ]]
+    [[ "$output" != *TaskStop* ]]
+    [[ "$output" != *ToolSearch* ]]
+    [[ "$output" != *"4 minutes"* ]]
+  done
+  run "$RENDER" "$REPO_ROOT/lib/radin-leaf-contract.md" claude
+  [[ "$output" == *Monitor* ]]
+  [[ "$output" == *Workflow* ]]
+}
+
+@test "the assembled factfind prompt carries the leaf rules of each host" {
+  for host in claude agents; do
+    H="$T/$host"
+    mkdir -p "$H"
+    cp -R "$REPO_ROOT/lib" "$H/lib"
+    for f in "$H"/lib/*.md; do
+      run env RADIN_LIB_DIR="$H/lib" RADIN_HOSTS_DIR="$REPO_ROOT/hosts" "$RENDER" "$f" "$host"
+      [ "$status" -eq 0 ]
+      printf '%s\n' "$output" > "$f"
+    done
+    git init -q "$H/proj"
+    git -C "$H/proj" config user.email t@t
+    git -C "$H/proj" config user.name t
+    git -C "$H/proj" commit -q --allow-empty -m init
+    (cd "$H/proj" && RADIN_HOST=$host bash "$H/lib/radin-backlog.sh" add fix "t one" <<<"body")
+    run bash -c "cd '$H/proj' && RADIN_HOST=$host bash '$H/lib/radin-prompt.sh' factfind t-one q"
+    [ "$status" -eq 0 ]
+    prompt=$(printf '%s\n' "$output" | awk -F'\t' '$1 == "prompt" { print $2 }')
+    text=$(cat "$prompt")
+    if [ "$host" = agents ]; then
+      [[ "$text" != *"<!-- host"* ]]
+      [[ "$text" != *Monitor* ]]
+      [[ "$text" != *Workflow* ]]
+      [[ "$text" != *ToolSearch* ]]
+    else
+      [[ "$text" == *ToolSearch* ]]
+      [[ "$text" == *Monitor* ]]
+    fi
+  done
+}
+
 @test "lint passes a sentence shared by the claude and agents twins of one line" {
   lint_root
   printf 'clean\n' > "$T/r/skills/x/SKILL.md"

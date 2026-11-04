@@ -7,7 +7,9 @@ verb ([why](../docs/DECISIONS.md#limits-of-the-codebase-memory-mcp-bracket)).
 
 ```
 Explore with these tools, in this order:
+<!-- host:claude -->
 - Load the `codebase-memory-mcp` tools with `ToolSearch` before first use.
+<!-- /host -->
 - A question about a symbol, its callers, or what a change reaches goes to
   `codebase-memory-mcp`'s MCP tools. Check that the index covers each file you
   rely on.
