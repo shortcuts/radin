@@ -698,3 +698,264 @@ SH
   [ ! -e "$TEST_HOME/.claude/.radin" ]
   grep -q '"installed_at"' "$TEST_HOME/.radin/manifest.json"
 }
+
+# Host selection: --only, the manifest, a terminal prompt, or claude alone.
+
+mock_cli() {
+  ln "$MOCK_BIN/mock" "$MOCK_BIN/$1" 2>/dev/null || ln -s "$MOCK_BIN/mock" "$MOCK_BIN/$1"
+}
+
+# A manifest array as written: `"a", "b"`.
+manifest_array() {
+  sed -n 's/.*"'"$1"'": *\[\([^]]*\)\].*/\1/p' "$TEST_HOME/.radin/manifest.json"
+}
+
+# Keys of the manifest `files` map.
+manifest_file_keys() {
+  sed -n '/"files": {/,/^  }/p' "$TEST_HOME/.radin/manifest.json" | sed -n 's/^    "\([^"]*\)": ".*/\1/p'
+}
+
+sha256_file() {
+  if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | cut -d' ' -f1; else shasum -a 256 "$1" | cut -d' ' -f1; fi
+}
+
+# A copy of the repo to install from. Two files still fail every agents install:
+# skills/radin-uninstall holds the baselined "~/.claude" (hosts/forbid-baseline.txt),
+# and lib/radin-batch-recovery.md keeps RADIN_MODEL_ and RADIN_EFFORT_ tokens in its
+# agents render. The seds stand in for the host blocks that will wrap them, and
+# do nothing once the strings are gone.
+agents_root() {
+  AROOT="$BATS_TEST_TMPDIR/root"
+  mkdir -p "$AROOT"
+  (cd "$REPO_ROOT" && cp -R install.sh bin lib skills scripts hosts "$AROOT/")
+  sed 's|~/\.claude|the host skills dir|g' "$AROOT/skills/radin-uninstall/SKILL.md" >"$AROOT/tmp.md"
+  mv "$AROOT/tmp.md" "$AROOT/skills/radin-uninstall/SKILL.md"
+  sed 's|`model: "RADIN_MODEL_REVIEW"`, `effort: "RADIN_EFFORT_REVIEW"`, ||' "$AROOT/lib/radin-batch-recovery.md" >"$AROOT/tmp.md"
+  mv "$AROOT/tmp.md" "$AROOT/lib/radin-batch-recovery.md"
+}
+
+install_from() {
+  local root="$1"
+  shift
+  (cd "$root" && bash ./install.sh "$@" </dev/null)
+}
+
+assert_no_agents_marker() {
+  run grep -rlE '<!-- host|@@skill:|RADIN_LIB|RADIN_CLI|RADIN_MODEL_|RADIN_EFFORT_' \
+    "$TEST_HOME/.agents/skills" "$TEST_HOME/.radin/hosts/agents/lib"
+  [ "$status" -eq 1 ]
+}
+
+@test "no flag and no terminal installs claude only, even with codex on PATH" {
+  mock_cli codex
+  cd "$REPO_ROOT" && run bash -c "printf '2\n' | bash ./install.sh"
+  [ "$status" -eq 0 ]
+  [ "$(manifest_array hosts)" = '"claude"' ]
+  [ "$(manifest_array agents_clis)" = '' ]
+  [ ! -e "$TEST_HOME/.agents" ]
+  [ ! -e "$TEST_HOME/.radin/hosts/agents" ]
+  grep -q '"manifest_version": 2' "$TEST_HOME/.radin/manifest.json"
+}
+
+@test "--only codex installs the agents render and nothing under ~/.claude" {
+  mock_cli codex
+  agents_root
+  run install_from "$AROOT" --yes --only codex
+  [ "$status" -eq 0 ]
+  [ -f "$TEST_HOME/.agents/skills/radin-batch/SKILL.md" ]
+  [ -f "$TEST_HOME/.radin/hosts/agents/lib/radin-run.md" ]
+  assert_no_agents_marker
+  [ ! -e "$TEST_HOME/.claude/skills/radin-batch" ]
+  [ ! -e "$TEST_HOME/.claude/CLAUDE.md" ]
+  [ ! -e "$TEST_HOME/.radin/hosts/claude" ]
+  [ "$(manifest_array hosts)" = '"codex"' ]
+  [ "$(manifest_array agents_clis)" = '"codex"' ]
+}
+
+@test "--only opencode records opencode as the agents CLI" {
+  mock_cli opencode
+  agents_root
+  run install_from "$AROOT" --yes --only=opencode
+  [ "$status" -eq 0 ]
+  [ -f "$TEST_HOME/.agents/skills/radin-batch/SKILL.md" ]
+  assert_no_agents_marker
+  [ "$(manifest_array hosts)" = '"opencode"' ]
+  [ "$(manifest_array agents_clis)" = '"opencode"' ]
+}
+
+@test "--only with all three hosts builds both renders and the agents step runs once" {
+  mock_cli codex
+  mock_cli opencode
+  agents_root
+  run install_from "$AROOT" --yes --only opencode,claude,codex,claude
+  [ "$status" -eq 0 ]
+  [ -f "$TEST_HOME/.claude/skills/radin-batch/SKILL.md" ]
+  [ -f "$TEST_HOME/.agents/skills/radin-batch/SKILL.md" ]
+  [ -f "$TEST_HOME/.radin/hosts/claude/lib/radin-run.md" ]
+  [ -f "$TEST_HOME/.radin/hosts/agents/lib/radin-run.md" ]
+  [ "$(printf '%s\n' "$output" | grep -c 'agents render installed')" = 1 ]
+  [ "$(manifest_array hosts)" = '"claude", "codex", "opencode"' ]
+  [ "$(manifest_array agents_clis)" = '"codex", "opencode"' ]
+  assert_no_agents_marker
+}
+
+@test "--update keeps the manifest hosts and asks nothing" {
+  mock_cli codex
+  agents_root
+  install_from "$AROOT" --yes --only codex >/dev/null
+  rm -f "$TEST_HOME"/*.log
+  run install_from "$AROOT" --update
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"Pick 1-"* ]]
+  [ "$(manifest_array hosts)" = '"codex"' ]
+  [ ! -e "$TEST_HOME/.claude/skills" ]
+}
+
+@test "--update on a v1 manifest reads it as claude only" {
+  replay_install >/dev/null
+  local m="$TEST_HOME/.radin/manifest.json"
+  sed -e '/"manifest_version"/d' -e '/"hosts"/d' -e '/"agents_clis"/d' \
+    -e '/"files": {/,/^  }/d' -e 's/^  },$/  }/' "$m" >"$m.new"
+  mv "$m.new" "$m"
+  [ -z "$(manifest_array hosts)" ]
+  cd "$REPO_ROOT" && run bash ./install.sh --update </dev/null
+  [ "$status" -eq 0 ]
+  [ "$(manifest_array hosts)" = '"claude"' ]
+  [ -f "$TEST_HOME/.claude/skills/radin-batch/SKILL.md" ]
+}
+
+@test "--dry-run lists the writes the real run makes and changes nothing" {
+  mock_cli codex
+  agents_root
+  local before after
+  before="$(find "$TEST_HOME" | sort)"
+  run install_from "$AROOT" --yes --dry-run --only claude,codex
+  [ "$status" -eq 0 ]
+  after="$(find "$TEST_HOME" | sort)"
+  [ "$before" = "$after" ]
+  [ ! -e "$TEST_HOME/curl.log" ]
+  [[ "$output" == *"hosts: claude codex"* ]]
+  [[ "$output" == *"run claude plugin install ponytail@ponytail"* ]]
+  printf '%s\n' "$output" | sed -n 's/^write //p' |
+    grep -E "^$TEST_HOME/(\.radin/(lib|hosts)/|\.claude/skills/|\.agents/skills/)|^$TEST_HOME/\.radin/bin/radin$" |
+    sort >"$BATS_TEST_TMPDIR/dry"
+  install_from "$AROOT" --yes --only claude,codex >/dev/null
+  manifest_file_keys | sed "s|^|$TEST_HOME/|" | sort >"$BATS_TEST_TMPDIR/real"
+  [ -s "$BATS_TEST_TMPDIR/real" ]
+  diff "$BATS_TEST_TMPDIR/dry" "$BATS_TEST_TMPDIR/real"
+}
+
+@test "a piped --dry-run names the download and fetches nothing" {
+  local fake="$TEST_HOME/fake"
+  mkdir -p "$fake"
+  cp "$REPO_ROOT/install.sh" "$fake/install.sh"
+  run install_from "$fake" --dry-run --yes
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"would download https://github.com/shortcuts/radin/archive/refs/heads/main.tar.gz"* ]]
+  [ ! -e "$TEST_HOME/curl.log" ]
+  [ ! -e "$TEST_HOME/.radin" ]
+}
+
+@test "--list prints one row per host and writes nothing" {
+  run bash "$REPO_ROOT/install.sh" --list
+  [ "$status" -eq 0 ]
+  [ "$(printf '%s\n' "$output" | wc -l | tr -d ' ')" = 3 ]
+  [ "${lines[0]}" = "$(printf 'claude\tClaude Code\tyes')" ]
+  [ "${lines[1]}" = "$(printf 'codex\tCodex CLI\tno')" ]
+  [ "${lines[2]}" = "$(printf 'opencode\topencode\tno')" ]
+  mock_cli codex
+  run bash "$REPO_ROOT/install.sh" --list
+  [ "${lines[1]}" = "$(printf 'codex\tCodex CLI\tyes')" ]
+  [ -z "$(ls -A "$TEST_HOME")" ]
+}
+
+@test "a selected host without its CLI warns, installs radin's files and records the host" {
+  agents_root
+  run install_from "$AROOT" --yes --only codex
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"codex CLI not found"* ]]
+  [ -f "$TEST_HOME/.agents/skills/radin-batch/SKILL.md" ]
+  [ "$(manifest_array hosts)" = '"codex"' ]
+  [ "$(manifest_array agents_clis)" = '"codex"' ]
+}
+
+@test "an unknown host id or flag exits 2 before any write" {
+  run bash "$REPO_ROOT/install.sh" --only cursor
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"usage: install.sh"* ]]
+  run bash "$REPO_ROOT/install.sh" --onyl codex
+  [ "$status" -eq 2 ]
+  run bash "$REPO_ROOT/install.sh" --only ''
+  [ "$status" -eq 2 ]
+  [ -z "$(ls -A "$TEST_HOME")" ]
+}
+
+@test "every manifest files entry holds the digest of the installed file" {
+  mock_cli codex
+  agents_root
+  install_from "$AROOT" --yes --only claude,codex >/dev/null
+  local key digest n=0
+  while IFS= read -r key; do
+    digest="$(sed -n 's|^    "'"$key"'": "\(.*\)",\{0,1\}$|\1|p' "$TEST_HOME/.radin/manifest.json")"
+    [ -n "$digest" ]
+    [ "$(sha256_file "$TEST_HOME/$key")" = "$digest" ]
+    n=$((n + 1))
+  done < <(manifest_file_keys)
+  [ "$n" -gt 40 ]
+  manifest_file_keys | grep -qx '.agents/skills/radin-batch/SKILL.md'
+  manifest_file_keys | grep -qx '.claude/skills/radin-batch/SKILL.md'
+  manifest_file_keys | grep -qx '.radin/bin/radin'
+}
+
+@test "an agents render that fails the forbid check leaves codex out and claude in" {
+  mock_cli codex
+  agents_root
+  printf 'AskUserQuestion\n' >>"$AROOT/lib/radin-run.md"
+  run install_from "$AROOT" --yes --only claude,codex
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"agents render failed"* ]]
+  [[ "$output" == *"radin-run.md"* ]]
+  [ "$(manifest_array hosts)" = '"claude"' ]
+  [ "$(manifest_array agents_clis)" = '' ]
+  [ ! -e "$TEST_HOME/.agents" ]
+  [ ! -e "$TEST_HOME/.radin/hosts/agents" ]
+  [ -f "$TEST_HOME/.claude/skills/radin-batch/SKILL.md" ]
+}
+
+# The host question reads the terminal, so it runs through a pty. Extracting the
+# functions from install.sh keeps them single-sourced there, as pick_with_keys does.
+host_prompt_hosts() {
+  pty_build || skip "a C compiler is needed to build the pty driver"
+  mock_cli codex
+  local snippet="$TEST_HOME/hosts.sh" out="$TEST_HOME/selected"
+  {
+    sed -n '/^HOSTS=/,/^while \[ \$# -gt 0 \]/p' "$REPO_ROOT/install.sh" | sed '$d'
+    sed -n '/^_pick_nth() {/,/^prompt_yn() {/p' "$REPO_ROOT/install.sh" | sed '$d'
+    sed -n '/^have_tty() {/,/^select_hosts$/p' "$REPO_ROOT/install.sh" | sed '$d'
+  } >"$snippet"
+  "$PTY_RUN" "$TEST_HOME/screen" "$1" bash -c \
+    "YES=''; UPDATE=''; ONLY_SET=''; RAT=''; BOLD=''; DIM=''; CYAN=''; YELLOW=''; RED=''; RESET=''; \
+     info() { :; }; source '$snippet'; select_hosts; echo \"\$SELECTED\" > '$out'" >/dev/null 2>&1
+  SELECTED_HOSTS="$(cat "$out" 2>/dev/null || true)"
+}
+
+@test "a terminal run offers each detected host and installs the ones answered yes" {
+  host_prompt_hosts '\r|k|\r'
+  [ "$SELECTED_HOSTS" = "claude codex" ]
+}
+
+@test "a terminal run keeps claude only when codex is answered no" {
+  host_prompt_hosts '\r|\r'
+  [ "$SELECTED_HOSTS" = "claude" ]
+}
+
+@test "a terminal run can deselect claude" {
+  host_prompt_hosts 'j\r|k\r'
+  [ "$SELECTED_HOSTS" = "codex" ]
+}
+
+@test "a terminal run that answers no to every host exits before any write" {
+  host_prompt_hosts 'j\r|\r'
+  [ -z "$SELECTED_HOSTS" ]
+  [ ! -e "$TEST_HOME/.radin" ]
+}

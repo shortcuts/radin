@@ -34,6 +34,8 @@ radin is a Claude Code plugin of skills, a CLI, and install glue.
 | Name each companion directly, no guard or escape clause | `scripts/check-prose.sh` guard phrases | A paraphrase escapes the phrase list. |
 | A test must be able to fail | `scripts/check-prose.sh` bare `! cmd` lint | Other vacuous patterns; review only. |
 | Tests never touch the real device setup | `make test` runs bats with `CLAUDE_CONFIG_DIR` unset and fails when `scripts/real-setup-sum.sh` differs before and after | A test that reads the keychain or another real path; review only. |
+| `--dry-run` changes nothing | `tests/install.bats` ("--dry-run lists the writes the real run makes and changes nothing") | Companion command text is printed, not run. |
+| A selected host with no CLI still installs | `tests/install.bats` ("a selected host without its CLI warns...") | None. |
 | Same checks locally and in CI | `make check` and `make test` in `.github/workflows/ci.yml` | Linux run unverified. |
 | Deterministic work lives in the CLI | `scripts/check-prose.sh` raw `git` lint over `lib/radin-run.md` and `lib/radin-batch-*.md` | Other deterministic steps in prose, and a raw `git` outside those files; review only. |
 | No namespaced companion name outside the table | `scripts/check-prose.sh` sixth lint (`.sh` literals, tokens missing from a table) and `tests/skill-names.bats` | A bare name written without a slash; review only. |

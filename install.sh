@@ -25,14 +25,84 @@ fi
 YES=""
 UPDATE=""
 VERBOSE=""
-for arg in "$@"; do
-	[ "$arg" = "--yes" ] && YES="1"
-	[ "$arg" = "--verbose" ] && VERBOSE="1"
+LIST=""
+DRY=""
+FORCE=""
+ONLY=""
+ONLY_SET=""
+
+# id|label|mechanism|cli. A string table: bash 3.2 has no associative arrays.
+# The mechanism names the render a host reads: claude, or agents (Codex and opencode).
+HOSTS="claude|Claude Code|claude|claude
+codex|Codex CLI|agents|codex
+opencode|opencode|agents|opencode"
+host_ids() { printf '%s\n' "$HOSTS" | cut -d'|' -f1; }
+host_field() { printf '%s\n' "$HOSTS" | awk -F'|' -v id="$1" -v n="$2" '$1 == id { print $n }'; }
+# `~/.claude` alone counts for claude: the install works without the CLI.
+host_detected() {
+	if [ "$1" = claude ] && [ -d "$HOME/.claude" ]; then return 0; fi
+	command -v "$(host_field "$1" 4)" >/dev/null 2>&1
+}
+
+usage_exit() {
+	printf 'usage: install.sh [--yes] [--verbose] [--update] [--list] [--dry-run] [--force] [--only ID[,ID...]]\n' >&2
+	printf 'hosts: %s\n' "$(host_ids | tr '\n' ' ')" >&2
+	exit 2
+}
+
+SELECTED=""
+host_selected() {
+	case " $SELECTED " in *" $1 "*) return 0 ;; esac
+	return 1
+}
+# Keeps table order and drops duplicates; an id outside the table is a usage error.
+select_ids() {
+	local want="$1" id
+	for id in $(printf '%s' "$want" | tr ',' ' '); do
+		[ -n "$(host_field "$id" 1)" ] || usage_exit
+	done
+	SELECTED=""
+	for id in $(host_ids); do
+		case ",$want," in *",$id,"*) SELECTED="$SELECTED $id" ;; esac
+	done
+	SELECTED="${SELECTED# }"
+	[ -n "$SELECTED" ] || usage_exit
+}
+
+while [ $# -gt 0 ]; do
+	case "$1" in
+	--yes) YES="1" ;;
+	--verbose) VERBOSE="1" ;;
 	# --update is what `radin update` runs: every step, but a companion already
 	# installed is not reinstalled. Companion tools have their own update
 	# paths; a plain install re-runs every one of them.
-	[ "$arg" = "--update" ] && UPDATE="1"
+	--update) UPDATE="1" ;;
+	--list) LIST="1" ;;
+	--dry-run) DRY="1" ;;
+	--force) FORCE="1" ;;
+	--only)
+		[ $# -ge 2 ] || usage_exit
+		ONLY="$2"
+		ONLY_SET="1"
+		shift
+		;;
+	--only=*)
+		ONLY="${1#--only=}"
+		ONLY_SET="1"
+		;;
+	*) usage_exit ;;
+	esac
+	shift
 done
+[ -z "$ONLY_SET" ] || select_ids "$ONLY"
+
+if [ -n "$LIST" ]; then
+	for id in $(host_ids); do
+		if host_detected "$id"; then detected=yes; else detected=no; fi
+		printf '%s\t%s\t%s\n' "$id" "$(host_field "$id" 2)" "$detected"
+	done
+	exit 0
+fi
 
 RADIN_HOME="$HOME/.radin"
 MANIFEST_FILE="$RADIN_HOME/manifest.json"
@@ -41,6 +111,11 @@ MANIFEST_FILE="$RADIN_HOME/manifest.json"
 manifest_value() {
 	[ -f "$MANIFEST_FILE" ] || return 0
 	sed -n 's/.*"'"$1"'": *"\{0,1\}\([^",]*\)"\{0,1\}.*/\1/p' "$MANIFEST_FILE" | head -1
+}
+# Words of a one-line JSON array of plain names. A v1 manifest has no such key.
+manifest_list() {
+	[ -f "$MANIFEST_FILE" ] || return 0
+	sed -n 's/.*"'"$1"'": *\[\([^]]*\)\].*/\1/p' "$MANIFEST_FILE" | head -1 | tr -d '",'
 }
 
 # --verbose traces every command and lets companion installs write straight to
@@ -62,193 +137,6 @@ step() { printf "\n%b\n" "${BOLD}${MAGENTA}${RAT} $*${RESET}"; }
 INSTALL_DONE=""
 # shellcheck disable=SC2154 # st is set by the trap body itself.
 trap 'st=$?; [ -n "$INSTALL_DONE" ] || [ "$st" = 130 ] || printf "%b\n" "${RED}${RAT} install stopped early ($st) -- ~/.claude holds a partial install. Re-run it, or check with: radin doctor${RESET}" >&2' EXIT
-
-printf "%b\n" "${BOLD}${MAGENTA}"
-printf "%s\n" "  🐀 radin — stingy on tokens, generous on backlog throughput"
-printf "%b\n" "${RESET}${DIM}  Installs backlog-workflow skills into ~/.claude, plus the whole curated"
-printf "%b\n\n" "  token-saving stack. Only execution behaviour and your package manager are asked about.${RESET}"
-
-# No `brew shellenv` eval: it prepends brew's bin to PATH and would shadow a
-# version-manager python3 (mise/pyenv) with brew's -- probing the wrong
-# interpreter in the pyexpat preflight below. brew itself is called via $BREW.
-BREW="$(command -v brew || true)"
-MISE="$(command -v mise || true)"
-
-GITHUB_REPO="shortcuts/radin"
-TARBALL_BASE="https://github.com/$GITHUB_REPO/archive"
-DEFAULT_FETCH_DIR="$HOME/.claude/radin"
-
-# Resolve RADIN_ROOT from the running script's own location -- works when
-# executed from a real git clone (./install.sh), for hacking on radin itself.
-# Piped via curl | bash, BASH_SOURCE[0] has no usable sibling agents/skills
-# dirs, so this returns empty and the block below downloads a source tarball
-# instead -- no git clone, no local git dependency.
-resolve_radin_root() {
-	local script_path="${BASH_SOURCE[0]}"
-	if [ -f "$script_path" ]; then
-		local dir
-		dir="$(cd "$(dirname "$script_path")" && pwd)"
-		if [ -d "$dir/skills" ] && [ -d "$dir/lib" ]; then
-			printf '%s' "$dir"
-			return
-		fi
-	fi
-	printf '%s' ""
-}
-
-step "Resolving radin source"
-RADIN_ROOT="$(resolve_radin_root)"
-if [ -z "$RADIN_ROOT" ]; then
-	command -v curl >/dev/null 2>&1 || {
-		printf "%b\n" "${RED}${RAT} curl not found.${RESET} Install curl, then re-run." >&2
-		exit 1
-	}
-	command -v tar >/dev/null 2>&1 || {
-		printf "%b\n" "${RED}${RAT} tar not found.${RESET} Install tar, then re-run." >&2
-		exit 1
-	}
-
-	FETCH_DIR="${RADIN_ROOT_OVERRIDE:-$DEFAULT_FETCH_DIR}"
-	if [ -d "$FETCH_DIR" ] && [ ! -f "$FETCH_DIR/.radin-version" ]; then
-		printf "%b\n" "${RED}${RAT} $FETCH_DIR exists and wasn't created by this installer${RESET} -- remove it or set RADIN_ROOT_OVERRIDE to a different path, then re-run." >&2
-		exit 1
-	fi
-
-	# Piped from main, so fetch main: a release tag predates the files main's SHIPPED_LIB names.
-	VERSION="main"
-	TARBALL_URL="$TARBALL_BASE/refs/heads/main.tar.gz"
-
-	info "Downloading radin ($VERSION)..."
-	TMP_TAR="$(mktemp)"
-	curl -fsSL "$TARBALL_URL" -o "$TMP_TAR"
-	# Reject archives with absolute paths or ".." components before extracting (CWE-22).
-	if tar -tzf "$TMP_TAR" | grep -qE '^/|(^|/)\.\.(/|$)'; then
-		printf "%b\n" "${RED}${RAT} Downloaded archive contains unsafe paths.${RESET} Refusing to extract." >&2
-		rm -f "$TMP_TAR"
-		exit 1
-	fi
-	rm -rf "$FETCH_DIR"
-	mkdir -p "$FETCH_DIR"
-	tar -xzf "$TMP_TAR" -C "$FETCH_DIR" --strip-components=1
-	rm -f "$TMP_TAR"
-	echo "$VERSION" >"$FETCH_DIR/.radin-version"
-
-	RADIN_ROOT="$FETCH_DIR"
-fi
-ok "Using radin source at ${BOLD}$RADIN_ROOT${RESET}"
-
-OLD_HOME="$HOME/.claude/.radin"
-MIGRATING="$HOME/.radin.migrating"
-MIGRATED=""
-LEGACY_LEFT=""
-
-radin_home_at() {
-	[ -f "$1/manifest.json" ] && grep -q '"installed_at"' "$1/manifest.json" && grep -q '"companion_tools"' "$1/manifest.json"
-}
-
-migrate_abort() {
-	INSTALL_DONE="1"
-	printf "%b\n" "${RED}${RAT} $*${RESET}" >&2
-	exit 1
-}
-
-path_taken() { [ -e "$1" ] || [ -L "$1" ]; }
-
-# Two renames, not one: a cross-device `mv` copies, then deletes, and a copy
-# that dies halfway must not leave a ~/.radin that passes radin_home_at.
-migrate_home() {
-	radin_home_at "$OLD_HOME" || return 0
-	if path_taken "$RADIN_HOME"; then
-		if radin_home_at "$RADIN_HOME"; then
-			warn "$OLD_HOME is still there, unused: delete it by hand once you checked it."
-			LEGACY_LEFT="1"
-			return 0
-		fi
-		migrate_abort "$RADIN_HOME is not radin's: move it away, then re-run."
-	fi
-	if path_taken "$MIGRATING"; then
-		migrate_abort "$MIGRATING was left by an interrupted move: inspect it, move it away, then re-run."
-	fi
-	mv "$OLD_HOME" "$MIGRATING" ||
-		migrate_abort "mv failed: $OLD_HOME is intact; the partial copy is at $MIGRATING."
-	mv "$MIGRATING" "$RADIN_HOME" ||
-		migrate_abort "mv failed: the data is at $MIGRATING, $OLD_HOME is gone; move it to $RADIN_HOME by hand."
-	MIGRATED="1"
-	ok "moved ~/.claude/.radin to ~/.radin"
-}
-migrate_home
-
-MANIFEST_VERSION="dev"
-[ -f "$RADIN_ROOT/.radin-version" ] && MANIFEST_VERSION="$(cat "$RADIN_ROOT/.radin-version")"
-
-step "Installing radin into ~/.radin and skills into ~/.claude"
-mkdir -p "$HOME/.claude/skills" "$RADIN_HOME/lib" "$RADIN_HOME/hosts/claude/lib"
-# Explicit names from SHIPPED, not lib/* or skills/* globs: install.sh may only
-# copy files radin itself named (AGENTS.md Constraints), and a stray file in a
-# dev clone must not ship.
-# BEGIN shipped (generated from SHIPPED by scripts/shipped.sh; run make gen, never edit)
-SHIPPED_SKILLS="radin-batch radin-do radin-plan radin-record radin-review radin-stats radin-teardown radin-uninstall"
-SHIPPED_LIB="radin-host.sh radin-namespace.sh radin-json.sh radin-backlog.sh radin-tui.c radin-cbm-json.c radin-state.sh radin-scope.sh radin-prompt.sh radin-cbm-hooks.sh radin-cbm-config.sh radin-update.sh radin-stats.sh radin-doctor.sh radin-uninstall.sh skill-names-claude.txt skill-names-agents.txt"
-SHIPPED_HOSTLIB="radin-prompt-planning.md radin-prompt-execution.md radin-prompt-debug.md radin-prompt-factfind.md radin-prompt-gate.md radin-prompt-merge.md radin-leaf-contract.md radin-comment-rule.md radin-explore-rule.md radin-open-decisions.md radin-ask-rule.md radin-complexity-rule.md radin-planning-rule.md radin-prioritization.md radin-batch-recovery.md radin-batch-reporting.md radin-batch-gate.md radin-batch-merge.md radin-batch-clarify.md radin-batch-session.md radin-batch-resume.md radin-run.md radin-review-core.md"
-RENAMED_SKILLS="radin-execute radin-implement radin-run"
-RETIRED_SKILLS="radin-update radin-show radin-doctor radin-setup-hooks"
-RETIRED_LIB="radin-tui.sh radin-crg-hooks.sh radin-execute-recovery.md radin-execute-reporting.md radin-execute-gate.md radin-execute-review.md radin-execute-clarify.md radin-execute-session.md radin-execute-resume.md radin-batch-review.md"
-# END shipped
-for f in $SHIPPED_LIB; do
-	cp "$RADIN_ROOT/lib/$f" "$RADIN_HOME/lib/"
-done
-for f in $SHIPPED_HOSTLIB; do
-	cp "$RADIN_ROOT/lib/$f" "$RADIN_HOME/hosts/claude/lib/"
-done
-for s in $SHIPPED_SKILLS; do
-	cp -r "$RADIN_ROOT/skills/$s" "$HOME/.claude/skills/"
-done
-
-# A moved home still holds the pre-split rendered .md files and retired libs.
-if [ -n "$MIGRATED" ]; then
-	for f in $SHIPPED_HOSTLIB $RETIRED_LIB; do
-		rm -f "$RADIN_HOME/lib/$f"
-	done
-fi
-
-# Only a dir whose SKILL.md still names itself is radin's own to remove.
-for s in $RENAMED_SKILLS $RETIRED_SKILLS; do
-	if grep -qx "name: $s" "$HOME/.claude/skills/$s/SKILL.md" 2>/dev/null; then
-		rm -rf "$HOME/.claude/skills/$s"
-	fi
-done
-mkdir -p "$RADIN_HOME/bin"
-cp "$RADIN_ROOT/bin/radin" "$RADIN_HOME/bin/"
-chmod +x "$RADIN_HOME/bin/radin"
-
-# The TUI and the cbm-config JSON helper are C, so they are the two files
-# built here rather than copied. Advisory like a companion tool: a box with no
-# compiler keeps every other subcommand -- `radin backlog show` covers the
-# reading the TUI does, and `radin cbm-hooks all` covers the merge-only wiring
-# `radin cbm-config` would have done.
-TUI_CC="$(command -v cc || command -v gcc || command -v clang || true)"
-if [ -n "$TUI_CC" ]; then
-	CC_LOG="$(mktemp)"
-	if "$TUI_CC" -O2 -o "$RADIN_HOME/bin/radin-tui" \
-		"$RADIN_HOME/lib/radin-tui.c" >"$CC_LOG" 2>&1; then
-		ok "TUI built."
-	else
-		tail -n 20 "$CC_LOG" >&2
-		warn "the TUI failed to build -- every other subcommand still works."
-	fi
-	if "$TUI_CC" -O2 -o "$RADIN_HOME/bin/radin-cbm-json" \
-		"$RADIN_HOME/lib/radin-cbm-json.c" >"$CC_LOG" 2>&1; then
-		ok "radin-cbm-json built."
-	else
-		tail -n 20 "$CC_LOG" >&2
-		warn "radin-cbm-json failed to build -- radin cbm-config is unavailable;"
-		warn "the merge-only wiring is used instead."
-	fi
-	rm -f "$CC_LOG"
-else
-	warn "no C compiler found -- skipping the TUI. Use \`radin backlog show\`."
-fi
-ok "skills installed"
 
 _pick_nth() {
 	local want="$1" i=1 opt
@@ -378,6 +266,331 @@ prompt_pick() {
 prompt_yn() {
 	[ "$(prompt_pick "$1" 2 "yes" "no")" = "yes" ]
 }
+
+printf "%b\n" "${BOLD}${MAGENTA}"
+printf "%s\n" "  🐀 radin — stingy on tokens, generous on backlog throughput"
+printf "%b\n" "${RESET}${DIM}  Installs backlog-workflow skills into ~/.claude, plus the whole curated"
+printf "%b\n\n" "  token-saving stack. Only execution behaviour and your package manager are asked about.${RESET}"
+
+# A terminal can answer a question: stdin is one, or the script is piped and /dev/tty opens.
+have_tty() {
+	[ -z "$YES" ] || return 1
+	[ -t 0 ] && return 0
+	[ ! -f "$0" ] && (: </dev/tty) 2>/dev/null
+}
+
+# --only wins; an update reuses the manifest (no manifest hosts key means a v1 install, claude only);
+# a terminal gets one question per detected host; anything else installs claude.
+select_hosts() {
+	local id ids="" want="" default
+	[ -z "$ONLY_SET" ] || return 0
+	if [ -n "$UPDATE" ]; then
+		for id in $(manifest_list hosts); do
+			[ -z "$(host_field "$id" 1)" ] || want="$want,$id"
+		done
+		want="${want#,}"
+		select_ids "${want:-claude}"
+		return
+	fi
+	if have_tty; then
+		for id in $(host_ids); do
+			host_detected "$id" && ids="$ids $id"
+		done
+		case "$ids" in
+		" claude" | "") ;;
+		*)
+			for id in $ids; do
+				default=2
+				[ "$id" != claude ] || default=1
+				if [ "$(prompt_pick "Install radin for $(host_field "$id" 2)?" "$default" yes no)" = yes ]; then
+					want="$want,$id"
+				fi
+			done
+			if [ -z "$want" ]; then
+				INSTALL_DONE="1"
+				info "nothing selected"
+				exit 0
+			fi
+			select_ids "${want#,}"
+			return
+			;;
+		esac
+	fi
+	select_ids claude
+}
+select_hosts
+info "hosts: $SELECTED"
+
+# No `brew shellenv` eval: it prepends brew's bin to PATH and would shadow a
+# version-manager python3 (mise/pyenv) with brew's -- probing the wrong
+# interpreter in the pyexpat preflight below. brew itself is called via $BREW.
+BREW="$(command -v brew || true)"
+MISE="$(command -v mise || true)"
+
+GITHUB_REPO="shortcuts/radin"
+TARBALL_BASE="https://github.com/$GITHUB_REPO/archive"
+DEFAULT_FETCH_DIR="$HOME/.claude/radin"
+
+# Resolve RADIN_ROOT from the running script's own location -- works when
+# executed from a real git clone (./install.sh), for hacking on radin itself.
+# Piped via curl | bash, BASH_SOURCE[0] has no usable sibling agents/skills
+# dirs, so this returns empty and the block below downloads a source tarball
+# instead -- no git clone, no local git dependency.
+resolve_radin_root() {
+	local script_path="${BASH_SOURCE[0]}"
+	if [ -f "$script_path" ]; then
+		local dir
+		dir="$(cd "$(dirname "$script_path")" && pwd)"
+		if [ -d "$dir/skills" ] && [ -d "$dir/lib" ]; then
+			printf '%s' "$dir"
+			return
+		fi
+	fi
+	printf '%s' ""
+}
+
+step "Resolving radin source"
+RADIN_ROOT="$(resolve_radin_root)"
+if [ -z "$RADIN_ROOT" ] && [ -n "$DRY" ]; then
+	RADIN_ROOT="${RADIN_ROOT_OVERRIDE:-$DEFAULT_FETCH_DIR}"
+	info "would download $TARBALL_BASE/refs/heads/main.tar.gz"
+elif [ -z "$RADIN_ROOT" ]; then
+	command -v curl >/dev/null 2>&1 || {
+		printf "%b\n" "${RED}${RAT} curl not found.${RESET} Install curl, then re-run." >&2
+		exit 1
+	}
+	command -v tar >/dev/null 2>&1 || {
+		printf "%b\n" "${RED}${RAT} tar not found.${RESET} Install tar, then re-run." >&2
+		exit 1
+	}
+
+	FETCH_DIR="${RADIN_ROOT_OVERRIDE:-$DEFAULT_FETCH_DIR}"
+	if [ -d "$FETCH_DIR" ] && [ ! -f "$FETCH_DIR/.radin-version" ]; then
+		printf "%b\n" "${RED}${RAT} $FETCH_DIR exists and wasn't created by this installer${RESET} -- remove it or set RADIN_ROOT_OVERRIDE to a different path, then re-run." >&2
+		exit 1
+	fi
+
+	# Piped from main, so fetch main: a release tag predates the files main's SHIPPED_LIB names.
+	VERSION="main"
+	TARBALL_URL="$TARBALL_BASE/refs/heads/main.tar.gz"
+
+	info "Downloading radin ($VERSION)..."
+	TMP_TAR="$(mktemp)"
+	curl -fsSL "$TARBALL_URL" -o "$TMP_TAR"
+	# Reject archives with absolute paths or ".." components before extracting (CWE-22).
+	if tar -tzf "$TMP_TAR" | grep -qE '^/|(^|/)\.\.(/|$)'; then
+		printf "%b\n" "${RED}${RAT} Downloaded archive contains unsafe paths.${RESET} Refusing to extract." >&2
+		rm -f "$TMP_TAR"
+		exit 1
+	fi
+	rm -rf "$FETCH_DIR"
+	mkdir -p "$FETCH_DIR"
+	tar -xzf "$TMP_TAR" -C "$FETCH_DIR" --strip-components=1
+	rm -f "$TMP_TAR"
+	echo "$VERSION" >"$FETCH_DIR/.radin-version"
+
+	RADIN_ROOT="$FETCH_DIR"
+fi
+ok "Using radin source at ${BOLD}$RADIN_ROOT${RESET}"
+
+OLD_HOME="$HOME/.claude/.radin"
+MIGRATING="$HOME/.radin.migrating"
+MIGRATED=""
+LEGACY_LEFT=""
+
+radin_home_at() {
+	[ -f "$1/manifest.json" ] && grep -q '"installed_at"' "$1/manifest.json" && grep -q '"companion_tools"' "$1/manifest.json"
+}
+
+migrate_abort() {
+	INSTALL_DONE="1"
+	printf "%b\n" "${RED}${RAT} $*${RESET}" >&2
+	exit 1
+}
+
+path_taken() { [ -e "$1" ] || [ -L "$1" ]; }
+
+# Two renames, not one: a cross-device `mv` copies, then deletes, and a copy
+# that dies halfway must not leave a ~/.radin that passes radin_home_at.
+migrate_home() {
+	radin_home_at "$OLD_HOME" || return 0
+	if [ -n "$DRY" ]; then
+		info "would move $OLD_HOME to $RADIN_HOME"
+		return 0
+	fi
+	if path_taken "$RADIN_HOME"; then
+		if radin_home_at "$RADIN_HOME"; then
+			warn "$OLD_HOME is still there, unused: delete it by hand once you checked it."
+			LEGACY_LEFT="1"
+			return 0
+		fi
+		migrate_abort "$RADIN_HOME is not radin's: move it away, then re-run."
+	fi
+	if path_taken "$MIGRATING"; then
+		migrate_abort "$MIGRATING was left by an interrupted move: inspect it, move it away, then re-run."
+	fi
+	mv "$OLD_HOME" "$MIGRATING" ||
+		migrate_abort "mv failed: $OLD_HOME is intact; the partial copy is at $MIGRATING."
+	mv "$MIGRATING" "$RADIN_HOME" ||
+		migrate_abort "mv failed: the data is at $MIGRATING, $OLD_HOME is gone; move it to $RADIN_HOME by hand."
+	MIGRATED="1"
+	ok "moved ~/.claude/.radin to ~/.radin"
+}
+migrate_home
+
+MANIFEST_VERSION="dev"
+[ -f "$RADIN_ROOT/.radin-version" ] && MANIFEST_VERSION="$(cat "$RADIN_ROOT/.radin-version")"
+
+step "Installing radin into ~/.radin and skills into ~/.claude"
+# Explicit names from SHIPPED, not lib/* or skills/* globs: install.sh may only
+# copy files radin itself named (AGENTS.md Constraints), and a stray file in a
+# dev clone must not ship.
+# BEGIN shipped (generated from SHIPPED by scripts/shipped.sh; run make gen, never edit)
+SHIPPED_SKILLS="radin-batch radin-do radin-plan radin-record radin-review radin-stats radin-teardown radin-uninstall"
+SHIPPED_LIB="radin-host.sh radin-namespace.sh radin-json.sh radin-backlog.sh radin-tui.c radin-cbm-json.c radin-state.sh radin-scope.sh radin-prompt.sh radin-cbm-hooks.sh radin-cbm-config.sh radin-update.sh radin-stats.sh radin-doctor.sh radin-uninstall.sh skill-names-claude.txt skill-names-agents.txt"
+SHIPPED_HOSTLIB="radin-prompt-planning.md radin-prompt-execution.md radin-prompt-debug.md radin-prompt-factfind.md radin-prompt-gate.md radin-prompt-merge.md radin-leaf-contract.md radin-comment-rule.md radin-explore-rule.md radin-open-decisions.md radin-ask-rule.md radin-complexity-rule.md radin-planning-rule.md radin-prioritization.md radin-batch-recovery.md radin-batch-reporting.md radin-batch-gate.md radin-batch-merge.md radin-batch-clarify.md radin-batch-session.md radin-batch-resume.md radin-run.md radin-review-core.md"
+RENAMED_SKILLS="radin-execute radin-implement radin-run"
+RETIRED_SKILLS="radin-update radin-show radin-doctor radin-setup-hooks"
+RETIRED_LIB="radin-tui.sh radin-crg-hooks.sh radin-execute-recovery.md radin-execute-reporting.md radin-execute-gate.md radin-execute-review.md radin-execute-clarify.md radin-execute-session.md radin-execute-resume.md radin-batch-review.md"
+# END shipped
+PSTACK_RAW="https://raw.githubusercontent.com/cursor/plugins/refs/heads/main/pstack/skills"
+CBM_INSTALL_CMD="curl -fsSL https://raw.githubusercontent.com/DeusData/codebase-memory-mcp/main/install.sh | bash -s -- --skip-config"
+# `skills@latest`: a bare `skills` reuses whatever CLI version npx cached.
+THERMO_INSTALL_CMD='npx -y skills@latest add "https://github.com/cursor/plugins/tree/main/cursor-team-kit/skills/thermo-nuclear-code-quality-review" -g -a claude-code -y'
+# brew refreshes its formula index before installing: with that refresh
+# off, it installs whatever version the last `brew update` saw.
+rtk_cmd() {
+	case "$1" in
+	brew) printf '%s' "$BREW install rtk || $BREW upgrade rtk" ;;
+	mise) printf '%s' "$MISE use -g aqua:rtk-ai/rtk@latest" ;;
+	*) printf '%s' "curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh | sh" ;;
+	esac
+}
+
+host_skills_dir() {
+	if [ "$1" = claude ]; then printf '%s' "$HOME/.claude/skills"; else printf '%s' "$HOME/.agents/skills"; fi
+}
+
+# The renders the selected hosts read: claude, agents, or both.
+RENDERS=""
+set_renders() {
+	local id m
+	RENDERS=""
+	for id in $SELECTED; do
+		m="$(host_field "$id" 3)"
+		case " $RENDERS " in *" $m "*) ;; *) RENDERS="$RENDERS $m" ;; esac
+	done
+	RENDERS="${RENDERS# }"
+}
+
+# One path per line for every file radin writes into a manifest `files` entry.
+# Read from the source tree, so a dry run and a real run list the same files.
+owned_paths() {
+	local r s f
+	for f in $SHIPPED_LIB; do printf '%s\n' "$RADIN_HOME/lib/$f"; done
+	printf '%s\n' "$RADIN_HOME/bin/radin"
+	for r in $RENDERS; do
+		for f in $SHIPPED_HOSTLIB; do printf '%s\n' "$RADIN_HOME/hosts/$r/lib/$f"; done
+		for s in $SHIPPED_SKILLS; do
+			if [ -d "$RADIN_ROOT/skills/$s" ]; then
+				(cd "$RADIN_ROOT/skills" && find "$s" -type f | sort) | sed "s|^|$(host_skills_dir "$r")/|"
+			else
+				printf '%s/%s/\n' "$(host_skills_dir "$r")" "$s"
+			fi
+		done
+	done
+}
+
+dry_run_report() {
+	local p mgr
+	info "dry run: nothing below is written or run"
+	info "hosts: $SELECTED${FORCE:+ (--force: backups come with the preflight)}"
+	while IFS= read -r p; do printf 'write %s\n' "$p"; done < <(owned_paths)
+	printf 'write %s\n' "$RADIN_HOME/install_root" "$MANIFEST_FILE" "$RADIN_HOME/bin/radin-tui" \
+		"$RADIN_HOME/bin/radin-cbm-json" "$HOME/.local/bin/radin"
+	if host_selected claude; then
+		printf 'write %s\n' "$HOME/.claude/CLAUDE.md" "$HOME/.claude/settings.json"
+	fi
+	mgr="$(manifest_value package_manager)"
+	if [ -z "$mgr" ]; then
+		if [ -n "$BREW" ]; then mgr=brew; elif [ -n "$MISE" ]; then mgr=mise; else mgr=curl; fi
+	fi
+	printf 'run %s\n' "$(rtk_cmd "$mgr")" "$CBM_INSTALL_CMD"
+	if host_selected claude; then
+		printf 'run %s\n' "$THERMO_INSTALL_CMD" \
+			"curl -fsSL $PSTACK_RAW/unslop/SKILL.md" "curl -fsSL $PSTACK_RAW/technical-writing/SKILL.md" \
+			"claude plugin install caveman@caveman" "claude plugin install ponytail@ponytail" \
+			"claude plugin install mattpocock-skills@claude-plugins-official"
+	fi
+}
+[ -z "$DRY" ] || {
+	set_renders
+	dry_run_report
+	INSTALL_DONE="1"
+	exit 0
+}
+set_renders
+mkdir -p "$RADIN_HOME/lib"
+for f in $SHIPPED_LIB; do
+	cp "$RADIN_ROOT/lib/$f" "$RADIN_HOME/lib/"
+done
+if host_selected claude; then
+	mkdir -p "$HOME/.claude/skills" "$RADIN_HOME/hosts/claude/lib"
+	for f in $SHIPPED_HOSTLIB; do
+		cp "$RADIN_ROOT/lib/$f" "$RADIN_HOME/hosts/claude/lib/"
+	done
+	for s in $SHIPPED_SKILLS; do
+		cp -r "$RADIN_ROOT/skills/$s" "$HOME/.claude/skills/"
+	done
+fi
+
+# A moved home still holds the pre-split rendered .md files and retired libs.
+if [ -n "$MIGRATED" ]; then
+	for f in $SHIPPED_HOSTLIB $RETIRED_LIB; do
+		rm -f "$RADIN_HOME/lib/$f"
+	done
+fi
+
+# Only a dir whose SKILL.md still names itself is radin's own to remove.
+if host_selected claude; then
+	for s in $RENAMED_SKILLS $RETIRED_SKILLS; do
+		if grep -qx "name: $s" "$HOME/.claude/skills/$s/SKILL.md" 2>/dev/null; then
+			rm -rf "$HOME/.claude/skills/$s"
+		fi
+	done
+fi
+mkdir -p "$RADIN_HOME/bin"
+cp "$RADIN_ROOT/bin/radin" "$RADIN_HOME/bin/"
+chmod +x "$RADIN_HOME/bin/radin"
+
+# The TUI and the cbm-config JSON helper are C, so they are the two files
+# built here rather than copied. Advisory like a companion tool: a box with no
+# compiler keeps every other subcommand -- `radin backlog show` covers the
+# reading the TUI does, and `radin cbm-hooks all` covers the merge-only wiring
+# `radin cbm-config` would have done.
+TUI_CC="$(command -v cc || command -v gcc || command -v clang || true)"
+if [ -n "$TUI_CC" ]; then
+	CC_LOG="$(mktemp)"
+	if "$TUI_CC" -O2 -o "$RADIN_HOME/bin/radin-tui" \
+		"$RADIN_HOME/lib/radin-tui.c" >"$CC_LOG" 2>&1; then
+		ok "TUI built."
+	else
+		tail -n 20 "$CC_LOG" >&2
+		warn "the TUI failed to build -- every other subcommand still works."
+	fi
+	if "$TUI_CC" -O2 -o "$RADIN_HOME/bin/radin-cbm-json" \
+		"$RADIN_HOME/lib/radin-cbm-json.c" >"$CC_LOG" 2>&1; then
+		ok "radin-cbm-json built."
+	else
+		tail -n 20 "$CC_LOG" >&2
+		warn "radin-cbm-json failed to build -- radin cbm-config is unavailable;"
+		warn "the merge-only wiring is used instead."
+	fi
+	rm -f "$CC_LOG"
+else
+	warn "no C compiler found -- skipping the TUI. Use \`radin backlog show\`."
+fi
+ok "skills installed"
 
 install_tool() {
 	local name="$1" install_cmd="$2"
@@ -513,8 +726,8 @@ EFFORT_MINOR=""
 # lib/*.md and keeps no list of its own.
 shipped_text_files() {
 	local s f
-	for s in $SHIPPED_SKILLS; do printf '%s\n' "$HOME/.claude/skills/$s/SKILL.md"; done
-	for f in $SHIPPED_HOSTLIB; do printf '%s\n' "$RADIN_HOME/hosts/claude/lib/$f"; done
+	for s in $SHIPPED_SKILLS; do printf '%s\n' "$(host_skills_dir "$1")/$s/SKILL.md"; done
+	for f in $SHIPPED_HOSTLIB; do printf '%s\n' "$RADIN_HOME/hosts/$1/lib/$f"; done
 }
 
 # Quoted JSON array body of a space-separated name list.
@@ -580,20 +793,87 @@ set_cli() {
 	fi
 }
 
-# Skills carry a RADIN_LIB token instead of a literal `$HOME/.radin/hosts/claude/lib`
+# Skills carry a RADIN_LIB token instead of a literal `$HOME` path
 # -- same contract as RADIN_CLI. The Read tool needs an absolute path, so a
 # literal `$HOME` would leave the model expanding it before every on-demand
 # doc read.
 set_lib() {
-	local file="$1" tmp
+	local file="$1" lib="$2" tmp
 	tmp="$(mktemp)"
-	sed 's|RADIN_LIB|'"$RADIN_HOME/hosts/claude/lib"'|g' "$file" >"$tmp" && mv "$tmp" "$file"
+	sed 's|RADIN_LIB|'"$lib"'|g' "$file" >"$tmp" && mv "$tmp" "$file"
 	# A surviving token reaches the model as a literal path and every on-demand
 	# doc read fails -- louder to stop here than to debug that.
 	if grep -q 'RADIN_LIB' "$file"; then
 		printf "%b\n" "${RED}${RAT} failed to write the lib path into $file.${RESET} Re-run the installer." >&2
 		exit 1
 	fi
+}
+
+AGENTS_RENDER_ERR=""
+stage_agents_file() {
+	AGENTS_RENDER_ERR="$("$RADIN_ROOT/scripts/render-host.sh" "$1" agents 2>&1 >"$2")" && return 0
+	AGENTS_RENDER_ERR="${AGENTS_RENDER_ERR:-$1: render failed}"
+	return 1
+}
+
+stage_agents_tree() {
+	local f s
+	mkdir -p "$1/lib"
+	for f in $SHIPPED_HOSTLIB; do
+		stage_agents_file "$RADIN_ROOT/lib/$f" "$1/lib/$f" || return 1
+	done
+	for s in $SHIPPED_SKILLS; do
+		cp -r "$RADIN_ROOT/skills/$s" "$1/"
+		stage_agents_file "$RADIN_ROOT/skills/$s/SKILL.md" "$1/$s/SKILL.md" || return 1
+	done
+}
+
+# Companion steps for Codex and opencode belong here. A missing CLI never fails the run.
+install_host_companions() {
+	local cli
+	cli="$(host_field "$1" 4)"
+	command -v "$cli" >/dev/null 2>&1 ||
+		warn "$cli CLI not found: radin's own files are installed, companion steps skipped"
+}
+
+# Renders into a stage dir first, so one bad file leaves Codex and opencode out
+# and writes nothing, while the other hosts go on.
+install_agents_render() {
+	local id stage f s keep=""
+	case " $RENDERS " in *" agents "*) ;; *) return 0 ;; esac
+	stage="$(mktemp -d)"
+	if stage_agents_tree "$stage"; then
+		while IFS= read -r f; do
+			set_cli "$f" "$RADIN_CLI_VALUE"
+			set_lib "$f" "$RADIN_HOME/hosts/agents/lib"
+		done < <(find "$stage" -type f -name '*.md')
+		# The agents prompts print no model or effort line; a token left over is a render bug.
+		if grep -rqE 'RADIN_(MODEL|EFFORT)_' "$stage"; then
+			AGENTS_RENDER_ERR="$(grep -rlE 'RADIN_(MODEL|EFFORT)_' "$stage" | head -1): model or effort token survives"
+		fi
+	fi
+	if [ -z "$AGENTS_RENDER_ERR" ]; then
+		mkdir -p "$RADIN_HOME/hosts/agents/lib" "$HOME/.agents/skills"
+		for f in $SHIPPED_HOSTLIB; do
+			cp "$stage/lib/$f" "$RADIN_HOME/hosts/agents/lib/"
+		done
+		for s in $SHIPPED_SKILLS; do
+			cp -r "$stage/$s" "$HOME/.agents/skills/"
+		done
+		ok "agents render installed to ${BOLD}$HOME/.agents/skills${RESET}"
+		for id in $SELECTED; do
+			[ "$(host_field "$id" 3)" != agents ] || install_host_companions "$id"
+		done
+	else
+		warn "agents render failed: $AGENTS_RENDER_ERR"
+		warn "Codex and opencode are left out of this install."
+		for id in $SELECTED; do
+			[ "$(host_field "$id" 3)" = agents ] || keep="$keep $id"
+		done
+		SELECTED="${keep# }"
+		set_renders
+	fi
+	rm -rf "$stage"
 }
 
 step "Sub-agent models"
@@ -611,6 +891,8 @@ if [ -n "$UPDATE" ]; then
 	MODEL_MINOR="$(manifest_value model_factfind)"
 	MODEL_MINOR="${MODEL_MINOR:-haiku}"
 	ok "keeping sub-agent models: $MODEL_MAJOR, $MODEL_MINOR for fact-finding and low-complexity tasks"
+elif ! host_selected claude; then
+	:
 elif prompt_yn "Choose radin-batch's sub-agent models? (defaults: sonnet, haiku for fact-finding and low-complexity tasks)"; then
 	# shellcheck disable=SC2086  # word splitting is the point -- one arg per model
 	MODEL_MAJOR="$(prompt_pick "planning, execution, review and debug sub-agents" "$SONNET_INDEX" $MODELS)"
@@ -620,17 +902,19 @@ elif prompt_yn "Choose radin-batch's sub-agent models? (defaults: sonnet, haiku 
 else
 	ok "keeping default sub-agent models (sonnet; haiku for fact-finding and low-complexity tasks)"
 fi
-for f in $(shipped_text_files); do
-	tmp="$(mktemp)"
-	if "$RADIN_ROOT/scripts/render-host.sh" "$f" claude >"$tmp"; then
-		mv "$tmp" "$f"
-	else
-		rm -f "$tmp"
-		printf "%b\n" "${RED}${RAT} could not render $f for claude${RESET}" >&2
-		exit 1
-	fi
-	set_role_models "$f"
-done
+if host_selected claude; then
+	for f in $(shipped_text_files claude); do
+		tmp="$(mktemp)"
+		if "$RADIN_ROOT/scripts/render-host.sh" "$f" claude >"$tmp"; then
+			mv "$tmp" "$f"
+		else
+			rm -f "$tmp"
+			printf "%b\n" "${RED}${RAT} could not render $f for claude${RESET}" >&2
+			exit 1
+		fi
+		set_role_models "$f"
+	done
+fi
 
 step "radin CLI on PATH"
 # One `radin <backlog|state|scope|hooks|repair|doctor|uninstall>`
@@ -663,10 +947,13 @@ else
 		;;
 	esac
 fi
-for f in $(shipped_text_files); do
-	set_cli "$f" "$RADIN_CLI_VALUE"
-	set_lib "$f"
-done
+if host_selected claude; then
+	for f in $(shipped_text_files claude); do
+		set_cli "$f" "$RADIN_CLI_VALUE"
+		set_lib "$f" "$RADIN_HOME/hosts/claude/lib"
+	done
+fi
+install_agents_render
 
 step "Agent guidance"
 # A short section in ~/.claude/CLAUDE.md telling Claude when to reach for
@@ -674,9 +961,11 @@ step "Agent guidance"
 # radin:begin/end markers: a re-run rewrites only that block, everything
 # outside them passes through untouched -- which is what makes writing it
 # unconditionally safe on a file radin doesn't own.
-CLAUDE_MD_GUIDANCE="true"
-# shellcheck disable=SC2016  # backticks here are markdown code spans, not command substitution
-RADIN_GUIDANCE='<!-- radin:begin -->
+CLAUDE_MD_GUIDANCE="false"
+if host_selected claude; then
+	CLAUDE_MD_GUIDANCE="true"
+	# shellcheck disable=SC2016  # backticks here are markdown code spans, not command substitution
+	RADIN_GUIDANCE='<!-- radin:begin -->
 ## radin
 
 radin keeps a per-repo backlog in `<repo-root>/.claude/.radin/` so tasks
@@ -689,21 +978,22 @@ survive past one conversation. Reach for it instead of ad-hoc task tracking:
 - Never hand-edit files under `.claude/.radin/` -- every backlog operation goes through the `'"$RADIN_CLI_VALUE"' backlog` CLI.
 - Never guess on a broad or ambiguous ask: invoke `/mattpocock-skills:grilling` and let the user settle it before radin writes anything.
 <!-- radin:end -->'
-CLAUDE_MD="$HOME/.claude/CLAUDE.md"
-touch "$CLAUDE_MD"
-GUIDANCE_TMP="$(mktemp)"
-# Strip any previous radin block, then append the current one -- idempotent
-# across re-runs. The second awk drops the blank lines the strip leaves at the
-# end (interior ones are held and reprinted), so a re-run stops growing the
-# file by one newline each time.
-awk '/^<!-- radin:begin -->$/ { skip = 1 } !skip { print } /^<!-- radin:end -->$/ { skip = 0 }' \
-	"$CLAUDE_MD" |
-	awk 'NF { while (pending-- > 0) print ""; pending = 0; print; next } { pending++ }' \
-		>"$GUIDANCE_TMP"
-[ ! -s "$GUIDANCE_TMP" ] || printf '\n' >>"$GUIDANCE_TMP"
-printf '%s\n' "$RADIN_GUIDANCE" >>"$GUIDANCE_TMP"
-mv "$GUIDANCE_TMP" "$CLAUDE_MD"
-ok "radin section written to ${BOLD}$CLAUDE_MD${RESET} (between radin:begin/end markers)"
+	CLAUDE_MD="$HOME/.claude/CLAUDE.md"
+	touch "$CLAUDE_MD"
+	GUIDANCE_TMP="$(mktemp)"
+	# Strip any previous radin block, then append the current one -- idempotent
+	# across re-runs. The second awk drops the blank lines the strip leaves at the
+	# end (interior ones are held and reprinted), so a re-run stops growing the
+	# file by one newline each time.
+	awk '/^<!-- radin:begin -->$/ { skip = 1 } !skip { print } /^<!-- radin:end -->$/ { skip = 0 }' \
+		"$CLAUDE_MD" |
+		awk 'NF { while (pending-- > 0) print ""; pending = 0; print; next } { pending++ }' \
+			>"$GUIDANCE_TMP"
+	[ ! -s "$GUIDANCE_TMP" ] || printf '\n' >>"$GUIDANCE_TMP"
+	printf '%s\n' "$RADIN_GUIDANCE" >>"$GUIDANCE_TMP"
+	mv "$GUIDANCE_TMP" "$CLAUDE_MD"
+	ok "radin section written to ${BOLD}$CLAUDE_MD${RESET} (between radin:begin/end markers)"
+fi
 
 # Its own installer's default target isn't on PATH in every shell, so resolve
 # the just-installed binary by path too.
@@ -717,49 +1007,50 @@ cbm_bin() {
 
 step "Companion tools"
 THERMO_SKILL="$HOME/.claude/skills/thermo-nuclear/SKILL.md"
-if [ -n "$UPDATE" ] && [ -f "$THERMO_SKILL" ]; then
-	ok "thermo-nuclear already installed."
-else
-	# thermo-nuclear is vendored via the vercel-labs/skills CLI (agentskills.io
-	# spec), not a Claude Code plugin -- cursor/plugins isn't a plugin marketplace
-	# repo, just a SKILL.md at this subpath. Falls back to a raw curl of the file
-	# if npx isn't available.
-	if command -v npx >/dev/null 2>&1; then
-		# `skills@latest`: a bare `skills` reuses whatever CLI version npx cached.
-		NPX_LOG="$(mktemp)"
-		# </dev/null everywhere below: under `curl | bash` fd0 is the script itself,
-		# and a child that reads stdin eats the rest of it -- the install then just
-		# stops, silently, before the questions.
-		if ! npx -y skills@latest add "https://github.com/cursor/plugins/tree/main/cursor-team-kit/skills/thermo-nuclear-code-quality-review" -g -a claude-code -y >"$NPX_LOG" 2>&1 </dev/null; then
-			cat "$NPX_LOG" >&2
-			rm -f "$NPX_LOG"
-			exit 1
-		fi
-		rm -f "$NPX_LOG"
-		# Renamed back to "thermo-nuclear" -- every radin agent/skill invokes it
-		# under that name, and skills CLI installs use the source folder's name.
-		# A rerun where the CLI kept an existing install writes no source folder,
-		# so guard the move instead of letting set -e abort the install there.
-		if [ -d "$HOME/.claude/skills/thermo-nuclear-code-quality-review" ]; then
-			rm -rf "$HOME/.claude/skills/thermo-nuclear"
-			mv "$HOME/.claude/skills/thermo-nuclear-code-quality-review" "$HOME/.claude/skills/thermo-nuclear"
-		fi
+if host_selected claude; then
+	if [ -n "$UPDATE" ] && [ -f "$THERMO_SKILL" ]; then
+		ok "thermo-nuclear already installed."
 	else
-		warn "npx not found -- falling back to a direct SKILL.md download for thermo-nuclear."
-		mkdir -p "$HOME/.claude/skills/thermo-nuclear"
-		curl -fsSL "https://raw.githubusercontent.com/cursor/plugins/refs/heads/main/cursor-team-kit/skills/thermo-nuclear-code-quality-review/SKILL.md" \
-			-o "$HOME/.claude/skills/thermo-nuclear/SKILL.md"
+		# thermo-nuclear is vendored via the vercel-labs/skills CLI (agentskills.io
+		# spec), not a Claude Code plugin -- cursor/plugins isn't a plugin marketplace
+		# repo, just a SKILL.md at this subpath. Falls back to a raw curl of the file
+		# if npx isn't available.
+		if command -v npx >/dev/null 2>&1; then
+			NPX_LOG="$(mktemp)"
+			# </dev/null everywhere below: under `curl | bash` fd0 is the script itself,
+			# and a child that reads stdin eats the rest of it -- the install then just
+			# stops, silently, before the questions.
+			if ! eval "$THERMO_INSTALL_CMD" >"$NPX_LOG" 2>&1 </dev/null; then
+				cat "$NPX_LOG" >&2
+				rm -f "$NPX_LOG"
+				exit 1
+			fi
+			rm -f "$NPX_LOG"
+			# Renamed back to "thermo-nuclear" -- every radin agent/skill invokes it
+			# under that name, and skills CLI installs use the source folder's name.
+			# A rerun where the CLI kept an existing install writes no source folder,
+			# so guard the move instead of letting set -e abort the install there.
+			if [ -d "$HOME/.claude/skills/thermo-nuclear-code-quality-review" ]; then
+				rm -rf "$HOME/.claude/skills/thermo-nuclear"
+				mv "$HOME/.claude/skills/thermo-nuclear-code-quality-review" "$HOME/.claude/skills/thermo-nuclear"
+			fi
+		else
+			warn "npx not found -- falling back to a direct SKILL.md download for thermo-nuclear."
+			mkdir -p "$HOME/.claude/skills/thermo-nuclear"
+			curl -fsSL "https://raw.githubusercontent.com/cursor/plugins/refs/heads/main/cursor-team-kit/skills/thermo-nuclear-code-quality-review/SKILL.md" \
+				-o "$HOME/.claude/skills/thermo-nuclear/SKILL.md"
+		fi
+		ok "thermo-nuclear installed."
 	fi
-	ok "thermo-nuclear installed."
-fi
-# Strip disable-model-invocation so radin-review can invoke thermo-nuclear as
-# a sub-skill; upstream sets it to block direct end-user invocation, which
-# also blocks our own agent-to-skill call. sed -i differs BSD/GNU -- write to
-# temp then mv, portable across both.
-if [ -f "$THERMO_SKILL" ]; then
-	THERMO_TMP="$(mktemp)"
-	grep -v '^disable-model-invocation:' "$THERMO_SKILL" >"$THERMO_TMP"
-	mv "$THERMO_TMP" "$THERMO_SKILL"
+	# Strip disable-model-invocation so radin-review can invoke thermo-nuclear as
+	# a sub-skill; upstream sets it to block direct end-user invocation, which
+	# also blocks our own agent-to-skill call. sed -i differs BSD/GNU -- write to
+	# temp then mv, portable across both.
+	if [ -f "$THERMO_SKILL" ]; then
+		THERMO_TMP="$(mktemp)"
+		grep -v '^disable-model-invocation:' "$THERMO_SKILL" >"$THERMO_TMP"
+		mv "$THERMO_TMP" "$THERMO_SKILL"
+	fi
 fi
 
 # unslop and technical-writing: two pstack skills fetched straight from
@@ -767,7 +1058,6 @@ fi
 # Every run (update included) refetches, because `radin update` is the only way
 # they arrive. A skill directory radin did not install is never touched; a
 # failed or non-frontmatter download keeps the previous copy. Advisory.
-PSTACK_RAW="https://raw.githubusercontent.com/cursor/plugins/refs/heads/main/pstack/skills"
 PSTACK_OWNED=""
 install_pstack_skill() {
 	local name="$1" dir="$HOME/.claude/skills/$1" tmp mine=""
@@ -792,8 +1082,15 @@ install_pstack_skill() {
 	rm -f "$tmp"
 	return 0
 }
-install_pstack_skill unslop
-install_pstack_skill technical-writing
+if host_selected claude; then
+	install_pstack_skill unslop
+	install_pstack_skill technical-writing
+else
+	# Without the claude host these two are not refetched; keep the ownership record.
+	for n in unslop technical-writing; do
+		[ "$(manifest_value "$n")" != true ] || PSTACK_OWNED="$PSTACK_OWNED $n "
+	done
+fi
 
 # rtk ships in more than one package manager. Installing it with brew on a
 # mise-managed machine leaves behind a manager the user never chose, so the
@@ -815,13 +1112,7 @@ else
 fi
 # Neither manager is asked for codebase-memory-mcp -- its own installer
 # resolves OS/arch and verifies checksums, which radin doesn't reimplement.
-case "$PKG_MGR" in
-# brew refreshes its formula index before installing: with that refresh
-# off, it installs whatever version the last `brew update` saw.
-brew) RTK_INSTALL_CMD="$BREW install rtk || $BREW upgrade rtk" ;;
-mise) RTK_INSTALL_CMD="$MISE use -g aqua:rtk-ai/rtk@latest" ;;
-*) RTK_INSTALL_CMD="curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh | sh" ;;
-esac
+RTK_INSTALL_CMD="$(rtk_cmd "$PKG_MGR")"
 install_tool "rtk" "$RTK_INSTALL_CMD"
 
 # codebase-memory-mcp ships one static binary and its own installer resolves
@@ -831,28 +1122,29 @@ install_tool "rtk" "$RTK_INSTALL_CMD"
 # definitions and SessionStart/SubagentStart/PreToolUse hooks into ~/.claude
 # across 45 client surfaces. radin owns every ~/.claude write, and
 # `radin hooks` does the two it wants, merge-only.
-install_tool "codebase-memory-mcp" \
-	"curl -fsSL https://raw.githubusercontent.com/DeusData/codebase-memory-mcp/main/install.sh | bash -s -- --skip-config"
+install_tool "codebase-memory-mcp" "$CBM_INSTALL_CMD"
 
-# caveman ships as a Claude Code plugin (not an npm package) -- installs via
-# the plugin marketplace flow, same as the interactive `/plugin` command.
-install_plugin "caveman" "caveman@caveman" "JuliusBrussee/caveman"
+if host_selected claude; then
+	# caveman ships as a Claude Code plugin (not an npm package) -- installs via
+	# the plugin marketplace flow, same as the interactive `/plugin` command.
+	install_plugin "caveman" "caveman@caveman" "JuliusBrussee/caveman"
 
-# ponytail ships as a Claude Code plugin too -- same marketplace flow.
-install_plugin "ponytail" "ponytail@ponytail" "DietrichGebert/ponytail"
-# ponytail shows a band above the prompt unless this flag says "off". Write it
-# only when absent, so a band the user turned on by hand stays on until reinstall.
-[ -e "$HOME/.claude/.ponytail-band" ] || {
-	mkdir -p "$HOME/.claude" && printf 'off' >"$HOME/.claude/.ponytail-band"
-}
+	# ponytail ships as a Claude Code plugin too -- same marketplace flow.
+	install_plugin "ponytail" "ponytail@ponytail" "DietrichGebert/ponytail"
+	# ponytail shows a band above the prompt unless this flag says "off". Write it
+	# only when absent, so a band the user turned on by hand stays on until reinstall.
+	[ -e "$HOME/.claude/.ponytail-band" ] || {
+		mkdir -p "$HOME/.claude" && printf 'off' >"$HOME/.claude/.ponytail-band"
+	}
 
-# mattpocock-skills ships from Anthropic's own official marketplace, not a
-# third-party repo. radin-plan invokes its /grilling and /research skills
-# rather than reimplementing an interview loop or a research step.
-install_plugin "mattpocock-skills" "mattpocock-skills@claude-plugins-official" "anthropics/claude-plugins-official"
+	# mattpocock-skills ships from Anthropic's own official marketplace, not a
+	# third-party repo. radin-plan invokes its /grilling and /research skills
+	# rather than reimplementing an interview loop or a research step.
+	install_plugin "mattpocock-skills" "mattpocock-skills@claude-plugins-official" "anthropics/claude-plugins-official"
+fi
 
 CBM_AGENT_CONFIG="false"
-if CBM_BIN="$(cbm_bin)"; then
+if host_selected claude && CBM_BIN="$(cbm_bin)"; then
 	# auto_index is off upstream, which leaves a wired session querying an empty
 	# graph until someone indexes by hand. Idempotent, so it also fixes an
 	# install that predates this line.
@@ -918,22 +1210,26 @@ fi
 # Skills and leaves Read radin's own lib/*.md from outside the repo, which
 # prompts on every read. One Read rule per spelling of ~/.radin in
 # permissions.allow ends that; the uninstaller removes the same rules.
-if [ -x "$RADIN_HOME/bin/radin-cbm-json" ]; then
-	if ! bash "$RADIN_HOME/lib/radin-cbm-config.sh" allow >/dev/null 2>&1 </dev/null; then
-		warn "could not add the Read rule for ~/.radin to settings.json --"
-		warn "Claude Code will ask before each read of radin's own files."
-	elif [ -n "$MIGRATED$LEGACY_LEFT" ]; then
-		bash "$RADIN_HOME/lib/radin-cbm-config.sh" unallow-legacy >/dev/null 2>&1 </dev/null ||
-			warn "could not remove the old Read rule for ~/.claude/.radin from settings.json."
+if host_selected claude; then
+	if [ -x "$RADIN_HOME/bin/radin-cbm-json" ]; then
+		if ! bash "$RADIN_HOME/lib/radin-cbm-config.sh" allow >/dev/null 2>&1 </dev/null; then
+			warn "could not add the Read rule for ~/.radin to settings.json --"
+			warn "Claude Code will ask before each read of radin's own files."
+		elif [ -n "$MIGRATED$LEGACY_LEFT" ]; then
+			bash "$RADIN_HOME/lib/radin-cbm-config.sh" unallow-legacy >/dev/null 2>&1 </dev/null ||
+				warn "could not remove the old Read rule for ~/.claude/.radin from settings.json."
+		fi
+	else
+		warn "no C compiler -- settings.json keeps no Read rule for ~/.radin,"
+		warn "so Claude Code asks before each read of radin's own files."
 	fi
-else
-	warn "no C compiler -- settings.json keeps no Read rule for ~/.radin,"
-	warn "so Claude Code asks before each read of radin's own files."
 fi
 
-for f in $(shipped_text_files); do
-	set_role_efforts "$f"
-done
+if host_selected claude; then
+	for f in $(shipped_text_files claude); do
+		set_role_efforts "$f"
+	done
+fi
 
 step "Writing install manifest"
 # ponytail: three independent copies of this file list already exist
@@ -961,6 +1257,27 @@ json_bool_plugin() {
 	fi
 }
 
+# macOS ships shasum only; Linux ships sha256sum.
+sha256_of() {
+	if command -v sha256sum >/dev/null 2>&1; then
+		sha256sum "$1" | cut -d' ' -f1
+	else
+		shasum -a 256 "$1" | cut -d' ' -f1
+	fi
+}
+# One entry per line, keyed by the path under $HOME. Taken last, so each digest matches the final bytes.
+json_files() {
+	local p sep=""
+	while IFS= read -r p; do
+		printf '%s\n    "%s": "%s"' "$sep" "${p#"$HOME"/}" "$(sha256_of "$p")"
+		sep=","
+	done < <(owned_paths)
+}
+AGENTS_CLIS=""
+for id in $SELECTED; do
+	[ "$(host_field "$id" 3)" != agents ] || AGENTS_CLIS="$AGENTS_CLIS $(host_field "$id" 4)"
+done
+
 mkdir -p "$RADIN_HOME"
 # `radin update` reads this to decide between `git pull` in a dev clone and a
 # fresh tarball download.
@@ -968,6 +1285,7 @@ printf '%s\n' "$RADIN_ROOT" >"$RADIN_HOME/install_root"
 INSTALLED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 cat >"$MANIFEST_FILE" <<EOF
 {
+  "manifest_version": 2,
   "version": "$MANIFEST_VERSION",
   "installed_at": "$INSTALLED_AT",
   "package_manager": "$PKG_MGR",
@@ -987,6 +1305,8 @@ cat >"$MANIFEST_FILE" <<EOF
   "claude_md_guidance": $CLAUDE_MD_GUIDANCE,
   "cbm_agent_config": $CBM_AGENT_CONFIG,
   "cli_on_path": $CLI_ON_PATH,
+  "hosts": [$(json_names "$SELECTED")],
+  "agents_clis": [$(json_names "$AGENTS_CLIS")],
   "skills": [$(json_names "$SHIPPED_SKILLS thermo-nuclear")],
   "lib": [$(json_names "$SHIPPED_LIB")],
   "hostlib": [$(json_names "$SHIPPED_HOSTLIB")],
@@ -998,6 +1318,8 @@ cat >"$MANIFEST_FILE" <<EOF
     "mattpocock-skills": $(json_bool_plugin "mattpocock-skills@claude-plugins-official"),
     "unslop": $(json_bool_pstack unslop),
     "technical-writing": $(json_bool_pstack technical-writing)
+  },
+  "files": {$(json_files)
   }
 }
 EOF
