@@ -10,6 +10,8 @@ make test
 
 `make lint` rewrites files. `make check` only reports, and CI runs it.
 
+Optional: `make verify-hosts` runs the real opencode and codex CLIs against a temporary install. It needs a C compiler. Add `VERIFY_ARGS=--install-missing` to fetch the pinned CLIs with npm.
+
 ## Measure a TUI render change
 
 ```sh

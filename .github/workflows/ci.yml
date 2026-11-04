@@ -4,6 +4,7 @@ on:
   pull_request:
   push:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   check:
@@ -28,3 +29,16 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y bats
 
       - run: make test
+
+  verify-hosts:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - run: make verify-hosts VERIFY_ARGS=--install-missing

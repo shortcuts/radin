@@ -55,6 +55,25 @@ radin doctor
 `radin doctor` checks the version, each `radin-*.md` agent file and the `external_directory` rule.
 A `MISSING` line for the rule means the rule is gone. Run the installer again with `--only opencode`.
 
+To check against the real CLI, run `make verify-hosts VERIFY_ARGS="--only opencode"`.
+It installs radin into a temporary `HOME` and runs `opencode debug agents --standalone` and `opencode debug config --standalone`.
+It fails when:
+
+- one of the seven `radin-<kind>` agents is missing from the agents listing.
+- the `~/.radin/**` rule is missing from the config output.
+- a shipped skill is missing from `~/.agents/skills` or has no `name:` line.
+- an unresolved token such as `@@skill:` or `RADIN_CLI` survives in an installed file.
+
+Prerequisites: a C compiler, and npm when you add `--install-missing`.
+That flag installs the pinned `@opencode/cli@2.2.5` into the temporary directory.
+Without it, the target skips the host when `opencode` is not on `PATH`.
+
+Limits:
+
+- opencode 2.2.5 has no command that lists skills, so the skill check reads the installed files.
+- opencode drops a malformed config or agent file without an error, so the rule and agent checks double as the parse check.
+- Only 2.x is verified. The 1.x versions are untested.
+
 ## Troubleshooting
 
 **opencode asks permission for every `~/.radin` read.** The rule is missing or was not written.

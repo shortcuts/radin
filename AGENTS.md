@@ -44,6 +44,7 @@ radin is a Claude Code plugin of skills, a CLI, and install glue.
 | The agents render names no Claude-only tool and holds no model line | `hosts/forbid-agents.txt`, `scripts/check-prose.sh` forbid lint, `tests/render-host.bats` | A paraphrase of a tool name; review only. |
 | Every host path variable is isolated | `tests/isolation.bats`, `tests/real-setup-sum.bats` | None. |
 | A three-host lifecycle leaves no radin file | The three-host lifecycle test in `tests/install.bats` | The real CLIs are not run; `make verify-hosts` owns that. |
+| Real CLIs load radin's files | `make verify-hosts` (opt-in) and `tests/verify-hosts.bats` | Linux and opencode 1.x unverified; opencode skills are a file check only. |
 | `--dry-run` changes nothing | `tests/install.bats` ("--dry-run lists the writes the real run makes and changes nothing") | Companion command text is printed, not run. |
 | A selected host with no CLI still installs | `tests/install.bats` ("a selected host without its CLI warns...") | None. |
 | `radin update` keeps a failed host in the manifest | `tests/install.bats` ("--update leaves a host whose render fails untouched...") | None. |
@@ -155,6 +156,7 @@ The graph tool name lives in one file and must exist in the upstream table ([whi
   - Every tree-only test replays one recorded `install.sh` run. A live run serves only install-time behavior.
   - The mock command is `tests/helpers/mock.c`, one compiled binary, because `/bin/sh` startup costs 20 ms per stub call.
   - No test makes a network request.
+- Optional: `make verify-hosts` runs the real opencode and codex CLIs. It needs a C compiler and, with `VERIFY_ARGS=--install-missing`, npm.
 - Update the docs in the same commit: `docs/DECISIONS.md` (a new constraint or decision, as one rule plus its `**Why:**`), `docs/lifecycle/*.mmd` (a changed skill flow, run-loop phase, leaf step or task status), the README (a new skill or companion).
 
 ## Test coverage

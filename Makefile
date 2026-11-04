@@ -1,4 +1,4 @@
-.PHONY: install update build run test golden bench-tui screenshot lint check gen diagrams serve-diagrams clean
+.PHONY: install update build run test golden verify-hosts bench-tui screenshot lint check gen diagrams serve-diagrams clean
 
 install:
 	./install.sh
@@ -52,6 +52,20 @@ test: build
 golden:
 	env -u CLAUDE_CONFIG_DIR -u CODEX_HOME -u XDG_CONFIG_HOME -u OPENCODE_CONFIG GOLDEN_UPDATE=1 bats --filter 'golden render of the Claude install' tests/install.bats
 
+# Opt-in: drives the real opencode and codex CLIs without a model call. Needs a C
+# compiler, about a minute per host, and npm for VERIFY_ARGS=--install-missing.
+VERIFY_ARGS ?=
+verify-hosts:
+	@before=$$(scripts/real-setup-sum.sh); \
+		env -u CLAUDE_CONFIG_DIR -u CODEX_HOME -u XDG_CONFIG_HOME -u OPENCODE_CONFIG scripts/verify-hosts.sh $(VERIFY_ARGS); \
+		status=$$?; \
+		after=$$(scripts/real-setup-sum.sh); \
+		if [ "$$before" != "$$after" ]; then \
+			echo "make verify-hosts changed the real setup:"; \
+			printf "before:\n%s\nafter:\n%s\n" "$$before" "$$after"; status=1; \
+		fi; \
+		exit $$status
+
 # Key-to-frame latency on a seeded 42-task backlog; see tests/bench-tui.sh.
 bench-tui:
 	@tests/bench-tui.sh
@@ -60,7 +74,7 @@ bench-tui:
 screenshot:
 	@scripts/screenshot-tui.sh
 
-SH_FILES = tests/bench-tui.sh scripts/screenshot-tui.sh scripts/shipped.sh install.sh bin/radin lib/radin-namespace.sh lib/radin-json.sh lib/radin-backlog.sh lib/radin-state.sh lib/radin-scope.sh lib/radin-prompt.sh lib/radin-cbm-hooks.sh lib/radin-cbm-config.sh lib/radin-update.sh lib/radin-doctor.sh lib/radin-stats.sh lib/radin-uninstall.sh scripts/check-prose.sh scripts/real-setup-sum.sh scripts/golden-render.sh scripts/render-host.sh
+SH_FILES = tests/bench-tui.sh scripts/screenshot-tui.sh scripts/shipped.sh install.sh bin/radin lib/radin-namespace.sh lib/radin-json.sh lib/radin-backlog.sh lib/radin-state.sh lib/radin-scope.sh lib/radin-prompt.sh lib/radin-cbm-hooks.sh lib/radin-cbm-config.sh lib/radin-update.sh lib/radin-doctor.sh lib/radin-stats.sh lib/radin-uninstall.sh scripts/check-prose.sh scripts/real-setup-sum.sh scripts/golden-render.sh scripts/render-host.sh scripts/verify-hosts.sh
 
 clean:
 	rm -f lib/radin-tui lib/radin-cbm-json tests/helpers/pty-run tests/helpers/mock

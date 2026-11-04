@@ -37,6 +37,20 @@ codex debug prompt-input | grep radin-batch
 `radin doctor` prints a `NOTE` when the hooks are untrusted, and `OK` once the trust is recorded.
 The Codex skills listing is informational: a `NOTE` there does not fail the check.
 
+To check against the real CLI, run `make verify-hosts VERIFY_ARGS="--only codex"`.
+It installs radin into a temporary `HOME` and runs `codex debug prompt-input` there.
+It fails when:
+
+- `codex debug prompt-input` does not list every shipped skill or the `radin:begin` block.
+- `radin doctor` does not print `OK       Codex lists radin skills`.
+- a shipped skill is missing from `~/.agents/skills` or has no `name:` line.
+- an unresolved token such as `@@skill:` or `RADIN_CLI` survives in an installed file or in the prompt input.
+
+The target prints the hooks line from `radin doctor` and never judges it. You trust hooks in `/hooks`.
+
+Prerequisites: a C compiler, and npm when you add `--install-missing`.
+That flag installs the pinned `@openai/codex@0.166.0` into the temporary directory.
+
 ## Troubleshooting
 
 **Hooks are untrusted.** `radin doctor` prints `Codex hooks untrusted`.
