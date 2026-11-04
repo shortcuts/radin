@@ -248,3 +248,27 @@ JSON
   [ -z "$(git -C "$WORK/proj-t-two" status --porcelain)" ]
   [ "$(git -C "$P" stash list | grep -c .)" -eq 2 ]
 }
+
+@test "report prints the unverified line when the session gate never ran" {
+  printf 't-one\t1\t\tpending\n' | state steps-init >/dev/null
+  run state report
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Net-new backlog entries this session: 0. Nothing verified these commits yet"* ]]
+}
+
+@test "report says the session gate reviewed the session once gate-done is set" {
+  printf 't-one\t1\t\tpending\n' | state steps-init >/dev/null
+  state gate-done
+  run state report
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Net-new backlog entries this session: 0. Reviewed by the session gate."* ]]
+  [[ "$output" != *"Nothing verified"* ]]
+}
+
+@test "steps-init clears gate-done, so the next session prints the unverified line again" {
+  printf 't-one\t1\t\tpending\n' | state steps-init >/dev/null
+  state gate-done
+  printf 't-one\t1\t\tpending\n' | state steps-init >/dev/null
+  run state report
+  [[ "$output" == *"Nothing verified these commits yet"* ]]
+}

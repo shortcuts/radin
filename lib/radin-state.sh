@@ -54,6 +54,7 @@
 #   radin-state.sh stash-claim <hash> <id|->    # record the router's verdict for a stash: a task id makes prepare apply the stash in that task's tree, "-" leaves it; exit 1 when the stash was triaged already
 #   radin-state.sh gate-fix <hash>...           # record the gate's fix commits (state/gate-fixes) so session-commits lists them
 #   radin-state.sh gate-filed <id>...           # the gate filed these entries: append them to BACKLOG_STEPS.json as pending and mark the session's one review round used; exit 1 when it is used already
+#   radin-state.sh gate-done                    # the gate returned SUCCESS or filed entries: mark the session reviewed for report
 #   radin-state.sh deps-check <id>             # print "dep<TAB>hash" per dependency, exit 1 naming the first unresolved one (radin-prompt.sh)
 #   radin-state.sh task-dir <id>                # print the task's worktree if it exists, else the repo root (radin-prompt.sh)
 #   radin-state.sh journal-tail [n]             # last n journal events (default 20)
@@ -668,7 +669,7 @@ steps-init)
 		esac
 		printf '{"backlog_count":%s,"completed_count":%s,"base_branch":"%s"}\n' \
 			"${backlog_count:-0}" "${completed_count:-0}" "$(json_escape "$base_branch")" >"$state_dir/baseline.json"
-		rm -f "$state_dir/gate-fixes" "$state_dir/gate-reviewed"
+		rm -f "$state_dir/gate-fixes" "$state_dir/gate-reviewed" "$state_dir/gate-done"
 	fi
 	journal "$state_dir" "steps-init" "" "$n entries"
 	printf 'steps-init: wrote %d entries to %s\n' "$n" "$file"
@@ -949,6 +950,11 @@ gate-filed)
 	done
 	: >"$ns/state/gate-reviewed"
 	journal "$ns/state" "gate-filed" "" "$*"
+	;;
+
+gate-done)
+	: >"$ns/state/gate-done"
+	journal "$ns/state" "gate-done" "" ""
 	;;
 
 deps-check)
@@ -1943,7 +1949,11 @@ report)
 		now="$( (cd "$repo_root" 2>/dev/null && bash "$LIB_DIR/radin-backlog.sh" count 2>/dev/null) || printf '0')"
 		added=$((now - base_backlog + n_ok))
 		[ "$added" -ge 0 ] || added=0
-		printf 'Net-new backlog entries this session: %d. Nothing verified these commits yet -- /radin-review is that pass.\n' "$added"
+		if [ -e "$state_dir/gate-done" ]; then
+			printf 'Net-new backlog entries this session: %d. Reviewed by the session gate.\n' "$added"
+		else
+			printf 'Net-new backlog entries this session: %d. Nothing verified these commits yet -- /radin-review is that pass.\n' "$added"
+		fi
 	fi
 	printf '%s.\n' "$residual"
 	[ -z "$succeeded" ] || printf '\nSucceeded:%s\n' "$succeeded"
@@ -2073,6 +2083,6 @@ finding-classes)
 	;;
 
 *)
-	die "unknown command: ${cmd:-<none>} (teardown|steps-init|steps-list|steps-open|steps-waiting|answered|retry|task-next|task-report|task-fact|task-diagnosis|task-done|set-status|stuck|preflight|resume|recover|recover-reject|report|session-set|session-get|prepare|dirty-check|trace|completed-show|completed-list|unlanded|session-commits|gate-map|leftovers|stash-triage|stash-claim|reconcile|gate-fix|gate-filed|deps-check|task-dir|journal-tail|plan-covers|review-findings|finding-classes)"
+	die "unknown command: ${cmd:-<none>} (teardown|steps-init|steps-list|steps-open|steps-waiting|answered|retry|task-next|task-report|task-fact|task-diagnosis|task-done|set-status|stuck|preflight|resume|recover|recover-reject|report|session-set|session-get|prepare|dirty-check|trace|completed-show|completed-list|unlanded|session-commits|gate-map|leftovers|stash-triage|stash-claim|reconcile|gate-fix|gate-filed|gate-done|deps-check|task-dir|journal-tail|plan-covers|review-findings|finding-classes)"
 	;;
 esac
