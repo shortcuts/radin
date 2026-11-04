@@ -49,26 +49,31 @@ No MCP or API access: log from the ask alone, and continue.
 
 Settle judgment calls here, while the user is present.
 
-Apply `RADIN_LIB/radin-open-decisions.md` to each item. Look up each Fact now in the
-repo, its docs or the API, and keep the answer for Step 5's body. Ask the item's
-Decisions now, before the next item and before Step 5's list. Keep every settled
-answer for Step 5's body. An item with no Decision asks nothing, and so does a stub,
-one deliberately deferred whole.
+Apply `RADIN_LIB/radin-open-decisions.md` to each item. Look up every Fact first, in the
+repo, its docs or the API, and keep each answer for Step 5's body. Then settle the
+item's remaining Decisions now, before the next item and before Step 5's list. Keep
+every settled answer for Step 5's body. An item with no Decision asks nothing, and so
+does a stub, one deliberately deferred whole.
 
 **Why:** `radin-batch` cannot ask mid-run, so every question left in an entry stalls
 that run. The user is present now and the batch is not.
 
-Pick the channel by the Decisions:
+**The test:** can one question per Decision settle it, with no scope left to define?
+Yes: the clear-prompt channel below. No: the grilling channel.
 
+Pick the channel for the remaining Decisions. Take the first match:
+
+- **The prompt is vague, the task is complex, or the answers are open-ended or depend on
+  each other, or there are more than 4 Decisions:** invoke `@@skill:grilling@@` on them.
 <!-- host:claude -->
-- **Up to 4 Decisions, each with discrete options:** one `AskUserQuestion` call.
-  Put your recommendation first, marked "(Recommended)".
+- **The prompt is clear and up to 4 Decisions each have discrete options:** one
+  `AskUserQuestion` call. Put your recommendation first, marked "(Recommended)".
 <!-- /host -->
 <!-- host:agents -->
-- **Up to 4 Decisions, each with discrete options:** one ask per `RADIN_LIB/radin-ask-rule.md`.
+- **The prompt is clear and up to 4 Decisions each have discrete options:** one ask per
+  `RADIN_LIB/radin-ask-rule.md`.
 <!-- /host -->
-- **More than 4, open-ended answers, or answers that depend on each other:** invoke
-  `@@skill:grilling@@` on them.
+- **No Decision remains after the Fact lookups:** ask nothing.
 
 **The test:** does Step 5's list show a question for the user to answer? Then it
 belongs here. Step 5 asks only whether the split, the dependencies and the plan
