@@ -8,6 +8,7 @@ skill radin-review
 skill radin-stats
 skill radin-teardown
 skill radin-uninstall
+lib radin-host.sh
 lib radin-namespace.sh
 lib radin-json.sh
 lib radin-backlog.sh

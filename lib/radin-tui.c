@@ -119,6 +119,8 @@ static char LIB_DIR[PATH_MAX], BACKLOG[PATH_MAX], STATE[PATH_MAX];
 static char REPO_ROOT[PATH_MAX], NAMESPACE_DIR[PATH_MAX], BACKLOG_DIR[PATH_MAX],
 	BACKLOG_TASKS_DIR[PATH_MAX];
 static char DETAIL_FILE[PATH_MAX];
+static const char *HOST_DIR = ".claude";
+static char HOST_TAG[32]; /* "  host:NAME" off the claude host, else empty */
 static struct termios TIO_SAVE;
 static int TIO_SAVED;
 static int PENDING = -1;
@@ -1226,8 +1228,8 @@ static void draw(void) {
 	TOP = clamp_top_wrapped(SEL, TOP, list_h, iw);
 
 	char header[1200], text[1200];
-	snprintf(header, sizeof header, "radin backlog  %d task(s)  sort:%s", TASK_N,
-		sort_name());
+	snprintf(header, sizeof header, "radin backlog  %d task(s)  sort:%s%s", TASK_N,
+		sort_name(), HOST_TAG);
 	if (*SEARCH)
 		snprintf(header + strlen(header), sizeof header - strlen(header),
 			"  search:\"%s\"", SEARCH);
@@ -1363,7 +1365,7 @@ static void draw_done(void) {
 	if (list_h < 1) list_h = 1;
 	DONE_TOP = clamp_top(DONE_SEL, DONE_TOP, list_h);
 	char header[1200];
-	snprintf(header, sizeof header, "radin done  %d completed", DONE_N);
+	snprintf(header, sizeof header, "radin done  %d completed%s", DONE_N, HOST_TAG);
 	frame_begin();
 	bar(header, 0, BAR_HEAD);
 	int end = DONE_TOP + list_h;
@@ -2121,6 +2123,17 @@ static void mkdirs(const char *path) {
 
 /* Same resolution as radin-namespace.sh: the git top level, else $PWD. */
 static void resolve_namespace(void) {
+	/* Same mapping as lib/radin-host.sh; keep the two in step. */
+	const char *host = getenv("RADIN_HOST");
+	if (host && *host && strcmp(host, "claude")) {
+		if (!strcmp(host, "agents")) HOST_DIR = ".agents";
+		else {
+			char m[96];
+			snprintf(m, sizeof m, "unknown host '%.40s' (expected claude|agents)", host);
+			die(m);
+		}
+		snprintf(HOST_TAG, sizeof HOST_TAG, "  host:%s", host);
+	}
 	char *av[5] = {(char *)"/usr/bin/env", (char *)"git", (char *)"rev-parse",
 		(char *)"--show-toplevel", NULL};
 	int ok;
@@ -2129,7 +2142,7 @@ static void resolve_namespace(void) {
 	if (ok && *top) snprintf(REPO_ROOT, sizeof REPO_ROOT, "%s", top);
 	else if (!getcwd(REPO_ROOT, sizeof REPO_ROOT)) die("cannot resolve the repo root");
 	free(top);
-	snprintf(NAMESPACE_DIR, sizeof NAMESPACE_DIR, "%s/.claude/.radin", REPO_ROOT);
+	snprintf(NAMESPACE_DIR, sizeof NAMESPACE_DIR, "%s/%s/.radin", REPO_ROOT, HOST_DIR);
 	snprintf(BACKLOG_DIR, sizeof BACKLOG_DIR, "%s/backlog", NAMESPACE_DIR);
 	snprintf(BACKLOG_TASKS_DIR, sizeof BACKLOG_TASKS_DIR, "%s/tasks", BACKLOG_DIR);
 	char p[PATH_MAX];

@@ -105,8 +105,8 @@ require_index() {
 # A worktree the user made has its own empty backlog while the entries sit in
 # the main checkout, so a read verb borrows the main checkout's index.
 borrow_main_index() {
-	[ -s "$BACKLOG_INDEX" ] || [ "$GIT_DIR_REL" = "$GIT_COMMON_REL" ] || [ ! -s "${GIT_COMMON_REL%/.git}/.claude/.radin/backlog/index.jsonl" ] ||
-		BACKLOG_INDEX="${GIT_COMMON_REL%/.git}/.claude/.radin/backlog/index.jsonl"
+	[ -s "$BACKLOG_INDEX" ] || [ "$GIT_DIR_REL" = "$GIT_COMMON_REL" ] || [ ! -s "${GIT_COMMON_REL%/.git}/$HOST_DIR/.radin/backlog/index.jsonl" ] ||
+		BACKLOG_INDEX="${GIT_COMMON_REL%/.git}/$HOST_DIR/.radin/backlog/index.jsonl"
 }
 
 TAB="$(printf '\t')"

@@ -5,9 +5,12 @@
 # script first and reads REPO_ROOT / NAMESPACE_DIR / BACKLOG_INDEX /
 # BACKLOG_TASKS_DIR from its stdout.
 #
-# All state lives inside the current repo, at <repo-root>/.claude/.radin/.
+# All state lives inside the current repo, at <repo-root>/.claude/.radin/ (.agents/.radin/ for host agents).
 # Outside a git repo, the current directory takes the repo root's place.
 set -euo pipefail
+
+# shellcheck disable=SC1091
+. "${BASH_SOURCE[0]%/*}/radin-host.sh"
 
 # One fork answers all three questions: a git call is ~12ms and every CLI call pays it.
 GIT_REVS="$(git rev-parse --show-toplevel --git-dir --git-common-dir 2>/dev/null || true)"
@@ -26,11 +29,11 @@ if [ "$GIT_DIR_REL" != "$GIT_COMMON_REL" ]; then
 	case "$task_branch" in
 	radin/?*)
 		parent="${REPO_ROOT%-"${task_branch#radin/}"}"
-		[ "$parent" = "$REPO_ROOT" ] || [ ! -d "$parent/.claude/.radin" ] || REPO_ROOT="$parent"
+		[ "$parent" = "$REPO_ROOT" ] || [ ! -d "$parent/$HOST_DIR/.radin" ] || REPO_ROOT="$parent"
 		;;
 	esac
 fi
-NAMESPACE_DIR="$REPO_ROOT/.claude/.radin"
+NAMESPACE_DIR="$REPO_ROOT/$HOST_DIR/.radin"
 BACKLOG_TASKS_DIR="$NAMESPACE_DIR/backlog/tasks"
 # One `mkdir` exec per CLI call is ~3ms every skill pays; the dirs only need
 # creating once per repo.

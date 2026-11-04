@@ -317,14 +317,14 @@ task_dir() {
 }
 
 dirty_files() {
-	git -C "$1" status --porcelain -- . ':(exclude).claude/.radin'
+	git -C "$1" status --porcelain -- . ":(exclude)$HOST_DIR/.radin"
 }
 
 # Stages everything in tree $1 except .claude/.radin and commits it with a subject
 # that names the changed files, so the log shows what the commit holds. $2 is the body.
 commit_dirty() {
 	local names
-	git -C "$1" add -A -- . ':(exclude).claude/.radin'
+	git -C "$1" add -A -- . ":(exclude)$HOST_DIR/.radin"
 	names="$(git -C "$1" diff --cached --name-only | awk -F/ '{print $NF}' | awk 'NR<=3{a=a (a?", ":"") $0} END{if (NR>3) a=a " +" NR-3 " more"; print a}')"
 	git -C "$1" commit --no-verify -q -m "wip: update $names" -m "$2" >/dev/null
 }
@@ -332,7 +332,7 @@ commit_dirty() {
 # Commits everything in tree $1 except .claude/.radin as unfinished work of task
 # $2 and prints the short hash. --no-verify: a failing hook must not strand work.
 wip_commit() {
-	git -C "$1" add -A -- . ':(exclude).claude/.radin'
+	git -C "$1" add -A -- . ":(exclude)$HOST_DIR/.radin"
 	git -C "$1" commit --no-verify -q -m "wip($2): unfinished work, task not complete" -m "$3" >/dev/null
 	git -C "$1" rev-parse --short HEAD
 }
@@ -476,7 +476,7 @@ prepare_apply_claim() {
 		printf 'radin: applied stash %s into %s as the base of task %s\n' "$h" "$1" "$2" >&2
 	else
 		git -C "$1" reset --hard -q
-		git -C "$1" clean -fdq -e .claude/.radin
+		git -C "$1" clean -fdq -e "$HOST_DIR/.radin"
 		mv "$claim" "$claim.failed"
 		journal "$ns/state" "stash-apply-failed" "$2" "$h"
 		printf 'radin: stash %s did not apply to %s; the tree starts clean\n' "$h" "$1" >&2
@@ -1291,8 +1291,8 @@ task-done)
 		exit 3
 	fi
 	# radin's namespace is the repo owner's call to track, never a task commit's.
-	if git -C "$dir" diff-tree --no-commit-id --name-only -r --root "$hash" 2>/dev/null | grep -q '^\.claude/\.radin/'; then
-		printf 'task-done: %s changes a file under .claude/.radin/\n' "$hash" >&2
+	if git -C "$dir" diff-tree --no-commit-id --name-only -r --root "$hash" 2>/dev/null | grep -q "^\\$HOST_DIR/\\.radin/"; then
+		printf 'task-done: %s changes a file under %s/.radin/\n' "$hash" "$HOST_DIR" >&2
 		exit 3
 	fi
 	# A commit that sits on a side branch is not done: the entry stays, blocked,
@@ -1668,7 +1668,7 @@ task-report)
 	*) die "no SUCCESS/FAILED/INCONCLUSIVE/BLOCKED in that line: $line -- pass --no-status when the sub-agent produced none" ;;
 	esac
 	if [ "$word" = "PLANNED" ]; then
-		# A planning leaf writes only under .claude/.radin/, so no tree check.
+		# A planning leaf writes only under the state directory, so no tree check.
 		detail="${line#*—}"
 		case "$detail" in
 		" none needed"*) (cd "$repo_root" && bash "$LIB_DIR/radin-backlog.sh" set-meta "$id" planning --none >/dev/null) ;;
@@ -1875,7 +1875,7 @@ report)
 
 	# Residual changes: committed, never left dangling. The summary reports the hash.
 	residual="no residual changes"
-	if [ -n "$(git -C "$repo_root" status --porcelain -- . ':(exclude).claude/.radin' 2>/dev/null)" ]; then
+	if [ -n "$(git -C "$repo_root" status --porcelain -- . ":(exclude)$HOST_DIR/.radin" 2>/dev/null)" ]; then
 		commit_dirty "$repo_root" "radin committed these at session end; no task owns them. Amend or split as needed." ||
 			die "cannot commit the residual changes"
 		ref="$(git -C "$repo_root" rev-parse --short HEAD)"

@@ -8,10 +8,29 @@ set -euo pipefail
 LIB="$HOME/.claude/.radin/lib"
 
 usage() {
-	printf 'usage: radin <backlog|state|scope|prompt|stats|hooks|wire|repair|update|doctor|uninstall> [args]\n'
+	printf 'usage: radin [--host claude|agents] <backlog|state|scope|prompt|stats|hooks|wire|repair|update|doctor|uninstall> [args]\n'
 	printf 'With no subcommand on a terminal, radin opens the TUI; "radin help" prints this text.\n'
 	printf 'Each subcommand prints its own usage when run with no arguments.\n'
 }
+
+while :; do
+	case "${1:-}" in
+	--host=*) RADIN_HOST="${1#--host=}" ;;
+	--host)
+		[ $# -ge 2 ] || {
+			usage >&2
+			exit 2
+		}
+		RADIN_HOST="$2"
+		shift
+		;;
+	*) break ;;
+	esac
+	shift
+done
+export RADIN_HOST="${RADIN_HOST:-claude}"
+# shellcheck disable=SC1091
+. "$LIB/radin-host.sh"
 
 cmd="${1:-}"
 # Bare `radin` is the human entry point: on a terminal it execs the TUI.

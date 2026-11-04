@@ -53,6 +53,7 @@ Record, plan, execute, review. Each skill runs in your own conversation, so it c
 | `/radin-teardown` | Gracefully stop a running batch: finish the current task, gate and merge, start nothing new |
 | `/radin-uninstall` | Remove what the installer put in `~/.claude` |
 | `radin` | Full-screen backlog browser in your terminal. Press `?` for keys |
+| `radin --host agents ...` | Same command for the agents host: state in `.agents/.radin` instead of `.claude/.radin` |
 
 A task has a category (`feat`, `fix`, `chore`, `refactor`), an optional priority and
 dependencies, and can sit under an epic. Every field and key: [docs/reference.md](docs/reference.md).

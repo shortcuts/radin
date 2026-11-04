@@ -159,3 +159,25 @@ load helpers/tui
   [[ "$output" == *"broken auth"* ]]
 }
 
+
+@test "RADIN_HOST=agents shows the host and keeps state under .agents/.radin" {
+  export RADIN_HOST=agents
+  run tui "a|x|from tui\r|q"
+  [ "$status" -eq 0 ]
+  grep -q '"id":"from-tui"' "$WORK/proj/.agents/.radin/backlog/index.jsonl"
+  [ ! -e "$WORK/proj/.claude" ]
+  last_frame | grep -q 'host:agents'
+}
+
+@test "the claude host header shows no host tag" {
+  seed
+  run tui "q"
+  [ "$status" -eq 0 ]
+  ! last_frame | grep -q 'host:'
+}
+
+@test "an unknown RADIN_HOST stops the TUI" {
+  RADIN_HOST=nope run tui "q"
+  [ "$status" -ne 0 ]
+  [ ! -e "$WORK/proj/.claude" ]
+}

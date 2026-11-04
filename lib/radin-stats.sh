@@ -9,6 +9,8 @@
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+. "$HERE/radin-host.sh"
 since="" repos_root="$HOME/Documents" do_tx=1 do_repos=1 do_comp=1
 while [ $# -gt 0 ]; do
 	case "$1" in
@@ -168,9 +170,9 @@ END {
 outcomes() {
 	local d r n list
 	printf 'repo\ttasks\tmissing\trefixed\treverted\tclean%%\n'
-	for d in "$repos_root"/*/.claude/.radin; do
+	for d in "$repos_root"/*/"$HOST_DIR"/.radin; do
 		[ -d "$d" ] || continue
-		r="${d%/.claude/.radin}"
+		r="${d%/"$HOST_DIR"/.radin}"
 		n="$(basename "$r")"
 		list="$(cd "$r" && bash "$HERE/radin-state.sh" completed-list 2>/dev/null || true)"
 		[ -n "$list" ] || continue
@@ -214,9 +216,9 @@ cost_vs_quality() {
 repos() {
 	local d r n open
 	printf 'repo\topen\tstarted\tdone\tfailed\tblocked\tdebug\tsub-agent-tokens\tsub-agent-tools\tsub-agent-min\n'
-	for d in "$repos_root"/*/.claude/.radin; do
+	for d in "$repos_root"/*/"$HOST_DIR"/.radin; do
 		[ -d "$d" ] || continue
-		r="${d%/.claude/.radin}"
+		r="${d%/"$HOST_DIR"/.radin}"
 		n="$(basename "$r")"
 		open="$(cd "$r" && bash "$HERE/radin-backlog.sh" count 2>/dev/null || printf '?')"
 		(cd "$r" && bash "$HERE/radin-state.sh" journal-tail 1000000 2>/dev/null || true) |
