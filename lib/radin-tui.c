@@ -120,7 +120,8 @@ static char REPO_ROOT[PATH_MAX], NAMESPACE_DIR[PATH_MAX], BACKLOG_DIR[PATH_MAX],
 	BACKLOG_TASKS_DIR[PATH_MAX];
 static char DETAIL_FILE[PATH_MAX];
 static const char *HOST_DIR = ".claude";
-static char HOST_TAG[32]; /* "  host:NAME" off the claude host, else empty */
+static char HOST_TAG[40]; /* "  host:NAME" off the claude host, else empty */
+static int MERGED; /* both host backlogs hold entries: ids read "<host>:<id>", read-only */
 static struct termios TIO_SAVE;
 static int TIO_SAVED;
 static int PENDING = -1;
@@ -744,12 +745,22 @@ static const char *sort_name(void) {
 /* st_mtime is seconds on macOS and Linux alike (st_mtimespec vs st_mtim are
  * not), so no platform branch; st_size carries the same-second case. */
 static int index_stamp(time_t *mt, off_t *sz) {
-	char path[PATH_MAX];
-	struct stat st;
-	snprintf(path, sizeof path, "%s/index.jsonl", BACKLOG_DIR);
-	if (stat(path, &st) < 0) return 0;
-	*mt = st.st_mtime;
-	*sz = st.st_size;
+	const char *hosts[2] = {HOST_DIR, ".agents"};
+	int n = 1;
+	if (MERGED) {
+		hosts[0] = ".claude";
+		n = 2;
+	}
+	*mt = 0;
+	*sz = 0;
+	for (int i = 0; i < n; i++) {
+		char path[PATH_MAX];
+		struct stat st;
+		snprintf(path, sizeof path, "%s/%s/.radin/backlog/index.jsonl", REPO_ROOT, hosts[i]);
+		if (stat(path, &st) < 0) return 0;
+		*mt += st.st_mtime;
+		*sz += st.st_size;
+	}
 	return 1;
 }
 
@@ -762,8 +773,9 @@ static int index_changed(void) {
 
 static void load_session(void) {
 	int ok;
-	char *out = cli(STATE, &ok, 0, NULL, "session-get", NULL);
 	WT = BR = -1;
+	if (MERGED) return;
+	char *out = cli(STATE, &ok, 0, NULL, "session-get", NULL);
 	if (ok) {
 		WT = strstr(out, "worktree\tyes") != NULL;
 		BR = strstr(out, "branch\tyes") != NULL;
@@ -844,7 +856,14 @@ static void load(void) {
 				if (!strncmp(t->file, "tasks/", 6)) {
 					const char *rest = t->file + 6;
 					const char *slash = strchr(rest, '/');
-					if (slash) copy_field(t->epic, sizeof t->epic, rest, slash - rest);
+					if (slash) {
+						copy_field(t->epic, sizeof t->epic, rest, slash - rest);
+						if (MERGED) {
+							char key[SLOT];
+							snprintf(key, sizeof key, "%.*s:%s", (int)(strchr(t->id, ':') - t->id), t->id, t->epic);
+							snprintf(t->epic, sizeof t->epic, "%s", key);
+						}
+					}
 				}
 			}
 		}
@@ -861,8 +880,23 @@ static int cur_task(void) {
 	return row_task[SEL];
 }
 
+/* The state directory of the host that owns an id or epic key: its "<host>:"
+ * prefix in the merged view, else the one namespace. *bare is the key without it. */
+static void host_ns(const char *key, char *dst, size_t cap, const char **bare) {
+	const char *colon = MERGED ? strchr(key, ':') : NULL;
+	if (!colon) {
+		snprintf(dst, cap, "%s", NAMESPACE_DIR);
+		if (bare) *bare = key;
+		return;
+	}
+	snprintf(dst, cap, "%s/.%.*s/.radin", REPO_ROOT, (int)(colon - key), key);
+	if (bare) *bare = colon + 1;
+}
+
 static void task_path(int ti, char *dst, size_t cap) {
-	snprintf(dst, cap, "%s/%s", BACKLOG_DIR, T[ti].file);
+	char ns[PATH_MAX];
+	host_ns(T[ti].id, ns, sizeof ns, NULL);
+	snprintf(dst, cap, "%s/backlog/%s", ns, T[ti].file);
 }
 
 /* The task's `backlog meta` output as of the last load(), as a copy the
@@ -1069,9 +1103,11 @@ static void det_field(const char *label, const char *val) {
 
 /* A `meta` plan path is absolute or relative to NAMESPACE_DIR. One owner,
  * because the pane and the composed document must open the same file. */
-static void plan_abs(const char *p, char *dst, size_t cap) {
+static void plan_abs(const char *id, const char *p, char *dst, size_t cap) {
+	char ns[PATH_MAX];
+	host_ns(id, ns, sizeof ns, NULL);
 	if (*p == '/') snprintf(dst, cap, "%s", p);
-	else snprintf(dst, cap, "%s/%s", NAMESPACE_DIR, p);
+	else snprintf(dst, cap, "%s/%s", ns, p);
 }
 
 /* Fills DET with the selected row's detail document as markdown source: the
@@ -1158,7 +1194,7 @@ static void build_detail(int width) {
 				if (!strncmp(line, "plan\t", 5)) {
 					const char *rel = line + 5;
 					char abs[PATH_MAX];
-					plan_abs(rel, abs, sizeof abs);
+					plan_abs(T[ti].id, rel, abs, sizeof abs);
 					det_push("### %s", rel);
 					det_push("");
 					FILE *pf = fopen(abs, "r");
@@ -1883,6 +1919,22 @@ static void new_epic(void) {
 	else setmsg("created epic %s -- description left empty", epic);
 }
 
+/* An epic's DESCRIPTION.md: `epic-show` on one host, the file itself in the
+ * merged view, where `epic-show` is not an allowed verb. Caller frees. */
+static char *epic_text(const char *epic, int *ok) {
+	if (!MERGED) return cli(BACKLOG, ok, 0, NULL, "epic-show", epic, NULL);
+	char ns[PATH_MAX], path[PATH_MAX], *buf = xmalloc(BIG);
+	const char *bare;
+	host_ns(epic, ns, sizeof ns, &bare);
+	snprintf(path, sizeof path, "%s/backlog/tasks/%s/DESCRIPTION.md", ns, bare);
+	FILE *f = fopen(path, "r");
+	size_t n = f ? fread(buf, 1, BIG - 1, f) : 0;
+	if (f) fclose(f);
+	buf[n] = 0;
+	*ok = f != NULL;
+	return buf;
+}
+
 /* The whole human-side composition: everything the agent-facing stack keeps
  * behind pointers, gathered for the selected row. */
 static void compose_detail(FILE *f) {
@@ -1890,7 +1942,7 @@ static void compose_detail(FILE *f) {
 	int ok;
 	if (ti < 0) {
 		fprintf(f, "# epic: %s\n\n", row_epic[SEL]);
-		char *d = cli(BACKLOG, &ok, 0, NULL, "epic-show", row_epic[SEL], NULL);
+		char *d = epic_text(row_epic[SEL], &ok);
 		fputs(ok && *d ? d : "(no description)\n", f);
 		free(d);
 		fprintf(f, "\n## Tasks\n\n");
@@ -1914,7 +1966,7 @@ static void compose_detail(FILE *f) {
 	fprintf(f, "\n## Epic\n\n");
 	if (*T[ti].epic) {
 		fprintf(f, "%s\n\n", T[ti].epic);
-		char *d = cli(BACKLOG, &ok, 0, NULL, "epic-show", T[ti].epic, NULL);
+		char *d = epic_text(T[ti].epic, &ok);
 		fputs(ok && *d ? d : "(no description)\n", f);
 		free(d);
 	} else {
@@ -1930,7 +1982,7 @@ static void compose_detail(FILE *f) {
 		if (!strncmp(line, "plan\t", 5)) {
 			const char *p = line + 5;
 			char abs[PATH_MAX];
-			plan_abs(p, abs, sizeof abs);
+			plan_abs(T[ti].id, p, abs, sizeof abs);
 			fprintf(f, "### %s\n\n", p);
 			FILE *pf = fopen(abs, "r");
 			if (pf) {
@@ -2100,7 +2152,9 @@ static void help_screen(void) {
 		"Epic rows are headers; collapse is per-session.\n"
 		"At 100 columns or more the detail is the right-hand 60%% of the screen;\n"
 		"under that it is not drawn at all and enter opens it full-screen.\n"
-		"Tasks live in .claude/.radin/backlog/ in this repo.\n\n"
+		"Tasks live in .claude/.radin/backlog/ in this repo.\n"
+		"With both .claude and .agents backlogs the view merges them, read-only:\n"
+		"ids read claude:<id> / agents:<id>; edit through radin --host <host>.\n\n"
 		"press any key\n");
 	fflush(stdout);
 	FULL = 1;
@@ -2122,7 +2176,7 @@ static void mkdirs(const char *path) {
 }
 
 /* Same resolution as radin-namespace.sh: the git top level, else $PWD. */
-static void resolve_namespace(void) {
+static void resolve_namespace(int merge) {
 	/* Same mapping as lib/radin-host.sh; keep the two in step. */
 	const char *host = getenv("RADIN_HOST");
 	if (host && *host && strcmp(host, "claude")) {
@@ -2142,6 +2196,26 @@ static void resolve_namespace(void) {
 	if (ok && *top) snprintf(REPO_ROOT, sizeof REPO_ROOT, "%s", top);
 	else if (!getcwd(REPO_ROOT, sizeof REPO_ROOT)) die("cannot resolve the repo root");
 	free(top);
+	if (merge) {
+		int have[2] = {0, 0};
+		const char *hosts[2] = {".claude", ".agents"};
+		for (int i = 0; i < 2; i++) {
+			char ix[PATH_MAX];
+			struct stat st;
+			snprintf(ix, sizeof ix, "%s/%s/.radin/backlog/index.jsonl", REPO_ROOT, hosts[i]);
+			have[i] = stat(ix, &st) == 0 && st.st_size > 0;
+		}
+		if (have[0] && have[1]) {
+			MERGED = 1;
+			HOST_DIR = ".claude";
+			setenv("RADIN_MERGED", "1", 1);
+			snprintf(HOST_TAG, sizeof HOST_TAG, "  host:merged (read-only)");
+		} else if (have[1]) {
+			HOST_DIR = ".agents";
+			setenv("RADIN_HOST", "agents", 1);
+			snprintf(HOST_TAG, sizeof HOST_TAG, "  host:agents");
+		}
+	}
 	snprintf(NAMESPACE_DIR, sizeof NAMESPACE_DIR, "%s/%s/.radin", REPO_ROOT, HOST_DIR);
 	snprintf(BACKLOG_DIR, sizeof BACKLOG_DIR, "%s/backlog", NAMESPACE_DIR);
 	snprintf(BACKLOG_TASKS_DIR, sizeof BACKLOG_TASKS_DIR, "%s/tasks", BACKLOG_DIR);
@@ -2196,7 +2270,9 @@ static void refresh(void) {
 }
 
 int main(int argc, char **argv) {
-	(void)argc;
+	int merge = 0;
+	for (int i = 1; i < argc; i++)
+		if (!strcmp(argv[i], "--merge")) merge = 1;
 	if (!isatty(0) || !isatty(1)) {
 		fprintf(stderr,
 			"radin tui: needs an interactive terminal; use \"radin backlog show\" "
@@ -2213,7 +2289,7 @@ int main(int argc, char **argv) {
 	const char *pm = getenv("RADIN_TUI_POLL_MS");
 	if (pm && atoi(pm) > 0) POLL_MS = atoi(pm);
 	resolve_lib(argv[0]);
-	resolve_namespace();
+	resolve_namespace(merge);
 	snprintf(DETAIL_FILE, sizeof DETAIL_FILE, "%s/tui-detail.XXXXXX", NAMESPACE_DIR);
 	int fd = mkstemp(DETAIL_FILE);
 	if (fd >= 0) close(fd);
@@ -2248,6 +2324,10 @@ int main(int argc, char **argv) {
 			continue;
 		}
 		int ti;
+		if (MERGED && k > 0 && strchr("aEdcrpDmewbo\t", k)) {
+			setmsg("merged view is read-only; run radin --host claude|agents");
+			continue;
+		}
 		switch (k) {
 		case 'e':
 			ti = cur_task();

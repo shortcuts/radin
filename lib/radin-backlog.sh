@@ -19,6 +19,7 @@
 # line that repeats one, so a malformed value fails loudly on write instead of
 # silently yielding nothing on read.
 #
+# Env RADIN_MERGED=1 gives the read-only union of the claude and agents backlogs.
 # Usage:
 #   radin-backlog.sh help [command]              # print every command's usage, or one command's
 #   radin-backlog.sh env [--export]             # print REPO_ROOT/NAMESPACE_DIR/BACKLOG_INDEX/BACKLOG_TASKS_DIR (--export: source-able with export)
@@ -91,6 +92,93 @@ usage_die() {
 }
 
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# RADIN_MERGED=1 (set by `radin --host all` and the TUI) merges the read verbs
+# of .claude/.radin and .agents/.radin, ids prefixed "<host>:". With fewer than
+# two non-empty backlogs it falls through to the one host, plain ids.
+if [ "${RADIN_MERGED:-}" = 1 ]; then
+	unset RADIN_MERGED
+	eval "$(RADIN_HOST=claude bash "$LIB_DIR/radin-namespace.sh")"
+	merged_hosts=""
+	for h in claude agents; do
+		[ ! -s "$REPO_ROOT/.$h/.radin/backlog/index.jsonl" ] || merged_hosts="$merged_hosts $h"
+	done
+	case "$merged_hosts" in
+	" claude agents")
+		merged_self="${BASH_SOURCE[0]}"
+		merged_verb="${1:-}"
+		# Prefix field 1 and every token of the depends-on field (6) with the host.
+		merged_prefix() {
+			awk -F"$1" -v OFS="$1" -v h="$2" '{
+				$1 = h ":" $1
+				n = split($6, a, ",")
+				s = ""
+				for (i = 1; i <= n; i++) if (a[i] != "") s = s (s == "" ? "" : ",") h ":" a[i]
+				$6 = s
+				print
+			}'
+		}
+		case "$merged_verb" in
+		list)
+			merged_list() {
+				for h in claude agents; do
+					RADIN_HOST=$h bash "$merged_self" "$@" | merged_prefix "$(printf '\037')" "$h"
+				done
+			}
+			merged_order=priority
+			case " $* " in *" created "*) merged_order=created ;; esac
+			# shortcut: created order is claude then agents, index order has no cross-file stamp
+			if [ "$merged_order" = created ]; then
+				merged_list "$@"
+			else
+				merged_list "$@" | awk -F"$(printf '\037')" '{ print ($5 == "" ? 1 : 0) "\t" ($5 == "" ? 0 : $5) "\t" $0 }' |
+					sort -s -t"$(printf '\t')" -k1,1n -k2,2nr | cut -f3-
+			fi
+			;;
+		find)
+			merged_q="${2:-}"
+			[ -n "$merged_q" ] || usage_die find "find needs an id or title"
+			merged_one=""
+			case "$merged_q" in
+			claude:* | agents:*)
+				merged_one="${merged_q%%:*}"
+				merged_q="${merged_q#*:}"
+				;;
+			esac
+			merged_out=""
+			for h in claude agents; do
+				[ -z "$merged_one" ] || [ "$merged_one" = "$h" ] || continue
+				r="$(RADIN_HOST=$h bash "$merged_self" find "$merged_q" 2>/dev/null | merged_prefix "$(printf '\t')" "$h" || true)"
+				[ -z "$r" ] || merged_out="$merged_out${merged_out:+
+}$r"
+			done
+			[ -n "$merged_out" ] || die "no entry matches: $2"
+			printf '%s\n' "$merged_out"
+			;;
+		count)
+			c=0
+			for h in claude agents; do
+				c=$((c + $(RADIN_HOST=$h bash "$merged_self" "$@")))
+			done
+			printf '%s\n' "$c"
+			;;
+		show)
+			for h in claude agents; do
+				RADIN_HOST=$h bash "$merged_self" "$@" | sed "1s/.*/# Backlog (host: $h)/"
+			done
+			;;
+		help | --help | -h | env | '') export RADIN_HOST=claude ;;
+		*) die "merged view is read-only; rerun with --host claude|agents" ;;
+		esac
+		case "$merged_verb" in
+		list | find | count | show) exit 0 ;;
+		esac
+		;;
+	" agents") export RADIN_HOST=agents ;;
+	*) export RADIN_HOST=claude ;;
+	esac
+fi
+
 # shellcheck disable=SC1091
 . "$LIB_DIR/radin-json.sh"
 # Sourced, not `eval "$(bash ...)"`: the fork was ~12ms of every CLI call, and

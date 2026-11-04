@@ -60,7 +60,7 @@ teardown() {
 @test "--host with no value exits 2 with the usage text" {
   run "$RADIN" --host
   [ "$status" -eq 2 ]
-  [[ "$output" == *"usage: radin [--host claude|agents]"* ]]
+  [[ "$output" == *"usage: radin [--host claude|agents|all]"* ]]
 }
 
 @test "--host after the subcommand is not the dispatcher's" {
