@@ -326,3 +326,11 @@ render_lib() {
   RADIN_HOST=agents run bash "$REPO_ROOT/lib/radin-scope.sh" "$T/d"
   [[ "$output" == *$'passes\tponytail-audit ponytail-debt'* ]]
 }
+
+@test "the agents render of radin-batch-recovery.md holds no model or effort token" {
+  run "$RENDER" "$REPO_ROOT/lib/radin-batch-recovery.md" agents
+  [ "$status" -eq 0 ]
+  [[ "$output" != *RADIN_MODEL_* && "$output" != *RADIN_EFFORT_* ]]
+  run "$RENDER" "$REPO_ROOT/lib/radin-batch-recovery.md" claude
+  [[ "$output" == *'`model: "RADIN_MODEL_REVIEW"`, `effort: "RADIN_EFFORT_REVIEW"`'* ]]
+}

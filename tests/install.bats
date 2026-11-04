@@ -725,19 +725,15 @@ sha256_file() {
   if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | cut -d' ' -f1; else shasum -a 256 "$1" | cut -d' ' -f1; fi
 }
 
-# A copy of the repo to install from. Two files still fail every agents install:
-# skills/radin-uninstall holds the baselined "~/.claude" (hosts/forbid-baseline.txt),
-# and lib/radin-batch-recovery.md keeps RADIN_MODEL_ and RADIN_EFFORT_ tokens in its
-# agents render. The seds stand in for the host blocks that will wrap them, and
-# do nothing once the strings are gone.
+# A copy of the repo to install from. skills/radin-uninstall still fails every agents
+# install: it holds the baselined "~/.claude" (hosts/forbid-baseline.txt). The sed
+# stands in for the host block that will wrap it.
 agents_root() {
   AROOT="$BATS_TEST_TMPDIR/root"
   mkdir -p "$AROOT"
   (cd "$REPO_ROOT" && cp -R install.sh bin lib skills scripts hosts "$AROOT/")
   sed 's|~/\.claude|the host skills dir|g' "$AROOT/skills/radin-uninstall/SKILL.md" >"$AROOT/tmp.md"
   mv "$AROOT/tmp.md" "$AROOT/skills/radin-uninstall/SKILL.md"
-  sed 's|`model: "RADIN_MODEL_REVIEW"`, `effort: "RADIN_EFFORT_REVIEW"`, ||' "$AROOT/lib/radin-batch-recovery.md" >"$AROOT/tmp.md"
-  mv "$AROOT/tmp.md" "$AROOT/lib/radin-batch-recovery.md"
 }
 
 install_from() {

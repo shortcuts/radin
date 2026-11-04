@@ -28,8 +28,6 @@ setup() {
   (cd "$REPO_ROOT" && cp -R install.sh bin lib skills scripts hosts "$AROOT/")
   sed 's|~/\.claude|the host skills dir|g' "$AROOT/skills/radin-uninstall/SKILL.md" >"$AROOT/tmp.md"
   mv "$AROOT/tmp.md" "$AROOT/skills/radin-uninstall/SKILL.md"
-  sed 's|`model: "RADIN_MODEL_REVIEW"`, `effort: "RADIN_EFFORT_REVIEW"`, ||' "$AROOT/lib/radin-batch-recovery.md" >"$AROOT/tmp.md"
-  mv "$AROOT/tmp.md" "$AROOT/lib/radin-batch-recovery.md"
 }
 
 teardown() {
