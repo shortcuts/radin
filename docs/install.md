@@ -59,5 +59,7 @@ radin keeps a snapshot of `~/.claude/settings.json` and `~/.claude.json` in
 
 ## Uninstall radin
 
-Run `/radin-uninstall` in Claude Code. It removes what `install.sh` put in `~/.claude`.
+Run `/radin-uninstall`, or `radin uninstall`. It removes radin's files from every installed host in one run, strips the radin block from each `CLAUDE.md` and `AGENTS.md`, and removes the opencode allow rule.
+It keeps a file you edited since install. `radin uninstall --dry-run` lists every action and changes nothing. `radin uninstall --force` removes the edited files too.
+Companion tools and `~/.radin/backups` stay.
 To remove codebase-memory-mcp's own changes, run `codebase-memory-mcp uninstall`.

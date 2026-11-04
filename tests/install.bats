@@ -197,6 +197,9 @@ run_install_defaults() {
   [ -z "$(find "$TEST_HOME/.radin/lib" "$TEST_HOME/.radin/hosts/claude/lib" "$TEST_HOME/.radin/bin" -type f)" ]
   [ -z "$(ls "$TEST_HOME/.claude/skills" | grep '^radin-')" ]
   [ -f "$TEST_HOME/.claude/skills/thermo-nuclear/SKILL.md" ]
+  [ ! -e "$TEST_HOME/.radin/manifest.json" ]
+  [ ! -e "$TEST_HOME/.radin/install_root" ]
+  [ ! -e "$TEST_HOME/.radin/lib" ]
 }
 
 @test "writes an install manifest listing installed files and companion tools" {
@@ -797,6 +800,23 @@ assert_no_agents_marker() {
   [ "$(manifest_array hosts)" = '"claude", "codex", "opencode"' ]
   [ "$(manifest_array agents_clis)" = '"codex", "opencode"' ]
   assert_no_agents_marker
+}
+
+@test "uninstall removes what a three-host install wrote and nothing else" {
+  mock_cli codex
+  mock_cli opencode
+  agents_root
+  install_from "$AROOT" --yes --only claude,codex,opencode >/dev/null
+  grep -q 'radin:begin' "$TEST_HOME/.codex/AGENTS.md"
+  run bash "$TEST_HOME/.radin/lib/radin-uninstall.sh"
+  [ "$status" -eq 0 ]
+  [ -z "$(ls "$TEST_HOME/.claude/skills" "$TEST_HOME/.agents/skills" | grep '^radin-')" ]
+  run grep -rl 'radin:begin' "$TEST_HOME/.claude" "$TEST_HOME/.codex" "$TEST_HOME/.config/opencode"
+  [ "$status" -eq 1 ]
+  [ -z "$(ls "$TEST_HOME"/.config/opencode/agents 2>/dev/null | grep '^radin-')" ]
+  run grep -s '\.radin/\*\*' "$TEST_HOME/.config/opencode/opencode.json"
+  [ "$status" -ne 0 ]
+  [ ! -e "$TEST_HOME/.radin/manifest.json" ]
 }
 
 @test "--update keeps the manifest hosts and asks nothing" {
