@@ -13,14 +13,15 @@
 #   radin-prompt.sh merge <branch>...     # the conflicting branches `state reconcile` printed, based on `state leftovers`
 #
 # Writes the prompt to <namespace>/state/prompts/<id>-<kind>.md and prints
-# `model<TAB><name>`, `effort<TAB><level>` when set, and `prompt<TAB><path>`. The router dispatches the path,
+# `model<TAB><name>` and `effort<TAB><level>` when set (the agents host prints
+# neither), and `prompt<TAB><path>`. The router dispatches the path,
 # never the text: echoing a whole prompt back as a Task argument costs output
 # tokens on every dispatch. Exit 1 on a bad kind, an unresolvable id, or an
 # unresolved dependency.
 #
 # One template per kind, radin-prompt-<kind>.md: a single fenced prompt, guarded
 # blocks marked `<!-- if:NAME -->`/`<!-- if:!NAME -->` … `<!-- end -->`, and the
-# role's model on a `model: "<name>"` line, written in at install time. Only the
+# role's model on a `model: "<name>"` line in a claude block, written in at install time. Only the
 # fence reaches the sub-agent; the prose around it is for its editor. One file
 # per kind rather than one shared file, so a `---` line inside a prompt body
 # cannot end the extraction. Nothing about a prompt's text lives here.
@@ -58,13 +59,14 @@ esac
 
 # shellcheck disable=SC2016  # the backticks are the template's markdown, not a subshell
 model="$(sed -n 's/^`model: "\([^"]*\)"`$/\1/p' "$TEMPLATE" | head -1)"
-[ -n "$model" ] || die "no model line in $TEMPLATE"
+# The agents host inherits the parent's model, so its template has no model line.
+[ -n "$model" ] || [ "${RADIN_HOST:-claude}" = agents ] || die "no model line in $TEMPLATE"
 # shellcheck disable=SC2016
 effort="$(sed -n 's/^`effort: "\([^"]*\)"`$/\1/p' "$TEMPLATE" | head -1)"
 
 # An empty effort prints no line: an empty `effort` on an Agent call fails it.
 print_dispatch() {
-	printf 'model\t%s\n' "$model"
+	[ -z "$model" ] || printf 'model\t%s\n' "$model"
 	[ -z "$effort" ] || printf 'effort\t%s\n' "$effort"
 	printf 'prompt\t%s\n' "$1"
 }
@@ -170,7 +172,7 @@ category="$(field CATEGORY)"
 # Category says what the change does to the codebase, not how hard it is: a
 # chore can still need tuning on a device. Only the planner's read of the code
 # marks a task low, and an unsized task keeps the execution model.
-if [ "$kind" = execution ] && [ "$(field COMPLEXITY || true)" = low ]; then
+if [ "$kind" = execution ] && [ -n "$model" ] && [ "$(field COMPLEXITY || true)" = low ]; then
 	# shellcheck disable=SC2016
 	low_model="$(sed -n 's/^`model-low: "\([^"]*\)"`$/\1/p' "$TEMPLATE" | head -1)"
 	[ -n "$low_model" ] || die "no model-low line in $TEMPLATE"

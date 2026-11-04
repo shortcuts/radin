@@ -2,9 +2,11 @@
 
 Rendered by `radin prompt merge`. `lib/radin-prompt.sh` holds the format.
 
+<!-- host:claude -->
 `model: "RADIN_MODEL_EXECUTION"`
 
 `effort: "RADIN_EFFORT_EXECUTION"`
+<!-- /host -->
 
 ```
 Merge each task branch below into MERGE_BASE, in the listed order, with

@@ -2,8 +2,10 @@
 
 Rendered by `radin prompt planning <id>`. `lib/radin-prompt.sh` holds the format.
 
+<!-- host:claude -->
 `model: "RADIN_MODEL_PLANNING"`
 `effort: "RADIN_EFFORT_PLANNING"`
+<!-- /host -->
 
 ```
 Read TASK_FILE first.

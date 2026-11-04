@@ -4,9 +4,11 @@ Rendered by `radin prompt gate`. `lib/radin-prompt.sh` holds the format. The
 `GATE_REVIEW` block drops once `radin state gate-filed` marks the session's
 one review round used.
 
+<!-- host:claude -->
 `model: "RADIN_MODEL_EXECUTION"`
 
 `effort: "RADIN_EFFORT_EXECUTION"`
+<!-- /host -->
 
 ```
 Run this repo's lint and format checks, as its own docs or CI config define

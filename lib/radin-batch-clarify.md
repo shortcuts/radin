@@ -11,8 +11,13 @@ Route on it:
 
   **Inside the working directory.** This means the repo, its lockfiles, its vendored
   dependencies and its config. Dispatch a fresh sub-agent with
+  <!-- host:claude -->
   `RADIN_CLI prompt factfind "<task id>" "<the question>"`, which prints a
   `model`, an optional `effort` and a `prompt` path to dispatch as Phase 4 does. With more than one, send every dispatch in
+  <!-- /host -->
+  <!-- host:agents -->
+  `RADIN_CLI prompt factfind "<task id>" "<the question>"`, which prints an optional `model`, an optional `effort` and a `prompt` path to dispatch as Phase 4 does. With more than one, send every dispatch in
+  <!-- /host -->
   the same message, and each `STATUS: FOUND` is appended to its own task's
   file.
 

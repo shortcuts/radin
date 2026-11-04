@@ -2,8 +2,10 @@
 
 Rendered by `radin prompt factfind <id>`. `lib/radin-prompt.sh` holds the format.
 
+<!-- host:claude -->
 `model: "RADIN_MODEL_FACTFIND"`
 `effort: "RADIN_EFFORT_FACTFIND"`
+<!-- /host -->
 
 Answers one checkable question in one turn.
 

@@ -233,9 +233,16 @@ order:
 - zero or more `blocked<TAB><id><TAB><why>` lines for tasks it skipped (an
   unresolved dependency, an entry the backlog lost, `MAX_ATTEMPTS` reached).
   It already marked each one `blocked`. Report each as skipped. The entry stays on the backlog with a `**Progress:**` note, and any work is a wip commit. When the user asks to retry one that hit `MAX_ATTEMPTS`, run `RADIN_CLI state retry "<task id>"`.
+<!-- host:claude -->
 - `id`, `order`, `kind`, `model`, an optional `effort` and `prompt` lines for the task to run now,
   then, for an `execution` task, an `overlap` line: `none`, `unclear`, or the
   ids of live tasks sharing its plan files or a `depends_on` edge.
+<!-- /host -->
+<!-- host:agents -->
+- `id`, `order`, `kind`, an optional `model`, an optional `effort` and a `prompt` line for the task to run now,
+  then, for an `execution` task, an `overlap` line: `none`, `unclear`, or the
+  ids of live tasks sharing its plan files or a `depends_on` edge.
+<!-- /host -->
 
 `kind` is `planning` for an entry radin-record flagged as needing a plan that
 has none yet, else `execution`. A planning leaf with no `STATUS:` line goes in as `--no-status` like any other; it retries until `MAX_ATTEMPTS`, then `task-next` blocks it.
@@ -312,7 +319,12 @@ claims it again and bumps `attempts`, so the cap still ends it.
 | `next` | Do |
 | --- | --- |
 | `continue` | Recorded on disk, and the lines after it are `task-next`'s output for the next task: report any `blocked` lines, then dispatch it as above. Exit 1 after `next continue` means nothing is left, so go to Phase 4.5. |
+<!-- host:claude -->
 | `debug` | This task still has its one debug pass. `RADIN_CLI prompt debug "<task id>" "<the reason from the STATUS: line>"` prints a `model` and a `prompt` path: dispatch it the same way. `STATUS: DIAGNOSED`: record it as below, then re-run the task. `STATUS: NOT DIAGNOSED`: re-run `task-report` with the same line and `--next`, which records the failure on the entry and returns `continue`. |
+<!-- /host -->
+<!-- host:agents -->
+| `debug` | This task still has its one debug pass. `RADIN_CLI prompt debug "<task id>" "<the reason from the STATUS: line>"` prints a `prompt` path, and a `model` line when the host sets one: dispatch it the same way. `STATUS: DIAGNOSED`: record it as below, then re-run the task. `STATUS: NOT DIAGNOSED`: re-run `task-report` with the same line and `--next`, which records the failure on the entry and returns `continue`. |
+<!-- /host -->
 | `clarify FACT` / `clarify DECISION` | Route per Clarifying Ambiguity. Once settled, re-run the task. |
 
 ```bash
