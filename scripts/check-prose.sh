@@ -77,7 +77,7 @@ fi
 
 # A Claude-only string outside a host block breaks the agents render.
 # hosts/forbid-baseline.txt lists the pairs that exist today and only shrinks.
-export LC_ALL=C RADIN_HOSTS_DIR="$PWD/hosts"
+export LC_ALL=C
 # The pipeline below drops the status of render-host.sh, so a bad marker needs its own check.
 for f in skills/*/SKILL.md lib/*.md; do
 	"$here/render-host.sh" --hits "$f" agents >/dev/null || rc=1

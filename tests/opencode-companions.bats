@@ -121,7 +121,7 @@ run_install() {
   while IFS= read -r word; do
     case "$word" in '' | '#'* | skills/*) continue ;; esac
     [[ "$block" != *"$word"* ]]
-  done <"$REPO_ROOT/hosts/forbid-agents.txt"
+  done <"$REPO_ROOT/lib/forbid-agents.txt"
   grep -q '"opencode_guidance": true' "$TEST_HOME/.radin/manifest.json"
   grep -q "\"opencode_allow\": \"$OC/opencode.json\"" "$TEST_HOME/.radin/manifest.json"
 }
@@ -188,4 +188,17 @@ run_install() {
   [ ! -e "$XDG_CONFIG_HOME" ]
   [ ! -e "$TEST_HOME/opencode.log" ]
   grep -q '"opencode_guidance": false' "$TEST_HOME/.radin/manifest.json"
+}
+
+@test "radin doctor passes on a fresh --only opencode install" {
+  run run_install --only opencode
+  [ "$status" -eq 0 ]
+  rm "$MOCK_BIN/opencode"
+  printf '#!/bin/sh\necho opencode v2.2.5\n' >"$MOCK_BIN/opencode"
+  chmod +x "$MOCK_BIN/opencode"
+  run bash "$TEST_HOME/.radin/lib/radin-doctor.sh"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"OK       opencode 2.2.5"* ]]
+  [[ "$output" == *"OK       external_directory rule"* ]]
+  [[ "$output" == *"file(s) match their recorded digest"* ]]
 }

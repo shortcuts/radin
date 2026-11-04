@@ -3,11 +3,10 @@
 # Prints FILE as HOST sees it: keeps text outside <!-- host:NAME[,NAME] --> ... <!-- /host -->
 # blocks, keeps a block body only when HOST is listed, drops the marker lines, and replaces each
 # @@skill:NAME@@ with HOST's value from lib/skill-names-HOST.txt (RADIN_LIB_DIR overrides lib/).
-# Fails on a bad marker (FILE:LINE: reason) or a string from hosts/forbid-HOST.txt that survives.
-# --hits prints each surviving string and exits 0. HOST names are the files hosts/forbid-*.txt.
+# Fails on a bad marker (FILE:LINE: reason) or a string from lib/forbid-HOST.txt that survives.
+# --hits prints each surviving string and exits 0. HOST names are the files lib/forbid-*.txt.
 # Must stay bash-3.2-compatible (macOS /bin/bash).
 set -euo pipefail
-hosts_dir=${RADIN_HOSTS_DIR:-$(dirname "$0")/../hosts}
 lib_dir=${RADIN_LIB_DIR:-$(dirname "$0")/../lib}
 hits=0
 if [ "${1:-}" = --hits ]; then
@@ -20,7 +19,7 @@ fi
 }
 file=$1
 host=$2
-[ -f "$hosts_dir/forbid-$host.txt" ] || {
+[ -f "$lib_dir/forbid-$host.txt" ] || {
 	echo "$file: unknown host \"$host\"" >&2
 	exit 1
 }
@@ -28,7 +27,7 @@ host=$2
 	echo "$file: unreadable" >&2
 	exit 1
 }
-valid=$(cd "$hosts_dir" && for f in forbid-*.txt; do
+valid=$(cd "$lib_dir" && for f in forbid-*.txt; do
 	f=${f#forbid-}
 	echo "${f%.txt}"
 done | tr '\n' ' ')
@@ -78,7 +77,7 @@ BEGIN {
 END { if (!bad && open) fail(open, "host block never closed") }
 ' "$file" >"$out"
 
-found=$(awk -v list="$hosts_dir/forbid-$host.txt" '
+found=$(awk -v list="$lib_dir/forbid-$host.txt" '
 BEGIN { while ((getline s < list) > 0) if (s != "" && s !~ /^#/) f[++n] = s }
 { for (i = 1; i <= n; i++) if (!(i in hit) && index($0, f[i])) hit[i] = 1 }
 END { for (i = 1; i <= n; i++) if (i in hit) print f[i] }

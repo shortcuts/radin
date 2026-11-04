@@ -25,7 +25,7 @@
 | `radin backlog help [verb]` | Print every backlog verb, or one. |
 | `radin state help` | Print every state verb. |
 | `radin update` | Update radin. |
-| `radin doctor` | Check the install. |
+| `radin doctor` | Check the install on every installed host. |
 | `radin repair` | Restore hooks and the MCP entry that another tool's config write dropped. |
 | `radin stats` | Print skill, command and sub-agent use on this device. |
 

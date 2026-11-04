@@ -17,6 +17,8 @@ lib radin-cbm-json.c
 lib radin-state.sh
 lib radin-scope.sh
 lib radin-prompt.sh
+lib forbid-claude.txt
+lib forbid-agents.txt
 hostlib radin-prompt-planning.md
 hostlib radin-prompt-execution.md
 hostlib radin-prompt-debug.md

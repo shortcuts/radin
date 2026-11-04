@@ -52,7 +52,7 @@ Add a row with every new hard rule.
 
 | Change | Edit |
 | --- | --- |
-| A host difference in a skill or lib file | A `<!-- host:NAME -->` block in the source. A forbidden string goes in `hosts/forbid-<host>.txt`. A companion skill name is `@@skill:NAME@@` in prose and `radin_skill NAME` in a script, spelled by `lib/skill-names-<host>.txt`. |
+| A host difference in a skill or lib file | A `<!-- host:NAME -->` block in the source. A forbidden string goes in `lib/forbid-<host>.txt`. A companion skill name is `@@skill:NAME@@` in prose and `radin_skill NAME` in a script, spelled by `lib/skill-names-<host>.txt`. |
 | A skill's behavior | `skills/<name>/SKILL.md`, never the installed copy. |
 | Anything deterministic (install, update, doctor, uninstall, backlog, state, TUI) | A `bin/radin` subcommand in `lib/`, never a skill. |
 | Backlog loop of `radin-batch` and `radin-do` | `lib/radin-run.md`. |

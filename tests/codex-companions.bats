@@ -68,7 +68,7 @@ sum() { cksum <"$1"; }
   while IFS= read -r word; do
     case "$word" in '' | '#'* | skills/*) continue ;; esac
     [[ "$block" != *"$word"* ]]
-  done <"$REPO_ROOT/hosts/forbid-agents.txt"
+  done <"$REPO_ROOT/lib/forbid-agents.txt"
   grep -q '"codex_guidance": true' "$TEST_HOME/.radin/manifest.json"
 }
 

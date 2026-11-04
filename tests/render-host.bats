@@ -87,7 +87,6 @@ src() { printf '%s\n' "$@" > "$T/in.md"; }
 
 lint_root() {
   mkdir -p "$T/r/hosts" "$T/r/skills/x" "$T/r/lib" "$T/r/tests"
-  cp "$REPO_ROOT"/hosts/forbid-claude.txt "$REPO_ROOT"/hosts/forbid-agents.txt "$T/r/hosts/"
   : > "$T/r/tests/x.bats"
   : > "$T/r/lib/radin-run.md"
   : > "$T/r/lib/radin-leaf-contract.md"
@@ -128,14 +127,14 @@ lint_root() {
 
 ask_hosts() {
   mkdir -p "$T/h"
-  cp "$REPO_ROOT/hosts/forbid-claude.txt" "$T/h/"
+  cp "$REPO_ROOT/lib/"* "$T/h/"
   printf 'AskUserQuestion\n' > "$T/h/forbid-agents.txt"
 }
 
 @test "the agents render of each ask site has no AskUserQuestion" {
   ask_hosts
   for f in lib/radin-run.md lib/radin-batch-session.md lib/radin-batch-merge.md lib/radin-batch-clarify.md skills/radin-review/SKILL.md skills/radin-record/SKILL.md skills/radin-do/SKILL.md; do
-    run env RADIN_HOSTS_DIR="$T/h" "$RENDER" "$REPO_ROOT/$f" agents
+    run env RADIN_LIB_DIR="$T/h" "$RENDER" "$REPO_ROOT/$f" agents
     [ "$status" -eq 0 ]
   done
 }
@@ -143,7 +142,7 @@ ask_hosts() {
 @test "the agents render of each file that asks names the ask rule" {
   ask_hosts
   for f in lib/radin-run.md lib/radin-batch-merge.md skills/radin-review/SKILL.md skills/radin-record/SKILL.md skills/radin-do/SKILL.md; do
-    run env RADIN_HOSTS_DIR="$T/h" "$RENDER" "$REPO_ROOT/$f" agents
+    run env RADIN_LIB_DIR="$T/h" "$RENDER" "$REPO_ROOT/$f" agents
     [ "$status" -eq 0 ]
     [[ "$output" == *radin-ask-rule.md* ]]
   done
@@ -177,7 +176,7 @@ ask_hosts() {
     mkdir -p "$H"
     cp -R "$REPO_ROOT/lib" "$H/lib"
     for f in "$H"/lib/*.md; do
-      run env RADIN_LIB_DIR="$H/lib" RADIN_HOSTS_DIR="$REPO_ROOT/hosts" "$RENDER" "$f" "$host"
+      run env RADIN_LIB_DIR="$H/lib" "$RENDER" "$f" "$host"
       [ "$status" -eq 0 ]
       printf '%s\n' "$output" > "$f"
     done
@@ -209,7 +208,7 @@ render_lib() {
   mkdir -p "$H"
   cp -R "$REPO_ROOT/lib" "$H/lib"
   for f in "$H"/lib/*.md; do
-    run env RADIN_LIB_DIR="$H/lib" RADIN_HOSTS_DIR="$REPO_ROOT/hosts" "$RENDER" "$f" "$2"
+    run env RADIN_LIB_DIR="$H/lib" "$RENDER" "$f" "$2"
     [ "$status" -eq 0 ]
     printf '%s\n' "$output" > "$f"
   done
@@ -292,6 +291,7 @@ render_lib() {
 @test "a missing skill-names table fails" {
   src one
   mkdir -p "$T/empty"
+  cp "$REPO_ROOT"/lib/forbid-*.txt "$T/empty/"
   RADIN_LIB_DIR="$T/empty" run "$RENDER" "$T/in.md" claude
   [ "$status" -eq 1 ]
   [[ "$output" == *"in.md: no skill-names-claude.txt"* ]]
