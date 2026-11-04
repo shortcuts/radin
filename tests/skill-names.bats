@@ -109,3 +109,18 @@ skill_tokens() {
     done
   done
 }
+
+@test "companion-skills.txt has a well-formed row for every agents skill name" {
+  cd "$REPO_ROOT/lib"
+  rows() { grep -vE '^(#|$)' companion-skills.txt; }
+  [ "$(rows | awk 'NF != 4' | wc -l | tr -d ' ')" = 0 ]
+  [ "$(rows | awk '{ print $1 }' | sort | uniq -d)" = "" ]
+  while read -r n c b f; do
+    case " caveman ponytail mattpocock-skills pstack " in *" $c "*) ;; *) echo "$n: bad companion $c"; false ;; esac
+    case "$b" in https://raw.githubusercontent.com/*) ;; *) echo "$n: bad base $b"; false ;; esac
+    case "$f" in SKILL.md|SKILL.md,*) ;; *) echo "$n: files must start with SKILL.md"; false ;; esac
+  done < <(rows)
+  for k in $(grep -vE '^(#|$)' skill-names-agents.txt | awk '{ print $1 }'); do
+    rows | awk -v k="$k" '$1 == k { f = 1 } END { exit !f }' || { echo "$k missing from companion-skills.txt"; false; }
+  done
+}

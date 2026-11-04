@@ -81,6 +81,7 @@ what each tool measured on your machine.
 
 - `unslop` and `technical-writing` come from cursor/plugins `main`. The installer fetches them on every install and update, unpinned.
   An upstream edit changes agent behavior without review.
+- On Codex and opencode, `install.sh` fetches the skills in `lib/companion-skills.txt` into `~/.agents/skills`, unpinned.
 - A code graph answer is a pointer, never proof that something does not exist. Read the file before you edit it.
 - `codebase-memory-mcp update` rewrites config and can drop other tools' hooks.
   radin snapshots the config first and `radin repair` restores the hooks.

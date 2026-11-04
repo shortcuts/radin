@@ -457,7 +457,7 @@ step "Installing radin into ~/.radin and skills into ~/.claude"
 # dev clone must not ship.
 # BEGIN shipped (generated from SHIPPED by scripts/shipped.sh; run make gen, never edit)
 SHIPPED_SKILLS="radin-batch radin-do radin-plan radin-record radin-review radin-stats radin-teardown radin-uninstall"
-SHIPPED_LIB="radin-host.sh radin-namespace.sh radin-json.sh radin-backlog.sh radin-tui.c radin-cbm-json.c radin-state.sh radin-scope.sh radin-prompt.sh radin-cbm-hooks.sh radin-cbm-config.sh radin-update.sh radin-stats.sh radin-doctor.sh radin-uninstall.sh skill-names-claude.txt skill-names-agents.txt"
+SHIPPED_LIB="radin-host.sh radin-namespace.sh radin-json.sh radin-backlog.sh radin-tui.c radin-cbm-json.c radin-state.sh radin-scope.sh radin-prompt.sh radin-cbm-hooks.sh radin-cbm-config.sh radin-update.sh radin-stats.sh radin-doctor.sh radin-uninstall.sh skill-names-claude.txt skill-names-agents.txt companion-skills.txt"
 SHIPPED_HOSTLIB="radin-prompt-planning.md radin-prompt-execution.md radin-prompt-debug.md radin-prompt-factfind.md radin-prompt-gate.md radin-prompt-merge.md radin-leaf-contract.md radin-comment-rule.md radin-explore-rule.md radin-open-decisions.md radin-ask-rule.md radin-complexity-rule.md radin-planning-rule.md radin-prioritization.md radin-batch-recovery.md radin-batch-reporting.md radin-batch-gate.md radin-batch-merge.md radin-batch-clarify.md radin-batch-session.md radin-batch-resume.md radin-run.md radin-review-core.md"
 RENAMED_SKILLS="radin-execute radin-implement radin-run"
 RETIRED_SKILLS="radin-update radin-show radin-doctor radin-setup-hooks"
@@ -479,6 +479,26 @@ rtk_cmd() {
 
 host_skills_dir() {
 	if [ "$1" = claude ]; then printf '%s' "$HOME/.claude/skills"; else printf '%s' "$HOME/.agents/skills"; fi
+}
+
+agents_selected() {
+	local id
+	for id in $SELECTED; do
+		[ "$(host_field "$id" 3)" != agents ] || return 0
+	done
+	return 1
+}
+agents_skill_rows() { awk '!/^#/ && NF' "$RADIN_ROOT/lib/companion-skills.txt"; }
+# Codex and opencode both read ~/.agents/skills; a copy in the opencode dir resolves too.
+agents_skill_present() {
+	[ -f "$HOME/.agents/skills/$1/SKILL.md" ] && return 0
+	host_selected opencode && [ -f "${XDG_CONFIG_HOME:-$HOME/.config}/opencode/skills/$1/SKILL.md" ]
+}
+# Fetch a skill radin owns, or one that no checked dir has and no foreign dir blocks.
+agents_skill_wanted() {
+	case " $(manifest_list agents_skills) " in *" $1 "*) return 0 ;; esac
+	if agents_skill_present "$1"; then return 1; fi
+	[ ! -d "$HOME/.agents/skills/$1" ]
 }
 
 # The renders the selected hosts read: claude, agents, or both.
@@ -699,6 +719,12 @@ dry_run_report() {
 			"curl -fsSL $PSTACK_RAW/unslop/SKILL.md" "curl -fsSL $PSTACK_RAW/technical-writing/SKILL.md" \
 			"claude plugin install caveman@caveman" "claude plugin install ponytail@ponytail" \
 			"claude plugin install mattpocock-skills@claude-plugins-official"
+	fi
+	if agents_selected; then
+		agents_skill_rows | while read -r n _ b f; do
+			agents_skill_wanted "$n" || continue
+			for x in $(printf '%s' "$f" | tr ',' ' '); do printf 'run curl -fsSL %s/%s\n' "$b" "$x"; done
+		done
 	fi
 }
 set_renders
@@ -1334,6 +1360,51 @@ if host_selected claude; then
 	install_plugin "mattpocock-skills" "mattpocock-skills@claude-plugins-official" "anthropics/claude-plugins-official"
 fi
 
+# Codex and opencode have no plugin: fetch each skill radin invokes, unpinned like
+# unslop, into ~/.agents/skills. All files of a row land together or not at all,
+# so a SKILL.md never links a missing sibling. Advisory.
+AGENTS_SKILLS_OWNED=""
+resolve_agents_skill() {
+	local name="$1" base="$2" files="$3" dir="$HOME/.agents/skills/$1" tmp f mine="" good=1
+	case " $(manifest_list agents_skills) " in *" $name "*) mine=1 ;; esac
+	if ! agents_skill_wanted "$name"; then
+		if [ -d "$dir" ] && ! agents_skill_present "$name"; then
+			warn "$name skipped: $dir exists and radin did not install it."
+		fi
+		[ -z "$mine" ] || AGENTS_SKILLS_OWNED="$AGENTS_SKILLS_OWNED $name "
+		return 0
+	fi
+	tmp="$(mktemp -d)"
+	for f in $(printf '%s' "$files" | tr ',' ' '); do
+		mkdir -p "$tmp/$(dirname "$f")"
+		curl -fsSL "$base/$f" -o "$tmp/$f" </dev/null 2>/dev/null || good=""
+		[ -s "$tmp/$f" ] || good=""
+	done
+	[ "$(head -c 3 "$tmp/SKILL.md" 2>/dev/null)" = "---" ] || good=""
+	if [ -n "$good" ]; then
+		# Strip as for unslop; opencode needs name to equal the directory name.
+		grep -v '^disable-model-invocation:' "$tmp/SKILL.md" |
+			awk -v n="$name" '!d && /^name:/ { print "name: " n; d = 1; next } { print }' >"$tmp/SKILL.md.new"
+		mv "$tmp/SKILL.md.new" "$tmp/SKILL.md"
+		mkdir -p "$dir"
+		cp -R "$tmp/." "$dir/"
+		ok "$name installed to ${BOLD}$dir${RESET}."
+		AGENTS_SKILLS_OWNED="$AGENTS_SKILLS_OWNED $name "
+	else
+		warn "$name download failed -- radin itself is unaffected."
+		[ -z "$mine" ] || [ ! -f "$dir/SKILL.md" ] || AGENTS_SKILLS_OWNED="$AGENTS_SKILLS_OWNED $name "
+	fi
+	rm -rf "$tmp"
+	return 0
+}
+if agents_selected; then
+	while read -r n _ b f; do
+		resolve_agents_skill "$n" "$b" "$f"
+	done < <(agents_skill_rows)
+else
+	AGENTS_SKILLS_OWNED=" $(manifest_list agents_skills) "
+fi
+
 CBM_AGENT_CONFIG="false"
 if host_selected claude && CBM_BIN="$(cbm_bin)"; then
 	# auto_index is off upstream, which leaves a wired session querying an empty
@@ -1497,6 +1568,7 @@ cat >"$MANIFEST_FILE" <<EOF
   "skills": [$(json_names "$SHIPPED_SKILLS thermo-nuclear")],
   "lib": [$(json_names "$SHIPPED_LIB")],
   "hostlib": [$(json_names "$SHIPPED_HOSTLIB")],
+  "agents_skills": [$(json_names "$AGENTS_SKILLS_OWNED")],
   "companion_tools": {
     "rtk": $(json_bool_cmd rtk),
     "codebase-memory-mcp": $(cbm_bin >/dev/null 2>&1 && printf 'true' || printf 'false'),

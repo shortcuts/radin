@@ -19,7 +19,7 @@ RADIN_HOME="$HOME/.radin"
 MISSING=0
 # BEGIN shipped (generated from SHIPPED by scripts/shipped.sh; run make gen, never edit)
 SHIPPED_SKILLS="radin-batch radin-do radin-plan radin-record radin-review radin-stats radin-teardown radin-uninstall"
-SHIPPED_LIB="radin-host.sh radin-namespace.sh radin-json.sh radin-backlog.sh radin-tui.c radin-cbm-json.c radin-state.sh radin-scope.sh radin-prompt.sh radin-cbm-hooks.sh radin-cbm-config.sh radin-update.sh radin-stats.sh radin-doctor.sh radin-uninstall.sh skill-names-claude.txt skill-names-agents.txt"
+SHIPPED_LIB="radin-host.sh radin-namespace.sh radin-json.sh radin-backlog.sh radin-tui.c radin-cbm-json.c radin-state.sh radin-scope.sh radin-prompt.sh radin-cbm-hooks.sh radin-cbm-config.sh radin-update.sh radin-stats.sh radin-doctor.sh radin-uninstall.sh skill-names-claude.txt skill-names-agents.txt companion-skills.txt"
 SHIPPED_HOSTLIB="radin-prompt-planning.md radin-prompt-execution.md radin-prompt-debug.md radin-prompt-factfind.md radin-prompt-gate.md radin-prompt-merge.md radin-leaf-contract.md radin-comment-rule.md radin-explore-rule.md radin-open-decisions.md radin-ask-rule.md radin-complexity-rule.md radin-planning-rule.md radin-prioritization.md radin-batch-recovery.md radin-batch-reporting.md radin-batch-gate.md radin-batch-merge.md radin-batch-clarify.md radin-batch-session.md radin-batch-resume.md radin-run.md radin-review-core.md"
 # END shipped
 
@@ -148,6 +148,33 @@ check_plugin "ponytail" "ponytail@ponytail"
 check_plugin "mattpocock-skills" "mattpocock-skills@claude-plugins-official"
 check_skill "unslop"
 check_skill "technical-writing"
+
+manifest_list() {
+	[ -f "$RADIN_HOME/manifest.json" ] || return 0
+	sed -n 's/.*"'"$1"'": *\[\([^]]*\)\].*/\1/p' "$RADIN_HOME/manifest.json" | head -1 | tr -d '",'
+}
+agents_clis="$(manifest_list agents_clis)"
+if [ -n "$agents_clis" ]; then
+	printf '\nAgents companion skills (~/.agents/skills):\n'
+	while read -r name; do
+		found=""
+		[ ! -f "$HOME/.agents/skills/$name/SKILL.md" ] || found=1
+		case " $agents_clis " in
+		*" opencode "*) [ ! -f "${XDG_CONFIG_HOME:-$HOME/.config}/opencode/skills/$name/SKILL.md" ] || found=1 ;;
+		esac
+		if awk -v k="$name" '$1 == k { f = 1 } END { exit !f }' "$RADIN_HOME/lib/skill-names-agents.txt"; then
+			# An invoked name that does not resolve breaks runs.
+			if [ -n "$found" ]; then printf '  OK       %s\n' "$name"; else
+				printf '  MISSING  %s\n' "$name"
+				MISSING=$((MISSING + 1))
+			fi
+		elif [ -n "$found" ]; then
+			printf '  %-20s found\n' "$name"
+		else
+			printf '  %-20s not found\n' "$name"
+		fi
+	done < <(awk '!/^#/ && NF { print $1 }' "$RADIN_HOME/lib/companion-skills.txt")
+fi
 
 # Informational, like every companion check: the graph binary can be installed
 # and still answer nothing if its Claude Code wiring never landed.

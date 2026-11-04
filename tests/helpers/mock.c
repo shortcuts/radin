@@ -14,6 +14,7 @@
  *   MOCK_CBM        "fail-install" prints an editor inventory and exits 1 for `install`
  *   MOCK_CLAUDE_LIST file whose contents `claude plugin list` prints
  *   MOCK_CURL       "pstack-fail" makes curl of a /pstack/skills/ URL exit 1
+ *   MOCK_CURL_FAIL  curl exits 1 when an argument contains this substring
  *
  * cc -O1 -o mock mock.c
  */
@@ -101,13 +102,20 @@ int main(int argc, char **argv) {
 		int pstack = has_substr(argc, argv, "/pstack/skills/");
 		const char *cm = getenv("MOCK_CURL");
 		if (pstack && cm && !strcmp(cm, "pstack-fail")) return 1;
+		const char *cf = getenv("MOCK_CURL_FAIL");
+		if (cf && *cf && has_substr(argc, argv, cf)) return 1;
+		int skillmd = 0;
+		for (int i = 1; i < argc; i++) {
+			size_t n = strlen(argv[i]);
+			if (n >= 9 && !strcmp(argv[i] + n - 9, "/SKILL.md")) skillmd = 1;
+		}
 		for (int i = 1; i + 1 < argc; i++) {
 			if (strcmp(argv[i], "-o")) continue;
 			FILE *f = fopen(argv[i + 1], "w");
 			if (f) {
-				/* install.sh keeps a pstack download only when it opens with
+				/* install.sh keeps a skill download only when it opens with
 				 * frontmatter. */
-				fprintf(f, pstack ? "---\nname: stub\ndisable-model-invocation: true\n---\n" : "mock\n");
+				fprintf(f, (pstack || skillmd) ? "---\nname: stub\ndisable-model-invocation: true\n---\n" : "mock\n");
 				fclose(f);
 			}
 		}

@@ -8,7 +8,7 @@ radin is a Claude Code plugin of skills, a CLI, and install glue.
 - **`~/.claude` is not ours.** `~/.radin` is. `install.sh` writes `.sh`, `.c` and `.txt` only under `~/.radin/lib` and `.md` only under `~/.radin/hosts/<host>/lib`. It runs `cp` only on radin's own named files, plus `mkdir -p`. It never runs `rm`, deletes with a wildcard, or overwrites a file radin does not ship. Nine exceptions:
   1. The `<!-- radin:begin -->`…`<!-- radin:end -->` block in `~/.claude/CLAUDE.md`.
   2. The `lib/radin-cbm-config.sh` snapshot (kept in `~/.radin/backups`) and restore of `settings.json` and `~/.claude.json`.
-  3. `skills/unslop/SKILL.md` and `skills/technical-writing/SKILL.md`. `install.sh` fetches both from upstream and overwrites them only when `manifest.json` lists them as radin's own.
+  3. `skills/unslop/SKILL.md` and `skills/technical-writing/SKILL.md`. `install.sh` fetches both from upstream and overwrites them only when `manifest.json` lists them as radin's own. It also writes the skills of `lib/companion-skills.txt` into `~/.agents/skills`, and overwrites one only when `manifest.json` lists it in `agents_skills`.
   4. `skills/radin-execute`, `skills/radin-implement` and `skills/radin-run`, renamed to `radin-batch` and `radin-do`. `install.sh` removes one only when its `SKILL.md` still has radin's own `name:` line.
   5. `skills/thermo-nuclear`. `install.sh` removes it only when the fresh `thermo-nuclear-code-quality-review` copy is ready. `tests/bash-compat.bats` pins that one `rm`.
   6. `.ponytail-band`. `install.sh` writes `off` only when the file is absent, so ponytail's band starts hidden.
@@ -25,7 +25,7 @@ radin is a Claude Code plugin of skills, a CLI, and install glue.
 | Rule | Enforcer | Gap |
 | --- | --- | --- |
 | bash 3.2 | `tests/bash-compat.bats` | Grep only; no 3.2 interpreter run. |
-| `~/.claude` ownership | `tests/cbm-config.bats` (`allow` keeps foreign rules, follows a symlink, `unallow` removes only radin's), `tests/install.bats` ("never overwrites a skill radin did not install"), `tests/bash-compat.bats` (`rm` allowlist), `SHIPPED` (install copies and uninstall removes only listed names) | Foreign content in the `CLAUDE.md` block and settings restore is untested. |
+| `~/.claude` ownership | `tests/cbm-config.bats` (`allow` keeps foreign rules, follows a symlink, `unallow` removes only radin's), `tests/install.bats` ("never overwrites a skill radin did not install", the agents companion skill cases), `tests/bash-compat.bats` (`rm` allowlist), `SHIPPED` (install copies and uninstall removes only listed names) | Foreign content in the `CLAUDE.md` block and settings restore is untested. |
 | Migration of `~/.claude/.radin` aborts before any write | `tests/install.bats` (foreign `~/.radin`, failed `mv`, leftover staging directory, half-migrated, symlinked `~/.claude`, old updater) | An interrupted copy on a real second device is untested. |
 | Rendered `.md` only under `~/.radin/hosts/<host>/lib` | `tests/install.bats` layout test, `scripts/shipped.sh check` (`lib` versus `hostlib` kinds) | None. |
 | One list of shipped files | `scripts/shipped.sh check`, run by `make check` | README row text is hand-written. |

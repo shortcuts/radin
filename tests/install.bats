@@ -1034,7 +1034,7 @@ foreign_skill() {
   run install_from "$AROOT" --yes --update
   [ "$status" -eq 0 ]
   [[ "$output" == *"0 written"* ]]
-  run find "$TEST_HOME/.claude/skills"/radin-* "$TEST_HOME/.agents/skills" "$TEST_HOME/.radin/hosts" -type f -newer "$BATS_TEST_TMPDIR/marker"
+  run find "$TEST_HOME/.claude/skills"/radin-* "$TEST_HOME/.agents/skills"/radin-* "$TEST_HOME/.radin/hosts" -type f -newer "$BATS_TEST_TMPDIR/marker"
   [ -z "$output" ]
 }
 
@@ -1118,4 +1118,109 @@ foreign_skill() {
   run install_from "$AROOT" --yes --only claude,codex,opencode
   [ "$status" -eq 0 ]
   [ "$(wc -l <"$TEST_HOME/cc.log" | tr -d ' ')" = 2 ]
+}
+
+# Companion skills on the agents host: lib/companion-skills.txt, fetched by install.sh.
+
+agents_skill_names() { awk '!/^#/ && NF { print $1 }' "$REPO_ROOT/lib/companion-skills.txt"; }
+
+@test "agents host fetches every companion skill, strips the invocation block and keeps siblings" {
+  mock_cli codex
+  agents_root
+  run install_from "$AROOT" --yes --only codex
+  [ "$status" -eq 0 ]
+  for n in $(agents_skill_names); do
+    f="$TEST_HOME/.agents/skills/$n/SKILL.md"
+    [ "$(head -c 3 "$f")" = "---" ]
+    run ! grep -q 'disable-model-invocation' "$f"
+    grep -qx "name: $n" "$f"
+  done
+  [ -f "$TEST_HOME/.agents/skills/codebase-design/DEEPENING.md" ]
+  [ -f "$TEST_HOME/.agents/skills/codebase-design/DESIGN-IT-TWICE.md" ]
+  [ -f "$TEST_HOME/.agents/skills/diagnosing-bugs/scripts/hitl-loop.template.sh" ]
+  [ -f "$TEST_HOME/.agents/skills/writing-for-agents/SKILL-MECHANICS.md" ]
+  [ "$(manifest_array agents_skills | tr ',' '\n' | grep -c .)" = 19 ]
+  [ ! -e "$TEST_HOME/.claude" ]
+}
+
+@test "agents host leaves a skill radin did not install alone" {
+  mock_cli codex
+  agents_root
+  mkdir -p "$TEST_HOME/.agents/skills/lean-build" "$TEST_HOME/.agents/skills/grilling"
+  printf 'mine\n' >"$TEST_HOME/.agents/skills/lean-build/SKILL.md"
+  run install_from "$AROOT" --yes --only codex
+  [ "$status" -eq 0 ]
+  [ "$(cat "$TEST_HOME/.agents/skills/lean-build/SKILL.md")" = mine ]
+  [[ "$output" == *"grilling skipped"* ]]
+  [ ! -e "$TEST_HOME/.agents/skills/grilling/SKILL.md" ]
+  run ! grep -qE '"(lean-build|grilling)"' <<<"$(manifest_array agents_skills)"
+}
+
+@test "opencode's own skill dir counts as present and gets no second copy" {
+  mock_cli opencode
+  agents_root
+  mkdir -p "$TEST_HOME/.config/opencode/skills/lean-build"
+  printf 'mine\n' >"$TEST_HOME/.config/opencode/skills/lean-build/SKILL.md"
+  run env XDG_CONFIG_HOME="$TEST_HOME/.config" bash -c "cd '$AROOT' && bash ./install.sh --yes --only opencode </dev/null"
+  [ "$status" -eq 0 ]
+  [ ! -e "$TEST_HOME/.agents/skills/lean-build" ]
+  [ -f "$TEST_HOME/.agents/skills/safe-refactor/SKILL.md" ]
+}
+
+@test "a failed companion skill download warns, exits 0 and lets the other rows land" {
+  mock_cli codex
+  agents_root
+  export MOCK_CURL_FAIL=/lean-build/
+  run install_from "$AROOT" --yes --only codex
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"lean-build download failed"* ]]
+  [ ! -e "$TEST_HOME/.agents/skills/lean-build" ]
+  [ -f "$TEST_HOME/.agents/skills/safe-refactor/SKILL.md" ]
+  run ! grep -q '"lean-build"' <<<"$(manifest_array agents_skills)"
+}
+
+@test "a sibling download failure installs none of that skill's files" {
+  mock_cli codex
+  agents_root
+  export MOCK_CURL_FAIL=DEEPENING.md
+  run install_from "$AROOT" --yes --only codex
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"codebase-design download failed"* ]]
+  [ ! -e "$TEST_HOME/.agents/skills/codebase-design" ]
+}
+
+@test "--update refetches an owned skill, keeps it on a failed refetch and leaves a foreign one alone" {
+  mock_cli codex
+  agents_root
+  install_from "$AROOT" --yes --only codex >/dev/null
+  printf 'stale\n' >"$TEST_HOME/.agents/skills/ponytail/SKILL.md"
+  printf 'kept\n' >"$TEST_HOME/.agents/skills/lean-build/SKILL.md"
+  export MOCK_CURL_FAIL=/lean-build/
+  run install_from "$AROOT" --update
+  [ "$status" -eq 0 ]
+  grep -qx 'name: ponytail' "$TEST_HOME/.agents/skills/ponytail/SKILL.md"
+  [ "$(cat "$TEST_HOME/.agents/skills/lean-build/SKILL.md")" = kept ]
+  [ "$(manifest_array agents_skills | tr ',' '\n' | grep -c .)" = 19 ]
+  unset MOCK_CURL_FAIL
+  sed -i.bak 's/"lean-build", //; s/, "lean-build"//' "$TEST_HOME/.radin/manifest.json"
+  run install_from "$AROOT" --update
+  [ "$(cat "$TEST_HOME/.agents/skills/lean-build/SKILL.md")" = kept ]
+}
+
+@test "--dry-run prints a curl line per file of each skill it would fetch and writes nothing" {
+  mock_cli opencode
+  agents_root
+  run install_from "$AROOT" --yes --dry-run --only opencode
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"run curl -fsSL https://raw.githubusercontent.com/JuliusBrussee/caveman/refs/heads/main/skills/lean-build/SKILL.md"* ]]
+  [[ "$output" == *"/skills/engineering/codebase-design/DEEPENING.md"* ]]
+  [ ! -e "$TEST_HOME/curl.log" ]
+  [ ! -e "$TEST_HOME/.agents" ]
+}
+
+@test "a claude-only install fetches no agents companion skill" {
+  run_install_defaults >/dev/null
+  [ ! -e "$TEST_HOME/.agents" ]
+  [ -z "$(manifest_array agents_skills)" ]
+  run ! grep -v 'pstack/skills/' "$TEST_HOME/curl.log"
 }

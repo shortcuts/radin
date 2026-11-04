@@ -192,3 +192,50 @@ JSON
   [ "$status" -eq 0 ]
   [[ "$output" == *"SKIPPED  hook commands"* ]]
 }
+
+agents_doctor_setup() {
+  install_all_expected
+  cp "$REPO_ROOT/lib/companion-skills.txt" "$REPO_ROOT/lib/skill-names-agents.txt" "$TEST_HOME/.radin/lib/"
+  printf '{\n  "agents_clis": [%s],\n}\n' "$1" >"$TEST_HOME/.radin/manifest.json"
+  for name in $(awk '!/^#/ && NF { print $1 }' "$REPO_ROOT/lib/companion-skills.txt"); do
+    mkdir -p "$TEST_HOME/.agents/skills/$name"
+    : >"$TEST_HOME/.agents/skills/$name/SKILL.md"
+  done
+}
+
+@test "prints no agents skills section when the manifest lists no agents CLI" {
+  agents_doctor_setup ''
+  rm -rf "$TEST_HOME/.agents/skills/grilling"
+  run env HOME="$TEST_HOME" bash "$CLI"
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"Agents companion skills"* ]]
+}
+
+@test "exits 1 and reports MISSING for an invoked agents skill that does not resolve" {
+  agents_doctor_setup '"codex"'
+  rm -rf "$TEST_HOME/.agents/skills/grilling"
+  run env HOME="$TEST_HOME" bash "$CLI"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"  MISSING  grilling"* ]]
+}
+
+@test "reports a non-invoked agents skill as not found without touching the exit code" {
+  agents_doctor_setup '"codex"'
+  rm -rf "$TEST_HOME/.agents/skills/writing-for-agents"
+  run env HOME="$TEST_HOME" bash "$CLI"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"writing-for-agents"*"not found"* ]]
+}
+
+@test "counts a copy in the opencode skills dir only when opencode is an agents CLI" {
+  agents_doctor_setup '"opencode"'
+  rm -rf "$TEST_HOME/.agents/skills/grilling"
+  mkdir -p "$TEST_HOME/.config/opencode/skills/grilling"
+  : >"$TEST_HOME/.config/opencode/skills/grilling/SKILL.md"
+  run env HOME="$TEST_HOME" bash "$CLI"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"  OK       grilling"* ]]
+  printf '{\n  "agents_clis": ["codex"],\n}\n' >"$TEST_HOME/.radin/manifest.json"
+  run env HOME="$TEST_HOME" bash "$CLI"
+  [ "$status" -eq 1 ]
+}
