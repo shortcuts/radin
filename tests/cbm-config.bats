@@ -458,3 +458,19 @@ EOF
   [ "$output" = 0 ]
   grep -qF 'Read(//x/**)' "$TEST_HOME/.claude/settings.json"
 }
+
+@test "unallow-legacy removes both spellings of the old ~/.claude/.radin rule and keeps the new and a foreign one" {
+  rmdir "$TEST_HOME/.claude"
+  mkdir -p "$TEST_HOME/realclaude"
+  ln -s "$TEST_HOME/realclaude" "$TEST_HOME/.claude"
+  real="$(cd "$TEST_HOME/realclaude" && pwd -P)"
+  echo "{\"permissions\": {\"allow\": [\"Read(//x/**)\", \"Read(/$TEST_HOME/.claude/.radin/**)\", \"Read(/$real/.radin/**)\", \"Read(/$TEST_HOME/.radin/**)\"]}}" > "$TEST_HOME/.claude/settings.json"
+  run bash "$CLI" unallow-legacy
+  [ "$status" -eq 0 ]
+  run grep -cF "/.claude/.radin" "$TEST_HOME/.claude/settings.json"
+  [ "$output" = 0 ]
+  run grep -cF "$real/.radin" "$TEST_HOME/.claude/settings.json"
+  [ "$output" = 0 ]
+  grep -qF "Read(/$TEST_HOME/.radin/**)" "$TEST_HOME/.claude/settings.json"
+  grep -qF 'Read(//x/**)' "$TEST_HOME/.claude/settings.json"
+}

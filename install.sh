@@ -137,6 +137,47 @@ if [ -z "$RADIN_ROOT" ]; then
 fi
 ok "Using radin source at ${BOLD}$RADIN_ROOT${RESET}"
 
+OLD_HOME="$HOME/.claude/.radin"
+MIGRATING="$HOME/.radin.migrating"
+MIGRATED=""
+LEGACY_LEFT=""
+
+radin_home_at() {
+	[ -f "$1/manifest.json" ] && grep -q '"installed_at"' "$1/manifest.json" && grep -q '"companion_tools"' "$1/manifest.json"
+}
+
+migrate_abort() {
+	INSTALL_DONE="1"
+	printf "%b\n" "${RED}${RAT} $*${RESET}" >&2
+	exit 1
+}
+
+path_taken() { [ -e "$1" ] || [ -L "$1" ]; }
+
+# Two renames, not one: a cross-device `mv` copies, then deletes, and a copy
+# that dies halfway must not leave a ~/.radin that passes radin_home_at.
+migrate_home() {
+	radin_home_at "$OLD_HOME" || return 0
+	if path_taken "$RADIN_HOME"; then
+		if radin_home_at "$RADIN_HOME"; then
+			warn "$OLD_HOME is still there, unused: delete it by hand once you checked it."
+			LEGACY_LEFT="1"
+			return 0
+		fi
+		migrate_abort "$RADIN_HOME is not radin's: move it away, then re-run."
+	fi
+	if path_taken "$MIGRATING"; then
+		migrate_abort "$MIGRATING was left by an interrupted move: inspect it, move it away, then re-run."
+	fi
+	mv "$OLD_HOME" "$MIGRATING" ||
+		migrate_abort "mv failed: $OLD_HOME is intact; the partial copy is at $MIGRATING."
+	mv "$MIGRATING" "$RADIN_HOME" ||
+		migrate_abort "mv failed: the data is at $MIGRATING, $OLD_HOME is gone; move it to $RADIN_HOME by hand."
+	MIGRATED="1"
+	ok "moved ~/.claude/.radin to ~/.radin"
+}
+migrate_home
+
 MANIFEST_VERSION="dev"
 [ -f "$RADIN_ROOT/.radin-version" ] && MANIFEST_VERSION="$(cat "$RADIN_ROOT/.radin-version")"
 
@@ -151,6 +192,7 @@ SHIPPED_LIB="radin-host.sh radin-namespace.sh radin-json.sh radin-backlog.sh rad
 SHIPPED_HOSTLIB="radin-prompt-planning.md radin-prompt-execution.md radin-prompt-debug.md radin-prompt-factfind.md radin-prompt-gate.md radin-prompt-merge.md radin-leaf-contract.md radin-comment-rule.md radin-explore-rule.md radin-open-decisions.md radin-ask-rule.md radin-complexity-rule.md radin-planning-rule.md radin-prioritization.md radin-batch-recovery.md radin-batch-reporting.md radin-batch-gate.md radin-batch-merge.md radin-batch-clarify.md radin-batch-session.md radin-batch-resume.md radin-run.md radin-review-core.md"
 RENAMED_SKILLS="radin-execute radin-implement radin-run"
 RETIRED_SKILLS="radin-update radin-show radin-doctor radin-setup-hooks"
+RETIRED_LIB="radin-tui.sh radin-crg-hooks.sh radin-execute-recovery.md radin-execute-reporting.md radin-execute-gate.md radin-execute-review.md radin-execute-clarify.md radin-execute-session.md radin-execute-resume.md radin-batch-review.md"
 # END shipped
 for f in $SHIPPED_LIB; do
 	cp "$RADIN_ROOT/lib/$f" "$RADIN_HOME/lib/"
@@ -161,6 +203,13 @@ done
 for s in $SHIPPED_SKILLS; do
 	cp -r "$RADIN_ROOT/skills/$s" "$HOME/.claude/skills/"
 done
+
+# A moved home still holds the pre-split rendered .md files and retired libs.
+if [ -n "$MIGRATED" ]; then
+	for f in $SHIPPED_HOSTLIB $RETIRED_LIB; do
+		rm -f "$RADIN_HOME/lib/$f"
+	done
+fi
 
 # Only a dir whose SKILL.md still names itself is radin's own to remove.
 for s in $RENAMED_SKILLS $RETIRED_SKILLS; do
@@ -873,6 +922,9 @@ if [ -x "$RADIN_HOME/bin/radin-cbm-json" ]; then
 	if ! bash "$RADIN_HOME/lib/radin-cbm-config.sh" allow >/dev/null 2>&1 </dev/null; then
 		warn "could not add the Read rule for ~/.radin to settings.json --"
 		warn "Claude Code will ask before each read of radin's own files."
+	elif [ -n "$MIGRATED$LEGACY_LEFT" ]; then
+		bash "$RADIN_HOME/lib/radin-cbm-config.sh" unallow-legacy >/dev/null 2>&1 </dev/null ||
+			warn "could not remove the old Read rule for ~/.claude/.radin from settings.json."
 	fi
 else
 	warn "no C compiler -- settings.json keeps no Read rule for ~/.radin,"
@@ -960,4 +1012,5 @@ else
 	info "Open Claude Code in a repo and run ${BOLD}/radin-record${RESET} to file your first"
 	info "task, then ${BOLD}/radin-batch${RESET} to work the backlog. ${BOLD}radin${RESET} opens the TUI."
 fi
+[ -z "$MIGRATED" ] || warn "restart open Claude sessions: they hold the old path"
 info "${BOLD}radin doctor${RESET} checks this install · ${BOLD}radin update${RESET} updates radin itself."

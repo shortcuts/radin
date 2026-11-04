@@ -12,6 +12,7 @@
 #   radin-cbm-config.sh allow     add Read rules for radin's own ~/.claude/.radin to
 #                                 permissions.allow, so no skill or leaf prompts for it
 #   radin-cbm-config.sh unallow   remove exactly those rules (uninstall)
+#   radin-cbm-config.sh unallow-legacy  remove only the pre-~/.radin ~/.claude/.radin rules
 #
 # Restoring only ever puts back an entry that was in the snapshot and is now
 # missing; upstream's own entries stay, and radin adds none of its own. The
@@ -239,20 +240,21 @@ legacy_allow_rules() {
 }
 
 cmd_allow() {
-	local verb="$1" rules=() r
-	while IFS= read -r r; do rules+=("$r"); done <<EOF
-$(allow_rules)
-$([ "$verb" = remove-allow ] && legacy_allow_rules)
+	local verb="$1" set="$2" rules=() r
+	while IFS= read -r r; do [ -z "$r" ] || rules+=("$r"); done <<EOF
+$([ "$set" = legacy ] || allow_rules)
+$([ "$set" = new ] || legacy_allow_rules)
 EOF
 	"$CBM_JSON" "$verb" "$SETTINGS" "${rules[@]}"
 }
 
 case "${1:-}" in
-allow) cmd_allow ensure-allow ;;
-unallow) cmd_allow remove-allow ;;
+allow) cmd_allow ensure-allow new ;;
+unallow) cmd_allow remove-allow both ;;
+unallow-legacy) cmd_allow remove-allow legacy ;;
 install) cmd_install ;;
 repair) cmd_repair ;;
 *)
-	die "usage: radin-cbm-config.sh <install|repair|allow|unallow>"
+	die "usage: radin-cbm-config.sh <install|repair|allow|unallow|unallow-legacy>"
 	;;
 esac

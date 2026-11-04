@@ -561,3 +561,140 @@ pick_with_keys() {
   [ "$(cat "$TEST_HOME/.radin/install_root")" = "$REPO_ROOT" ]
 }
 
+
+# The layout before ~/.radin: the radin home inside ~/.claude. $1 is the
+# directory ~/.claude points at (a symlink target), or empty for a plain one.
+seed_old_layout() {
+  local real="${1:-$TEST_HOME/.claude}" old
+  if [ -n "$1" ]; then
+    mkdir -p "$1"
+    ln -s "$1" "$TEST_HOME/.claude"
+  fi
+  old="$real/.radin"
+  mkdir -p "$old/lib" "$old/bin" "$old/backups/snap" "$TEST_HOME/.local/bin"
+  printf '{"installed_at": "2026-01-01T00:00:00Z", "companion_tools": {}}\n' >"$old/manifest.json"
+  echo stale >"$old/lib/radin-run.md"
+  echo stale >"$old/lib/radin-tui.sh"
+  echo sentinel >"$old/backups/snap/settings.json"
+  echo "$REPO_ROOT" >"$old/install_root"
+  printf '#!/bin/sh\n' >"$old/bin/radin"
+  chmod +x "$old/bin/radin"
+  ln -s "$old/bin/radin" "$TEST_HOME/.local/bin/radin"
+  cat >"$real/settings.json" <<JSON
+{"permissions": {"allow": ["Read(//x/**)", "Read(/$TEST_HOME/.claude/.radin/**)", "Read(/$(cd "$real" && pwd -P)/.radin/**)"]}}
+JSON
+}
+
+# setup_file builds radin-cbm-json for real; so must every run whose subject
+# is the settings.json edit.
+use_real_cc() {
+  rm -f "$MOCK_BIN/cc" "$MOCK_BIN/gcc" "$MOCK_BIN/clang"
+}
+
+assert_migrated() {
+  [ ! -e "$TEST_HOME/.claude/.radin" ]
+  [ "$(cat "$TEST_HOME/.radin/backups/snap/settings.json")" = sentinel ]
+  [ ! -e "$TEST_HOME/.radin/lib/radin-run.md" ]
+  [ ! -e "$TEST_HOME/.radin/lib/radin-tui.sh" ]
+  [ -f "$TEST_HOME/.radin/hosts/claude/lib/radin-run.md" ]
+  [ "$(readlink "$TEST_HOME/.local/bin/radin")" = "$TEST_HOME/.radin/bin/radin" ]
+  grep -qF "Read(/$TEST_HOME/.radin/**)" "$TEST_HOME/.claude/settings.json"
+  grep -qF 'Read(//x/**)' "$TEST_HOME/.claude/settings.json"
+  run grep -cF '/.claude/.radin' "$TEST_HOME/.claude/settings.json"
+  [ "$output" = 0 ]
+}
+
+@test "migration moves ~/.claude/.radin to ~/.radin and drops the old Read rules" {
+  use_real_cc
+  seed_old_layout
+  run real_install
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"moved ~/.claude/.radin to ~/.radin"* ]]
+  [[ "$output" == *"restart open Claude sessions: they hold the old path"* ]]
+  assert_migrated
+}
+
+@test "migration works when ~/.claude is a symlink" {
+  use_real_cc
+  seed_old_layout "$TEST_HOME/elsewhere"
+  run real_install
+  [ "$status" -eq 0 ]
+  [ ! -e "$TEST_HOME/elsewhere/.radin" ]
+  assert_migrated
+  run grep -cF "/elsewhere/.radin" "$TEST_HOME/.claude/settings.json"
+  [ "$output" = 0 ]
+}
+
+@test "a half-migrated machine keeps the old directory, says so, and drops the old Read rules" {
+  use_real_cc
+  seed_old_layout
+  mkdir -p "$TEST_HOME/.radin"
+  cp "$TEST_HOME/.claude/.radin/manifest.json" "$TEST_HOME/.radin/manifest.json"
+  run real_install
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"is still there, unused"* ]]
+  [[ "$output" != *"restart open Claude sessions"* ]]
+  [ "$(cat "$TEST_HOME/.claude/.radin/backups/snap/settings.json")" = sentinel ]
+  run grep -cF '/.claude/.radin' "$TEST_HOME/.claude/settings.json"
+  [ "$output" = 0 ]
+  grep -qF "Read(/$TEST_HOME/.radin/**)" "$TEST_HOME/.claude/settings.json"
+}
+
+@test "a foreign ~/.radin stops the install before any write" {
+  seed_old_layout
+  mkdir -p "$TEST_HOME/.radin"
+  echo mine >"$TEST_HOME/.radin/keep.txt"
+  run real_install
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"not radin's: move it away"* ]]
+  [ "$(cat "$TEST_HOME/.radin/keep.txt")" = mine ]
+  [ -f "$TEST_HOME/.claude/.radin/manifest.json" ]
+  [ ! -e "$TEST_HOME/.claude/skills/radin-batch" ]
+}
+
+@test "a failed mv or a leftover staging directory leaves the old directory intact" {
+  seed_old_layout
+  cat >"$MOCK_BIN/mv" <<'SH'
+#!/bin/sh
+if [ ! -e "$MOCK_LOG_DIR/mv.called" ]; then
+  : >"$MOCK_LOG_DIR/mv.called"
+  mkdir -p "$2"
+  exit 1
+fi
+exec /bin/mv "$@"
+SH
+  chmod +x "$MOCK_BIN/mv"
+  run real_install
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"mv failed"* ]]
+  [ -f "$TEST_HOME/.claude/.radin/manifest.json" ]
+  [ ! -e "$TEST_HOME/.radin" ]
+  [ ! -e "$TEST_HOME/.claude/skills/radin-batch" ]
+  rm -f "$MOCK_BIN/mv"
+  run real_install
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"$TEST_HOME/.radin.migrating was left by an interrupted move"* ]]
+  [ -f "$TEST_HOME/.claude/.radin/manifest.json" ]
+  [ ! -e "$TEST_HOME/.radin" ]
+}
+
+@test "an installed pre-~/.radin radin update still reaches the migrating install.sh" {
+  use_real_cc
+  seed_old_layout
+  cp "$REPO_ROOT/tests/fixtures/radin-update-legacy.sh" "$TEST_HOME/.claude/.radin/lib/radin-update.sh"
+  local upstream="$TEST_HOME/upstream" clone="$TEST_HOME/clone"
+  git init -q --bare "$upstream"
+  git init -q "$clone"
+  git -C "$clone" config user.email t@t
+  git -C "$clone" config user.name t
+  printf '#!/bin/sh\nexec bash "%s/install.sh" "$@"\n' "$REPO_ROOT" >"$clone/install.sh"
+  git -C "$clone" add install.sh
+  git -C "$clone" commit -qm init
+  git -C "$clone" remote add origin "$upstream"
+  git -C "$clone" push -q -u origin HEAD:main
+  echo "$clone" >"$TEST_HOME/.claude/.radin/install_root"
+  run bash -c 'printf "2\n" | bash "$HOME/.claude/.radin/lib/radin-update.sh" --yes'
+  [ "$status" -eq 0 ]
+  [ ! -e "$TEST_HOME/.claude/.radin" ]
+  grep -q '"installed_at"' "$TEST_HOME/.radin/manifest.json"
+}

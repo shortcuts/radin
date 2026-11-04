@@ -32,6 +32,9 @@ It asks no question and keeps your sub-agent models.
 It reapplies every companion's configuration and installs only the companions that are missing.
 To update the companions too, run `install.sh` again.
 
+The first install after the move to `~/.radin` relocates `~/.claude/.radin` there.
+It then asks you to restart open Claude sessions, because they hold the old path.
+
 ## Repair hooks after a companion update
 
 After `codebase-memory-mcp update`, run:
