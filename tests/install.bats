@@ -824,6 +824,122 @@ assert_no_agents_marker() {
   [ -f "$TEST_HOME/.claude/skills/radin-batch/SKILL.md" ]
 }
 
+# A new line in the copied root's lib/radin-run.md must reach exactly the renders of the manifest hosts.
+update_marker() {
+  printf '\nUPDATE-MARKER\n' >>"$AROOT/lib/radin-run.md"
+}
+
+@test "--update refreshes a claude-only install and touches no agents tree" {
+  agents_root
+  install_from "$AROOT" --yes --only claude >/dev/null
+  update_marker
+  run install_from "$AROOT" --update
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"Pick 1-"* ]]
+  grep -q UPDATE-MARKER "$TEST_HOME/.radin/hosts/claude/lib/radin-run.md"
+  [ ! -e "$TEST_HOME/.agents" ]
+  [ ! -e "$TEST_HOME/.radin/hosts/agents" ]
+  [ "$(manifest_array hosts)" = '"claude"' ]
+}
+
+@test "--update refreshes an agents-only install and touches no claude tree" {
+  mock_cli codex
+  agents_root
+  install_from "$AROOT" --yes --only codex >/dev/null
+  update_marker
+  run install_from "$AROOT" --update
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"Pick 1-"* ]]
+  grep -q UPDATE-MARKER "$TEST_HOME/.radin/hosts/agents/lib/radin-run.md"
+  [ ! -e "$TEST_HOME/.radin/hosts/claude" ]
+  [ "$(manifest_array hosts)" = '"codex"' ]
+}
+
+@test "--update refreshes both renders of a claude plus codex install" {
+  mock_cli codex
+  agents_root
+  install_from "$AROOT" --yes --only claude,codex >/dev/null
+  update_marker
+  run install_from "$AROOT" --update
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"Pick 1-"* ]]
+  grep -q UPDATE-MARKER "$TEST_HOME/.radin/hosts/claude/lib/radin-run.md"
+  grep -q UPDATE-MARKER "$TEST_HOME/.radin/hosts/agents/lib/radin-run.md"
+  [ "$(manifest_array hosts)" = '"claude", "codex"' ]
+}
+
+@test "--update reports an edited agents skill and keeps the edit" {
+  mock_cli codex
+  agents_root
+  install_from "$AROOT" --yes --only codex >/dev/null
+  local f="$TEST_HOME/.agents/skills/radin-do/SKILL.md"
+  printf 'my edit\n' >>"$f"
+  run install_from "$AROOT" --update
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"kept $f"* ]]
+  grep -qx 'my edit' "$f"
+}
+
+# Forbidden in the agents render only: the claude render of the same line is fine.
+break_agents_render() {
+  printf '\nAskUserQuestion\n' >>"$AROOT/lib/radin-run.md"
+}
+
+@test "--update leaves a host whose render fails untouched, records it, and retries it next time" {
+  mock_cli codex
+  agents_root
+  install_from "$AROOT" --yes --only claude,codex >/dev/null
+  local before after d
+  d="$(manifest_digest_of .agents/skills/radin-do/SKILL.md)"
+  before="$(home_sum | grep -E '\./\.agents|\./\.radin/hosts/agents')"
+  cp "$AROOT/lib/radin-run.md" "$BATS_TEST_TMPDIR/run.md"
+  update_marker
+  break_agents_render
+  run install_from "$AROOT" --update
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"agents render failed"* ]]
+  grep -q UPDATE-MARKER "$TEST_HOME/.radin/hosts/claude/lib/radin-run.md"
+  after="$(home_sum | grep -E '\./\.agents|\./\.radin/hosts/agents')"
+  [ "$before" = "$after" ]
+  [ "$(manifest_array hosts)" = '"claude", "codex"' ]
+  [ "$(manifest_array agents_clis)" = '"codex"' ]
+  [ "$(manifest_digest_of .agents/skills/radin-do/SKILL.md)" = "$d" ]
+  [ -n "$d" ]
+  grep -q '"codex_guidance": true' "$TEST_HOME/.radin/manifest.json"
+  cp "$BATS_TEST_TMPDIR/run.md" "$AROOT/lib/radin-run.md"
+  update_marker
+  run install_from "$AROOT" --update
+  [ "$status" -eq 0 ]
+  grep -q UPDATE-MARKER "$TEST_HOME/.radin/hosts/agents/lib/radin-run.md"
+}
+
+@test "--update holds a host whose path radin does not own" {
+  mock_cli codex
+  agents_root
+  install_from "$AROOT" --yes --only claude,codex >/dev/null
+  sed -i.bak '/"\.agents\/skills\/radin-do\/SKILL.md"/d' "$TEST_HOME/.radin/manifest.json"
+  local before after
+  before="$(home_sum | grep -E '\./\.agents|\./\.radin/hosts/agents')"
+  update_marker
+  run install_from "$AROOT" --update
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"radin did not install it"* ]]
+  after="$(home_sum | grep -E '\./\.agents|\./\.radin/hosts/agents')"
+  [ "$before" = "$after" ]
+  [ "$(manifest_array hosts)" = '"claude", "codex"' ]
+}
+
+@test "--update takes curl for rtk, without a question, when the manifest has no package manager" {
+  mock_cli codex
+  agents_root
+  install_from "$AROOT" --yes --only codex >/dev/null
+  sed -i.bak '/"package_manager"/d' "$TEST_HOME/.radin/manifest.json"
+  run install_from "$AROOT" --update
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"Pick 1-"* ]]
+  grep -q '"package_manager": "curl"' "$TEST_HOME/.radin/manifest.json"
+}
+
 @test "--dry-run lists the writes the real run makes and changes nothing" {
   mock_cli codex
   agents_root

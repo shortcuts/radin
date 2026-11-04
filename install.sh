@@ -51,6 +51,12 @@ usage_exit() {
 }
 
 SELECTED=""
+# Hosts an update left untouched. The manifest keeps them so the next update retries.
+HELD=""
+host_held() {
+	case " $HELD " in *" $1 "*) return 0 ;; esac
+	return 1
+}
 host_selected() {
 	case " $SELECTED " in *" $1 "*) return 0 ;; esac
 	return 1
@@ -700,6 +706,7 @@ drop_blocked() {
 				fi
 			done <<<"$units"
 			[ -z "$DRY" ] || printf 'skip host %s\n' "$ids"
+			[ -z "$UPDATE" ] || HELD="$HELD $ids"
 			SELECTED="${keep# }"
 			awk -F'\t' -v r="$r" '$3 != r' "$PLAN" >"$PLAN.new" && mv "$PLAN.new" "$PLAN"
 		done
@@ -1142,6 +1149,7 @@ install_render() {
 		for id in $SELECTED; do
 			if [ "$(host_field "$id" 3)" = "$r" ]; then
 				warn "$id is left out of this install."
+				[ -z "$UPDATE" ] || HELD="$HELD $id"
 			else
 				keep="$keep $id"
 			fi
@@ -1422,7 +1430,7 @@ PKG_CHOICES=""
 [ -n "$MISE" ] && PKG_CHOICES="$PKG_CHOICES mise"
 if [ -n "$PKG_MGR" ]; then
 	:
-elif [ -n "$PKG_CHOICES" ]; then
+elif [ -n "$PKG_CHOICES" ] && [ -z "$UPDATE" ]; then
 	# shellcheck disable=SC2086  # word splitting is the point -- one arg per manager
 	PKG_MGR="$(prompt_pick "install rtk through" 1 $PKG_CHOICES "curl")"
 else
@@ -1691,6 +1699,19 @@ json_bool_plugin() {
 	fi
 }
 
+# Paths of a held host, so its old digests survive in the manifest.
+held_paths() {
+	local id r seen=""
+	for id in $HELD; do
+		r="$(host_field "$id" 3)"
+		case " $seen " in *" $r "*) ;; *)
+			seen="$seen $r"
+			render_paths "$r"
+			;;
+		esac
+		[ "$id" != opencode ] || opencode_paths
+	done
+}
 # One entry per line, keyed by the path under $HOME. Taken last, so each digest
 # matches the final bytes; a kept file keeps the digest it had.
 json_files() {
@@ -1701,6 +1722,12 @@ json_files() {
 		printf '%s\n    "%s": "%s"' "$sep" "$rel" "${d:-$(sha256_of "$p")}"
 		sep=","
 	done < <(owned_paths)
+	while IFS= read -r p; do
+		rel="${p#"$HOME"/}"
+		d="$(awk -F'\t' -v p="$rel" '$1 == p { print $2; exit }' <<<"$OWNED_MAP")"
+		[ -z "$d" ] || printf '%s\n    "%s": "%s"' "$sep" "$rel" "$d"
+		[ -z "$d" ] || sep=","
+	done < <(held_paths)
 }
 json_backups() {
 	{
@@ -1709,8 +1736,22 @@ json_backups() {
 	} |
 		awk -F'\t' 'NF == 2 { printf "%s\n    \"%s\": \"%s\"", sep, $1, $2; sep = "," }'
 }
+MANIFEST_HOSTS=""
+for id in $(host_ids); do
+	if host_selected "$id" || host_held "$id"; then MANIFEST_HOSTS="$MANIFEST_HOSTS $id"; fi
+done
+MANIFEST_HOSTS="${MANIFEST_HOSTS# }"
+host_held claude && CLAUDE_MD_GUIDANCE="$(manifest_value claude_md_guidance)"
+host_held claude && CBM_AGENT_CONFIG="$(manifest_value cbm_agent_config)"
+host_held codex && CODEX_GUIDANCE="$(manifest_value codex_guidance)"
+host_held opencode && OPENCODE_GUIDANCE="$(manifest_value opencode_guidance)"
+host_held opencode && OPENCODE_ALLOW="$(manifest_value opencode_allow)"
+CLAUDE_MD_GUIDANCE="${CLAUDE_MD_GUIDANCE:-false}"
+CBM_AGENT_CONFIG="${CBM_AGENT_CONFIG:-false}"
+CODEX_GUIDANCE="${CODEX_GUIDANCE:-false}"
+OPENCODE_GUIDANCE="${OPENCODE_GUIDANCE:-false}"
 AGENTS_CLIS=""
-for id in $SELECTED; do
+for id in $MANIFEST_HOSTS; do
 	[ "$(host_field "$id" 3)" != agents ] || AGENTS_CLIS="$AGENTS_CLIS $(host_field "$id" 4)"
 done
 
@@ -1744,7 +1785,7 @@ cat >"$MANIFEST_FILE" <<EOF
   "opencode_allow": "$OPENCODE_ALLOW",
   "cbm_agent_config": $CBM_AGENT_CONFIG,
   "cli_on_path": $CLI_ON_PATH,
-  "hosts": [$(json_names "$SELECTED")],
+  "hosts": [$(json_names "$MANIFEST_HOSTS")],
   "agents_clis": [$(json_names "$AGENTS_CLIS")],
   "skills": [$(json_names "$SHIPPED_SKILLS thermo-nuclear")],
   "lib": [$(json_names "$SHIPPED_LIB")],
