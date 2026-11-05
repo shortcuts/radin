@@ -4,6 +4,7 @@ description: |
   Use for /radin-do <prompt>. Records one ad-hoc prompt as a backlog entry,
   then executes just that task.
 disable-model-invocation: true
+argument-hint: "<prompt>"
 ---
 # Run One Prompt
 
