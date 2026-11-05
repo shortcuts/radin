@@ -461,6 +461,15 @@ EOF
   grep -qF 'Read(//x/**)' "$TEST_HOME/.claude/settings.json"
 }
 
+@test "unallow removes every copy of a duplicated rule" {
+  mkdir -p "$TEST_HOME/.claude"
+  echo "{\"permissions\": {\"allow\": [\"Read(//x/**)\", \"Read(/$TEST_HOME/.radin/**)\", \"Read(/$TEST_HOME/.radin/**)\"]}}" > "$TEST_HOME/.claude/settings.json"
+  run bash "$CLI" unallow
+  [ "$status" -eq 0 ]
+  run grep -c '\.radin' "$TEST_HOME/.claude/settings.json"
+  [ "$output" = 0 ]
+}
+
 @test "unallow-legacy removes both spellings of the old ~/.claude/.radin rule and keeps the new and a foreign one" {
   rmdir "$TEST_HOME/.claude"
   mkdir -p "$TEST_HOME/realclaude"

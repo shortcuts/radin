@@ -1304,6 +1304,7 @@ static int edit_allow(const char *arg, int add, int nr, char **rules)
 			allow->n--;
 			printf("REMOVED  %s (permissions.allow %s)\n", path, rules[j]);
 			changed = 1;
+			j--; /* a duplicate of the same rule may remain */
 		}
 	}
 	if (changed)
