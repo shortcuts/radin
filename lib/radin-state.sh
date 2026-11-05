@@ -1364,7 +1364,7 @@ task-done)
 		exit 3
 	fi
 	# A commit that sits on a side branch is not done: the entry stays, blocked,
-	# until the merge lands (docs/DECISIONS.md, "A task is done when its commit is in the base branch").
+	# until the merge lands (docs/agents/DECISIONS.md, "A task is done when its commit is in the base branch").
 	case "$prov_branch" in
 	radin/*)
 		if [ -n "$base" ] && [ "$in_base" -eq 0 ] && [ ! -e "$merged_mark" ]; then

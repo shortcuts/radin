@@ -98,10 +98,10 @@ gen:
 # removed after the run: radin ships no JS and tracks no lockfile.
 diagrams:
 	npm i --no-save --no-package-lock pele@1.6.0
-	node docs/lifecycle/render.mjs
+	node docs/agents/lifecycle/render.mjs
 	rm -rf node_modules
 
 # Reads the .mmd files on every request: edit one, refresh the browser.
 serve-diagrams:
 	npm i --no-save --no-package-lock pele@1.6.0
-	trap 'rm -rf node_modules' EXIT; node docs/lifecycle/serve.mjs
+	trap 'rm -rf node_modules' EXIT; node docs/agents/lifecycle/serve.mjs

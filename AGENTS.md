@@ -12,9 +12,9 @@ radin is a Claude Code plugin of skills, a CLI, and install glue.
   4. `skills/radin-execute`, `skills/radin-implement` and `skills/radin-run`, renamed to `radin-batch` and `radin-do`. `install.sh` removes one only when its `SKILL.md` still has radin's own `name:` line.
   5. `skills/thermo-nuclear`. `install.sh` removes it only when the fresh `thermo-nuclear-code-quality-review` copy is ready. `tests/bash-compat.bats` pins that one `rm`.
   6. `.ponytail-band`. `install.sh` writes `off` only when the file is absent, so ponytail's band starts hidden.
-  7. Two `Read(//…/.radin/**)` strings in `permissions.allow` of `settings.json`. `radin-cbm-config.sh allow` adds them and `unallow` removes exactly those strings and the two legacy `Read(//…/.claude/.radin/**)` ones. `unallow-legacy` removes the legacy pair alone, after a migration. No other key or rule changes ([why](docs/DECISIONS.md#platform-and-install)).
-  8. `~/.claude/.radin`. `install.sh` moves it once to `~/.radin` with `mv`, only when it holds a radin manifest, through `~/.radin.migrating`. A foreign `~/.radin` or a leftover staging directory aborts before any write ([why](docs/DECISIONS.md#platform-and-install)).
-  9. `--force` moves an unowned or edited radin-named path to `~/.radin/backups` with `mv`, then installs radin's file. It runs no `rm` there. Without `--force` that path stops its host or stays as the user left it ([why](docs/DECISIONS.md#platform-and-install)).
+  7. Two `Read(//…/.radin/**)` strings in `permissions.allow` of `settings.json`. `radin-cbm-config.sh allow` adds them and `unallow` removes exactly those strings and the two legacy `Read(//…/.claude/.radin/**)` ones. `unallow-legacy` removes the legacy pair alone, after a migration. No other key or rule changes ([why](docs/agents/DECISIONS.md#platform-and-install)).
+  8. `~/.claude/.radin`. `install.sh` moves it once to `~/.radin` with `mv`, only when it holds a radin manifest, through `~/.radin.migrating`. A foreign `~/.radin` or a leftover staging directory aborts before any write ([why](docs/agents/DECISIONS.md#platform-and-install)).
+  9. `--force` moves an unowned or edited radin-named path to `~/.radin/backups` with `mv`, then installs radin's file. It runs no `rm` there. Without `--force` that path stops its host or stays as the user left it ([why](docs/agents/DECISIONS.md#platform-and-install)).
 
   Call out every `install.sh` edit.
 - **Companion install is advisory.** A failed install prints a warning and the run continues. The installer asks one question: which package manager installs the companions (`brew`, `mise`, or `curl`). radin adds no package manager the user has not already run.
@@ -67,11 +67,11 @@ Add a row with every new hard rule.
 | Anything deterministic (install, update, doctor, uninstall, backlog, state, TUI) | A `bin/radin` subcommand in `lib/`, never a skill. |
 | Backlog loop of `radin-batch` and `radin-do` | `lib/radin-run.md`. |
 | Rare-need part of `radin-batch` | `lib/radin-batch-*.md`, read on demand. |
-| A constraint, a decision, or a rule with its reason | `docs/DECISIONS.md`, one bullet: the rule, then `**Why:**`. No layout, verb list or format table: the code and the graph hold those. |
-| A skill's flow, a `radin-run.md` phase, a leaf step, or a task status | `docs/lifecycle/*.mmd`, then `make diagrams` ([diagrams](docs/lifecycle.md)). Commit the `.mmd` and `.svg` together. |
+| A constraint, a decision, or a rule with its reason | `docs/agents/DECISIONS.md`, one bullet: the rule, then `**Why:**`. No layout, verb list or format table: the code and the graph hold those. |
+| A skill's flow, a `radin-run.md` phase, a leaf step, or a task status | `docs/agents/lifecycle/*.mmd`, then `make diagrams` ([diagrams](docs/agents/lifecycle.md)). Commit the `.mmd` and `.svg` together. |
 | The README screenshot | `make screenshot`, then commit `docs/img/tui.svg`. |
-| What ships, a renamed or removed skill or lib file | `SHIPPED`, then `make gen` ([how](docs/DECISIONS.md#platform-and-install)). |
-| Sub-agent model, CLI invocation | Nothing. Write a token and `install.sh` resolves it ([how](docs/DECISIONS.md#platform-and-install)). |
+| What ships, a renamed or removed skill or lib file | `SHIPPED`, then `make gen` ([how](docs/agents/DECISIONS.md#platform-and-install)). |
+| Sub-agent model, CLI invocation | Nothing. Write a token and `install.sh` resolves it ([how](docs/agents/DECISIONS.md#platform-and-install)). |
 
 A new skill also needs a README row. `make check` names any step you missed.
 
@@ -79,7 +79,7 @@ A new companion that ships stats or a gain command needs a bullet in `skills/rad
 
 ## Storage
 
-The state directory is `<repo-root>/.claude/.radin/`, under `$PWD`. It holds `backlog/` (`index.jsonl` and `tasks/<id>.md`), `state/`, `plans/`, and `reviews/` ([rules](docs/DECISIONS.md#state-and-data)). It is the only thing radin writes into a consumer repo. radin never touches that repo's `.gitignore`.
+The state directory is `<repo-root>/.claude/.radin/`, under `$PWD`. It holds `backlog/` (`index.jsonl` and `tasks/<id>.md`), `state/`, `plans/`, and `reviews/` ([rules](docs/agents/DECISIONS.md#state-and-data)). It is the only thing radin writes into a consumer repo. radin never touches that repo's `.gitignore`.
 
 Read and write it only through the CLI (`radin backlog …`, `radin state …`). No code parses `index.jsonl` or `completed.json`, or grabs a task by line number. When no subcommand gives the view you need, add one.
 
@@ -87,7 +87,7 @@ Read and write it only through the CLI (`radin backlog …`, `radin state …`).
 
 Every entry point is a skill, because only a skill runs in the user's thread and can talk to the user. A sub-agent is a leaf worker that a skill dispatches. It cannot write prose to the user, call `AskUserQuestion`, or receive a background-task notification.
 
-- Before a prompt points at a skill, check that the skill asks the user nothing and spawns no agent ([constraints](docs/DECISIONS.md#skills-and-sub-agents)).
+- Before a prompt points at a skill, check that the skill asks the user nothing and spawns no agent ([constraints](docs/agents/DECISIONS.md#skills-and-sub-agents)).
 - Name each companion directly, with no `command -v` gate and no escape clause. A missing tool fails loudly and counts as a skip.
 - The one guard that stays is a skill that asks a human anything. A sub-agent drops it and never waits on it.
 
@@ -112,7 +112,7 @@ Applies to `skills/*/SKILL.md`, `lib/radin-*.md`, and this file. Style source: [
 - **Bold lead phrase, one imperative sentence.** Add `**Why:**` only when the rule looks wrong without it.
 - **One yes/no `**The test:**` per judgment call.**
 - **Process skills:** verb-titled phases, ending with `**Reply:**` (what the user gets back).
-- **Name another skill. Never restate it** ([one rule, one file](docs/DECISIONS.md#one-rule-one-file)).
+- **Name another skill. Never restate it** ([one rule, one file](docs/agents/DECISIONS.md#one-rule-one-file)).
 - **Use the short, exact word,** one term per concept. Keep "the", "a", "not", "only". Skip em dashes, colon connectors, metaphor nouns, and "simply".
 - **A cut never adds words.** Compare `wc -w` before and after. When no sentence fails the no-op test, leave the file unchanged.
 
@@ -120,7 +120,7 @@ More rules: `/mattpocock-skills:writing-for-agents`, the `STE` output style, `un
 
 ## Delegation: one owner per job
 
-When a shipped tool does a job, name that tool. Never write a radin version. Name each delegation in one file ([a test pins every name](docs/DECISIONS.md#skills-and-sub-agents)).
+When a shipped tool does a job, name that tool. Never write a radin version. Name each delegation in one file ([a test pins every name](docs/agents/DECISIONS.md#skills-and-sub-agents)).
 
 | Job | Owner |
 | --- | --- |
@@ -132,22 +132,22 @@ When a shipped tool does a job, name that tool. Never write a radin version. Nam
 | Output compression | `rtk` |
 | Agent-doc writing rules | `/mattpocock-skills:writing-for-agents` |
 
-The graph tool name lives in one file and must exist in the upstream table ([which files, and the pointer rule](docs/DECISIONS.md#limits-of-the-codebase-memory-mcp-bracket)).
+The graph tool name lives in one file and must exist in the upstream table ([which files, and the pointer rule](docs/agents/DECISIONS.md#limits-of-the-codebase-memory-mcp-bracket)).
 
 ## Decisions that look like bugs
 
-- **No router-side per-task verification in `radin-batch`.** The leaf verifies and reviews its own staged diff before it commits. A `FAILED` task gets a Debug prompt once per session. One that still fails asks the user and re-runs. The router defers only on the user's explicit word ([why](docs/DECISIONS.md#the-run-loop)).
+- **No router-side per-task verification in `radin-batch`.** The leaf verifies and reviews its own staged diff before it commits. A `FAILED` task gets a Debug prompt once per session. One that still fails asks the user and re-runs. The router defers only on the user's explicit word ([why](docs/agents/DECISIONS.md#the-run-loop)).
 - **What a sub-agent learns stays on its task.** It records a `**Fact:**` or `**Root cause:**` line, and the long form goes in `state/facts/<id>.md`. There is no shared note file and no cross-task memory.
 - **`radin-batch` worktree and branch answers never reach a prompt.** Only `radin-state.sh prepare` turns them into git commands. A model that receives them can eventually override a `no`.
-- **`lib/radin-cbm-config.sh` snapshots before the upstream write.** The upstream installer replaces the whole hook array and does not merge ([limits](docs/DECISIONS.md#limits-of-the-codebase-memory-mcp-bracket)).
+- **`lib/radin-cbm-config.sh` snapshots before the upstream write.** The upstream installer replaces the whole hook array and does not merge ([limits](docs/agents/DECISIONS.md#limits-of-the-codebase-memory-mcp-bracket)).
 - **Two C files only: the TUI (`lib/radin-tui.c`) and the JSON helper (`lib/radin-cbm-json.c`).**
   - The TUI draws and dispatches keys with raw ANSI and `termios`. Every mutation shells out to `radin-backlog.sh`.
   - The helper holds every JSON rule that `radin repair` and `radin hooks mcp` need. Those scripts keep none. radin needs no Python.
-  - `install.sh` builds both with `cc`, and the build is advisory. Without a compiler there is no TUI and no `radin repair`, and `radin hooks mcp` prints an entry to paste by hand ([rules](docs/DECISIONS.md#the-human-tui)).
+  - `install.sh` builds both with `cc`, and the build is advisory. Without a compiler there is no TUI and no `radin repair`, and `radin hooks mcp` prints an entry to paste by hand ([rules](docs/agents/DECISIONS.md#the-human-tui)).
 - **`order` moves a dependency up, never a dependent down.** Kahn's algorithm with a priority tie-break discards more of the human ranking.
 - **The TUI loads `backlog list --order created`,** so a mutation reorders nothing. `Shift-A`, `Shift-P`, `Shift-C`, and `Shift-T` are the only reorder keys. They last one session, and the header shows the active one. The CLI default stays `priority`, the contract `radin-prioritization.md` reads.
 - **One sub-agent takes one task** and returns one `STATUS` line. A leaf starts cold, so batching tasks for file locality saves no tokens.
-- **Plan one task at a time, just in time.** A wave plan of every task drifts when an earlier commit changes the tree ([why](docs/DECISIONS.md#the-run-loop)).
+- **Plan one task at a time, just in time.** A wave plan of every task drifts when an earlier commit changes the tree ([why](docs/agents/DECISIONS.md#the-run-loop)).
 - **No arena or judge at execution level.** N worktrees and a judge that reads N diffs break the router's low-resolution rule. At planning it stays an opt-in in its own backlog entry, gated on a review-origin rollup.
 - **No model escalation on retry.** All four roles (planning, execution, review, debug) default to sonnet.
 
@@ -158,7 +158,7 @@ The graph tool name lives in one file and must exist in the upstream table ([whi
   - The mock command is `tests/helpers/mock.c`, one compiled binary, because `/bin/sh` startup costs 20 ms per stub call.
   - No test makes a network request.
 - Optional: `make verify-hosts` runs the real opencode and codex CLIs. It needs a C compiler and, with `VERIFY_ARGS=--install-missing`, npm.
-- Update the docs in the same commit: `docs/DECISIONS.md` (a new constraint or decision, as one rule plus its `**Why:**`), `docs/lifecycle/*.mmd` (a changed skill flow, run-loop phase, leaf step or task status), the README (a new skill or companion).
+- Update the docs in the same commit: `docs/agents/DECISIONS.md` (a new constraint or decision, as one rule plus its `**Why:**`), `docs/agents/lifecycle/*.mmd` (a changed skill flow, run-loop phase, leaf step or task status), the README (a new skill or companion).
 
 ## Test coverage
 
@@ -166,4 +166,4 @@ The graph tool name lives in one file and must exist in the upstream table ([whi
 - Run the feature end to end and compare the result with its stated behavior before you call it complete.
 - Reject a test that passes only when everything goes right, pins formatting or escape bytes, or repeats another test's case.
 
-See [decisions](docs/DECISIONS.md) · [lifecycle diagrams](docs/lifecycle.md) · [contributing](CONTRIBUTING.md).
+See [decisions](docs/agents/DECISIONS.md) · [lifecycle diagrams](docs/agents/lifecycle.md) · [contributing](CONTRIBUTING.md).

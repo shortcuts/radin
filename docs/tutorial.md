@@ -7,11 +7,12 @@ It takes about ten minutes. You need no prior radin experience.
 
 - Install radin: [Install, update and uninstall](install.md).
 - Pick a git repo you can change safely. A scratch repo works.
-- Open a terminal in that repo and start `claude`.
+- Open a terminal in that repo and start your host: `claude`, `codex` or `opencode`.
+  The examples use Claude Code paths. On Codex and opencode, state lives in `.agents/.radin/`.
 
 ## 1. Record a task
 
-Type this in the Claude Code prompt:
+Type this in your host prompt:
 
 ```text
 /radin-record add a --version flag to the CLI
@@ -35,7 +36,7 @@ Press `?` for the keys and `q` to leave.
 
 ## 3. Plan the task
 
-Back in Claude Code:
+Back in your host:
 
 ```text
 /radin-plan add a --version flag to the CLI

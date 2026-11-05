@@ -15,13 +15,13 @@ radin runs the named tasks and every task they depend on.
 
 ## Run the backlog without blocking your session
 
-Dispatch `/radin-batch` from `claude agents` or from a second `claude` session.
+Dispatch `/radin-batch` from a second host session. On Claude Code, `claude agents` works too.
 Answer yes to the worktree question, so each task gets its own checkout and
 concurrent runs never share one.
 
 ## Share the backlog with your team
 
-Commit `.claude/.radin/`. Every teammate with radin installed sees the same tasks.
+Commit `.claude/.radin/` (`.agents/.radin/` on Codex and opencode). Every teammate with radin installed sees the same tasks.
 To keep the backlog private, add the directory to your own ignore file.
 radin never edits your `.gitignore`.
 

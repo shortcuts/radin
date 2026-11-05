@@ -3,11 +3,11 @@
 </p>
 
 <p align="center">
-  <em>A backlog and an implementation loop for Claude Code, built on a stack of token-saving tools.</em>
+  <em>A backlog and an agent harness for people who watch their token bill.</em>
 </p>
 
 <p align="center">
-  <sub>"Radin" is French slang for miser. Hence the rat.</sub>
+  <sub>"Radin" is French slang for a miser. Hence the rat.</sub>
 </p>
 
 <p align="center">
@@ -19,15 +19,29 @@
   <img src="docs/img/tui.svg" alt="The radin TUI: a backlog of two epics and nine tasks, with a detail pane" width="860">
 </p>
 
-radin is a Claude Code plugin for a solo dev on a small subscription. It has two parts.
+Your subscription has a limit. A long agent session hits it by Tuesday.
+radin is for the person who would rather ship than upgrade the plan.
+
+It works with Claude Code, Codex CLI and opencode. It has two parts.
 
 1. **A backlog that outlives the conversation.** Tasks and epics are files in your repo.
    You record a bug or an idea mid-session and come back to it later.
-2. **An agent harness that works the backlog.** A router plans a task, hands it to a fresh
+2. **A harness that works the backlog cheaply.** A small router plans a task, hands it to a fresh
    sub-agent, reviews the diff, and commits. One task, one commit. A run resumes where it stopped.
 
-Both run on a tool stack picked to cut token use without cutting output quality.
-radin installs that stack and wires it into the harness.
+The harness keeps the expensive context small. A stack of token-saving tools handles the rest.
+radin installs that stack and wires it into your host.
+
+## Why it costs less
+
+- The router holds ids and exit codes. It never reads your code.
+- Each sub-agent starts empty and sees one task. No context carries over from task to task.
+- Ordering, status and merging run in a CLI. No model call pays for them.
+- Only a task rated `low` complexity runs on the cheaper model.
+- [rtk](https://github.com/rtk-ai/rtk) and [caveman](https://github.com/JuliusBrussee/caveman) cut command output and agent prose.
+  Their figures are in [the tool stack](#the-tool-stack). They are upstream's claims, not ours.
+
+Run `/radin-stats` to see what each tool saved on your machine.
 
 ## Install
 
@@ -101,7 +115,7 @@ a thin router drives, and sub-agents work.
 - **The CLI does the deterministic work.** Ordering, status and merging are code, not prompts.
 
 Why it works this way: [docs/how-it-works.md](docs/how-it-works.md).
-Diagrams: [docs/lifecycle.md](docs/lifecycle.md).
+Diagrams: [docs/agents/lifecycle.md](docs/agents/lifecycle.md).
 
 ## The tool stack
 
@@ -131,9 +145,14 @@ Caveats on unpinned fetches and config repair: [docs/how-it-works.md](docs/how-i
 | Set up Codex or opencode | [Codex](docs/hosts/codex.md), [opencode](docs/hosts/opencode.md) |
 | Do one specific thing | [How-to guides](docs/guides.md) |
 | Look up a command, field or key | [Reference](docs/reference.md) |
-| Understand the design | [How radin works](docs/how-it-works.md), [lifecycle diagrams](docs/lifecycle.md), [decisions](docs/DECISIONS.md) |
+| Understand the design | [How radin works](docs/how-it-works.md), [lifecycle diagrams](docs/agents/lifecycle.md), [decisions](docs/agents/DECISIONS.md) |
 
 ## Contribute
 
 [CONTRIBUTING.md](CONTRIBUTING.md) covers tests and measurements.
+
+## For agents
+
 [AGENTS.md](AGENTS.md) holds the rules for agents that edit this repo.
+Design rules and flow diagrams live in [docs/agents/](docs/agents/).
+Human docs stay in [docs/](docs/).

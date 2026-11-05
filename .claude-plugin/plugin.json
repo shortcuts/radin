@@ -1,6 +1,6 @@
 {
   "name": "radin",
   "version": "3.0.0",
-  "description": "Cost-optimized agentic workflow stack for solo devs: backlog orchestration (radin-batch, radin-plan, radin-review) plus curated companion tools.",
+  "description": "Cost-optimized agent harness for people on small subscriptions: a repo-local backlog worked by cheap sub-agents, plus a curated stack of token-saving tools. Works with Claude Code, Codex CLI and opencode.",
   "author": "shortcuts"
 }

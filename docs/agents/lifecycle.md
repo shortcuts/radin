@@ -1,7 +1,7 @@
 # Lifecycle diagrams
 
 Four diagrams show how the skills, the run loop, and one task move.
-[Pele](https://pele.run) renders each `.mmd` source in `docs/lifecycle/` to an SVG.
+[Pele](https://pele.run) renders each `.mmd` source in `docs/agents/lifecycle/` to an SVG.
 
 To re-render after an edit:
 
