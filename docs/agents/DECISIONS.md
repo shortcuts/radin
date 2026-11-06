@@ -125,6 +125,7 @@ What an audit checks prose against:
 ## State and data
 
 - **State lives in the consumer repo at `<repo-root>/.radin/`, shared by every host.** Outside a git repo, `$PWD` takes the repo root's place. **Why:** the earlier `~/.claude/.radin/projects/<slug>/` scheme made the agent trust an opaque hashed mapping, and a per-host directory hid one host's backlog from the other.
+- **Telemetry lives in `~/.radin/telemetry/<scope>.jsonl`, one object per event, and a failed write never fails its caller.** Scope names a topic, and each record carries its repo path. **Why:** one grep across `~/.radin/telemetry` shows patterns across repos, and a record must not block the run that makes it.
 - **All state is JSON Lines, one compact object per line.** This holds for `index.jsonl`, `BACKLOG_STEPS.json`, `completed.json` and `journal.jsonl`. **Why:** bash 3.2 has no JSON parser and the project has no `jq`, so each CLI op stays a grep or sed one-liner. An edit to one entry never risks another.
 - **One file per task.** No agent addresses backlog content by line number. A task's path is always read back from its index line's `file` field, never composed or cached.
 - **An epic is one directory level and nothing else.** It gets no index line and no category. **Why:** `list` feeds `radin-batch`, and an epic row would be dispatched as a task. No epics inside epics. Task ids stay globally unique across epics.

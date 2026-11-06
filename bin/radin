@@ -9,7 +9,7 @@ RADIN_HOME="$HOME/.radin"
 LIB="$RADIN_HOME/lib"
 
 usage() {
-	printf 'usage: radin [--host claude|agents] <backlog|state|scope|prompt|stats|hooks|wire|repair|update|doctor|uninstall> [args]\n'
+	printf 'usage: radin [--host claude|agents] <backlog|state|scope|prompt|stats|telemetry|hooks|wire|repair|update|doctor|uninstall> [args]\n'
 	printf 'With no subcommand on a terminal, radin opens the TUI; "radin help" prints this text.\n'
 	printf 'Each subcommand prints its own usage when run with no arguments.\n'
 }
@@ -52,7 +52,7 @@ if [ -z "$cmd" ] && [ -t 1 ]; then
 fi
 
 case "$cmd" in
-backlog | state | scope | prompt | stats | update | doctor | uninstall)
+backlog | state | scope | prompt | stats | telemetry | update | doctor | uninstall)
 	shift
 	exec bash "$LIB/radin-$cmd.sh" "$@"
 	;;

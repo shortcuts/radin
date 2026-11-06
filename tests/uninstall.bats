@@ -215,6 +215,16 @@ run_uninstall() { run env HOME="$TEST_HOME" bash "$TEST_HOME/.radin/lib/radin-un
   [ "$(cat "$TEST_HOME/dotfile.md")" = "mine" ]
 }
 
+@test "names the telemetry store and leaves it in place" {
+  install_all_expected
+  mkdir -p "$TEST_HOME/.radin/telemetry"
+  : > "$TEST_HOME/.radin/telemetry/parallel.jsonl"
+  run env HOME="$TEST_HOME" bash "$TEST_HOME/.radin/lib/radin-uninstall.sh" --dry-run
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"$TEST_HOME/.radin/telemetry holds your telemetry records"* ]]
+  [ -f "$TEST_HOME/.radin/telemetry/parallel.jsonl" ]
+}
+
 @test "an unknown argument exits 2" {
   run env HOME="$TEST_HOME" bash "$CLI" --nope
   [ "$status" -eq 2 ]

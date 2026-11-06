@@ -47,6 +47,7 @@ lib radin-cbm-hooks.sh
 lib radin-cbm-config.sh
 lib radin-update.sh
 lib radin-stats.sh
+lib radin-telemetry.sh
 lib radin-doctor.sh
 lib radin-uninstall.sh
 # Tombstones: names an older radin shipped. Uninstall still removes them.

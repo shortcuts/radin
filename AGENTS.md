@@ -84,6 +84,8 @@ The state directory is `<repo-root>/.radin/`, under `$PWD`, shared by every host
 
 Read and write it only through the CLI (`radin backlog …`, `radin state …`). No code parses `index.jsonl` or `completed.json`, or grabs a task by line number. When no subcommand gives the view you need, add one.
 
+The global telemetry store `~/.radin/telemetry/` is written only through `radin telemetry record` and `radin telemetry report-error`.
+
 ## Skills, agents, sub-agents
 
 Every entry point is a skill, because only a skill runs in the user's thread and can talk to the user. A sub-agent is a leaf worker that a skill dispatches. It cannot write prose to the user, call `AskUserQuestion`, or receive a background-task notification.

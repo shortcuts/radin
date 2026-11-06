@@ -29,7 +29,7 @@ CLAUDE_DIR="$HOME/.claude"
 RADIN_HOME="$HOME/.radin"
 # BEGIN shipped (generated from SHIPPED by scripts/shipped.sh; run make gen, never edit)
 SHIPPED_SKILLS="radin-batch radin-do radin-plan radin-record radin-review radin-stats radin-teardown radin-uninstall"
-SHIPPED_LIB="radin-host.sh radin-namespace.sh radin-json.sh radin-migrate.sh radin-backlog.sh radin-tui.c radin-cbm-json.c radin-state.sh radin-scope.sh radin-prompt.sh forbid-claude.txt forbid-agents.txt radin-cbm-hooks.sh radin-cbm-config.sh radin-update.sh radin-stats.sh radin-doctor.sh radin-uninstall.sh skill-names-claude.txt skill-names-agents.txt companion-skills.txt"
+SHIPPED_LIB="radin-host.sh radin-namespace.sh radin-json.sh radin-migrate.sh radin-backlog.sh radin-tui.c radin-cbm-json.c radin-state.sh radin-scope.sh radin-prompt.sh forbid-claude.txt forbid-agents.txt radin-cbm-hooks.sh radin-cbm-config.sh radin-update.sh radin-stats.sh radin-telemetry.sh radin-doctor.sh radin-uninstall.sh skill-names-claude.txt skill-names-agents.txt companion-skills.txt"
 SHIPPED_HOSTLIB="radin-prompt-planning.md radin-prompt-execution.md radin-prompt-debug.md radin-prompt-factfind.md radin-prompt-gate.md radin-prompt-merge.md radin-leaf-contract.md radin-comment-rule.md radin-explore-rule.md radin-open-decisions.md radin-ask-rule.md radin-complexity-rule.md radin-planning-rule.md radin-prioritization.md radin-batch-recovery.md radin-batch-reporting.md radin-batch-gate.md radin-batch-merge.md radin-batch-clarify.md radin-batch-session.md radin-batch-resume.md radin-run.md radin-review-core.md"
 RENAMED_SKILLS="radin-execute radin-implement radin-run"
 RETIRED_SKILLS="radin-update radin-show radin-doctor radin-setup-hooks"
@@ -273,6 +273,9 @@ printf '  %s\n' "Any <repo-root>/.mcp.json entry for codebase-memory-mcp -- per-
 # rewrote them. Deleting someone's only copy of their config is not radin's call.
 if [ -d "$RADIN_HOME/backups" ]; then
 	printf '  %s\n' "$RADIN_HOME/backups holds copies of your settings.json -- your data, your call"
+fi
+if [ -d "$RADIN_HOME/telemetry" ]; then
+	printf '  %s\n' "$RADIN_HOME/telemetry holds your telemetry records -- your data, your call"
 fi
 
 if [ -n "$(manifest_list agents_skills)" ]; then
