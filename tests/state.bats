@@ -547,3 +547,75 @@ stack_setup() {
   [ -z "$(git -C "$P" status --porcelain)" ]
   [[ "$output" != *"ignored by one of your"* ]]
 }
+
+# planned <title> <path>...: adds a task whose plan lists the paths under ## Changes.
+planned() {
+  local title="$1" f
+  shift
+  (cd "$P" && bash "$REPO_ROOT/lib/radin-backlog.sh" add fix "$title" <<<"body") >/dev/null
+  [ "$#" -gt 0 ] || return 0
+  f="$WORK/${title// /-}.md"
+  { printf '## Changes\n\n'; for p in "$@"; do printf -- '- `%s` — edit\n' "$p"; done; } >"$f"
+  (cd "$P" && bash "$REPO_ROOT/lib/radin-backlog.sh" set-meta "$title" plan "$f") >/dev/null
+}
+
+@test "wave-partition puts tasks with disjoint paths in one group and prints no apart line" {
+  planned "w a" lib/a.sh
+  planned "w b" lib/b.sh
+  planned "w c" docs/c.md
+  run bash -c "printf 'w-a\nw-b\nw-c\n' | (cd '$P' && bash '$REPO_ROOT/lib/radin-state.sh' wave-partition)"
+  [ "$status" -eq 0 ]
+  [ "$output" = $'group\t3\tw-a,w-b,w-c' ]
+}
+
+@test "wave-partition keeps a directory apart from a file under it and prints the shared path" {
+  planned "w a" lib/x.sh
+  planned "w b" lib/
+  planned "w c" docs/y.md
+  run bash -c "printf 'w-a\nw-b\nw-c\n' | (cd '$P' && bash '$REPO_ROOT/lib/radin-state.sh' wave-partition)"
+  [ "$status" -eq 0 ]
+  [ "$output" = $'group\t2\tw-a,w-c\ngroup\t1\tw-b\napart\tw-a\tw-b\tlib/x.sh' ]
+}
+
+@test "wave-partition does not match a file name by string prefix" {
+  mkdir -p "$P/lib/a"
+  planned "w a" lib/a
+  planned "w b" lib/ab.sh
+  planned "w c" lib/a/z.sh
+  run bash -c "printf 'w-a\nw-b\nw-c\n' | (cd '$P' && bash '$REPO_ROOT/lib/radin-state.sh' wave-partition)"
+  [ "$status" -eq 0 ]
+  [ "$output" = $'group\t2\tw-a,w-b\ngroup\t1\tw-c\napart\tw-a\tw-c\tlib/a/z.sh' ]
+}
+
+@test "wave-partition makes a task with no plan paths a closed group of 1 and names it" {
+  planned "w a" lib/a.sh
+  planned "w b"
+  planned "w c" lib/c.sh
+  run bash -c "printf 'w-a\nw-b\nw-c\n' | (cd '$P' && bash '$REPO_ROOT/lib/radin-state.sh' wave-partition)"
+  [ "$status" -eq 0 ]
+  [ "$output" = $'group\t2\tw-a,w-c\ngroup\t1\tw-b\nunplanned\tw-b' ]
+}
+
+@test "wave-partition splits a wave larger than --cap and rejects a bad cap" {
+  for n in 1 2 3 4 5 6; do planned "w $n" "lib/$n.sh"; done
+  ids='w-1\nw-2\nw-3\nw-4\nw-5\nw-6\n'
+  run bash -c "printf '$ids' | (cd '$P' && bash '$REPO_ROOT/lib/radin-state.sh' wave-partition)"
+  [ "$output" = $'group\t4\tw-1,w-2,w-3,w-4\ngroup\t2\tw-5,w-6' ]
+  run bash -c "printf '$ids' | (cd '$P' && bash '$REPO_ROOT/lib/radin-state.sh' wave-partition --cap 3)"
+  [ "$output" = $'group\t3\tw-1,w-2,w-3\ngroup\t3\tw-4,w-5,w-6' ]
+  for bad in 0 x -1; do
+    run bash -c "printf '$ids' | (cd '$P' && bash '$REPO_ROOT/lib/radin-state.sh' wave-partition --cap $bad)"
+    [ "$status" -eq 1 ]
+  done
+}
+
+@test "wave-partition exits 1 on empty input, reads the first TAB field, and counts a repeated id once" {
+  run bash -c "printf '' | (cd '$P' && bash '$REPO_ROOT/lib/radin-state.sh' wave-partition)"
+  [ "$status" -eq 1 ]
+  [ -z "$output" ]
+  planned "w a" lib/a.sh
+  planned "w b" lib/b.sh
+  run bash -c "printf 'w-a\t1\nw-b\t2\nw-a\t1\n' | (cd '$P' && bash '$REPO_ROOT/lib/radin-state.sh' wave-partition)"
+  [ "$status" -eq 0 ]
+  [ "$output" = $'group\t2\tw-a,w-b' ]
+}

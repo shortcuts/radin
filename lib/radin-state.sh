@@ -33,6 +33,7 @@
 #   radin-state.sh preflight                    # run the startup checks, print "empty" | "session<TAB>missing" | "stuck<TAB>id<TAB>attempts<TAB>note" | "waiting<TAB>id<TAB>note" | "rank<TAB>csv" | "leftovers", exit 0
 #   radin-state.sh steps-open                   # print "id<TAB>question" per open decision of a pending entry, exit 1 if none
 #   radin-state.sh steps-list                   # print "id<TAB>order<TAB>status<TAB>attempts<TAB>note" per entry, exit 1 if none
+#   radin-state.sh wave-partition [--cap N]     # read ids on stdin, print "group<TAB>n<TAB>csv", "apart<TAB>a<TAB>b<TAB>shared paths" and "unplanned<TAB>id"; exit 1 on empty input; claims nothing
 #   radin-state.sh wave                         # print "id<TAB>order" per pending task whose dependencies are all resolved, exit 1 if none; claims nothing
 #   radin-state.sh recover <id>                 # recover a task a dead session left in_progress; exit 3 prints commits only the model can judge
 #   radin-state.sh recover-reject <id>          # those commits do not satisfy the task: block the entry naming them
@@ -296,6 +297,36 @@ next_pending() {
 	done <"$steps"
 	[ -n "$best_line" ] || return 1
 	printf '%s\t%s\n' "$(json_get id "$best_line")" "$best_order"
+}
+
+# Prints plan path $1 with no leading "./" and a trailing "/" when it names a directory.
+norm_path() {
+	local p="${1#./}"
+	case "$p" in */) ;; *) [ ! -d "$repo_root/$p" ] || p="$p/" ;; esac
+	printf '%s' "$p"
+}
+
+# Prints the longer of two normalised paths when they are equal or one is a directory prefix of the other.
+path_overlap() {
+	if [ "$1" = "$2" ] || { [[ "$1" == */ ]] && [[ "$2" == "$1"* ]]; }; then
+		printf '%s' "$2"
+	elif [[ "$2" == */ ]] && [[ "$1" == "$2"* ]]; then
+		printf '%s' "$1"
+	else
+		return 1
+	fi
+}
+
+# Prints the comma-joined shared paths of path files $1 and $2, empty when disjoint.
+shared_paths() {
+	local a b hit out=""
+	while IFS= read -r a; do
+		while IFS= read -r b; do
+			hit="$(path_overlap "$a" "$b")" || continue
+			case ",$out," in *",$hit,"*) ;; *) out="${out:+$out,}$hit" ;; esac
+		done <"$2"
+	done <"$1"
+	printf '%s' "$out"
 }
 
 # Prints task $1's overlap hint: "unclear" (no plan paths), "none", or the
@@ -1156,6 +1187,79 @@ steps-list)
 		printf '%s\t%s\t%s\t%s\t%s\n' "$(json_get id "$line")" "$(num_field "$line" order)" \
 			"$(json_get status "$line")" "$(num_field "$line" attempts)" "$(json_get note "$line")"
 	done <"$steps"
+	;;
+
+wave-partition)
+	cap=4
+	if [ "${2:-}" = "--cap" ]; then
+		cap="${3:-}"
+		case "$cap" in '' | *[!0-9]* | 0*) die "wave-partition: --cap needs a positive integer, got: $cap" ;; esac
+	fi
+	wp="$(mktemp -d)"
+	trap 'rm -rf "$wp"' EXIT
+	mkdir "$wp/p" "$wp/g"
+	n=0
+	while IFS= read -r line || [ -n "$line" ]; do
+		id="${line%%$'\t'*}"
+		[ -n "$id" ] || continue
+		grep -Fxq -- "$id" "$wp/ids" 2>/dev/null && continue
+		n=$((n + 1))
+		printf '%s\n' "$id" >>"$wp/ids"
+		(cd "$repo_root" && bash "$LIB_DIR/radin-backlog.sh" files "$id" 2>/dev/null) |
+			while IFS= read -r path; do
+				norm_path "$path"
+				printf '\n'
+			done >"$wp/p/$n" || true
+	done
+	[ "$n" -gt 0 ] || exit 1
+	ngroups=0
+	i=0
+	while [ "$i" -lt "$n" ]; do
+		i=$((i + 1))
+		j=$i
+		while [ "$j" -lt "$n" ]; do
+			j=$((j + 1))
+			[ -s "$wp/p/$i" ] && [ -s "$wp/p/$j" ] || continue
+			shared="$(shared_paths "$wp/p/$i" "$wp/p/$j")"
+			[ -z "$shared" ] || printf '%s\t%s\t%s\t%s\n' apart "$(sed -n "${i}p" "$wp/ids")" "$(sed -n "${j}p" "$wp/ids")" "$shared" >>"$wp/apart"
+			[ -z "$shared" ] || : >"$wp/c.$i.$j"
+		done
+		placed=""
+		if [ -s "$wp/p/$i" ]; then
+			g=0
+			while [ "$g" -lt "$ngroups" ] && [ -z "$placed" ]; do
+				g=$((g + 1))
+				[ ! -e "$wp/g/$g.closed" ] || continue
+				[ "$(wc -w <"$wp/g/$g")" -lt "$cap" ] || continue
+				ok=1
+				read -r -a mem <"$wp/g/$g" || :
+				for m in "${mem[@]}"; do
+					[ ! -e "$wp/c.$m.$i" ] || ok=0
+				done
+				[ "$ok" -eq 0 ] || placed="$g"
+			done
+		fi
+		if [ -z "$placed" ]; then
+			ngroups=$((ngroups + 1))
+			placed="$ngroups"
+			[ -s "$wp/p/$i" ] || : >"$wp/g/$placed.closed"
+		fi
+		printf '%s ' "$i" >>"$wp/g/$placed"
+	done
+	g=0
+	while [ "$g" -lt "$ngroups" ]; do
+		g=$((g + 1))
+		csv=""
+		read -r -a mem <"$wp/g/$g" || :
+		for m in "${mem[@]}"; do csv="${csv:+$csv,}$(sed -n "${m}p" "$wp/ids")"; done
+		printf 'group\t%s\t%s\n' "$(wc -w <"$wp/g/$g" | tr -d ' ')" "$csv"
+	done
+	[ ! -s "$wp/apart" ] || cat "$wp/apart"
+	i=0
+	while [ "$i" -lt "$n" ]; do
+		i=$((i + 1))
+		[ -s "$wp/p/$i" ] || printf 'unplanned\t%s\n' "$(sed -n "${i}p" "$wp/ids")"
+	done
 	;;
 
 wave)
@@ -2235,6 +2339,6 @@ finding-classes)
 	;;
 
 *)
-	die "unknown command: ${cmd:-<none>} (teardown|steps-init|steps-list|wave|steps-open|steps-waiting|answered|retry|task-next|task-report|task-fact|task-diagnosis|task-done|set-status|stuck|preflight|resume|recover|recover-reject|report|session-set|session-get|prepare|dirty-check|trace|completed-show|completed-list|unlanded|session-commits|gate-map|leftovers|stash-triage|stash-claim|reconcile|gate-fix|gate-filed|gate-done|deps-check|task-dir|journal-tail|plan-covers|review-findings|finding-classes)"
+	die "unknown command: ${cmd:-<none>} (teardown|steps-init|steps-list|wave|wave-partition|steps-open|steps-waiting|answered|retry|task-next|task-report|task-fact|task-diagnosis|task-done|set-status|stuck|preflight|resume|recover|recover-reject|report|session-set|session-get|prepare|dirty-check|trace|completed-show|completed-list|unlanded|session-commits|gate-map|leftovers|stash-triage|stash-claim|reconcile|gate-fix|gate-filed|gate-done|deps-check|task-dir|journal-tail|plan-covers|review-findings|finding-classes)"
 	;;
 esac
