@@ -26,13 +26,13 @@ seed() { # host id [dep]
   echo "$1 plan" >"$d/plans/$2.md"
 }
 
-@test "one legacy directory moves into .radin and the source is renamed" {
+@test "one legacy directory moves into .radin and the source is deleted" {
   seed claude solo
   run bash "$NS"
   [ "$status" -eq 0 ]
   [[ "$output" == *"NAMESPACE_DIR=$WORK/proj/.radin"* ]]
   [ "$(cat .radin/backlog/tasks/solo.md)" = "claude body" ]
-  [ -d .claude/.radin.migrated ]
+  [ ! -e .claude/.radin.migrated ]
   [ ! -e .claude/.radin ]
 }
 
@@ -49,7 +49,9 @@ seed() { # host id [dep]
   [ "$(cat .radin/backlog/tasks/same.md)" = "claude body" ]
   [ "$(cat .radin/backlog/tasks/same-agents.md)" = "agents body" ]
   [ "$(cat .radin/plans/same-agents.md)" = "agents plan" ]
-  [ -d .agents/.radin.migrated ]
+  [ ! -e .agents/.radin.migrated ]
+  [ ! -e .agents/.radin ]
+  [ ! -e .claude/.radin ]
 }
 
 @test "absolute plan paths in the index follow the move" {
@@ -63,10 +65,11 @@ seed() { # host id [dep]
 @test "a second run migrates nothing" {
   seed claude solo
   bash "$NS" >/dev/null
-  echo late >.claude/.radin.migrated/late
+  echo kept >.radin/marker
   run bash "$NS"
   [ "$status" -eq 0 ]
-  [ ! -e .radin/late ]
+  [ "$(cat .radin/marker)" = kept ]
+  [ ! -e .radin.migrating ]
 }
 
 @test ".gitignore gets .radin/ once, and a deleted line stays deleted" {
@@ -87,14 +90,15 @@ seed() { # host id [dep]
   [ "$(cat .gitignore)" = ".radin/" ]
 }
 
-@test ".gitignore is left alone when a legacy file is tracked, and git records a rename" {
+@test ".gitignore is left alone when a legacy file is tracked, and git stages the removal" {
   seed claude solo
   git add -f .claude/.radin
   git -c user.email=t@t -c user.name=t commit -q -m seed
   run bash "$NS"
   [ "$status" -eq 0 ]
   [ ! -e .gitignore ]
-  git status --porcelain | grep -q '^R.*\.claude/\.radin'
+  git status --porcelain | grep -q '^D.*\.claude/\.radin'
+  [ ! -e .claude/.radin.migrated ]
 }
 
 @test ".gitignore is left alone when .radin is already ignored" {

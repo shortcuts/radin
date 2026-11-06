@@ -124,15 +124,13 @@ mig_merge() {
 	cp -Rn "$src/." "$dst/" 2>/dev/null || true
 }
 
+# Runs only after .radin holds the copy, so a crash earlier leaves the source whole.
 mig_retire() {
-	local src=$1 dest
-	dest="${src}.migrated"
-	[ ! -e "$dest" ] || dest="${dest}.$(date +%s)"
+	local src=$1
 	if [ -n "$(git -C "$2" ls-files -- "${src#"$2"/}" 2>/dev/null)" ]; then
-		git -C "$2" mv "${src#"$2"/}" "${dest#"$2"/}"
-	else
-		mv "$src" "$dest"
+		git -C "$2" rm -rqf -- "${src#"$2"/}"
 	fi
+	rm -rf "$src"
 }
 
 migrate_state() {
@@ -172,7 +170,7 @@ migrate_state() {
 		mv "$stage" "$stage.$(date +%s)"
 		return 0
 	fi
-	mv "$stage" "$root/.radin"
+	mv "$stage" "$root/.radin" || return 1
 	for d in $legacy; do mig_retire "$d" "$root"; done
 }
 
