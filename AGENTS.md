@@ -150,7 +150,7 @@ The graph tool name lives in one file and must exist in the upstream table ([whi
 - **`order` moves a dependency up, never a dependent down.** Kahn's algorithm with a priority tie-break discards more of the human ranking.
 - **The TUI loads `backlog list --order created`,** so a mutation reorders nothing. `Shift-A`, `Shift-P`, `Shift-C`, and `Shift-T` are the only reorder keys. They last one session, and the header shows the active one. The CLI default stays `priority`, the contract `radin-prioritization.md` reads.
 - **One sub-agent takes one task** and returns one `STATUS` line. A leaf starts cold, so batching tasks for file locality saves no tokens.
-- **Plan one task at a time, just in time.** A wave plan of every task drifts when an earlier commit changes the tree ([why](docs/agents/DECISIONS.md#the-run-loop)).
+- **Plan one task at a time, just in time.** Only a wave of ready tasks is planned together, because nothing lands between those plans and their execution; a later wave drifts when an earlier commit changes the tree ([why](docs/agents/DECISIONS.md#the-run-loop)).
 - **No arena or judge at execution level.** N worktrees and a judge that reads N diffs break the router's low-resolution rule. At planning it stays an opt-in in its own backlog entry, gated on a review-origin rollup.
 - **No model escalation on retry.** All four roles (planning, execution, review, debug) default to sonnet.
 

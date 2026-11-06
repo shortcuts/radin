@@ -16,7 +16,6 @@
 #                                               # each entry's depends_on comes from its index line; the stdin csv is used only where the index has none
 #                                               # the fourth field is optional and defaults to pending; also writes state/baseline.json
 #   radin-state.sh task-next [<id>]  # pick, gate, claim and write the prompt in one call; an entry flagged planning=needed with no plan gets a planning prompt that counts against MAX_ATTEMPTS; exit 1 when nothing is left
-# an execution task also prints "overlap<TAB>none|unclear|<id>[,<id>...]": other live tasks sharing plan files
 #   radin-state.sh task-report <id> <the sub-agent's STATUS: line (SUCCESS|FAILED|INCONCLUSIVE|BLOCKED|PLANNED)> [--next] [--usage "<kind> <tokens> <tool_uses> <duration_ms>"]...  # verify the tree, record the outcome (a SUCCESS whose commit changes a file outside the plan's ## Changes paths, directories by prefix, tests and generated output exempt, is FAILED with the files named and a parallel out-of-bounds telemetry record; a PLANNED line skips the tree check and writes planning --none and complexity; a SUCCESS line's text after its first ";" is journaled as a summary event for report; it also journals an unproven event per acceptance criterion no **Fact:** [measured] line names, shown by report), then a final "next<TAB>continue|debug|clarify FACT|clarify DECISION" line
 #   radin-state.sh task-report <id> --no-status <last line> [--next] [--usage "<kind> <tokens> <tool_uses> <duration_ms>"]...  # the same, for a sub-agent that ended with no STATUS: line
 #                                               # --next: when the final line is "next<TAB>continue", also run task-next and print its output after; exit is task-next's
@@ -33,7 +32,7 @@
 #   radin-state.sh preflight                    # run the startup checks, print "empty" | "session<TAB>missing" | "stuck<TAB>id<TAB>attempts<TAB>note" | "waiting<TAB>id<TAB>note" | "rank<TAB>csv" | "leftovers", exit 0
 #   radin-state.sh steps-open                   # print "id<TAB>question" per open decision of a pending entry, exit 1 if none
 #   radin-state.sh steps-list                   # print "id<TAB>order<TAB>status<TAB>attempts<TAB>note" per entry, exit 1 if none
-#   radin-state.sh wave-partition [--cap N]     # read ids on stdin, print "group<TAB>n<TAB>csv", "apart<TAB>a<TAB>b<TAB>shared paths" and "unplanned<TAB>id"; exit 1 on empty input; claims nothing
+#   radin-state.sh wave-partition [--wave N] [--cap N]  # read ids on stdin, print "group<TAB>n<TAB>csv", "apart<TAB>a<TAB>b<TAB>shared paths" and "unplanned<TAB>id"; exit 1 on empty input; claims nothing; the cap defaults to $RADIN_WAVE_CAP, else 4; --wave also records a parallel serialized telemetry event per apart pair, unplanned id and cap-split id
 #   radin-state.sh plan-discard <id> <wave> <paths-csv>  # drop a pending task's plan, flag planning needed; journal and record a parallel plan-discarded telemetry event with the planning tokens; exit 1 and write nothing unless the task is pending with a plan
 #   radin-state.sh wave                         # print "id<TAB>order" per pending task whose dependencies are all resolved, exit 1 if none; claims nothing
 #   radin-state.sh recover <id>                 # recover a task a dead session left in_progress; exit 3 prints commits only the model can judge
@@ -42,7 +41,7 @@
 #   radin-state.sh session-set <yes|no> <yes|no>  # persist the worktree and branch answers
 #   radin-state.sh teardown                     # request a graceful stop: task-next picks nothing new until the next preflight; the gate and merge still run
 #   radin-state.sh session-get                  # print "worktree<TAB>yes" / "branch<TAB>no", exit 1 if unanswered
-#   radin-state.sh group-set <id>...            # record these ids as one parallel group; prepare makes a worktree only for a group of 2+
+#   radin-state.sh group-set [--wave N] <id>... # record these ids as one parallel group and a parallel dispatched telemetry event; prepare makes a worktree only for a group of 2+
 #   radin-state.sh prepare <id>                 # commit a dirty tree, create/reuse the task's tree and branch per session.json, print the dir to work in
 #                                               # also records the branch and tree it chose in state/prepared/<id>.json
 #   radin-state.sh dirty-check                  # git status --porcelain of the current directory, excluding .radin
@@ -329,33 +328,6 @@ shared_paths() {
 		done <"$2"
 	done <"$1"
 	printf '%s' "$out"
-}
-
-# Prints task $1's overlap hint: "unclear" (no plan paths), "none", or the
-# comma-joined ids of live tasks that share a plan path, have no plan paths, or
-# sit on a depends_on edge with it.
-# ponytail: one fork per live task per call, cache if backlogs reach hundreds
-overlap_hint() {
-	local mine theirs line oid mydeps odeps hits=""
-	mine="$(cd "$repo_root" && bash "$LIB_DIR/radin-backlog.sh" files "$1" 2>/dev/null)" || mine=""
-	[ -n "$mine" ] || {
-		printf 'unclear'
-		return 0
-	}
-	mydeps=",$(deps_csv "$(entry_line "$steps" "$1")"),"
-	while IFS= read -r line || [ -n "$line" ]; do
-		[ -n "$line" ] || continue
-		oid="$(json_get id "$line")"
-		[ "$oid" != "$1" ] || continue
-		case "$(json_get status "$line")" in pending | in_progress) ;; *) continue ;; esac
-		odeps=",$(deps_csv "$line"),"
-		theirs="$(cd "$repo_root" && bash "$LIB_DIR/radin-backlog.sh" files "$oid" 2>/dev/null)" || theirs=""
-		if [ -z "$theirs" ] || [[ "$mydeps" == *",$oid,"* ]] || [[ "$odeps" == *",$1,"* ]] ||
-			printf '%s\n' "$theirs" | grep -Fxqf <(printf '%s\n' "$mine"); then
-			hits="${hits:+$hits,}$oid"
-		fi
-	done <"$steps"
-	printf '%s' "${hits:-none}"
 }
 
 # Claims task $1: attempts bumped, status $2 (default in_progress), note $3.
@@ -1193,11 +1165,26 @@ steps-list)
 	;;
 
 wave-partition)
-	cap=4
-	if [ "${2:-}" = "--cap" ]; then
-		cap="${3:-}"
-		case "$cap" in '' | *[!0-9]* | 0*) die "wave-partition: --cap needs a positive integer, got: $cap" ;; esac
-	fi
+	cap="${RADIN_WAVE_CAP:-4}" wave=""
+	case "$cap" in '' | *[!0-9]* | 0*) die "wave-partition: RADIN_WAVE_CAP needs a positive integer, got: $cap" ;; esac
+	shift
+	while [ "$#" -gt 0 ]; do
+		case "$1" in
+		--cap)
+			cap="${2:-}"
+			case "$cap" in '' | *[!0-9]* | 0*) die "wave-partition: --cap needs a positive integer, got: $cap" ;; esac
+			;;
+		--wave)
+			wave="${2:-}"
+			case "$wave" in '' | *[!0-9]* | 0*) die "wave-partition: --wave needs a positive integer, got: $wave" ;; esac
+			;;
+		*) die "usage: wave-partition [--wave N] [--cap N]" ;;
+		esac
+		shift 2
+	done
+	serialized() {
+		[ -z "$wave" ] || (cd "$repo_root" && bash "$LIB_DIR/radin-telemetry.sh" record parallel serialized "$@") >/dev/null 2>&1 || true
+	}
 	wp="$(mktemp -d)"
 	trap 'rm -rf "$wp"' EXIT
 	mkdir "$wp/p" "$wp/g"
@@ -1225,21 +1212,26 @@ wave-partition)
 			[ -s "$wp/p/$i" ] && [ -s "$wp/p/$j" ] || continue
 			shared="$(shared_paths "$wp/p/$i" "$wp/p/$j")"
 			[ -z "$shared" ] || printf '%s\t%s\t%s\t%s\n' apart "$(sed -n "${i}p" "$wp/ids")" "$(sed -n "${j}p" "$wp/ids")" "$shared" >>"$wp/apart"
+			[ -z "$shared" ] || serialized "task=$(sed -n "${j}p" "$wp/ids")" "with=$(sed -n "${i}p" "$wp/ids")" "wave=$wave" reason=shared-paths "paths=$shared"
 			[ -z "$shared" ] || : >"$wp/c.$i.$j"
 		done
-		placed=""
+		placed="" capfull=""
 		if [ -s "$wp/p/$i" ]; then
 			g=0
 			while [ "$g" -lt "$ngroups" ] && [ -z "$placed" ]; do
 				g=$((g + 1))
 				[ ! -e "$wp/g/$g.closed" ] || continue
-				[ "$(wc -w <"$wp/g/$g")" -lt "$cap" ] || continue
 				ok=1
 				read -r -a mem <"$wp/g/$g" || :
 				for m in "${mem[@]}"; do
 					[ ! -e "$wp/c.$m.$i" ] || ok=0
 				done
-				[ "$ok" -eq 0 ] || placed="$g"
+				[ "$ok" -eq 1 ] || continue
+				if [ "$(wc -w <"$wp/g/$g")" -ge "$cap" ]; then
+					capfull=1
+					continue
+				fi
+				placed="$g"
 			done
 		fi
 		if [ -z "$placed" ]; then
@@ -1247,6 +1239,7 @@ wave-partition)
 			placed="$ngroups"
 			[ -s "$wp/p/$i" ] || : >"$wp/g/$placed.closed"
 		fi
+		[ -z "$capfull" ] || serialized "task=$(sed -n "${i}p" "$wp/ids")" "wave=$wave" reason=cap "cap=$cap"
 		printf '%s ' "$i" >>"$wp/g/$placed"
 	done
 	g=0
@@ -1261,7 +1254,10 @@ wave-partition)
 	i=0
 	while [ "$i" -lt "$n" ]; do
 		i=$((i + 1))
-		[ -s "$wp/p/$i" ] || printf 'unplanned\t%s\n' "$(sed -n "${i}p" "$wp/ids")"
+		[ -s "$wp/p/$i" ] || {
+			printf 'unplanned\t%s\n' "$(sed -n "${i}p" "$wp/ids")"
+			serialized "task=$(sed -n "${i}p" "$wp/ids")" "wave=$wave" reason=no-plan
+		}
 	done
 	;;
 
@@ -1747,18 +1743,27 @@ teardown)
 
 group-set)
 	shift
-	[ "$#" -gt 0 ] || die "usage: group-set <id>..."
+	wave=""
+	if [ "${1:-}" = "--wave" ]; then
+		wave="${2:-}"
+		case "$wave" in '' | *[!0-9]* | 0*) die "group-set: --wave needs a positive integer, got: $wave" ;; esac
+		shift 2
+	fi
+	[ "$#" -gt 0 ] || die "usage: group-set [--wave N] <id>..."
 	[ -d "$ns/state" ] || die "no state dir: $ns/state"
 	for gid in "$@"; do
 		case "$gid" in
-		'' | *[!A-Za-z0-9._-]*) die "usage: group-set <id>..." ;;
+		'' | *[!A-Za-z0-9._-]*) die "usage: group-set [--wave N] <id>..." ;;
 		esac
 	done
 	mkdir -p "$ns/state/groups"
 	for gid in "$@"; do
 		printf '%s\n' "$#" >"$ns/state/groups/$gid"
 	done
-	journal "$ns/state" "group" "" "ids=$(printf '%s,' "$@" | sed 's/,$//')"
+	gids="$(printf '%s,' "$@" | sed 's/,$//')"
+	journal "$ns/state" "group" "" "ids=$gids"
+	(cd "$repo_root" && bash "$LIB_DIR/radin-telemetry.sh" record parallel dispatched \
+		"ids=$gids" "size=$#" ${wave:+"wave=$wave"}) >/dev/null 2>&1 || true
 	;;
 
 session-get)
@@ -1852,7 +1857,6 @@ task-next)
 		fi
 		prompt="$(cd "$repo_root" && bash "$LIB_DIR/radin-prompt.sh" "$kind" "$pid")"
 		printf 'id\t%s\norder\t%s\nkind\t%s\n%s\n' "$pid" "$order" "$kind" "$prompt"
-		[ "$kind" != execution ] || printf 'overlap\t%s\n' "$(overlap_hint "$pid")"
 		exit 0
 		# Every skipped iteration moves one entry out of pending, so this terminates.
 	done

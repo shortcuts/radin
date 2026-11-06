@@ -47,15 +47,11 @@ you.
   debugging sub-agents write no repo code and no shared file, so they never
   call `RADIN_CLI state prepare`, whatever Phase 0 recorded. Several
   fact-finding or debugging dispatches due at once go out as one message.
-- **Phase 0's worktree answer sets execution concurrency.** `yes`: execution
-  sub-agents whose `task-next` `overlap` line reads `none` may go out in one
-  message. Run `RADIN_CLI state group-set <id>...` with the ids of that
-  message first, so each lands in its own tree. Any other dispatch, or `no`,
-  runs the task alone in the main checkout. Wait for every outstanding sub-agent's
-  `STATUS:` line and `task-report`, dispatch it, and wait for its own report
-  before the next `task-next`. Parallel agents in one checkout corrupt each
-  other's commits. Each task still gets its own `task-next`, its own dispatch,
-  and its own `task-report`.
+- **Phase 0's worktree answer sets execution concurrency.** `yes`: Phase 4 runs
+  waves, and only a group the partition proves disjoint goes out in one message.
+  `no`: Phase 4's serial loop runs one task at a time in the main checkout.
+  Parallel agents in one checkout corrupt each other's commits. Each task still
+  gets its own `task-next`, its own dispatch, and its own `task-report`.
 
 ## Clarifying Ambiguity
 
@@ -218,6 +214,9 @@ defers stays open: append it again as `**Open decision:** <question>, <options>,
 
 ## Phase 4: Task Execution Loop
 
+Run `RADIN_CLI state session-get`. `worktree<TAB>yes` means run "Wave mode"
+below instead of this loop. Any other answer runs this loop.
+
 One call does everything between two dispatches: it picks the next
 **frontier** task (pending, unblocked), checks the entry still exists, claims
 it, and writes its prompt to a file. The frontier is the CLI's to compute,
@@ -234,14 +233,10 @@ order:
   unresolved dependency, an entry the backlog lost, `MAX_ATTEMPTS` reached).
   It already marked each one `blocked`. Report each as skipped. The entry stays on the backlog with a `**Progress:**` note, and any work is a wip commit. When the user asks to retry one that hit `MAX_ATTEMPTS`, run `RADIN_CLI state retry "<task id>"`.
 <!-- host:claude -->
-- `id`, `order`, `kind`, `model`, an optional `effort` and `prompt` lines for the task to run now,
-  then, for an `execution` task, an `overlap` line: `none`, `unclear`, or the
-  ids of live tasks sharing its plan files or a `depends_on` edge.
+- `id`, `order`, `kind`, `model`, an optional `effort` and `prompt` lines for the task to run now.
 <!-- /host -->
 <!-- host:agents -->
-- `id`, `order`, `kind`, an optional `model`, an optional `effort` and a `prompt` line for the task to run now,
-  then, for an `execution` task, an `overlap` line: `none`, `unclear`, or the
-  ids of live tasks sharing its plan files or a `depends_on` edge.
+- `id`, `order`, `kind`, an optional `model`, an optional `effort` and a `prompt` line for the task to run now.
 <!-- /host -->
 
 `kind` is `planning` for an entry radin-record flagged as needing a plan that
@@ -262,7 +257,7 @@ Start the prompt with your sub-agent tool and wait for it to finish. Pass that m
 Read <the prompt path> and follow it.
 ```
 
-Dispatch under the concurrency rule in Core Constraints. An `execution`
+Dispatch one task at a time. An `execution`
 task is already claimed, so Phase 0's stuck-recovery sees it if the
 session dies.
 
@@ -343,6 +338,49 @@ whatever the sub-agent's prose said. A commit still on a side branch counts as d
 An entry stays `failed` or `blocked` only after the user explicitly deferred
 it. A deferred entry is not retried within this session, and does not block
 the loop from reaching Phase 4.5.
+
+### Wave mode (worktree yes)
+
+A wave is the pending tasks whose dependencies are all done. Count waves from 1
+in this session, and call the current number `N`. Dispatch, report, heartbeat
+and `--usage` work as in the loop above. Wave mode never passes `--next`,
+because it would claim a task outside the group.
+
+1. Run `RADIN_CLI state wave`. Exit 1 means nothing is left, so go to Phase 4.5.
+2. Plan the wave's tasks together. Run
+   `RADIN_CLI state wave | RADIN_CLI state wave-partition`. For each
+   `unplanned<TAB><id>` line whose `RADIN_CLI backlog meta "<id>"` prints
+   `planning<TAB>needed`, run `RADIN_CLI state task-next "<id>"` and dispatch
+   its `planning` prompt. Send every such dispatch in one message, and run
+   `task-report` on each. A planned task is never claimed here.
+3. Run `RADIN_CLI state wave | RADIN_CLI state wave-partition --wave N`. Each
+   `group<TAB>n<TAB>csv` line is a group, and the CLI records every
+   serialization with its evidence. A task you leave out of a group runs in a
+   later group of its own.
+4. Veto. For each group of two or more, dispatch
+   `RADIN_CLI prompt factfind "<first id>" "Per their plans' ## Changes, does a
+   symbol that one of tasks <csv> changes call or get called by a symbol
+   another of them changes? Use the graph's callers and callees. Answer FOUND
+   — no, or FOUND — yes: <idA>,<idB> and the symbols."`, all groups in one
+   message. On `FOUND — yes`, move the later task of the pair (higher `order`)
+   to a group of its own and run
+   `RADIN_CLI telemetry record parallel vetoed task=<later> with=<earlier> wave=N evidence="<the symbols>"`.
+   Any other answer keeps the group. Never merge two groups.
+5. Run the groups one after another. For one group, run
+   `RADIN_CLI state group-set --wave N <id>...`, which records the dispatch.
+   Run `RADIN_CLI state task-next "<id>"` for each member, dispatch all of
+   them in one message, and wait for every `STATUS:` line. Run `task-report`
+   on each. A `debug` or `clarify` route follows the table above, then the
+   task re-runs alone: `group-set --wave N <id>`, then `task-next "<id>"`.
+   A task still not done leaves the wave.
+6. A landed group can stale the plans after it. For each later task with an
+   `apart` line against a landed task, or vetoed against one, run
+   `RADIN_CLI state plan-discard "<id>" N <paths>` with the shared paths or the
+   veto symbols, and re-plan the discarded tasks in one message as in step 2.
+   Then re-run the partition over the tasks left (step 3 without
+   `--wave`, and step 4). A task split off only by the cap keeps its plan.
+7. The wave ends when every task in it has a report or left the wave. Add 1
+   to `N` and go to step 1.
 
 ## Phase 4.5: Session Gate
 

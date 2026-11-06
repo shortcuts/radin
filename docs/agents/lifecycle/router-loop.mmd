@@ -10,13 +10,21 @@ flowchart TD
   p1 --> p2[Phase 2<br/>print order, user picks tasks]
   p2 --> p3[Phase 3<br/>persist BACKLOG_STEPS.json]
   p3 --> p35[Phase 3.5<br/>settle open decisions, one grilling]
-  p35 --> next{{task-next}}
+  p35 --> mode{worktree}
+  mode -- no, serial --> next{{task-next}}
+  mode -- yes, waves --> wave{{state wave}}
+  wave -- exit 1 --> p45
+  wave --> wplan[plan unplanned tasks<br/>one message]
+  wplan --> leafP
+  wplan --> part[state wave-partition --wave N]
+  part --> veto[factfind per group:<br/>graph veto, never merge groups]
+  veto --> group[state group-set --wave N<br/>one group, up to the cap]
+  group --> leafE
   next -- exit 1, nothing left or teardown requested --> p45[Phase 4.5<br/>session gate: lint, format, review]
   p45 -- findings filed, once --> next
   next -- exit 0 --> kind{kind}
   kind -- planning --> leafP[[Planning leaf]]
-  kind -- execution --> group[state group-set<br/>ids of a parallel message]
-  group --> leafE[[Execution leaf]]
+  kind -- execution --> leafE[[Execution leaf]]
   leafE -- STATUS line --> report[task-report]
   leafE -. idle, no STATUS .-> nudge[claude: ListAgents, one nudge]
   hb([claude: per-task cron heartbeat, 20 min]) -. fires .-> nudge
@@ -28,6 +36,7 @@ flowchart TD
   report -- commit leaves its plan paths --> route
   report --> route{next}
   route -- continue --> next
+  route -- wave landed, refill --> wave
   route -- debug --> debug[[Debug leaf, once]]
   debug --> next
   route -- clarify --> user[/Ask the user<br/>FACT or DECISION/]

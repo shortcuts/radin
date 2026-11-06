@@ -95,6 +95,8 @@ Record, plan, execute, review. Each skill runs in your own conversation, so it c
 | `radin` | Full-screen backlog browser in your terminal. Press `?` for keys |
 | `radin --host agents ...` | Same command for the agents host, which spells companion skill names for Codex and opencode. The backlog is the same `.radin` |
 
+`RADIN_WAVE_CAP` sets the most tasks `/radin-batch` runs at once when the worktree answer is yes (default 4).
+
 A task has a category (`feat`, `fix`, `chore`, `refactor`), an optional priority and
 dependencies, and can sit under an epic. Every field and key: [docs/reference.md](docs/reference.md).
 

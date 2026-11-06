@@ -673,6 +673,93 @@ planned() {
   [ "$output" = $'group\t2\tw-a,w-b' ]
 }
 
+wave_wp() { bash -c "cd '$P' && bash '$REPO_ROOT/lib/radin-state.sh' wave | bash '$REPO_ROOT/lib/radin-state.sh' wave-partition $*"; }
+
+@test "wave into wave-partition --wave puts three independent planned tasks in one group and records no serialization" {
+  planned "w a" lib/a.sh
+  planned "w b" lib/b.sh
+  planned "w c" docs/c.md
+  printf 'w-a\t1\t\tpending\nw-b\t2\t\tpending\nw-c\t3\t\tpending\n' | state steps-init >/dev/null
+  run wave_wp --wave 1
+  [ "$status" -eq 0 ]
+  [ "$output" = $'group\t3\tw-a,w-b,w-c' ]
+  [ ! -e "$(TELE)" ]
+}
+
+@test "wave-partition --wave records one serialized event per shared-path pair" {
+  planned "w a" lib/x.sh
+  planned "w b" lib/
+  run bash -c "printf 'w-a\nw-b\n' | (cd '$P' && bash '$REPO_ROOT/lib/radin-state.sh' wave-partition --wave 2)"
+  [ "$status" -eq 0 ]
+  [ "$(grep -c serialized "$(TELE)")" -eq 1 ]
+  line="$(cat "$(TELE)")"
+  [[ "$line" == *'"task":"w-b"'* ]]
+  [[ "$line" == *'"with":"w-a"'* ]]
+  [[ "$line" == *'"wave":"2"'* ]]
+  [[ "$line" == *'"reason":"shared-paths"'* ]]
+  [[ "$line" == *'"paths":"lib/x.sh"'* ]]
+}
+
+@test "wave-partition --wave records a no-plan event, and none without --wave" {
+  planned "w a" lib/a.sh
+  planned "w b"
+  run bash -c "printf 'w-a\nw-b\n' | (cd '$P' && bash '$REPO_ROOT/lib/radin-state.sh' wave-partition)"
+  [ ! -e "$(TELE)" ]
+  run bash -c "printf 'w-a\nw-b\n' | (cd '$P' && bash '$REPO_ROOT/lib/radin-state.sh' wave-partition --wave 1)"
+  [ "$(grep -c serialized "$(TELE)")" -eq 1 ]
+  line="$(cat "$(TELE)")"
+  [[ "$line" == *'"task":"w-b"'* ]]
+  [[ "$line" == *'"reason":"no-plan"'* ]]
+}
+
+@test "wave leaves a task with an unmet dependency out of the partition" {
+  planned "w a" lib/a.sh
+  planned "w b" lib/b.sh
+  printf 'w-a\t1\t\tpending\nw-b\t2\tw-a\tpending\n' | state steps-init >/dev/null
+  run wave_wp --wave 1
+  [ "$output" = $'group\t1\tw-a' ]
+}
+
+@test "wave-partition reads RADIN_WAVE_CAP, --cap beats it, and each cap-split task records a cap event" {
+  for n in 1 2 3 4 5 6; do planned "w $n" "lib/$n.sh"; done
+  ids='w-1\nw-2\nw-3\nw-4\nw-5\nw-6\n'
+  run bash -c "printf '$ids' | (cd '$P' && RADIN_WAVE_CAP=3 bash '$REPO_ROOT/lib/radin-state.sh' wave-partition --wave 1)"
+  [ "$output" = $'group\t3\tw-1,w-2,w-3\ngroup\t3\tw-4,w-5,w-6' ]
+  [ "$(grep -c '"reason":"cap"' "$(TELE)")" -eq 3 ]
+  [[ "$(sed -n 1p "$(TELE)")" == *'"task":"w-4"'* ]]
+  run bash -c "printf '$ids' | (cd '$P' && RADIN_WAVE_CAP=3 bash '$REPO_ROOT/lib/radin-state.sh' wave-partition --cap 2)"
+  [ "$output" = $'group\t2\tw-1,w-2\ngroup\t2\tw-3,w-4\ngroup\t2\tw-5,w-6' ]
+  run bash -c "printf '$ids' | (cd '$P' && RADIN_WAVE_CAP=0 bash '$REPO_ROOT/lib/radin-state.sh' wave-partition)"
+  [ "$status" -eq 1 ]
+}
+
+@test "wave-partition rejects a bad --wave" {
+  planned "w a" lib/a.sh
+  run bash -c "printf 'w-a\n' | (cd '$P' && bash '$REPO_ROOT/lib/radin-state.sh' wave-partition --wave 0)"
+  [ "$status" -eq 1 ]
+}
+
+@test "group-set --wave records a dispatched event; without --wave the event has no wave key" {
+  state group-set --wave 2 t-one t-two
+  [ "$(cat "$P/.radin/state/groups/t-one")" = 2 ]
+  line="$(cat "$(TELE)")"
+  [[ "$line" == *'"ids":"t-one,t-two"'* ]]
+  [[ "$line" == *'"size":"2"'* ]]
+  [[ "$line" == *'"wave":"2"'* ]]
+  rm "$(TELE)"
+  state group-set t-one
+  line="$(cat "$(TELE)")"
+  [[ "$line" == *'"size":"1"'* ]]
+  [[ "$line" != *'"wave"'* ]]
+}
+
+@test "task-next prints no overlap line" {
+  plan_with lib/a.sh
+  run state task-next
+  [ "$status" -eq 0 ]
+  [[ "$output" != *overlap* ]]
+}
+
 @test "plan-discard drops the plan, flags planning needed, and records the planning tokens" {
   plan_with lib/a.sh
   state task-report t-one "STATUS: PLANNED — ok; complexity low: x" --usage "planning 1234 5 6" >/dev/null
