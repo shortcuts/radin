@@ -180,7 +180,11 @@ int main(int argc, char **argv) {
 	e = getenv("PTY_QUIET");
 	if (e && atof(e) > 0) quiet = atof(e);
 
+	/* The app flushes pending input when it enters raw mode, so a key sent
+	 * during a slow start (cold cache, loaded box) is lost. Let the first
+	 * output burst settle before the first key. */
 	int alive = 1;
+	if (*keys && !pump(3.0, 0.1)) alive = 0;
 	char *chunk = malloc(strlen(keys) + 1);
 	if (!chunk) return 70;
 	const char *p = keys;
