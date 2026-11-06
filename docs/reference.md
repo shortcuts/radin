@@ -57,10 +57,10 @@ Pass them after `bash`: `curl … | bash -s -- --yes`.
 
 | Path | Holds |
 | --- | --- |
-| `<repo>/.claude/.radin/backlog/` | The index and one markdown file per task. |
-| `<repo>/.claude/.radin/plans/` | One plan per planned task. |
-| `<repo>/.claude/.radin/reviews/` | Review reports, one file per sub-agent review. |
-| `<repo>/.claude/.radin/state/` | Run state: order, session answers, task status, facts. |
+| `<repo>/.radin/backlog/` | The index and one markdown file per task. |
+| `<repo>/.radin/plans/` | One plan per planned task. |
+| `<repo>/.radin/reviews/` | Review reports, one file per sub-agent review. |
+| `<repo>/.radin/state/` | Run state: order, session answers, task status, facts. |
 | `~/.radin/` | The installed CLI, libraries, rendered prompts (`hosts/claude/lib`) and config backups. |
 
 ## TUI keys

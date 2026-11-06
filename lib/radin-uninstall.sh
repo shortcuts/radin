@@ -5,7 +5,7 @@
 # thermo-nuclear (not vendored by this repo), the unslop and technical-writing
 # skills (fetched from cursor/plugins at install time), companion tools (advisory
 # installs), ~/.claude/radin (the fetched source copy), or any per-repo
-# .claude/.radin/ backlog directory -- see AGENTS.md's Constraints section.
+# .radin/ backlog directory -- see AGENTS.md's Constraints section.
 # Installed to ~/.radin/lib/radin-uninstall.sh by install.sh.
 #
 # Usage: radin-uninstall.sh [--dry-run] [--force]
@@ -29,7 +29,7 @@ CLAUDE_DIR="$HOME/.claude"
 RADIN_HOME="$HOME/.radin"
 # BEGIN shipped (generated from SHIPPED by scripts/shipped.sh; run make gen, never edit)
 SHIPPED_SKILLS="radin-batch radin-do radin-plan radin-record radin-review radin-stats radin-teardown radin-uninstall"
-SHIPPED_LIB="radin-host.sh radin-namespace.sh radin-json.sh radin-backlog.sh radin-tui.c radin-cbm-json.c radin-state.sh radin-scope.sh radin-prompt.sh forbid-claude.txt forbid-agents.txt radin-cbm-hooks.sh radin-cbm-config.sh radin-update.sh radin-stats.sh radin-doctor.sh radin-uninstall.sh skill-names-claude.txt skill-names-agents.txt companion-skills.txt"
+SHIPPED_LIB="radin-host.sh radin-namespace.sh radin-json.sh radin-migrate.sh radin-backlog.sh radin-tui.c radin-cbm-json.c radin-state.sh radin-scope.sh radin-prompt.sh forbid-claude.txt forbid-agents.txt radin-cbm-hooks.sh radin-cbm-config.sh radin-update.sh radin-stats.sh radin-doctor.sh radin-uninstall.sh skill-names-claude.txt skill-names-agents.txt companion-skills.txt"
 SHIPPED_HOSTLIB="radin-prompt-planning.md radin-prompt-execution.md radin-prompt-debug.md radin-prompt-factfind.md radin-prompt-gate.md radin-prompt-merge.md radin-leaf-contract.md radin-comment-rule.md radin-explore-rule.md radin-open-decisions.md radin-ask-rule.md radin-complexity-rule.md radin-planning-rule.md radin-prioritization.md radin-batch-recovery.md radin-batch-reporting.md radin-batch-gate.md radin-batch-merge.md radin-batch-clarify.md radin-batch-session.md radin-batch-resume.md radin-run.md radin-review-core.md"
 RENAMED_SKILLS="radin-execute radin-implement radin-run"
 RETIRED_SKILLS="radin-update radin-show radin-doctor radin-setup-hooks"
@@ -264,7 +264,7 @@ printf '  %-20s advisory install, remove with: claude plugin uninstall caveman@c
 printf '  %-20s advisory install, remove with: claude plugin uninstall ponytail@ponytail\n' "ponytail"
 printf '  %-20s %s\n' "" "$CLAUDE_DIR/.ponytail-band stays -- run /ponytail band on to show the band again"
 printf '  %-20s advisory install, remove with: claude plugin uninstall mattpocock-skills@claude-plugins-official\n' "mattpocock-skills"
-printf '  %s\n' "Any <repo-root>/.claude/.radin/ backlog directory -- your data, your call"
+printf '  %s\n' "Any <repo-root>/.radin/ backlog directory -- your data, your call"
 if [ -f "$CLAUDE_DIR/CLAUDE.md" ] && grep -qF '<!-- codebase-memory-mcp MCP tools -->' "$CLAUDE_DIR/CLAUDE.md"; then
 	printf '  %s\n' "$CLAUDE_DIR/CLAUDE.md keeps the codebase-memory-mcp section written by radin-cbm-hooks.sh -- delete it by hand"
 fi

@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
-# Maps RADIN_HOST to the repo directory that holds radin's state.
-# Sourced by radin-namespace.sh, radin-scope.sh, radin-stats.sh and the dispatcher.
+# Validates RADIN_HOST (claude|agents), which selects skill names and the prompt render.
+# Sourced by radin-scope.sh and the dispatcher.
 # radin_skill NAME prints the host's spelling of a companion skill from skill-names-HOST.txt.
 # Must stay bash-3.2-compatible (macOS /bin/bash).
 case "${RADIN_HOST:-claude}" in
-claude) HOST_DIR=.claude ;;
-agents) HOST_DIR=.agents ;;
+claude | agents) ;;
 *)
 	printf "radin: unknown host '%s' (expected claude|agents)\n" "$RADIN_HOST" >&2
 	exit 2

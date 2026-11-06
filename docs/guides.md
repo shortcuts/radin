@@ -21,9 +21,9 @@ concurrent runs never share one.
 
 ## Share the backlog with your team
 
-Commit `.claude/.radin/` (`.agents/.radin/` on Codex and opencode). Every teammate with radin installed sees the same tasks.
-To keep the backlog private, add the directory to your own ignore file.
-radin never edits your `.gitignore`.
+radin appends `.radin/` to your `.gitignore` once, on the run that creates `.radin`, so the backlog starts private.
+To share it, delete that line and commit `.radin/`. Every teammate with radin installed sees the same tasks.
+radin never adds the line back.
 
 ## Turn review findings into tasks
 

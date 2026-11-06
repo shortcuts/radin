@@ -16,21 +16,21 @@ teardown() {
   rm -rf "$WORK"
 }
 
-@test "task-done exits 3 for a commit that changes a file under .claude/.radin/" {
-  mkdir -p "$P/.claude/.radin/state"
-  echo x >"$P/.claude/.radin/state/leak"
-  git -C "$P" add -f .claude/.radin/state/leak
+@test "task-done exits 3 for a commit that changes a file under .radin/" {
+  mkdir -p "$P/.radin/state"
+  echo x >"$P/.radin/state/leak"
+  git -C "$P" add -f .radin/state/leak
   git -C "$P" commit -q -m leak
   run bash -c "cd '$P' && bash '$REPO_ROOT/lib/radin-state.sh' task-done t-one HEAD"
   [ "$status" -eq 3 ]
-  [[ "$output" == *".claude/.radin/"* ]]
+  [[ "$output" == *".radin/"* ]]
 }
 
 state() { (cd "$P" && bash "$REPO_ROOT/lib/radin-state.sh" "$@"); }
 
 @test "task-fact keeps the evidence token and records the long-form path" {
   state task-fact t-one "STATUS: FOUND — [measured] lib/x.sh sets A=1; long form: /p/state/facts/t-one.md"
-  run bash -c "cd '$P' && cat .claude/.radin/backlog/tasks/*t-one.md; bash '$REPO_ROOT/lib/radin-backlog.sh' meta t-one"
+  run bash -c "cd '$P' && cat .radin/backlog/tasks/*t-one.md; bash '$REPO_ROOT/lib/radin-backlog.sh' meta t-one"
   [[ "$output" == *"**Fact:** [measured] lib/x.sh sets A=1"* ]]
   [[ "$output" != *"long form"* ]]
   [[ "$output" == *$'facts\t/p/state/facts/t-one.md'* ]]
@@ -38,7 +38,7 @@ state() { (cd "$P" && bash "$REPO_ROOT/lib/radin-state.sh" "$@"); }
 
 @test "task-fact labels a tokenless answer a guess, and NOT FOUND exits non-zero" {
   state task-fact t-one "STATUS: FOUND — no token here"
-  run bash -c "cd '$P' && cat .claude/.radin/backlog/tasks/*t-one.md"
+  run bash -c "cd '$P' && cat .radin/backlog/tasks/*t-one.md"
   [[ "$output" == *"**Fact:** [guess] no token here"* ]]
   run state task-fact t-one "STATUS: NOT FOUND — looked"
   [ "$status" -ne 0 ]
@@ -46,15 +46,15 @@ state() { (cd "$P" && bash "$REPO_ROOT/lib/radin-state.sh" "$@"); }
 
 @test "task-diagnosis records a Root cause from the DIAGNOSED line; NOT DIAGNOSED exits non-zero" {
   state task-diagnosis t-one "STATUS: DIAGNOSED — [inferred] off by one in f; no siblings"
-  run bash -c "cd '$P' && cat .claude/.radin/backlog/tasks/*t-one.md"
+  run bash -c "cd '$P' && cat .radin/backlog/tasks/*t-one.md"
   [[ "$output" == *"**Root cause:** [inferred] off by one in f; no siblings"* ]]
   run state task-diagnosis t-one "STATUS: NOT DIAGNOSED — nothing"
   [ "$status" -ne 0 ]
 }
 
 @test "steps-waiting prints id<TAB>note for each deferred entry and skips MAX_ATTEMPTS blocks" {
-  mkdir -p "$P/.claude/.radin/state"
-  cat >"$P/.claude/.radin/state/BACKLOG_STEPS.json" <<'JSON'
+  mkdir -p "$P/.radin/state"
+  cat >"$P/.radin/state/BACKLOG_STEPS.json" <<'JSON'
 {"id":"t-one","order":1,"status":"blocked","depends_on":[],"attempts":1,"debugged":0,"note":"deferred: which db?"}
 {"id":"t-two","order":2,"status":"blocked","depends_on":[],"attempts":3,"debugged":0,"note":"MAX_ATTEMPTS: crashed"}
 JSON
@@ -64,8 +64,8 @@ JSON
 }
 
 @test "preflight prints one tagged line per applicable branch and only empty on an empty backlog" {
-  mkdir -p "$P/.claude/.radin/state"
-  cat >"$P/.claude/.radin/state/BACKLOG_STEPS.json" <<'JSON'
+  mkdir -p "$P/.radin/state"
+  cat >"$P/.radin/state/BACKLOG_STEPS.json" <<'JSON'
 {"id":"t-one","order":1,"status":"blocked","depends_on":[],"attempts":1,"debugged":0,"note":"deferred: which db?"}
 {"id":"t-two","order":2,"status":"in_progress","depends_on":[],"attempts":2,"debugged":0,"note":"dispatched"}
 JSON
@@ -82,8 +82,8 @@ JSON
 }
 
 @test "resume moves failed and retryable blocked entries to pending and keeps waiting and MAX_ATTEMPTS blocks" {
-  mkdir -p "$P/.claude/.radin/state"
-  cat >"$P/.claude/.radin/state/BACKLOG_STEPS.json" <<'JSON'
+  mkdir -p "$P/.radin/state"
+  cat >"$P/.radin/state/BACKLOG_STEPS.json" <<'JSON'
 {"id":"t-one","order":1,"status":"failed","depends_on":[],"attempts":2,"debugged":1,"note":"tests red"}
 {"id":"t-two","order":2,"status":"blocked","depends_on":[],"attempts":1,"debugged":0,"note":"crashed"}
 {"id":"t-three","order":3,"status":"blocked","depends_on":[],"attempts":1,"debugged":0,"note":"deferred: which db?"}
@@ -151,13 +151,13 @@ JSON
 @test "a done task whose branch is gone is recorded done once its work is on the base, else its branch comes back and lands" {
   base="$(git -C "$P" branch --show-current)"
   (cd "$P" && bash "$REPO_ROOT/lib/radin-backlog.sh" add fix "t two" <<<"body") >/dev/null
-  mkdir -p "$P/.claude/.radin/state/unmerged"
+  mkdir -p "$P/.radin/state/unmerged"
   for t in t-one t-two; do
     git -C "$P" checkout -q -b "radin/$t" "$base"
     echo "$t" >"$P/$t.txt"
     git -C "$P" add "$t.txt"
     git -C "$P" commit -q -m "feat: $t"
-    git -C "$P" rev-parse --short=12 HEAD >"$P/.claude/.radin/state/unmerged/$t"
+    git -C "$P" rev-parse --short=12 HEAD >"$P/.radin/state/unmerged/$t"
     git -C "$P" checkout -q "$base"
     git -C "$P" branch -q -D "radin/$t"
   done
@@ -185,8 +185,8 @@ JSON
   GIT_AUTHOR_DATE="2020-01-01T00:00:00" GIT_COMMITTER_DATE="2020-01-01T00:00:00" git -C "$P" commit -q -m "feat: x"
   h="$(git -C "$P" rev-parse --short=12 HEAD)"
   git -C "$P" checkout -q "$base"
-  mkdir -p "$P/.claude/.radin/state/prepared"
-  printf '{"branch":"radin/t-one","worktree":""}\n' >"$P/.claude/.radin/state/prepared/t-one.json"
+  mkdir -p "$P/.radin/state/prepared"
+  printf '{"branch":"radin/t-one","worktree":""}\n' >"$P/.radin/state/prepared/t-one.json"
   run state task-done t-one "$h"
   [ "$status" -eq 0 ]
   [[ "$output" == *unmerged* ]]
@@ -214,11 +214,11 @@ JSON
   git -C "$P" add a.txt
   git -C "$P" commit -q -m "add a"
   echo "touch a.txt" >>"$(cd "$P" && bash "$REPO_ROOT/lib/radin-backlog.sh" field t-one TASK_FILE)"
-  mkdir -p "$P/.claude/.radin/state"
+  mkdir -p "$P/.radin/state"
   state session-set yes no
   echo draft >"$P/a.txt"
   echo new >"$P/b.txt"
-  git -C "$P" stash push -u -q -m "radin-batch: uncommitted changes found before task other" -- . ':(exclude).claude/.radin'
+  git -C "$P" stash push -u -q -m "radin-batch: uncommitted changes found before task other" -- a.txt b.txt
   h="$(git -C "$P" rev-parse 'stash@{0}')"
   run state stash-triage
   [ "$status" -eq 0 ]
@@ -236,7 +236,7 @@ JSON
   [ "$(git -C "$P" stash list | grep -c .)" -eq 1 ]
   # a second claim whose apply conflicts leaves a clean tree and keeps the stash
   echo other >"$P/a.txt"
-  git -C "$P" stash push -q -m "radin-batch: uncommitted changes found before task other" -- . ':(exclude).claude/.radin'
+  git -C "$P" stash push -q -m "radin-batch: uncommitted changes found before task other" -- a.txt
   h2="$(git -C "$P" rev-parse 'stash@{0}')"
   state stash-claim "$h2" t-two
   git -C "$P" worktree add -q "$WORK/proj-t-two" -b radin/t-two "$base"
@@ -284,8 +284,8 @@ stack_setup() {
   printf 'one\nfrom-one\n' >"$P/shared.txt"
   git -C "$P" commit -qam "feat: t-one"
   git -C "$P" checkout -q "$base"
-  mkdir -p "$P/.claude/.radin/state/unmerged"
-  git -C "$P" rev-parse --short=12 radin/t-one >"$P/.claude/.radin/state/unmerged/t-one"
+  mkdir -p "$P/.radin/state/unmerged"
+  git -C "$P" rev-parse --short=12 radin/t-one >"$P/.radin/state/unmerged/t-one"
   printf 't-one\t1\t\tpending\nt-two\t2\tt-one\tpending\n' | state steps-init >/dev/null
   state session-set yes no
 }
@@ -300,7 +300,7 @@ stack_setup() {
   git -C "$P" checkout -q -b radin/t-three "$base"
   git -C "$P" commit -q --allow-empty -m "feat: t-three"
   git -C "$P" checkout -q "$base"
-  : >"$P/.claude/.radin/state/unmerged/t-three"
+  : >"$P/.radin/state/unmerged/t-three"
   printf 't-one\t1\t\tpending\nt-three\t2\t\tpending\nt-four\t3\tt-one,t-three\tpending\n' | state steps-init >/dev/null
   run state deps-check t-four
   [ "$status" -ne 0 ]
@@ -313,7 +313,7 @@ stack_setup() {
   [ "$status" -eq 0 ]
   dir="${lines[${#lines[@]}-1]}"
   [ "$(git -C "$dir" show HEAD:shared.txt)" = "$(printf 'one\nfrom-one')" ]
-  [ "$(cat "$P/.claude/.radin/state/stacked/t-two")" = "t-one $(git -C "$P" rev-parse --short=12 radin/t-one)" ]
+  [ "$(cat "$P/.radin/state/stacked/t-two")" = "t-one $(git -C "$P" rev-parse --short=12 radin/t-one)" ]
 }
 
 @test "reconcile lands a stack in dependency order, one squash per task, even when both edit the same line" {
@@ -322,7 +322,7 @@ stack_setup() {
   dir="${lines[${#lines[@]}-1]}"
   printf 'one\nfrom-two\n' >"$dir/shared.txt"
   git -C "$dir" commit -qam "feat: t-two"
-  git -C "$P" rev-parse --short=12 radin/t-two >"$P/.claude/.radin/state/unmerged/t-two"
+  git -C "$P" rev-parse --short=12 radin/t-two >"$P/.radin/state/unmerged/t-two"
   run state reconcile
   [ "$status" -eq 0 ]
   [[ "$output" == *$'merged\tradin/t-one\t'*$'\n'*$'merged\tradin/t-two\t'* ]]
@@ -330,7 +330,7 @@ stack_setup() {
   [ "$(cat "$P/shared.txt")" = "$(printf 'one\nfrom-two')" ]
   [ "$(state completed-list | cut -f1 | sort | paste -sd, -)" = "t-one,t-two" ]
   [ -z "$(git -C "$P" branch --list 'radin/*')" ]
-  [ ! -e "$P/.claude/.radin/state/stacked/t-two" ]
+  [ ! -e "$P/.radin/state/stacked/t-two" ]
 }
 
 @test "reconcile leaves a dependent waiting while its parent branch conflicts" {
@@ -340,7 +340,7 @@ stack_setup() {
   echo two >"$dir/two.txt"
   git -C "$dir" add two.txt
   git -C "$dir" commit -qm "feat: t-two"
-  git -C "$P" rev-parse --short=12 radin/t-two >"$P/.claude/.radin/state/unmerged/t-two"
+  git -C "$P" rev-parse --short=12 radin/t-two >"$P/.radin/state/unmerged/t-two"
   printf 'clash\n' >"$P/shared.txt"
   git -C "$P" commit -qam "base clash"
   run state reconcile
@@ -348,4 +348,13 @@ stack_setup() {
   [[ "$output" == *$'conflict\tradin/t-one'* ]]
   [[ "$output" == *$'skipped\tradin/t-two\twaiting on radin/t-one'* ]]
   [ -n "$(git -C "$P" branch --list radin/t-two)" ]
+}
+
+@test "prepare wip-commits a dirty tree while the default .gitignore hides .radin" {
+  echo draft >"$P/a.txt"
+  run bash -c "cd '$P' && bash '$REPO_ROOT/lib/radin-state.sh' session-set no no && bash '$REPO_ROOT/lib/radin-state.sh' prepare t-one"
+  [ "$status" -eq 0 ]
+  [ "$(git -C "$P" log -1 --format=%s)" = "wip: update .gitignore, a.txt" ]
+  [ -z "$(git -C "$P" status --porcelain)" ]
+  [[ "$output" != *"ignored by one of your"* ]]
 }

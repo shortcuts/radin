@@ -115,7 +115,7 @@ Dispatch one sub-agent named `radin-review` with a self-contained brief:
 - The skills Step 1's `passes` line names, as extra passes to invoke after
   the core's two.
 
-- A report path, `<repo root>/.claude/.radin/reviews/<UTC YYYYMMDDTHHMMSS>-<scope slug>.md`,
+- A report path, `<repo root>/.radin/reviews/<UTC YYYYMMDDTHHMMSS>-<scope slug>.md`,
   as "write the report there".
 
 <!-- host:claude -->

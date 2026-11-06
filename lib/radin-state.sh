@@ -22,7 +22,7 @@
 #                                               # --next: when the final line is "next<TAB>continue", also run task-next and print its output after; exit is task-next's
 #   radin-state.sh task-fact <id> "<STATUS: FOUND line>"  # becomes a **Fact:** line (token kept, else [guess]); a long form path goes to set-meta facts; any other line exits 1
 #   radin-state.sh task-diagnosis <id> "<STATUS: DIAGNOSED line>"  # the same, as a **Root cause:** line; status untouched
-#   radin-state.sh task-done <id> <commit-hash> # record completion, copy the entry's **Fact:** lines to state/facts/<id>.md, remove backlog and steps entries, in crash-safe order; exit 3 when the hash does not validate or the commit changes a file under .claude/.radin/
+#   radin-state.sh task-done <id> <commit-hash> # record completion, copy the entry's **Fact:** lines to state/facts/<id>.md, remove backlog and steps entries, in crash-safe order; exit 3 when the hash does not validate or the commit changes a file under .radin/
 #                                               # also journals an out-of-plan event naming commit files its plan's ## Changes omits (test paths exempt), shown by report
 #   radin-state.sh set-status <id> <pending|in_progress|failed|blocked> [note]
 #   radin-state.sh answered <id>                # the user answered a waiting task: back to pending, attempts 0, debugged kept
@@ -41,7 +41,7 @@
 #   radin-state.sh session-get                  # print "worktree<TAB>yes" / "branch<TAB>no", exit 1 if unanswered
 #   radin-state.sh prepare <id>                 # commit a dirty tree, create/reuse the task's tree and branch per session.json, print the dir to work in
 #                                               # also records the branch and tree it chose in state/prepared/<id>.json
-#   radin-state.sh dirty-check                  # git status --porcelain of the current directory, excluding .claude/.radin
+#   radin-state.sh dirty-check                  # git status --porcelain of the current directory, excluding .radin
 #   radin-state.sh trace <id|commit|branch>     # print "task|commit|branch|worktree|plan|facts|status<TAB>value" per matching task; exit 1 no match, 2 ambiguous
 #   radin-state.sh completed-show <id>          # print "id|commit|title|branch|worktree|plan|ts<TAB>value" lines, exit 1 if absent
 #   radin-state.sh unlanded                     # print "id<TAB>commit<TAB>branch<TAB>pending|orphan" per task whose commit the base branch lacks: pending (done on its branch, merge waiting) or orphan (recorded done, branch still ahead of the base); exit 1 if none
@@ -318,22 +318,31 @@ task_dir() {
 }
 
 dirty_files() {
-	git -C "$1" status --porcelain -- . ":(exclude)$HOST_DIR/.radin"
+	git -C "$1" status --porcelain -- . ":(exclude).radin"
 }
 
-# Stages everything in tree $1 except .claude/.radin and commits it with a subject
+# Stages everything in tree $1 except .radin. git rejects an exclude pathspec for an ignored path.
+stage_all() {
+	if git -C "$1" check-ignore -q .radin 2>/dev/null; then
+		git -C "$1" add -A
+	else
+		git -C "$1" add -A -- . ":(exclude).radin"
+	fi
+}
+
+# Stages everything in tree $1 except .radin and commits it with a subject
 # that names the changed files, so the log shows what the commit holds. $2 is the body.
 commit_dirty() {
 	local names
-	git -C "$1" add -A -- . ":(exclude)$HOST_DIR/.radin"
+	stage_all "$1"
 	names="$(git -C "$1" diff --cached --name-only | awk -F/ '{print $NF}' | awk 'NR<=3{a=a (a?", ":"") $0} END{if (NR>3) a=a " +" NR-3 " more"; print a}')"
 	git -C "$1" commit --no-verify -q -m "wip: update $names" -m "$2" >/dev/null
 }
 
-# Commits everything in tree $1 except .claude/.radin as unfinished work of task
+# Commits everything in tree $1 except .radin as unfinished work of task
 # $2 and prints the short hash. --no-verify: a failing hook must not strand work.
 wip_commit() {
-	git -C "$1" add -A -- . ":(exclude)$HOST_DIR/.radin"
+	stage_all "$1"
 	git -C "$1" commit --no-verify -q -m "wip($2): unfinished work, task not complete" -m "$3" >/dev/null
 	git -C "$1" rev-parse --short HEAD
 }
@@ -477,7 +486,7 @@ prepare_apply_claim() {
 		printf 'radin: applied stash %s into %s as the base of task %s\n' "$h" "$1" "$2" >&2
 	else
 		git -C "$1" reset --hard -q
-		git -C "$1" clean -fdq -e "$HOST_DIR/.radin"
+		git -C "$1" clean -fdq -e .radin
 		mv "$claim" "$claim.failed"
 		journal "$ns/state" "stash-apply-failed" "$2" "$h"
 		printf 'radin: stash %s did not apply to %s; the tree starts clean\n' "$h" "$1" >&2
@@ -1359,8 +1368,8 @@ task-done)
 		exit 3
 	fi
 	# radin's namespace is the repo owner's call to track, never a task commit's.
-	if git -C "$dir" diff-tree --no-commit-id --name-only -r --root "$hash" 2>/dev/null | grep -q "^\\$HOST_DIR/\\.radin/"; then
-		printf 'task-done: %s changes a file under %s/.radin/\n' "$hash" "$HOST_DIR" >&2
+	if git -C "$dir" diff-tree --no-commit-id --name-only -r --root "$hash" 2>/dev/null | grep -q "^\.radin/"; then
+		printf 'task-done: %s changes a file under .radin/\n' "$hash" >&2
 		exit 3
 	fi
 	# A commit that sits on a side branch is not done: the entry stays, blocked,
@@ -1956,7 +1965,7 @@ report)
 
 	# Residual changes: committed, never left dangling. The summary reports the hash.
 	residual="no residual changes"
-	if [ -n "$(git -C "$repo_root" status --porcelain -- . ":(exclude)$HOST_DIR/.radin" 2>/dev/null)" ]; then
+	if [ -n "$(git -C "$repo_root" status --porcelain -- . ":(exclude).radin" 2>/dev/null)" ]; then
 		commit_dirty "$repo_root" "radin committed these at session end; no task owns them. Amend or split as needed." ||
 			die "cannot commit the residual changes"
 		ref="$(git -C "$repo_root" rev-parse --short HEAD)"

@@ -46,7 +46,7 @@ Ground rules, applying to every step below:
   their side is BLOCKED (DECISION) carrying exactly what unblocks you, with
   anything you touched reverted so the tree is clean; it is never FAILED or
   INCONCLUSIVE.
-- Never commit, revert, or otherwise touch anything under `.claude/.radin/`.
+- Never commit, revert, or otherwise touch anything under `.radin/`.
   It is the router's state, not task work, except the `RADIN_CLI backlog
   append` call above.
 - Explore by this rule:
@@ -205,16 +205,17 @@ COMMENT_RULE
    test that still passes when the code under test returns nothing pins
    nothing: assert literal expected values.
    A check that fails outside your diff: save your changes with
-   `git stash push -u -- . ':(exclude).claude/.radin'`, re-run that check on
+   `git stash push -u`, re-run that check on
    the base, then `git stash pop` (pop only when the stash saved something).
-   The exclude keeps the untracked `.claude/.radin/` state in place. Red on
+   An ignored `.radin/` stays in place. When `git check-ignore -q .radin` fails,
+   append `-- . ':(exclude).radin'`: git rejects that pathspec for an ignored path. Red on
    the base too: fix it in this task through `@@skill:surgical-patch@@`, as its
    own commit. A fix out of reach: file it
    with `RADIN_CLI backlog add fix "<short title>" --location "<path:line>"`
    and a body that gives the failing check, its output and the cause, then
    finish your own task. A red base never makes the task `INCONCLUSIVE`.
    Fix what the checks surface before step 10.
-9. Stage your task's files (`git add <paths>`, never `.claude/.radin/`) and
+9. Stage your task's files (`git add <paths>`, never `.radin/`) and
    follow the review brief at the end of this prompt at level `diff`: spec the
    plan(s) above, else this task, plus its acceptance criteria. Fix every
    `critical` and `warning` finding in the tree, re-run step 8's checks,

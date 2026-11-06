@@ -12,7 +12,7 @@ Rendered by `radin prompt merge`. `lib/radin-prompt.sh` holds the format.
 Merge each task branch below into MERGE_BASE, in the listed order, with
 `git merge --squash <branch>`. Run every merge in the main checkout (`git rev-parse
 --show-toplevel` of the repo, not a linked worktree), after `git checkout
-MERGE_BASE`. Touch nothing under `.claude/.radin/`.
+MERGE_BASE`. Touch nothing under `.radin/`.
 LEAF_CONTRACT
 
 The branches are ones `radin state reconcile` could not merge cleanly. Merge each one whatever its task status: unfinished work lands too.

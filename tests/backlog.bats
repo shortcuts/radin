@@ -7,8 +7,8 @@ setup() {
   CLI="$REPO_ROOT/lib/radin-backlog.sh"
   WORK="$(cd "$(mktemp -d)" && pwd -P)"
   git init -q "$WORK/proj"
-  INDEX="$WORK/proj/.claude/.radin/backlog/index.jsonl"
-  TASKS="$WORK/proj/.claude/.radin/backlog/tasks"
+  INDEX="$WORK/proj/.radin/backlog/index.jsonl"
+  TASKS="$WORK/proj/.radin/backlog/tasks"
 }
 
 teardown() {
@@ -86,11 +86,11 @@ write_plan() {
 @test "add-plan puts the pointer on the task's own entry only, never in a body" {
   cli add feat "planned thing" <<<"the body"
   cli add feat "next thing" <<<"other body"
-  write_plan "$WORK/proj/.claude/.radin/plans/planned-thing.md" "x"
-  run cli add-plan "planned thing" ".claude/.radin/plans/planned-thing.md"
+  write_plan "$WORK/proj/.radin/plans/planned-thing.md" "x"
+  run cli add-plan "planned thing" ".radin/plans/planned-thing.md"
   [ "$status" -eq 0 ]
   run grep -F '"id":"planned-thing"' "$INDEX"
-  [[ "$output" == *'"plan":[".claude/.radin/plans/planned-thing.md"]'* ]]
+  [[ "$output" == *'"plan":[".radin/plans/planned-thing.md"]'* ]]
   run grep -F '"id":"next-thing"' "$INDEX"
   [[ "$output" != *'"plan"'* ]]
   # The body keeps the prose and nothing else.
@@ -100,9 +100,9 @@ write_plan() {
 
 @test "add-plan refuses a plan that fails plan-lint and records no pointer" {
   cli add feat "bad plan" <<<"body"
-  mkdir -p "$WORK/proj/.claude/.radin/plans"
-  printf '## Outcome\nonly this\n' >"$WORK/proj/.claude/.radin/plans/bad-plan.md"
-  run cli add-plan "bad plan" ".claude/.radin/plans/bad-plan.md"
+  mkdir -p "$WORK/proj/.radin/plans"
+  printf '## Outcome\nonly this\n' >"$WORK/proj/.radin/plans/bad-plan.md"
+  run cli add-plan "bad plan" ".radin/plans/bad-plan.md"
   [ "$status" -eq 1 ]
   [[ "$output" == *"missing or out of order: ## Decisions"* ]]
   run grep -F '"id":"bad-plan"' "$INDEX"
@@ -482,8 +482,8 @@ IDX
 @test "list --planned appends P for planned tasks and empty for unplanned" {
   cli add feat "planned one" <<<"body"
   cli add feat "unplanned one" <<<"body"
-  write_plan "$WORK/proj/.claude/.radin/plans/planned-one.md" "x"
-  cli add-plan planned-one ".claude/.radin/plans/planned-one.md" >/dev/null
+  write_plan "$WORK/proj/.radin/plans/planned-one.md" "x"
+  cli add-plan planned-one ".radin/plans/planned-one.md" >/dev/null
   run cli list --planned
   [ "$status" -eq 0 ]
   [ "${#lines[@]}" -eq 2 ]
@@ -513,7 +513,7 @@ mkplan() {
   cli add fix base <<<b >/dev/null 2>&1
   git -C "$WORK/proj" -c user.name=t -c user.email=t@t commit -q --allow-empty -m init
   git -C "$WORK/proj" worktree add -q "$WORK/wt"
-  run bash -c "cd '$WORK/wt' && bash '$CLI' field base TASK_FILE"
+  run bash -c "cd '$WORK/wt' && bash '$CLI' field base TASK_FILE 2>/dev/null"
   [ "$status" -eq 0 ]
   [ "$output" = "$TASKS/base.md" ]
   run bash -c "cd '$WORK/wt' && bash '$CLI' find base"
@@ -522,12 +522,12 @@ mkplan() {
 
 @test "SKILLS_DROPPED drops only the host's own grilling spelling" {
   for h in claude agents; do
-    RADIN_HOST=$h cli add fix a --skill /mattpocock-skills:grilling --skill /grilling <<<b >/dev/null 2>&1
+    RADIN_HOST=$h cli add fix "a $h" --skill /mattpocock-skills:grilling --skill /grilling <<<b >/dev/null 2>&1
   done
-  run cli field a SKILLS_DROPPED
+  run cli field a-claude SKILLS_DROPPED
   [ "$status" -eq 0 ]
   [ "$output" = "Invoke /mattpocock-skills:grilling to tackle this task." ]
-  RADIN_HOST=agents run cli field a SKILLS_DROPPED
+  RADIN_HOST=agents run cli field a-agents SKILLS_DROPPED
   [ "$status" -eq 0 ]
   [ "$output" = "Invoke /grilling to tackle this task." ]
 }

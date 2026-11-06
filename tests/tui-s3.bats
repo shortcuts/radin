@@ -160,24 +160,13 @@ load helpers/tui
 }
 
 
-@test "RADIN_HOST=agents shows the host and keeps state under .agents/.radin" {
-  export RADIN_HOST=agents
-  run tui "a|x|from tui\r|q"
-  [ "$status" -eq 0 ]
-  grep -q '"id":"from-tui"' "$WORK/proj/.agents/.radin/backlog/index.jsonl"
-  [ ! -e "$WORK/proj/.claude" ]
-  last_frame | grep -q 'host:agents'
-}
-
-@test "the claude host header shows no host tag" {
-  seed
+@test "the TUI migrates a legacy .agents/.radin and shows its tasks" {
+  mkdir -p "$WORK/proj/.agents/.radin/backlog/tasks"
+  printf '%s\n' '{"id":"old-one","category":"bug","title":"old one","file":"tasks/old-one.md","created":"2026-01-01T00:00:00Z"}' >"$WORK/proj/.agents/.radin/backlog/index.jsonl"
+  printf 'body\n' >"$WORK/proj/.agents/.radin/backlog/tasks/old-one.md"
   run tui "q"
   [ "$status" -eq 0 ]
+  grep -q '"id":"old-one"' "$WORK/proj/.radin/backlog/index.jsonl"
+  last_frame | grep -q 'old one'
   ! last_frame | grep -q 'host:'
-}
-
-@test "an unknown RADIN_HOST stops the TUI" {
-  RADIN_HOST=nope run tui "q"
-  [ "$status" -ne 0 ]
-  [ ! -e "$WORK/proj/.claude" ]
 }

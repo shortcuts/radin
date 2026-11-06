@@ -8,9 +8,9 @@ setup() {
   # No git init: namespace resolution falls back to PWD, and the TUI always
   # runs with cwd at this directory, so a repo would only cost a fork per test.
   mkdir -p "$WORK/proj"
-  INDEX="$WORK/proj/.claude/.radin/backlog/index.jsonl"
-  TASKS="$WORK/proj/.claude/.radin/backlog/tasks"
-  NS="$WORK/proj/.claude/.radin"
+  INDEX="$WORK/proj/.radin/backlog/index.jsonl"
+  TASKS="$WORK/proj/.radin/backlog/tasks"
+  NS="$WORK/proj/.radin"
   SCREEN="$WORK/screen.txt"
   # The palette follows TERM/COLORTERM, so pin the 16-colour one: escape
   # assertions must not depend on the terminal the suite runs in.
@@ -41,8 +41,8 @@ setup_file() {
 }
 
 seed() {
-  rm -rf "$WORK/proj/.claude"
-  cp -a "$SEED_TREE/.claude" "$WORK/proj/.claude"
+  rm -rf "$WORK/proj/.radin"
+  cp -a "$SEED_TREE/.radin" "$WORK/proj/.radin"
 }
 
 snapshot() {

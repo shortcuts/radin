@@ -5,12 +5,9 @@
 # script first and reads REPO_ROOT / NAMESPACE_DIR / BACKLOG_INDEX /
 # BACKLOG_TASKS_DIR from its stdout.
 #
-# All state lives inside the current repo, at <repo-root>/.claude/.radin/ (.agents/.radin/ for host agents).
+# All state lives inside the current repo, at <repo-root>/.radin/, shared by every host.
 # Outside a git repo, the current directory takes the repo root's place.
 set -euo pipefail
-
-# shellcheck disable=SC1091
-. "${BASH_SOURCE[0]%/*}/radin-host.sh"
 
 # One fork answers all three questions: a git call is ~12ms and every CLI call pays it.
 GIT_REVS="$(git rev-parse --show-toplevel --git-dir --git-common-dir 2>/dev/null || true)"
@@ -29,17 +26,25 @@ if [ "$GIT_DIR_REL" != "$GIT_COMMON_REL" ]; then
 	case "$task_branch" in
 	radin/?*)
 		parent="${REPO_ROOT%-"${task_branch#radin/}"}"
-		[ "$parent" = "$REPO_ROOT" ] || [ ! -d "$parent/$HOST_DIR/.radin" ] || REPO_ROOT="$parent"
+		[ "$parent" = "$REPO_ROOT" ] || [ ! -d "$parent/.radin" ] || REPO_ROOT="$parent"
 		;;
 	esac
 fi
-NAMESPACE_DIR="$REPO_ROOT/$HOST_DIR/.radin"
+NAMESPACE_DIR="$REPO_ROOT/.radin"
+CREATED=""
+if [ ! -e "$NAMESPACE_DIR" ]; then
+	CREATED=1
+	# shellcheck disable=SC1091
+	. "${BASH_SOURCE[0]%/*}/radin-migrate.sh"
+	migrate_state "$REPO_ROOT" || exit 1
+fi
 BACKLOG_TASKS_DIR="$NAMESPACE_DIR/backlog/tasks"
 # One `mkdir` exec per CLI call is ~3ms every skill pays; the dirs only need
 # creating once per repo.
 [ -d "$BACKLOG_TASKS_DIR" ] && [ -d "$NAMESPACE_DIR/state/facts" ] &&
 	[ -d "$NAMESPACE_DIR/plans" ] && [ -d "$NAMESPACE_DIR/reviews" ] ||
 	mkdir -p "$NAMESPACE_DIR/state/facts" "$NAMESPACE_DIR/plans" "$NAMESPACE_DIR/reviews" "$BACKLOG_TASKS_DIR"
+[ -z "$CREATED" ] || ignore_state "$REPO_ROOT" || true
 BACKLOG_INDEX="$NAMESPACE_DIR/backlog/index.jsonl"
 
 # Sourcing this file resolves the namespace with no fork at all, which is what

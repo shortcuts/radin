@@ -31,7 +31,7 @@ Route on it:
   - Investigate the question against **primary sources**, such as official docs,
     source code, specs and first-party APIs, not a secondary write-up of them.
     Follow every claim back to the source that owns it.
-  - Write the findings to `<repo root>/.claude/.radin/state/facts/<task id>.md`, citing
+  - Write the findings to `<repo root>/.radin/state/facts/<task id>.md`, citing
     each claim's source.
 
   Then route its report exactly like a fact-finder's: an answer whose claims

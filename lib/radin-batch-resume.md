@@ -28,7 +28,7 @@ needs an answer. A `MAX_ATTEMPTS` entry needs the user to look, not another retr
 
 ## State Persistence Contract
 
-`.claude/.radin/state/BACKLOG_STEPS.json` is the source of truth, and an
+`.radin/state/BACKLOG_STEPS.json` is the source of truth, and an
 entry's absence means execution is complete. It is also what survives context
 compaction: if earlier turns get summarized away, run `RADIN_CLI state
 steps-list` and continue from disk, not from memory. Task bodies stay unread:

@@ -38,6 +38,9 @@ To update the companions too, run `install.sh` again.
 The first install after the move to `~/.radin` relocates `~/.claude/.radin` there.
 It then asks you to restart open Claude sessions, because they hold the old path.
 
+The first radin command in a repo that holds `.claude/.radin` or `.agents/.radin` moves them into `.radin`.
+It merges both when both exist, renames the old directories to `.radin.migrated`, and appends `.radin/` to `.gitignore`.
+
 ## Existing files
 
 The installer checks every skill and lib file it writes against `~/.radin/manifest.json` before it writes any.

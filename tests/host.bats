@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
-# Exercises the radin dispatcher's global --host flag: the state directory
-# follows the host, and the claude host stays byte-identical to no flag.
+# Exercises the radin dispatcher's global --host flag: it picks skill names and the render,
+# never the state directory.
 
 setup() {
   SRC="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
@@ -21,36 +21,18 @@ teardown() {
   rm -rf "$WORK"
 }
 
-@test "no flag writes only under .claude/.radin" {
+@test "every host writes the same .radin" {
   run bash -c "echo body | '$RADIN' backlog add feat 'one thing'"
   [ "$status" -eq 0 ]
-  [ -f .claude/.radin/backlog/index.jsonl ]
-  [ ! -e .agents ]
-}
-
-@test "--host agents backlog add, list and count use only .agents/.radin" {
-  run bash -c "echo body | '$RADIN' --host agents backlog add feat 'one thing'"
+  run bash -c "echo body | '$RADIN' --host agents backlog add feat 'two thing'"
   [ "$status" -eq 0 ]
-  [ -f .agents/.radin/backlog/index.jsonl ]
+  [ -f .radin/backlog/index.jsonl ]
   [ ! -e .claude ]
-  run "$RADIN" --host agents backlog count
-  [ "$output" = "1" ]
-  run "$RADIN" --host agents backlog list
-  [[ "$output" == *"one-thing"* ]]
-  run "$RADIN" backlog count
-  [ "$output" = "0" ]
-}
-
-@test "--host=agents is the same as --host agents" {
-  run bash -c "echo body | '$RADIN' --host=agents backlog add feat 'one thing'"
-  [ "$status" -eq 0 ]
-  [ -f .agents/.radin/backlog/index.jsonl ]
-}
-
-@test "--host claude is the same as no flag" {
-  run bash -c "echo body | '$RADIN' --host claude backlog add feat 'one thing'"
-  [ "$status" -eq 0 ]
-  [ -f .claude/.radin/backlog/index.jsonl ]
+  [ ! -e .agents ]
+  run "$RADIN" --host=agents backlog count
+  [ "$output" = "2" ]
+  run "$RADIN" --host claude backlog count
+  [ "$output" = "2" ]
 }
 
 @test "an unknown host exits 2 with the host list" {
@@ -62,7 +44,7 @@ teardown() {
 @test "--host with no value exits 2 with the usage text" {
   run "$RADIN" --host
   [ "$status" -eq 2 ]
-  [[ "$output" == *"usage: radin [--host claude|agents|all]"* ]]
+  [[ "$output" == *"usage: radin [--host claude|agents]"* ]]
 }
 
 @test "--host after the subcommand is not the dispatcher's" {
@@ -70,44 +52,38 @@ teardown() {
   [ ! -e .agents ]
 }
 
-@test "state verbs follow the host" {
+@test "--host all is an unknown host" {
+  run "$RADIN" --host all backlog count
+  [ "$status" -eq 2 ]
+  [ "$output" = "radin: unknown host 'all' (expected claude|agents)" ]
+}
+
+@test "state verbs read .radin for every host" {
   git init -q .
   git -c user.email=t@t -c user.name=t commit -q --allow-empty -m init
-  mkdir -p .agents/.radin .claude/.radin
-  printf 'x\n' >.agents/.radin/x
-  git add -f .agents/.radin/x
-  git -c user.email=t@t -c user.name=t commit -q -m "touch agents state"
+  mkdir -p .radin
+  printf 'x\n' >.radin/x
+  git add -f .radin/x
+  git -c user.email=t@t -c user.name=t commit -q -m "touch state"
   hash="$(git rev-parse HEAD)"
   run "$RADIN" --host agents state task-done some-id "$hash"
   [ "$status" -eq 3 ]
-  [[ "$output" == *"under .agents/.radin/"* ]]
+  [[ "$output" == *"under .radin/"* ]]
+  printf 'y\n' >.radin/y
   run "$RADIN" state dirty-check
-  [ "$status" -eq 0 ]
   [ -z "$output" ]
-  printf 'y\n' >.agents/.radin/y
-  run "$RADIN" --host agents state dirty-check
-  [ -z "$output" ]
-  run "$RADIN" state dirty-check
-  [[ "$output" == *".agents"* ]]
 }
 
-@test "stats scans the host's state directory" {
-  mkdir -p "$WORK/repos/a/.agents/.radin" "$WORK/repos/b/.claude/.radin"
+@test "stats scans .radin for every host" {
+  mkdir -p "$WORK/repos/a/.radin" "$WORK/repos/b/.claude"
   run "$RADIN" --host agents stats --no-transcripts --no-companions --repos-root "$WORK/repos"
   [[ "$output" == *$'\na '* ]]
   [[ "$output" != *$'\nb '* ]]
 }
 
-@test "inside opencode no flag uses .agents/.radin" {
+@test "inside opencode no flag still writes .radin" {
   run env OPENCODE=1 bash -c "echo body | '$RADIN' backlog add feat 'one thing'"
   [ "$status" -eq 0 ]
-  [ -f .agents/.radin/backlog/index.jsonl ]
-  [ ! -e .claude ]
-}
-
-@test "inside opencode --host claude and RADIN_HOST still win" {
-  run env OPENCODE=1 bash -c "echo body | '$RADIN' --host claude backlog add feat 'one thing'"
-  run env OPENCODE=1 RADIN_HOST=claude bash -c "echo body | '$RADIN' backlog add feat 'two thing'"
-  [ "$(OPENCODE=1 "$RADIN" --host claude backlog count)" = 2 ]
+  [ -f .radin/backlog/index.jsonl ]
   [ ! -e .agents ]
 }

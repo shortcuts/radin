@@ -8,7 +8,7 @@ It takes about ten minutes. You need no prior radin experience.
 - Install radin: [Install, update and uninstall](install.md).
 - Pick a git repo you can change safely. A scratch repo works.
 - Open a terminal in that repo and start your host: `claude`, `codex` or `opencode`.
-  The examples use Claude Code paths. On Codex and opencode, state lives in `.agents/.radin/`.
+  Every host shares one backlog in `.radin/`.
 
 ## 1. Record a task
 
@@ -18,7 +18,7 @@ Type this in your host prompt:
 /radin-record add a --version flag to the CLI
 ```
 
-radin writes one task into `.claude/.radin/` in your repo.
+radin writes one task into `.radin/` in your repo.
 It prints a short id for the task and a verdict on whether the task needs a plan.
 
 ## 2. See the task

@@ -8,7 +8,7 @@ For every constraint and its reason, see [DECISIONS.md](agents/DECISIONS.md).
 ## The backlog is files, not chat
 
 A bug you spot mid-session usually dies with the session. radin stores each task as a
-markdown file under `.claude/.radin/` in your repo (`.agents/.radin/` on Codex and opencode), and keeps an index beside them.
+markdown file under `.radin/` in your repo, shared by every host, and keeps an index beside them.
 
 - A task is a unit of work with a category, an optional priority and optional dependencies.
 - An epic groups tasks. Its `DESCRIPTION.md` is context that every child task inherits.

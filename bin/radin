@@ -9,17 +9,15 @@ RADIN_HOME="$HOME/.radin"
 LIB="$RADIN_HOME/lib"
 
 usage() {
-	printf 'usage: radin [--host claude|agents|all] <backlog|state|scope|prompt|stats|hooks|wire|repair|update|doctor|uninstall> [args]\n'
+	printf 'usage: radin [--host claude|agents] <backlog|state|scope|prompt|stats|hooks|wire|repair|update|doctor|uninstall> [args]\n'
 	printf 'With no subcommand on a terminal, radin opens the TUI; "radin help" prints this text.\n'
 	printf 'Each subcommand prints its own usage when run with no arguments.\n'
 }
 
-MERGE="" HOST_GIVEN="${RADIN_HOST:+1}"
 while :; do
 	case "${1:-}" in
 	--host=*)
 		RADIN_HOST="${1#--host=}"
-		HOST_GIVEN=1
 		;;
 	--host)
 		[ $# -ge 2 ] || {
@@ -27,20 +25,16 @@ while :; do
 			exit 2
 		}
 		RADIN_HOST="$2"
-		HOST_GIVEN=1
 		shift
 		;;
 	*) break ;;
 	esac
 	shift
 done
-# Bare `radin` merges both backlogs unless the user named a host; `all` merges backlog reads.
-case "${RADIN_HOST:-}" in all) MERGE=1 ;; esac
 # opencode exports OPENCODE=1 to every shell it starts, and its agents run the agents render.
 # shortcut: a harness started from an opencode shell inherits OPENCODE=1; pass --host there.
 [ -n "${RADIN_HOST:-}" ] || [ "${OPENCODE:-}" != 1 ] || RADIN_HOST=agents
 export RADIN_HOST="${RADIN_HOST:-claude}"
-[ "$RADIN_HOST" != all ] || RADIN_HOST=claude
 # shellcheck disable=SC1091
 . "$LIB/radin-host.sh"
 
@@ -54,19 +48,7 @@ if [ -z "$cmd" ] && [ -t 1 ]; then
 		printf 'radin: TUI not built (no C compiler at install time). Use "radin backlog show".\n' >&2
 		exit 1
 	}
-	if [ -n "$MERGE" ] || [ -z "$HOST_GIVEN" ]; then set -- --merge; fi
 	RADIN_LIB="$LIB" exec "$RADIN_HOME/bin/radin-tui" "$@"
-fi
-
-if [ -n "$MERGE" ]; then
-	case "$cmd" in
-	backlog | help) ;;
-	*)
-		printf 'radin: --host all reads only: use backlog list|show|count|find\n' >&2
-		exit 2
-		;;
-	esac
-	export RADIN_MERGED=1
 fi
 
 case "$cmd" in

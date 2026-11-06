@@ -817,7 +817,7 @@ step "Installing radin into ~/.radin and skills into ~/.claude"
 # dev clone must not ship.
 # BEGIN shipped (generated from SHIPPED by scripts/shipped.sh; run make gen, never edit)
 SHIPPED_SKILLS="radin-batch radin-do radin-plan radin-record radin-review radin-stats radin-teardown radin-uninstall"
-SHIPPED_LIB="radin-host.sh radin-namespace.sh radin-json.sh radin-backlog.sh radin-tui.c radin-cbm-json.c radin-state.sh radin-scope.sh radin-prompt.sh forbid-claude.txt forbid-agents.txt radin-cbm-hooks.sh radin-cbm-config.sh radin-update.sh radin-stats.sh radin-doctor.sh radin-uninstall.sh skill-names-claude.txt skill-names-agents.txt companion-skills.txt"
+SHIPPED_LIB="radin-host.sh radin-namespace.sh radin-json.sh radin-migrate.sh radin-backlog.sh radin-tui.c radin-cbm-json.c radin-state.sh radin-scope.sh radin-prompt.sh forbid-claude.txt forbid-agents.txt radin-cbm-hooks.sh radin-cbm-config.sh radin-update.sh radin-stats.sh radin-doctor.sh radin-uninstall.sh skill-names-claude.txt skill-names-agents.txt companion-skills.txt"
 SHIPPED_HOSTLIB="radin-prompt-planning.md radin-prompt-execution.md radin-prompt-debug.md radin-prompt-factfind.md radin-prompt-gate.md radin-prompt-merge.md radin-leaf-contract.md radin-comment-rule.md radin-explore-rule.md radin-open-decisions.md radin-ask-rule.md radin-complexity-rule.md radin-planning-rule.md radin-prioritization.md radin-batch-recovery.md radin-batch-reporting.md radin-batch-gate.md radin-batch-merge.md radin-batch-clarify.md radin-batch-session.md radin-batch-resume.md radin-run.md radin-review-core.md"
 RENAMED_SKILLS="radin-execute radin-implement radin-run"
 RETIRED_SKILLS="radin-update radin-show radin-doctor radin-setup-hooks"
@@ -1640,14 +1640,14 @@ if host_selected claude; then
 	RADIN_GUIDANCE='<!-- radin:begin -->
 ## radin
 
-radin keeps a per-repo backlog in `<repo-root>/.claude/.radin/` so tasks
+radin keeps a per-repo backlog in `<repo-root>/.radin/` so tasks
 survive past one conversation. Reach for it instead of ad-hoc task tracking:
 
 - A bug, idea, or follow-up comes up mid-session: record it with `/radin-record`.
 - The user asks what is pending: run `'"$RADIN_CLI_VALUE"' backlog show` and print its output. One entry needs a plan first: `/radin-plan`.
 - The user wants the backlog worked through: `/radin-batch` (it plans the entries `/radin-record` flagged, then executes), or `/radin-do <prompt>` for one ad-hoc task. A code review whose findings should become tasks: `/radin-review`.
 - The user asks to mark a task done by hand: run `'"$RADIN_CLI_VALUE"' state task-done <id> <commit-hash>` (hash from `git rev-parse --short=12 HEAD`). `backlog --help` and `state --help` list every verb.
-- Never hand-edit files under `.claude/.radin/` -- every backlog operation goes through the `'"$RADIN_CLI_VALUE"' backlog` CLI.
+- Never hand-edit files under `.radin/` -- every backlog operation goes through the `'"$RADIN_CLI_VALUE"' backlog` CLI.
 - Never guess on a broad or ambiguous ask: invoke `/mattpocock-skills:grilling` and let the user settle it before radin writes anything.
 <!-- radin:end -->'
 	CLAUDE_MD="$HOME/.claude/CLAUDE.md"
@@ -1659,14 +1659,14 @@ fi
 AGENTS_GUIDANCE_BODY='<!-- radin:begin -->
 ## radin
 
-radin keeps a per-repo backlog in `<repo-root>/.agents/.radin/` so tasks
+radin keeps a per-repo backlog in `<repo-root>/.radin/` so tasks
 survive past one conversation. Reach for it instead of ad-hoc task tracking:
 
 - A bug, idea, or follow-up comes up mid-session: record it with the `radin-record` skill.
 - The user asks what is pending: run `'"$RADIN_CLI_VALUE"' --host agents backlog show` and print its output. One entry needs a plan first: `radin-plan` skill.
 - The user wants the backlog worked through: `radin-batch` skill (it plans the entries `radin-record` flagged, then executes), or `radin-do` skill for one ad-hoc task. A code review whose findings should become tasks: `radin-review` skill.
 - The user asks to mark a task done by hand: run `'"$RADIN_CLI_VALUE"' --host agents state task-done <id> <commit-hash>` (hash from `git rev-parse --short=12 HEAD`). `backlog --help` and `state --help` list every verb.
-- Never hand-edit files under `.agents/.radin/`. Every backlog operation goes through the `'"$RADIN_CLI_VALUE"' --host agents backlog` CLI.
+- Never hand-edit files under `.radin/`. Every backlog operation goes through the `'"$RADIN_CLI_VALUE"' --host agents backlog` CLI.
 - Never guess on a broad or ambiguous ask: use the `grilling` skill and let the user settle it before radin writes anything.
 <!-- radin:end -->'
 
