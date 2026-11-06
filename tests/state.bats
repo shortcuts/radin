@@ -103,7 +103,7 @@ JSON
   run state no-such-command
   [ "$status" -ne 0 ]
   [[ "$output" == *"unknown command: no-such-command"* ]]
-  for name in steps-open steps-list steps-waiting answered retry; do
+  for name in steps-open steps-list wave steps-waiting answered retry; do
     [[ "$output" == *"$name"* ]]
   done
 }
@@ -305,6 +305,55 @@ stack_setup() {
   run state deps-check t-four
   [ "$status" -ne 0 ]
   [[ "$output" == *"waiting on dependency"* ]]
+}
+
+@test "wave prints only the pending task whose dependencies are all resolved, exit 0" {
+  printf 't-one\t1\t\tpending\nt-two\t2\tt-one\tpending\n' | state steps-init >/dev/null
+  run state wave
+  [ "$status" -eq 0 ]
+  [ "$output" = $'t-one\t1' ]
+}
+
+@test "wave prints every independent pending task in order, and reading it twice changes nothing" {
+  printf 't-one\t1\t\tpending\nt-two\t2\t\tpending\nt-three\t3\t\tpending\n' | state steps-init >/dev/null
+  before="$(state steps-list)"
+  run state wave
+  first="$output"
+  run state wave
+  [ "$output" = $'t-one\t1\nt-two\t2\nt-three\t3' ]
+  [ "$first" = "$output" ]
+  [ "$(state steps-list)" = "$before" ]
+}
+
+@test "wave counts a done dependency as resolved" {
+  printf '{"id":"t-one","commit":"abc123def456"}\n' >"$P/.radin/state/completed.json"
+  printf 't-two\t2\tt-one\tpending\n' | state steps-init >/dev/null
+  run state wave
+  [ "$status" -eq 0 ]
+  [ "$output" = $'t-two\t2' ]
+}
+
+@test "wave skips a pending task that carries an unmerged marker" {
+  stack_setup
+  run state wave
+  [ "$status" -eq 0 ]
+  [ "$output" = $'t-two\t2' ]
+}
+
+@test "wave skips deferred, blocked and in_progress tasks" {
+  printf 't-one\t1\t\tdeferred\nt-two\t2\t\tpending\nt-three\t3\t\tpending\nt-four\t4\t\tpending\n' | state steps-init >/dev/null
+  state set-status t-two blocked "waiting" >/dev/null
+  state set-status t-three in_progress >/dev/null
+  run state wave
+  [ "$status" -eq 0 ]
+  [ "$output" = $'t-four\t4' ]
+}
+
+@test "wave prints nothing and exits 1 when every pending task waits on an unresolved dependency" {
+  printf 't-one\t1\tt-zero\tpending\nt-two\t2\tt-one\tpending\n' | state steps-init >/dev/null
+  run state wave
+  [ "$status" -eq 1 ]
+  [ -z "$output" ]
 }
 
 @test "prepare starts a dependent on its unmerged dependency's branch and records the stack" {

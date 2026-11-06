@@ -33,6 +33,7 @@
 #   radin-state.sh preflight                    # run the startup checks, print "empty" | "session<TAB>missing" | "stuck<TAB>id<TAB>attempts<TAB>note" | "waiting<TAB>id<TAB>note" | "rank<TAB>csv" | "leftovers", exit 0
 #   radin-state.sh steps-open                   # print "id<TAB>question" per open decision of a pending entry, exit 1 if none
 #   radin-state.sh steps-list                   # print "id<TAB>order<TAB>status<TAB>attempts<TAB>note" per entry, exit 1 if none
+#   radin-state.sh wave                         # print "id<TAB>order" per pending task whose dependencies are all resolved, exit 1 if none; claims nothing
 #   radin-state.sh recover <id>                 # recover a task a dead session left in_progress; exit 3 prints commits only the model can judge
 #   radin-state.sh recover-reject <id>          # those commits do not satisfy the task: block the entry naming them
 #   radin-state.sh report                       # print the finished end-of-session report
@@ -1110,6 +1111,25 @@ steps-list)
 	done <"$steps"
 	;;
 
+wave)
+	# Read-only: a stacked dependency reads as resolved here, but nothing claims
+	# or blocks it, so reading the wave twice changes nothing.
+	[ -s "$steps" ] || exit 1
+	found=1
+	while IFS= read -r line || [ -n "$line" ]; do
+		[ -n "$line" ] || continue
+		[ "$(json_get status "$line")" = "pending" ] || continue
+		id="$(json_get id "$line")"
+		if [ -e "$ns/state/unmerged/$id" ]; then
+			continue
+		fi
+		deps_check "$id" >/dev/null 2>&1 || continue
+		printf '%s\t%s\n' "$id" "$(num_field "$line" order)"
+		found=0
+	done <"$steps"
+	exit "$found"
+	;;
+
 steps-open)
 	# What the user must settle before execution: questions recorded as
 	# `**Open decision:**` in a pending task's file. Empty output means none.
@@ -2167,6 +2187,6 @@ finding-classes)
 	;;
 
 *)
-	die "unknown command: ${cmd:-<none>} (teardown|steps-init|steps-list|steps-open|steps-waiting|answered|retry|task-next|task-report|task-fact|task-diagnosis|task-done|set-status|stuck|preflight|resume|recover|recover-reject|report|session-set|session-get|prepare|dirty-check|trace|completed-show|completed-list|unlanded|session-commits|gate-map|leftovers|stash-triage|stash-claim|reconcile|gate-fix|gate-filed|gate-done|deps-check|task-dir|journal-tail|plan-covers|review-findings|finding-classes)"
+	die "unknown command: ${cmd:-<none>} (teardown|steps-init|steps-list|wave|steps-open|steps-waiting|answered|retry|task-next|task-report|task-fact|task-diagnosis|task-done|set-status|stuck|preflight|resume|recover|recover-reject|report|session-set|session-get|prepare|dirty-check|trace|completed-show|completed-list|unlanded|session-commits|gate-map|leftovers|stash-triage|stash-claim|reconcile|gate-fix|gate-filed|gate-done|deps-check|task-dir|journal-tail|plan-covers|review-findings|finding-classes)"
 	;;
 esac
