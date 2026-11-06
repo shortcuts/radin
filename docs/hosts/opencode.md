@@ -74,6 +74,37 @@ Limits:
 - opencode drops a malformed config or agent file without an error, so the rule and agent checks double as the parse check.
 - Only 2.x is verified. The 1.x versions are untested.
 
+## Sign-off checklist
+
+The epic is stable when every step passes on a real opencode.
+Run the steps in order in a scratch repo, and fill the Result field of each step you run.
+A step with an empty Result is unverified.
+
+Tested on opencode v2.2.5 (mise), macOS 24.6.0 (arm64), 2026-11-06.
+Steps 1 to 3, 10 and 11 ran in a temporary `HOME`, `XDG_CONFIG_HOME` and `CODEX_HOME`, with no model call.
+The companion fetchers (`curl`, `brew`, `mise`, `npm`) were stubs, so no companion skill downloaded.
+
+| # | Step | Result | Status |
+| --- | --- | --- | --- |
+| 1 | `./install.sh --yes --only opencode` exits 0 and the manifest lists `opencode`. | exit 0, manifest lists `opencode` | measured |
+| 2 | `radin doctor` finds the opencode CLI and prints no radin file as `MISSING`. | `opencode found`; the only `MISSING` lines are companion skills (see Deviations) | measured |
+| 3 | `make verify-hosts VERIFY_ARGS="--only opencode"` prints `OK opencode`. | `opencode debug agents --standalone` lists all seven `radin-<kind>` agents; `opencode debug config --standalone` holds the `~/.radin/**` rule | measured |
+| 4 | Record two entries with `/radin-record`. `radin --host agents backlog show` lists both. | | unverified (needs a model) |
+| 5 | Plan one entry with `/radin-plan`. | | unverified (needs a model) |
+| 6 | Run `/radin-batch` on both entries. | | unverified (needs a model) |
+| 7 | `git log` shows one commit per task and `git status` is clean. | | unverified (needs a model) |
+| 8 | `radin --host agents` opens the TUI and `q` quits it. | | unverified (needs a TTY) |
+| 9 | A leaf that hits a decision asks through the question tool. | | unverified (needs a model) |
+| 10 | `./install.sh --yes --update` exits 0 and changes no radin file. | exit 0; the only new file is `~/.radin/backups/opencode.json.<stamp>.bak` | measured |
+| 11 | `radin uninstall` exits 0 and leaves no radin file outside `~/.radin/backups`. | exit 0; `~/.radin` and every radin agent file are gone, and `opencode.json` holds no radin rule | measured |
+
+### Deviations
+
+- Doctor ends with `15 check(s) failed`. Each one is a `MISSING` companion skill under `~/.agents/skills`, because the fetchers were stubs. No radin file failed.
+- `thermo-nuclear download failed` prints on each install and update for the same reason. radin's own files are unaffected.
+- Uninstall leaves `opencode.json` with `"external_directory": {}` and the ponytail plugin entry, and leaves an empty `AGENTS.md`. The plugin entry belongs to the companion.
+- Each update writes one more `~/.radin/backups/opencode.json.<stamp>.bak`.
+
 ## Troubleshooting
 
 **opencode asks permission for every `~/.radin` read.** The rule is missing or was not written.
