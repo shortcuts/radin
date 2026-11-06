@@ -672,3 +672,69 @@ planned() {
   [ "$status" -eq 0 ]
   [ "$output" = $'group\t2\tw-a,w-b' ]
 }
+
+@test "plan-discard drops the plan, flags planning needed, and records the planning tokens" {
+  plan_with lib/a.sh
+  state task-report t-one "STATUS: PLANNED — ok; complexity low: x" --usage "planning 1234 5 6" >/dev/null
+  run state plan-discard t-one 1 lib/a.sh
+  [ "$status" -eq 0 ]
+  [ "$output" = $'plan-discarded\tt-one\t1\t1234' ]
+  run bash -c "cd '$P' && bash '$REPO_ROOT/lib/radin-backlog.sh' meta t-one"
+  [[ "$output" == *$'planning\tneeded'* ]]
+  [[ "$output" != *$'plan\t'* ]]
+  [ "$(grep -c plan-discarded "$(TELE)")" -eq 1 ]
+  line="$(cat "$(TELE)")"
+  [[ "$line" == *'"task":"t-one"'* ]]
+  [[ "$line" == *'"wave":"1"'* ]]
+  [[ "$line" == *'"paths":"lib/a.sh"'* ]]
+  [[ "$line" == *'"tokens":"1234"'* ]]
+  run state task-next
+  [[ "$output" == *$'kind\tplanning'* ]]
+}
+
+@test "plan-discard records tokens unknown when no planning usage was reported" {
+  plan_with lib/a.sh
+  state task-report t-one "STATUS: PLANNED — ok; complexity low: x" >/dev/null
+  run state plan-discard t-one 1 lib/a.sh
+  [ "$status" -eq 0 ]
+  [ "$output" = $'plan-discarded\tt-one\t1\tunknown' ]
+  [[ "$(cat "$(TELE)")" == *'"tokens":"unknown"'* ]]
+}
+
+@test "plan-discard refuses a task that is not pending or has no plan, and writes nothing" {
+  plan_with lib/a.sh
+  state set-status t-one in_progress "running" >/dev/null
+  run state plan-discard t-one 1 lib/a.sh
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"plan-discard: t-one is not pending"* ]]
+  [ ! -e "$(TELE)" ]
+  run bash -c "cd '$P' && bash '$REPO_ROOT/lib/radin-backlog.sh' meta t-one"
+  [[ "$output" == *$'plan\t'* ]]
+  state set-status t-one pending "" >/dev/null
+  (cd "$P" && bash "$REPO_ROOT/lib/radin-backlog.sh" set-meta t-one plan --none >/dev/null)
+  run state plan-discard t-one 1 lib/a.sh
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"plan-discard: t-one has no plan"* ]]
+  [ ! -e "$(TELE)" ]
+}
+
+@test "plan-discard rejects a wave that is not a positive integer and an empty path list" {
+  plan_with lib/a.sh
+  for args in "0 lib/a.sh" "x lib/a.sh" "1"; do
+    run state plan-discard t-one $args
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"plan-discard: "* ]]
+  done
+  [ ! -e "$(TELE)" ]
+}
+
+@test "plan-discard counts only planning tokens since the previous discard" {
+  plan_with lib/a.sh
+  state task-report t-one "STATUS: PLANNED — ok; complexity low: x" --usage "planning 100 5 6" >/dev/null
+  state plan-discard t-one 1 lib/a.sh >/dev/null
+  (cd "$P" && bash "$REPO_ROOT/lib/radin-backlog.sh" set-meta t-one plan "$P/.radin/plans/t-one.md" >/dev/null)
+  state task-report t-one "STATUS: PLANNED — ok; complexity low: x" --usage "planning 50 5 6" --usage "execution 9 1 1" >/dev/null
+  run state plan-discard t-one 2 lib/a.sh
+  [ "$status" -eq 0 ]
+  [ "$output" = $'plan-discarded\tt-one\t2\t50' ]
+}

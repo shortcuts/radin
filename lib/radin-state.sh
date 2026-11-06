@@ -34,6 +34,7 @@
 #   radin-state.sh steps-open                   # print "id<TAB>question" per open decision of a pending entry, exit 1 if none
 #   radin-state.sh steps-list                   # print "id<TAB>order<TAB>status<TAB>attempts<TAB>note" per entry, exit 1 if none
 #   radin-state.sh wave-partition [--cap N]     # read ids on stdin, print "group<TAB>n<TAB>csv", "apart<TAB>a<TAB>b<TAB>shared paths" and "unplanned<TAB>id"; exit 1 on empty input; claims nothing
+#   radin-state.sh plan-discard <id> <wave> <paths-csv>  # drop a pending task's plan, flag planning needed; journal and record a parallel plan-discarded telemetry event with the planning tokens; exit 1 and write nothing unless the task is pending with a plan
 #   radin-state.sh wave                         # print "id<TAB>order" per pending task whose dependencies are all resolved, exit 1 if none; claims nothing
 #   radin-state.sh recover <id>                 # recover a task a dead session left in_progress; exit 3 prints commits only the model can judge
 #   radin-state.sh recover-reject <id>          # those commits do not satisfy the task: block the entry naming them
@@ -1264,6 +1265,46 @@ wave-partition)
 	done
 	;;
 
+plan-discard)
+	id="${2:-}" wave="${3:-}" paths="${4:-}"
+	[ -n "$id" ] || die "usage: plan-discard <id> <wave> <paths-csv>"
+	case "$wave" in '' | *[!0-9]* | 0*) die "plan-discard: wave must be a positive integer, got: $wave" ;; esac
+	[ -n "$paths" ] || die "plan-discard: needs a non-empty paths-csv"
+	[ -f "$steps" ] || die "no state file: $steps"
+	entry="$(entry_line "$steps" "$id")"
+	[ -n "$entry" ] || die "no entry with id: $id"
+	[ "$(json_get status "$entry")" = pending ] || die "plan-discard: $id is not pending"
+	[ -n "$(task_plans "$repo_root" "$id")" ] || die "plan-discard: $id has no plan"
+	# Tokens of the planning runs since the last discard; the dropped plan's cost.
+	jr="$ns/state/journal.jsonl"
+	[ -f "$jr" ] || jr=/dev/null
+	tokens=""
+	while IFS= read -r jl || [ -n "$jl" ]; do
+		[ "$(json_get id "$jl")" = "$id" ] || continue
+		case "$(json_get event "$jl")" in
+		plan-discard) tokens="" ;;
+		usage)
+			d="$(json_get detail "$jl")"
+			case "$d" in
+			planning\ [0-9]*)
+				t="${d#planning }"
+				t="${t%% *}"
+				tokens=$((${tokens:-0} + t))
+				;;
+			esac
+			;;
+		esac
+	done <"$jr"
+	tokens="${tokens:-unknown}"
+	(cd "$repo_root" && bash "$LIB_DIR/radin-backlog.sh" set-meta "$id" plan --none >/dev/null)
+	(cd "$repo_root" && bash "$LIB_DIR/radin-backlog.sh" set-meta "$id" planning needed >/dev/null)
+	write_entry "$steps" "$id" pending 0 ""
+	journal "$ns/state" "plan-discard" "$id" "wave $wave; paths $paths"
+	(cd "$repo_root" && bash "$LIB_DIR/radin-telemetry.sh" record parallel plan-discarded \
+		"task=$id" "wave=$wave" "paths=$paths" "tokens=$tokens") >/dev/null 2>&1 || true
+	printf 'plan-discarded\t%s\t%s\t%s\n' "$id" "$wave" "$tokens"
+	;;
+
 wave)
 	# Read-only: a stacked dependency reads as resolved here, but nothing claims
 	# or blocks it, so reading the wave twice changes nothing.
@@ -2358,6 +2399,6 @@ finding-classes)
 	;;
 
 *)
-	die "unknown command: ${cmd:-<none>} (teardown|steps-init|steps-list|wave|wave-partition|steps-open|steps-waiting|answered|retry|task-next|task-report|task-fact|task-diagnosis|task-done|set-status|stuck|preflight|resume|recover|recover-reject|report|session-set|session-get|group-set|prepare|dirty-check|trace|completed-show|completed-list|unlanded|session-commits|gate-map|leftovers|stash-triage|stash-claim|reconcile|gate-fix|gate-filed|gate-done|deps-check|task-dir|journal-tail|plan-covers|review-findings|finding-classes)"
+	die "unknown command: ${cmd:-<none>} (teardown|steps-init|steps-list|wave|wave-partition|plan-discard|steps-open|steps-waiting|answered|retry|task-next|task-report|task-fact|task-diagnosis|task-done|set-status|stuck|preflight|resume|recover|recover-reject|report|session-set|session-get|group-set|prepare|dirty-check|trace|completed-show|completed-list|unlanded|session-commits|gate-map|leftovers|stash-triage|stash-claim|reconcile|gate-fix|gate-filed|gate-done|deps-check|task-dir|journal-tail|plan-covers|review-findings|finding-classes)"
 	;;
 esac
