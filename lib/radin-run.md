@@ -49,8 +49,9 @@ you.
   fact-finding or debugging dispatches due at once go out as one message.
 - **Phase 0's worktree answer sets execution concurrency.** `yes`: execution
   sub-agents whose `task-next` `overlap` line reads `none` may go out in one
-  message, since each lands in its own tree. Any other `overlap` value, or
-  `no`: dispatch the task alone. Wait for every outstanding sub-agent's
+  message. Run `RADIN_CLI state group-set <id>...` with the ids of that
+  message first, so each lands in its own tree. Any other dispatch, or `no`,
+  runs the task alone in the main checkout. Wait for every outstanding sub-agent's
   `STATUS:` line and `task-report`, dispatch it, and wait for its own report
   before the next `task-next`. Parallel agents in one checkout corrupt each
   other's commits. Each task still gets its own `task-next`, its own dispatch,
@@ -97,8 +98,7 @@ Empty output means no branch applies. Act on each line by its first field:
 - `session<TAB>missing`: no worktree/branch answer is recorded, which happens
   only on the first run in a repo. Read `RADIN_LIB/radin-batch-session.md`
   and follow it to ask and persist them. Otherwise ask nothing and change
-  nothing: a mid-run change would land half the tasks in worktrees and half
-  in the checkout.
+  nothing: a mid-run change would flip how running tasks get their tree.
 - `stuck<TAB>id<TAB>attempts<TAB>note`: a previous run dispatched this task
   and never got a terminal status for it. Never re-dispatch one blind. Read
   `RADIN_LIB/radin-batch-recovery.md` and follow it for each id.
@@ -172,7 +172,7 @@ questions a prompt may pre-answer.
      `Only the ones I name` / `Just the first one`. `Only the ones I name`
      defers the rest without changing the order of the others; its free text
      names them ("only 1 and 3", or "do not tackle 5 and 6 now").
-   - **Worktree** (if Phase 0 printed `session`): "Own git worktree per task?"
+   - **Worktree** (if Phase 0 printed `session`): "Git worktree for tasks that run in parallel?"
      Options: `Yes` / `No`.
    - **Branch** (if Phase 0 printed `session`): "Own branch per task?" Options:
      `Yes` / `No`. Its meaning and wording: `RADIN_LIB/radin-batch-session.md`.

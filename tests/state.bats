@@ -356,6 +356,7 @@ JSON
   echo "touch a.txt" >>"$(cd "$P" && bash "$REPO_ROOT/lib/radin-backlog.sh" field t-one TASK_FILE)"
   mkdir -p "$P/.radin/state"
   state session-set yes no
+  state group-set t-one t-two
   echo draft >"$P/a.txt"
   echo new >"$P/b.txt"
   git -C "$P" stash push -u -q -m "radin-batch: uncommitted changes found before task other" -- a.txt b.txt
@@ -428,6 +429,7 @@ stack_setup() {
   git -C "$P" rev-parse --short=12 radin/t-one >"$P/.radin/state/unmerged/t-one"
   printf 't-one\t1\t\tpending\nt-two\t2\tt-one\tpending\n' | state steps-init >/dev/null
   state session-set yes no
+  state group-set t-one t-two
 }
 
 @test "deps-check resolves an unmerged dependency to its branch tip; two unmerged siblings still block" {
@@ -503,6 +505,57 @@ stack_setup() {
   dir="${lines[${#lines[@]}-1]}"
   [ "$(git -C "$dir" show HEAD:shared.txt)" = "$(printf 'one\nfrom-one')" ]
   [ "$(cat "$P/.radin/state/stacked/t-two")" = "t-one $(git -C "$P" rev-parse --short=12 radin/t-one)" ]
+}
+
+prep_dir() { state prepare "$1" 2>/dev/null | tail -n 1; }
+
+@test "prepare without a recorded group makes no worktree: branch yes cuts radin/<id> in the checkout" {
+  state session-set yes yes
+  [ "$(prep_dir t-one)" = "$P" ]
+  [ "$(git -C "$P" branch --show-current)" = radin/t-one ]
+  [ "$(git -C "$P" worktree list | grep -c .)" -eq 1 ]
+}
+
+@test "prepare without a recorded group commits to the base when branch is no" {
+  before="$(git -C "$P" branch --show-current)"
+  state session-set yes no
+  [ "$(prep_dir t-one)" = "$P" ]
+  [ "$(git -C "$P" branch --show-current)" = "$before" ]
+  [ -z "$(git -C "$P" branch --list radin/t-one)" ]
+}
+
+@test "prepare makes a worktree for a recorded group of two and group-set writes the size" {
+  state session-set yes no
+  state group-set t-one t-two
+  [ "$(cat "$P/.radin/state/groups/t-one")" = 2 ]
+  [ "$(prep_dir t-one)" = "$P-t-one" ]
+  [ "$(git -C "$P-t-one" branch --show-current)" = radin/t-one ]
+}
+
+@test "prepare makes no worktree for a group when the worktree answer is no" {
+  state session-set no yes
+  state group-set t-one t-two
+  [ "$(prep_dir t-one)" = "$P" ]
+  [ "$(git -C "$P" worktree list | grep -c .)" -eq 1 ]
+}
+
+@test "prepare reuses the worktree a dead attempt left for a task that runs alone" {
+  base="$(git -C "$P" branch --show-current)"
+  git -C "$P" worktree add -q "$P-t-one" -b radin/t-one "$base"
+  state session-set yes yes
+  [ "$(prep_dir t-one)" = "$P-t-one" ]
+}
+
+@test "group-set rejects no id and a path character, and steps-init drops recorded groups" {
+  run state group-set
+  [ "$status" -ne 0 ]
+  run state group-set ../x
+  [ "$status" -ne 0 ]
+  [ ! -e "$P/.radin/state/groups" ]
+  state group-set t-one t-two
+  [ -e "$P/.radin/state/groups/t-one" ]
+  printf 't-one\t1\t\tpending\n' | state steps-init >/dev/null
+  [ ! -e "$P/.radin/state/groups" ]
 }
 
 @test "reconcile lands a stack in dependency order, one squash per task, even when both edit the same line" {

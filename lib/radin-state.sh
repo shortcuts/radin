@@ -41,6 +41,7 @@
 #   radin-state.sh session-set <yes|no> <yes|no>  # persist the worktree and branch answers
 #   radin-state.sh teardown                     # request a graceful stop: task-next picks nothing new until the next preflight; the gate and merge still run
 #   radin-state.sh session-get                  # print "worktree<TAB>yes" / "branch<TAB>no", exit 1 if unanswered
+#   radin-state.sh group-set <id>...            # record these ids as one parallel group; prepare makes a worktree only for a group of 2+
 #   radin-state.sh prepare <id>                 # commit a dirty tree, create/reuse the task's tree and branch per session.json, print the dir to work in
 #                                               # also records the branch and tree it chose in state/prepared/<id>.json
 #   radin-state.sh dirty-check                  # git status --porcelain of the current directory, excluding .radin
@@ -797,6 +798,7 @@ steps-init)
 		printf '{"backlog_count":%s,"completed_count":%s,"base_branch":"%s"}\n' \
 			"${backlog_count:-0}" "${completed_count:-0}" "$(json_escape "$base_branch")" >"$state_dir/baseline.json"
 		rm -f "$state_dir/gate-fixes" "$state_dir/gate-reviewed" "$state_dir/gate-done"
+		rm -rf "$state_dir/groups"
 	fi
 	journal "$state_dir" "steps-init" "" "$n entries"
 	printf 'steps-init: wrote %d entries to %s\n' "$n" "$file"
@@ -1619,11 +1621,12 @@ prepare)
 	branch="radin/$id"
 	wt="$repo_root-$id"
 	wt_record=""
+	group_size="$(cat "$ns/state/groups/$id" 2>/dev/null || true)"
 	parent="$(stack_parent "$id")"
 	start=""
 	[ -z "$parent" ] || start="radin/$parent"
 	made=""
-	if [ "$worktree" = "yes" ]; then
+	if [ "$worktree" = "yes" ] && { [ "${group_size:-1}" -ge 2 ] || [ -d "$wt" ]; }; then
 		if [ -d "$wt" ]; then
 			# a dead attempt's tree -- reuse it rather than fail on `worktree add`
 			prepare_commit "$wt" "$id"
@@ -1699,6 +1702,22 @@ teardown)
 	[ -d "$ns/state" ] || die "no state dir: $ns/state"
 	[ -f "$ns/state/teardown" ] || journal "$ns/state" "teardown" "" "requested"
 	: >"$ns/state/teardown"
+	;;
+
+group-set)
+	shift
+	[ "$#" -gt 0 ] || die "usage: group-set <id>..."
+	[ -d "$ns/state" ] || die "no state dir: $ns/state"
+	for gid in "$@"; do
+		case "$gid" in
+		'' | *[!A-Za-z0-9._-]*) die "usage: group-set <id>..." ;;
+		esac
+	done
+	mkdir -p "$ns/state/groups"
+	for gid in "$@"; do
+		printf '%s\n' "$#" >"$ns/state/groups/$gid"
+	done
+	journal "$ns/state" "group" "" "ids=$(printf '%s,' "$@" | sed 's/,$//')"
 	;;
 
 session-get)
@@ -2339,6 +2358,6 @@ finding-classes)
 	;;
 
 *)
-	die "unknown command: ${cmd:-<none>} (teardown|steps-init|steps-list|wave|wave-partition|steps-open|steps-waiting|answered|retry|task-next|task-report|task-fact|task-diagnosis|task-done|set-status|stuck|preflight|resume|recover|recover-reject|report|session-set|session-get|prepare|dirty-check|trace|completed-show|completed-list|unlanded|session-commits|gate-map|leftovers|stash-triage|stash-claim|reconcile|gate-fix|gate-filed|gate-done|deps-check|task-dir|journal-tail|plan-covers|review-findings|finding-classes)"
+	die "unknown command: ${cmd:-<none>} (teardown|steps-init|steps-list|wave|wave-partition|steps-open|steps-waiting|answered|retry|task-next|task-report|task-fact|task-diagnosis|task-done|set-status|stuck|preflight|resume|recover|recover-reject|report|session-set|session-get|group-set|prepare|dirty-check|trace|completed-show|completed-list|unlanded|session-commits|gate-map|leftovers|stash-triage|stash-claim|reconcile|gate-fix|gate-filed|gate-done|deps-check|task-dir|journal-tail|plan-covers|review-findings|finding-classes)"
 	;;
 esac
