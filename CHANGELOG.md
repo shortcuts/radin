@@ -1,5 +1,27 @@
 # Changelog
 
+## [3.1.0](https://github.com/shortcuts/radin/compare/v3.0.0...v3.1.0) (2026-11-06)
+
+
+### Features
+
+* add argument hints ([8dd86a3](https://github.com/shortcuts/radin/commit/8dd86a3579c97d1de3057cd235d80f66c0d59353))
+* **batch:** run Phase 4 in waves under a cap when worktree is yes ([13c3d83](https://github.com/shortcuts/radin/commit/13c3d8358bed6992258d9ce620f2c495c0174b7f))
+* **state:** add plan-discard verb for wave tasks ([0527d8b](https://github.com/shortcuts/radin/commit/0527d8b07a6d93485e039f8c028c305eb7eff395))
+* **state:** add wave verb for the ready set ([0d5b336](https://github.com/shortcuts/radin/commit/0d5b336625aedecc3f8225620da02e0b4f95a907))
+* **state:** add wave-partition verb ([2cc99b5](https://github.com/shortcuts/radin/commit/2cc99b5c5203010c8c8ff6036d6e843522120561))
+* **state:** fail task-report when the commit leaves its plan paths ([821f1d7](https://github.com/shortcuts/radin/commit/821f1d73bfecb06289f77920bf17b458e79ee695))
+* **state:** worktree only for a group of two or more tasks ([711de8c](https://github.com/shortcuts/radin/commit/711de8c2dbe9e36f0becc847db15502d64ae626e))
+* **telemetry:** add radin telemetry record and report-error ([abd3bac](https://github.com/shortcuts/radin/commit/abd3bacc065bdf4ce7937963841810fe72921d37))
+
+
+### Bug Fixes
+
+* ci ([860c25a](https://github.com/shortcuts/radin/commit/860c25a3585c650908198f281787a176437b8308))
+* delete after migration ([8dc61fc](https://github.com/shortcuts/radin/commit/8dc61fcd07a264f07484480227fd51f7e3c20aec))
+* **host:** route agents CLI calls to .agents/.radin ([7ad010f](https://github.com/shortcuts/radin/commit/7ad010f4ad604955a7eec60ae8b77d7ab19a0503))
+* **prompt:** read templates from hosts/&lt;host&gt;/lib ([fa77819](https://github.com/shortcuts/radin/commit/fa778199f1ffa1c3aed8ab715679ac4f68535895))
+
 ## [3.0.0](https://github.com/shortcuts/radin/compare/v2.2.0...v3.0.0) (2026-11-04)
 
 
