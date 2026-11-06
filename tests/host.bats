@@ -97,3 +97,17 @@ teardown() {
   [[ "$output" == *$'\na '* ]]
   [[ "$output" != *$'\nb '* ]]
 }
+
+@test "inside opencode no flag uses .agents/.radin" {
+  run env OPENCODE=1 bash -c "echo body | '$RADIN' backlog add feat 'one thing'"
+  [ "$status" -eq 0 ]
+  [ -f .agents/.radin/backlog/index.jsonl ]
+  [ ! -e .claude ]
+}
+
+@test "inside opencode --host claude and RADIN_HOST still win" {
+  run env OPENCODE=1 bash -c "echo body | '$RADIN' --host claude backlog add feat 'one thing'"
+  run env OPENCODE=1 RADIN_HOST=claude bash -c "echo body | '$RADIN' backlog add feat 'two thing'"
+  [ "$(OPENCODE=1 "$RADIN" --host claude backlog count)" = 2 ]
+  [ ! -e .agents ]
+}

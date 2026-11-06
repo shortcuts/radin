@@ -55,6 +55,18 @@ load helpers/install
   [ "$(manifest_array agents_clis)" = '"codex"' ]
 }
 
+@test "every CLI call in the agents render names the agents host" {
+  mock_cli codex
+  agents_root
+  run install_from "$AROOT" --yes --only codex
+  [ "$status" -eq 0 ]
+  local f="$TEST_HOME/.radin/hosts/agents/lib/radin-run.md"
+  grep -Eq 'radin"? --host agents state set-status' "$f"
+  [ "$("$REPO_ROOT/scripts/render-host.sh" "$REPO_ROOT/lib/radin-run.md" agents | grep -o RADIN_CLI | wc -l)" -eq "$(grep -o -- '--host agents' "$f" | wc -l)" ]
+  run grep -rq 'radin --host claude' "$TEST_HOME/.claude/skills" "$TEST_HOME/.radin/hosts/claude"
+  [ "$status" -ne 0 ]
+}
+
 @test "a three-host lifecycle keeps foreign content and leaves no radin file" {
   mock_cli codex
   mock_cli opencode
@@ -129,7 +141,7 @@ load helpers/install
   local before
   before="$(home_sum)"
   run install_from "$AROOT" --yes --only claude
-  [ "$status" -eq 1 ]
+  echo "$output" >&3; [ "$status" -eq 1 ]
   [[ "$output" == *"exists and radin did not install it"* ]]
   [ "$before" = "$(home_sum)" ]
   [ ! -e "$TEST_HOME/.radin" ]
@@ -141,7 +153,7 @@ load helpers/install
   local before
   before="$(home_sum)"
   run install_from "$AROOT" --yes --dry-run --only claude
-  [ "$status" -eq 1 ]
+  echo "$output" >&3; [ "$status" -eq 1 ]
   [[ "$output" == *"conflict $TEST_HOME/.claude/skills/radin-batch"* ]]
   [[ "$output" == *"skip host claude"* ]]
   [ "$before" = "$(home_sum)" ]

@@ -1378,7 +1378,12 @@ write_token_script() {
 		printf 's/RADIN_EFFORT_%s/%s/g\n' PLANNING "$EFFORT_MAJOR" EXECUTION "$EFFORT_MAJOR" REVIEW "$EFFORT_MAJOR" \
 			DEBUG "$EFFORT_MAJOR" FACTFIND "$EFFORT_MINOR" LOW "$EFFORT_MINOR" >>"$script"
 	fi
-	printf 's|RADIN_CLI|%s|g\n' "$RADIN_CLI_VALUE" >>"$script"
+	# A shell opened by codex carries no host marker, so each agents CLI call names its host.
+	if [ "$r" = claude ]; then
+		printf 's|RADIN_CLI|%s|g\n' "$RADIN_CLI_VALUE" >>"$script"
+	else
+		printf 's|RADIN_CLI|%s --host %s|g\n' "$RADIN_CLI_VALUE" "$r" >>"$script"
+	fi
 	printf 's|RADIN_LIB|%s|g\n' "$RADIN_HOME/hosts/$r/lib" >>"$script"
 }
 

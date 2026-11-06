@@ -36,6 +36,9 @@ while :; do
 done
 # Bare `radin` merges both backlogs unless the user named a host; `all` merges backlog reads.
 case "${RADIN_HOST:-}" in all) MERGE=1 ;; esac
+# opencode exports OPENCODE=1 to every shell it starts, and its agents run the agents render.
+# shortcut: a harness started from an opencode shell inherits OPENCODE=1; pass --host there.
+[ -n "${RADIN_HOST:-}" ] || [ "${OPENCODE:-}" != 1 ] || RADIN_HOST=agents
 export RADIN_HOST="${RADIN_HOST:-claude}"
 [ "$RADIN_HOST" != all ] || RADIN_HOST=claude
 # shellcheck disable=SC1091
