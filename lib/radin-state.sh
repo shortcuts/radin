@@ -17,7 +17,7 @@
 #                                               # the fourth field is optional and defaults to pending; also writes state/baseline.json
 #   radin-state.sh task-next [<id>]  # pick, gate, claim and write the prompt in one call; an entry flagged planning=needed with no plan gets a planning prompt that counts against MAX_ATTEMPTS; exit 1 when nothing is left
 # an execution task also prints "overlap<TAB>none|unclear|<id>[,<id>...]": other live tasks sharing plan files
-#   radin-state.sh task-report <id> <the sub-agent's STATUS: line (SUCCESS|FAILED|INCONCLUSIVE|BLOCKED|PLANNED)> [--next] [--usage "<kind> <tokens> <tool_uses> <duration_ms>"]...  # verify the tree, record the outcome (a PLANNED line skips the tree check and writes planning --none and complexity; a SUCCESS line's text after its first ";" is journaled as a summary event for report; it also journals an unproven event per acceptance criterion no **Fact:** [measured] line names, shown by report), then a final "next<TAB>continue|debug|clarify FACT|clarify DECISION" line
+#   radin-state.sh task-report <id> <the sub-agent's STATUS: line (SUCCESS|FAILED|INCONCLUSIVE|BLOCKED|PLANNED)> [--next] [--usage "<kind> <tokens> <tool_uses> <duration_ms>"]...  # verify the tree, record the outcome (a SUCCESS whose commit changes a file outside the plan's ## Changes paths, directories by prefix, tests and generated output exempt, is FAILED with the files named and a parallel out-of-bounds telemetry record; a PLANNED line skips the tree check and writes planning --none and complexity; a SUCCESS line's text after its first ";" is journaled as a summary event for report; it also journals an unproven event per acceptance criterion no **Fact:** [measured] line names, shown by report), then a final "next<TAB>continue|debug|clarify FACT|clarify DECISION" line
 #   radin-state.sh task-report <id> --no-status <last line> [--next] [--usage "<kind> <tokens> <tool_uses> <duration_ms>"]...  # the same, for a sub-agent that ended with no STATUS: line
 #                                               # --next: when the final line is "next<TAB>continue", also run task-next and print its output after; exit is task-next's
 #   radin-state.sh task-fact <id> "<STATUS: FOUND line>"  # becomes a **Fact:** line (token kept, else [guess]); a long form path goes to set-meta facts; any other line exits 1
@@ -119,6 +119,53 @@ is_test_path() {
 	tests/* | test/* | */tests/* | */test/* | */__tests__/* | *.bats | *_test.* | *.test.* | *_spec.* | *.spec.*) return 0 ;;
 	esac
 	return 1
+}
+
+# Succeeds when changed file $2 sits under a path of the newline list $3: the
+# same file, or a directory (a trailing slash, or a directory in tree $1) by prefix.
+plan_covers_file() {
+	local p
+	while IFS= read -r p || [ -n "$p" ]; do
+		p="${p#./}"
+		[ -n "$p" ] || continue
+		case "$p" in
+		*/)
+			case "$2" in "$p"*) return 0 ;; esac
+			;;
+		*)
+			[ "$2" != "$p" ] || return 0
+			if [ -d "$1/$p" ]; then
+				case "$2" in "$p"/*) return 0 ;; esac
+			fi
+			;;
+		esac
+	done <<EOF
+$3
+EOF
+	return 1
+}
+
+# Prints, comma-joined, the files commit $2 changes in tree $1 outside the plan
+# paths $3 (newline list); empty when none or when there are no plan paths.
+# Exempt: tests, .radin/, and generated output whose input the plan lists.
+plan_extras() {
+	local f gen extras=""
+	[ -n "$3" ] || return 0
+	while IFS= read -r f || [ -n "$f" ]; do
+		[ -n "$f" ] || continue
+		is_test_path "$f" && continue
+		case "$f" in .radin/*) continue ;; esac
+		plan_covers_file "$1" "$f" "$3" && continue
+		gen=""
+		case "$f" in
+		install.sh | lib/radin-doctor.sh | lib/radin-uninstall.sh) gen="SHIPPED" ;;
+		docs/agents/lifecycle/*.svg) gen="${f%.svg}.mmd" ;;
+		docs/img/tui.svg) gen="lib/radin-tui.c" ;;
+		esac
+		[ -z "$gen" ] || ! plan_covers_file "$1" "$gen" "$3" || continue
+		extras="${extras:+$extras,}$f"
+	done < <(git -C "$1" diff-tree --no-commit-id --name-only -r --root "$2" 2>/dev/null || true)
+	printf '%s' "$extras"
 }
 
 # Prints key $3 of the record `prepare` wrote for task $2 under namespace dir
@@ -1416,16 +1463,8 @@ task-done)
 	created="$(cd "$repo_root" && bash "$LIB_DIR/radin-backlog.sh" stamps 2>/dev/null | awk -F'\t' -v id="$id" '$1 == id { print $2; exit }')" || created=""
 	# Report-only: files the commit touched that the plan's ## Changes does not
 	# list. Every command is guarded so the exit code never changes.
-	out_of_plan=""
 	plan_paths="$(cd "$repo_root" && bash "$LIB_DIR/radin-backlog.sh" files "$id" 2>/dev/null)" || plan_paths=""
-	if [ -n "$plan_paths" ]; then
-		while IFS= read -r f || [ -n "$f" ]; do
-			[ -n "$f" ] || continue
-			is_test_path "$f" && continue
-			printf '%s\n' "$plan_paths" | grep -Fxq -- "$f" && continue
-			out_of_plan="${out_of_plan:+$out_of_plan,}$f"
-		done < <(git -C "$dir" diff-tree --no-commit-id --name-only -r --root "$hash" 2>/dev/null || true)
-	fi
+	out_of_plan="$(plan_extras "$dir" "$hash" "$plan_paths")"
 	# Order matters: record success first, so a crash mid-way leaves a state
 	# radin-backlog.sh reconcile can repair. Each step is skipped when a
 	# retry already did it, so re-running after a crash is safe.
@@ -1850,7 +1889,15 @@ EOF
 			done <<EOF
 $(cd "$repo_root" && bash "$LIB_DIR/radin-backlog.sh" meta "$id" 2>/dev/null || true)
 EOF
-			if done_out="$(bash "$LIB_DIR/radin-state.sh" task-done "$id" "$hash" 2>&1)"; then
+			plan_paths="$(cd "$repo_root" && bash "$LIB_DIR/radin-backlog.sh" files "$id" 2>/dev/null)" || plan_paths=""
+			extras="$(plan_extras "$(task_dir "$id")" "$hash" "$plan_paths")"
+			if [ -n "$extras" ]; then
+				plan_csv="$(printf '%s\n' "$plan_paths" | paste -sd, -)"
+				(cd "$repo_root" && bash "$LIB_DIR/radin-telemetry.sh" record parallel out-of-bounds \
+					"task=$id" "commit=$hash" "plan=$plan_csv" "extra=$extras") >/dev/null 2>&1 || true
+				word="FAILED"
+				detail="commit $hash changes files outside its plan paths: $extras (plan: $plan_csv)"
+			elif done_out="$(bash "$LIB_DIR/radin-state.sh" task-done "$id" "$hash" 2>&1)"; then
 				printf '%s\n' "$done_out"
 				# What the leaf built, chose and left open: everything after the hash
 				# field, shown per task in `report`.
@@ -1863,11 +1910,12 @@ $unproven
 EOF
 				printf 'next\tcontinue\n'
 				exit 0
+			else
+				# Exit 3: the hash does not validate, so the SUCCESS is
+				# unsupported and this is a failure with the CLI's own message.
+				word="FAILED"
+				detail="reported SUCCESS at $hash, which does not validate: $done_out"
 			fi
-			# Exit 3: the hash does not validate, so the SUCCESS is
-			# unsupported and this is a failure with the CLI's own message.
-			word="FAILED"
-			detail="reported SUCCESS at $hash, which does not validate: $done_out"
 		else
 			word="FAILED"
 			detail="reported SUCCESS with no commit hash in the line"

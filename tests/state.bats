@@ -8,6 +8,8 @@ setup() {
   git init -q "$P"
   git -C "$P" config user.email t@t
   git -C "$P" config user.name t
+  load helpers/isolate
+  isolate_env "$WORK/home"
   git -C "$P" commit -q --allow-empty -m init
   (cd "$P" && bash "$REPO_ROOT/lib/radin-backlog.sh" add fix "t one" <<<"body")
 }
@@ -27,6 +29,144 @@ teardown() {
 }
 
 state() { (cd "$P" && bash "$REPO_ROOT/lib/radin-state.sh" "$@"); }
+
+plan_with() {
+  mkdir -p "$P/.radin/plans"
+  { printf '# Plan\n\n## Changes\n\n'; for x in "$@"; do printf -- '- `%s` — x\n' "$x"; done; printf '\n## Testing\n\n- [ ] x\n'; } >"$P/.radin/plans/t-one.md"
+  (cd "$P" && bash "$REPO_ROOT/lib/radin-backlog.sh" set-meta t-one plan "$P/.radin/plans/t-one.md" >/dev/null)
+  printf 't-one\t1\t\tpending\n' | state steps-init >/dev/null
+}
+
+commit_files() {
+  git -C "$P" add .gitignore && git -C "$P" commit -q -m ignore || true
+  for f in "$@"; do mkdir -p "$P/$(dirname "$f")"; echo x >"$P/$f"; done
+  git -C "$P" add -- "$@"
+  git -C "$P" commit -q -m c
+  HASH="$(git -C "$P" rev-parse --short=12 HEAD)"
+}
+
+report_success() { state task-report t-one "STATUS: SUCCESS — $HASH; built: x"; }
+# The first miss gets a debug pass; the second prints the failure reason.
+report_failed() { report_success >/dev/null; report_success; }
+TELE() { printf '%s' "$HOME/.radin/telemetry/parallel.jsonl"; }
+
+@test "task-report accepts a commit inside the plan paths" {
+  plan_with lib/a.sh
+  commit_files lib/a.sh
+  run report_success
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"recorded at $HASH"* ]]
+  [ ! -e "$(TELE)" ]
+}
+
+@test "task-report fails a commit with a file outside the plan and records out-of-bounds" {
+  plan_with lib/a.sh
+  commit_files lib/a.sh lib/other.sh
+  run report_success
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"next"*"debug"* ]]
+  [ "$(grep -c out-of-bounds "$(TELE)")" -eq 1 ]
+  line="$(cat "$(TELE)")"
+  [[ "$line" == *'"plan":"lib/a.sh"'* ]]
+  [[ "$line" == *'"extra":"lib/other.sh"'* ]]
+  run report_success
+  [[ "$output" == *"❌ Task 1 't one' failed: commit $HASH changes files outside its plan paths: lib/other.sh (plan: lib/a.sh)"* ]]
+}
+
+@test "a directory plan path matches by prefix" {
+  plan_with lib/
+  commit_files lib/x.sh
+  run report_success
+  [[ "$output" == *"recorded at"* ]]
+}
+
+@test "a directory plan path rejects a sibling name sharing its prefix" {
+  plan_with lib/
+  commit_files libx.sh
+  run report_failed
+  [[ "$output" == *"outside its plan paths: libx.sh"* ]]
+}
+
+@test "a plan path that is an existing directory without a slash matches by prefix" {
+  mkdir -p "$P/lib" && echo x >"$P/lib/old.sh" && git -C "$P" add lib && git -C "$P" commit -q -m old
+  plan_with lib
+  commit_files lib/new.sh
+  run report_success
+  [[ "$output" == *"recorded at"* ]]
+}
+
+@test "a plan file path does not accept a longer sibling name" {
+  plan_with lib/a
+  commit_files lib/a lib/ab.sh
+  run report_failed
+  [[ "$output" == *"outside its plan paths: lib/ab.sh"* ]]
+}
+
+@test "a test file outside the plan is exempt" {
+  plan_with lib/a.sh
+  commit_files lib/a.sh tests/a.bats
+  run report_success
+  [[ "$output" == *"recorded at"* ]]
+}
+
+@test "a commit touching .radin/ still exits through task-done's message" {
+  plan_with lib/a.sh
+  git -C "$P" add .gitignore && git -C "$P" commit -q -m ignore
+  mkdir -p "$P/.radin/state"
+  echo x >"$P/.radin/state/leak"
+  git -C "$P" add -f .radin/state/leak
+  git -C "$P" commit -q -m leak
+  HASH="$(git -C "$P" rev-parse --short=12 HEAD)"
+  run report_failed
+  [[ "$output" == *"changes a file under .radin/"* ]]
+  [[ "$output" != *"outside its plan paths"* ]]
+}
+
+@test "generated install.sh passes when SHIPPED is in the plan" {
+  plan_with SHIPPED
+  commit_files SHIPPED install.sh
+  run report_success
+  [[ "$output" == *"recorded at"* ]]
+}
+
+@test "generated install.sh fails when SHIPPED is not in the plan" {
+  plan_with lib/a.sh
+  commit_files lib/a.sh install.sh
+  run report_failed
+  [[ "$output" == *"outside its plan paths: install.sh"* ]]
+}
+
+@test "generated svg passes with its mmd in the plan" {
+  plan_with docs/agents/lifecycle/f.mmd
+  commit_files docs/agents/lifecycle/f.mmd docs/agents/lifecycle/f.svg
+  run report_success
+  [[ "$output" == *"recorded at"* ]]
+}
+
+@test "generated svg fails without its mmd in the plan" {
+  plan_with lib/a.sh
+  commit_files lib/a.sh docs/agents/lifecycle/f.svg
+  run report_failed
+  [[ "$output" == *"outside its plan paths: docs/agents/lifecycle/f.svg"* ]]
+}
+
+@test "a task with no plan paths passes" {
+  commit_files lib/any.sh
+  printf 't-one\t1\t\tpending\n' | state steps-init >/dev/null
+  run report_success
+  [[ "$output" == *"recorded at"* ]]
+}
+
+@test "a missing telemetry script still fails the task with the reason" {
+  cp -R "$REPO_ROOT/lib" "$WORK/lib2"
+  rm "$WORK/lib2/radin-telemetry.sh"
+  plan_with lib/a.sh
+  commit_files lib/other.sh
+  run bash -c "cd '$P' && bash '$WORK/lib2/radin-state.sh' task-report t-one 'STATUS: SUCCESS — $HASH; built: x'"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"next"*"debug"* ]]
+  [ ! -e "$(TELE)" ]
+}
 
 @test "task-fact keeps the evidence token and records the long-form path" {
   state task-fact t-one "STATUS: FOUND — [measured] lib/x.sh sets A=1; long form: /p/state/facts/t-one.md"
