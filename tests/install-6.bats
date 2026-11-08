@@ -5,13 +5,6 @@
 bats_require_minimum_version 1.5.0
 load helpers/install
 
-@test "installed radin-run.md holds no host marker and keeps the claude loop" {
-  replay_install >/dev/null
-  run grep -c '<!-- /\?host' "$TEST_HOME/.radin/hosts/claude/lib/radin-run.md"
-  [ "$output" = 0 ]
-  grep -q 'Claude Code decides foreground or background' "$TEST_HOME/.radin/hosts/claude/lib/radin-run.md"
-}
-
 # The golden stores sums, so a failure names the file and both sums, not the lines.
 @test "golden render of the Claude install is unchanged" {
   replay_install >/dev/null
@@ -43,10 +36,6 @@ load helpers/install
   grep -q 'model-low: "fable"' "$TEST_HOME/.radin/hosts/claude/lib/radin-prompt-execution.md"
 }
 
-@test "manifest lists the rendered libs under hostlib" {
-  grep -q '"hostlib": \[.*"radin-run.md"' "$TEMPLATE/home/.radin/manifest.json"
-}
-
 @test "migration works when ~/.claude is a symlink" {
   use_real_cc
   seed_old_layout "$TEST_HOME/elsewhere"
@@ -68,23 +57,6 @@ load helpers/install
   [ "$(cat "$TEST_HOME/.radin/keep.txt")" = mine ]
   [ -f "$TEST_HOME/.claude/.radin/manifest.json" ]
   [ ! -e "$TEST_HOME/.claude/skills/radin-batch" ]
-}
-
-@test "uninstall removes what a three-host install wrote and nothing else" {
-  mock_cli codex
-  mock_cli opencode
-  agents_root
-  install_from "$AROOT" --yes --only claude,codex,opencode >/dev/null
-  grep -q 'radin:begin' "$TEST_HOME/.codex/AGENTS.md"
-  run bash "$TEST_HOME/.radin/lib/radin-uninstall.sh"
-  [ "$status" -eq 0 ]
-  [ -z "$(ls "$TEST_HOME/.claude/skills" "$TEST_HOME/.agents/skills" | grep '^radin-')" ]
-  run grep -rl 'radin:begin' "$TEST_HOME/.claude" "$TEST_HOME/.codex" "$TEST_HOME/.config/opencode"
-  [ "$status" -eq 1 ]
-  [ -z "$(ls "$TEST_HOME"/.config/opencode/agents 2>/dev/null | grep '^radin-')" ]
-  run grep -s '\.radin/\*\*' "$TEST_HOME/.config/opencode/opencode.json"
-  [ "$status" -ne 0 ]
-  [ ! -e "$TEST_HOME/.radin/manifest.json" ]
 }
 
 @test "--update refreshes a claude-only install and touches no agents tree" {

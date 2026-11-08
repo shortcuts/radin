@@ -92,18 +92,7 @@ load helpers/install
   grep -q 'OpenCode:' "$TEST_HOME/.radin/cbm-config.log"
 }
 
-@test "--only opencode records opencode as the agents CLI" {
-  mock_cli opencode
-  agents_root
-  run install_from "$AROOT" --yes --only=opencode
-  [ "$status" -eq 0 ]
-  [ -f "$TEST_HOME/.agents/skills/radin-batch/SKILL.md" ]
-  assert_no_agents_marker
-  [ "$(manifest_array hosts)" = '"opencode"' ]
-  [ "$(manifest_array agents_clis)" = '"opencode"' ]
-}
-
-@test "--update leaves a host whose render fails untouched, records it, and retries it next time" {
+@test "--update leaves a host whose render fails untouched and retries it next time; then it refetches an owned skill, keeps one on a failed refetch and leaves a foreign one alone" {
   mock_cli codex
   agents_root
   install_from "$AROOT" --yes --only claude,codex >/dev/null
@@ -126,9 +115,19 @@ load helpers/install
   grep -q '"codex_guidance": true' "$TEST_HOME/.radin/manifest.json"
   cp "$BATS_TEST_TMPDIR/run.md" "$AROOT/lib/radin-run.md"
   update_marker
+  printf 'stale\n' >"$TEST_HOME/.agents/skills/ponytail/SKILL.md"
+  printf 'kept\n' >"$TEST_HOME/.agents/skills/lean-build/SKILL.md"
+  export MOCK_CURL_FAIL=/lean-build/
   run install_from "$AROOT" --update
   [ "$status" -eq 0 ]
   grep -q UPDATE-MARKER "$TEST_HOME/.radin/hosts/agents/lib/radin-run.md"
+  grep -qx 'name: ponytail' "$TEST_HOME/.agents/skills/ponytail/SKILL.md"
+  [ "$(cat "$TEST_HOME/.agents/skills/lean-build/SKILL.md")" = kept ]
+  [ "$(manifest_array agents_skills | tr ',' '\n' | grep -c .)" = 19 ]
+  unset MOCK_CURL_FAIL
+  sed -i.bak 's/"lean-build", //; s/, "lean-build"//' "$TEST_HOME/.radin/manifest.json"
+  run install_from "$AROOT" --update
+  [ "$(cat "$TEST_HOME/.agents/skills/lean-build/SKILL.md")" = kept ]
 }
 
 @test "every selected host installs its files when no host CLI exists" {
@@ -139,6 +138,7 @@ load helpers/install
   [[ "$output" == *"codex CLI not found"* ]]
   [[ "$output" == *"opencode CLI not found"* ]]
   [ "$(manifest_array hosts)" = '"claude", "codex", "opencode"' ]
+  [ "$(manifest_array agents_clis)" = '"codex", "opencode"' ]
   [ -f "$TEST_HOME/.claude/skills/radin-batch/SKILL.md" ]
   [ -f "$TEST_HOME/.agents/skills/radin-batch/SKILL.md" ]
   [ -f "$TEST_HOME/.config/opencode/agents/radin-review.md" ]

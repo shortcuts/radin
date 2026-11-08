@@ -105,18 +105,6 @@ SH
   [ "$(manifest_array hosts)" = '"codex"' ]
 }
 
-@test "--update reports an edited agents skill and keeps the edit" {
-  mock_cli codex
-  agents_root
-  install_from "$AROOT" --yes --only codex >/dev/null
-  local f="$TEST_HOME/.agents/skills/radin-do/SKILL.md"
-  printf 'my edit\n' >>"$f"
-  run install_from "$AROOT" --update
-  [ "$status" -eq 0 ]
-  [[ "$output" == *"kept $f"* ]]
-  grep -qx 'my edit' "$f"
-}
-
 @test "--list prints one row per host and writes nothing" {
   run bash "$REPO_ROOT/install.sh" --list
   [ "$status" -eq 0 ]
@@ -168,19 +156,27 @@ SH
   [[ "$output" != *"Step 1/"* ]]
 }
 
-@test "a skill the user edited is kept, with its old digest, on every re-run" {
+@test "a skill the user edited is kept, with its old digest, on every re-run, in each host's tree" {
+  mock_cli codex
   agents_root
-  install_from "$AROOT" --yes --only claude >/dev/null
-  local f="$TEST_HOME/.claude/skills/radin-do/SKILL.md" d
-  d="$(manifest_digest_of .claude/skills/radin-do/SKILL.md)"
-  printf 'my edit\n' >>"$f"
-  run install_from "$AROOT" --yes --update
-  [ "$status" -eq 0 ]
-  [[ "$output" == *"kept $f"* ]]
-  grep -qx 'my edit' "$f"
-  [ "$(manifest_digest_of .claude/skills/radin-do/SKILL.md)" = "$d" ]
-  run install_from "$AROOT" --yes --update
-  [[ "$output" == *"kept $f"* ]]
+  install_from "$AROOT" --yes --only claude,codex >/dev/null
+  local rels=".claude/skills/radin-do/SKILL.md .agents/skills/radin-do/SKILL.md" rel
+  local digests=""
+  for rel in $rels; do
+    digests="$digests $(manifest_digest_of "$rel")"
+    printf 'my edit\n' >>"$TEST_HOME/$rel"
+  done
+  for _ in 1 2; do
+    run install_from "$AROOT" --yes --update
+    [ "$status" -eq 0 ]
+    local now=""
+    for rel in $rels; do
+      [[ "$output" == *"kept $TEST_HOME/$rel"* ]]
+      grep -qx 'my edit' "$TEST_HOME/$rel"
+      now="$now $(manifest_digest_of "$rel")"
+    done
+    [ "$now" = "$digests" ]
+  done
 }
 
 @test "a claude-only install fetches no agents companion skill" {

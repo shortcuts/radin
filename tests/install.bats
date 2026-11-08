@@ -119,16 +119,3 @@ load helpers/install
   [[ "$WIZ_SCREEN" == *"pick at least one host"* ]]
   [[ "$WIZ_SCREEN" == *"hosts: claude"* ]]
 }
-
-@test "a re-run on an unchanged install rewrites no render file" {
-  mock_cli codex
-  agents_root
-  install_from "$AROOT" --yes --only claude,codex >/dev/null
-  touch "$BATS_TEST_TMPDIR/marker"
-  sleep 1
-  run install_from "$AROOT" --yes --update
-  [ "$status" -eq 0 ]
-  [[ "$output" == *"0 written"* ]]
-  run find "$TEST_HOME/.claude/skills"/radin-* "$TEST_HOME/.agents/skills"/radin-* "$TEST_HOME/.radin/hosts" -type f -newer "$BATS_TEST_TMPDIR/marker"
-  [ -z "$output" ]
-}

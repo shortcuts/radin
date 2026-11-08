@@ -783,11 +783,13 @@ sha256_many() {
 
 # macOS ships shasum only; Linux ships sha256sum.
 sha256_of() {
+	local out
 	if command -v sha256sum >/dev/null 2>&1; then
-		sha256sum "$1" | cut -d' ' -f1
+		out="$(sha256sum "$1")" || return 1
 	else
-		shasum -a 256 "$1" | cut -d' ' -f1
+		out="$(shasum -a 256 "$1")" || return 1
 	fi
+	printf '%s' "${out%% *}"
 }
 
 # Two renames, not one: a cross-device `mv` copies, then deletes, and a copy
@@ -980,12 +982,17 @@ legacy_owned() {
 # Prints the recorded digest of a path under $HOME, empty for a legacy owner.
 # Returns 1 when the previous manifest does not own the path.
 owned_digest() {
-	local d
-	if d="$(printf '%s\n' "$OWNED_MAP" | awk -F'\t' -v p="$1" '$1 == p { print $2; f = 1 } END { exit !f }')"; then
-		printf '%s' "$d"
-	else
-		legacy_owned "$1"
-	fi
+	# Parameter expansion, not awk: classify calls this once per installed file.
+	local nl='
+' m rest
+	m="$nl$OWNED_MAP"
+	case "$m" in
+	*"$nl$1$TAB"*)
+		rest="${m#*"$nl$1$TAB"}"
+		printf '%s' "${rest%%"$nl"*}"
+		;;
+	*) legacy_owned "$1" ;;
+	esac
 }
 
 # free: nothing there. current: radin's, bytes as recorded. edited: radin's,
@@ -1414,22 +1421,20 @@ check_tokens() {
 }
 
 RENDER_ERR=""
-render_file() {
-	RENDER_ERR="$("$RADIN_ROOT/scripts/render-host.sh" "$1" "$3" 2>&1 >"$2")" && return 0
-	RENDER_ERR="${RENDER_ERR:-$1: render failed}"
-	return 1
-}
-
+# One render-host.sh run for every file: a fork per file cost seconds per install.
 stage_render() {
-	local f s
+	local f s pairs=""
 	mkdir -p "$2/lib"
 	for f in $SHIPPED_HOSTLIB; do
-		render_file "$RADIN_ROOT/lib/$f" "$2/lib/$f" "$1" || return 1
+		pairs="$pairs$RADIN_ROOT/lib/$f$TAB$2/lib/$f"$'\n'
 	done
 	for s in $SHIPPED_SKILLS; do
 		cp -r "$RADIN_ROOT/skills/$s" "$2/"
-		render_file "$RADIN_ROOT/skills/$s/SKILL.md" "$2/$s/SKILL.md" "$1" || return 1
+		pairs="$pairs$RADIN_ROOT/skills/$s/SKILL.md$TAB$2/$s/SKILL.md"$'\n'
 	done
+	RENDER_ERR="$(printf '%s' "$pairs" | "$RADIN_ROOT/scripts/render-host.sh" --batch "$1" 2>&1)" && return 0
+	RENDER_ERR="${RENDER_ERR:-$1: render failed}"
+	return 1
 }
 
 # Only warns: the Codex and opencode companion steps run after rtk and codebase-memory-mcp are installed.
@@ -1512,9 +1517,9 @@ install_render() {
 		local script
 		script="$(mktemp)"
 		write_token_script "$r" "$script"
-		while IFS= read -r f; do
-			sed -f "$script" "$f" >"$f.tmp" && mv "$f.tmp" "$f"
-		done < <(find "$stage" -type f -name '*.md')
+		# One sed over every file; the .bak copies are the stage's own scratch.
+		find "$stage" -type f -name '*.md' -exec sed -i.bak -f "$script" {} +
+		find "$stage" -type f -name '*.md.bak' -delete
 		rm -f "$script"
 		check_tokens "$r" "$stage"
 		# The agents prompts print no model or effort line; a token left over is a render bug.

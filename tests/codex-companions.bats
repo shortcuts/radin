@@ -17,9 +17,9 @@ setup() {
   export MOCK_BIN MOCK_LOG_DIR="$TEST_HOME"
   unset HOMEBREW_NO_AUTO_UPDATE MOCK_FAIL MOCK_CURL_FAIL
   load helpers/pty
-  cc_build "$BATS_TEST_DIRNAME/helpers/mock.c" "$BATS_FILE_TMPDIR/mock" ||
+  cc_build "$BATS_TEST_DIRNAME/helpers/mock.c" "$BATS_TEST_DIRNAME/helpers/mock" ||
     skip "a C compiler is needed to build the command mocks"
-  cp "$BATS_FILE_TMPDIR/mock" "$MOCK_BIN/mock"
+  cp "$BATS_TEST_DIRNAME/helpers/mock" "$MOCK_BIN/mock"
   for c in brew curl claude npx python3 node gh cc gcc clang codex rtk codebase-memory-mcp; do
     ln "$MOCK_BIN/mock" "$MOCK_BIN/$c"
   done

@@ -1,4 +1,4 @@
-.PHONY: install update build run test golden verify-hosts bench-tui screenshot lint check gen diagrams serve-diagrams clean
+.PHONY: install update build run test test-changed golden verify-hosts bench-tui screenshot lint check gen diagrams serve-diagrams clean
 
 install:
 	./install.sh
@@ -30,15 +30,26 @@ run: lib/radin-tui
 # One bats per file, run concurrently: every file isolates its state under
 # mktemp -d, and bats' own -j costs more in bookkeeping than it wins here. The
 # slowest files go first so no worker starts one last; tui is four shards.
+# One worker per core: 32 workers saturated the machine and made the timing test flake.
+JOBS ?= $(shell getconf _NPROCESSORS_ONLN)
 test: build
 # Every temp repo a test builds is deleted in teardown, so git's fsync is pure
 # latency here: it cost ~0.1s per test that runs `git init`.
 # A test that follows a cc symlink once overwrote the real settings.json, so
 # bats runs without CLAUDE_CONFIG_DIR and the run fails if a real file changes.
+# T="tests/state-1.bats tests/backlog.bats" runs only those files.
+# One recorded install.sh run (tests/helpers/build-template.sh) serves every file that
+# replays it; each file used to record its own, nine installs in all.
 	@before=$$(scripts/real-setup-sum.sh); \
+		files="$(T)"; \
+		[ -n "$$files" ] || files="$$(ls tests/install*.bats tests/state-*.bats tests/backlog.bats tests/tui-*.bats; ls tests/*.bats | grep -v -e install -e state- -e backlog -e tui-)"; \
+		tpl=""; \
+		if grep -q 'helpers/install' $$files; then tpl=$$(mktemp -d); env -u CLAUDE_CONFIG_DIR -u CODEX_HOME -u XDG_CONFIG_HOME -u OPENCODE_CONFIG tests/helpers/build-template.sh "$$tpl"; fi; \
+		printf '%s\n' $$files | RADIN_TEMPLATE="$$tpl" \
 		GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.fsync GIT_CONFIG_VALUE_0=none \
-		env -u CLAUDE_CONFIG_DIR -u CODEX_HOME -u XDG_CONFIG_HOME -u OPENCODE_CONFIG -u OPENCODE sh -c '{ ls tests/install*.bats tests/backlog.bats tests/tui-*.bats; ls tests/*.bats | grep -v -e install -e backlog -e tui-; } | xargs -P $$(getconf _NPROCESSORS_ONLN) -n1 bats; exit $$?'; \
+		env -u CLAUDE_CONFIG_DIR -u CODEX_HOME -u XDG_CONFIG_HOME -u OPENCODE_CONFIG -u OPENCODE xargs -P $(JOBS) -n1 bats; \
 		status=$$?; \
+		[ -z "$$tpl" ] || rm -rf "$$tpl"; \
 		after=$$(scripts/real-setup-sum.sh); \
 		if [ "$$before" != "$$after" ]; then \
 			echo "make test changed the real setup:"; \
@@ -46,9 +57,21 @@ test: build
 		fi; \
 		exit $$status
 
+# Runs only the bats files that cover what changed since HEAD (see
+# scripts/affected-tests.sh). A dev-loop shortcut: run `make test` before a commit.
+test-changed: build
+	@t=$$(scripts/affected-tests.sh | tr '\n' ' '); \
+		case "$$t" in \
+		"") echo "no test covers the changed paths" ;; \
+		"ALL ") $(MAKE) test ;; \
+		*) echo "running: $$t"; $(MAKE) test T="$$t" ;; \
+		esac
+
 # Rewrites the golden sums after an intended change to the Claude render.
+# The golden test lives in one file; --filter would still run setup_file's
+# install in all nine install*.bats files.
 golden:
-	env -u CLAUDE_CONFIG_DIR -u CODEX_HOME -u XDG_CONFIG_HOME -u OPENCODE_CONFIG GOLDEN_UPDATE=1 bats --filter 'golden render of the Claude install' tests/install*.bats
+	env -u CLAUDE_CONFIG_DIR -u CODEX_HOME -u XDG_CONFIG_HOME -u OPENCODE_CONFIG GOLDEN_UPDATE=1 bats --filter 'golden render of the Claude install' tests/install-6.bats
 
 # Opt-in: drives the real opencode and codex CLIs without a model call. Needs a C
 # compiler, about a minute per host, and npm for VERIFY_ARGS=--install-missing.
@@ -72,7 +95,7 @@ bench-tui:
 screenshot:
 	@scripts/screenshot-tui.sh
 
-SH_FILES = tests/bench-tui.sh scripts/screenshot-tui.sh scripts/shipped.sh install.sh bin/radin lib/radin-namespace.sh lib/radin-json.sh lib/radin-migrate.sh lib/radin-backlog.sh lib/radin-state.sh lib/radin-scope.sh lib/radin-prompt.sh lib/radin-cbm-hooks.sh lib/radin-cbm-config.sh lib/radin-update.sh lib/radin-doctor.sh lib/radin-stats.sh lib/radin-telemetry.sh lib/radin-uninstall.sh scripts/check-prose.sh scripts/real-setup-sum.sh scripts/golden-render.sh scripts/render-host.sh scripts/verify-hosts.sh
+SH_FILES = tests/bench-tui.sh scripts/screenshot-tui.sh scripts/shipped.sh install.sh bin/radin lib/radin-namespace.sh lib/radin-json.sh lib/radin-migrate.sh lib/radin-backlog.sh lib/radin-state.sh lib/radin-scope.sh lib/radin-prompt.sh lib/radin-cbm-hooks.sh lib/radin-cbm-config.sh lib/radin-update.sh lib/radin-doctor.sh lib/radin-stats.sh lib/radin-telemetry.sh lib/radin-uninstall.sh scripts/check-prose.sh scripts/real-setup-sum.sh scripts/golden-render.sh scripts/affected-tests.sh scripts/render-host.sh scripts/verify-hosts.sh
 
 clean:
 	rm -f lib/radin-tui lib/radin-cbm-json tests/helpers/pty-run tests/helpers/mock

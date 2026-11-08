@@ -15,33 +15,25 @@ setup() {
   isolate_env "$TEST_HOME"
   export PATH="$MOCK_BIN:/usr/bin:/bin:/usr/sbin:/sbin"
   load helpers/pty
-  MOCK_SRC_BIN="$BATS_FILE_TMPDIR/mock"
+  MOCK_SRC_BIN="$BATS_TEST_DIRNAME/helpers/mock"
 
   make_mocks
 }
 
-# One real install.sh run for the whole file, recorded so every test that only
-# asserts on the installed tree can replay it instead of paying ~1.1s again.
+# One recorded install.sh run, so every test that only asserts on the installed
+# tree can replay it instead of paying ~2s again. `make test` records it once for
+# all files (RADIN_TEMPLATE); a lone `bats` run records its own.
 setup_file() {
   REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
-  export TEMPLATE="$BATS_FILE_TMPDIR/template"
-  TEST_HOME="$TEMPLATE/home"
-  MOCK_BIN="$TEMPLATE/bin"
-  mkdir -p "$TEST_HOME" "$MOCK_BIN"
-  load helpers/isolate
-  isolate_env "$TEST_HOME"
+  if [ -n "${RADIN_TEMPLATE:-}" ] && [ -f "$RADIN_TEMPLATE/status" ]; then
+    export TEMPLATE="$RADIN_TEMPLATE"
+    return 0
+  fi
   load helpers/pty
-  MOCK_SRC_BIN="$BATS_FILE_TMPDIR/mock"
-  make_mocks
-  # The one run that compiles the TUI for real: every other live run gets the
-  # mock cc, because cc costs ~0.3s.
-  rm -f "$MOCK_BIN/cc" "$MOCK_BIN/gcc" "$MOCK_BIN/clang"
-
-  local st=0
-  (cd "$REPO_ROOT" && printf '2\n' |
-    env HOME="$TEST_HOME" PATH="$MOCK_BIN:/usr/bin:/bin:/usr/sbin:/sbin" \
-      bash ./install.sh) >"$TEMPLATE/output" 2>&1 || st=$?
-  printf '%s\n' "$st" >"$TEMPLATE/status"
+  cc_build "$BATS_TEST_DIRNAME/helpers/mock.c" "$BATS_TEST_DIRNAME/helpers/mock" ||
+    skip "a C compiler is needed to build the command mocks"
+  export TEMPLATE="$BATS_FILE_TMPDIR/template"
+  "$BATS_TEST_DIRNAME/helpers/build-template.sh" "$TEMPLATE"
 }
 
 # Stubs every binary install.sh reaches for, so no test makes a network

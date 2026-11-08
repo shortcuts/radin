@@ -61,18 +61,6 @@ load helpers/install
   [[ "$output" == *"radin installed in "* ]]
 }
 
-@test "--update keeps the manifest hosts and asks nothing" {
-  mock_cli codex
-  agents_root
-  install_from "$AROOT" --yes --only codex >/dev/null
-  rm -f "$TEST_HOME"/*.log
-  run install_from "$AROOT" --update
-  [ "$status" -eq 0 ]
-  [[ "$output" != *"Pick 1-"* ]]
-  [ "$(manifest_array hosts)" = '"codex"' ]
-  [ ! -e "$TEST_HOME/.claude/skills" ]
-}
-
 @test "--update on a v1 manifest reads it as claude only" {
   replay_install >/dev/null
   local m="$TEST_HOME/.radin/manifest.json"

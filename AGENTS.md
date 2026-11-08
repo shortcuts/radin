@@ -48,7 +48,7 @@ radin is a Claude Code plugin of skills, a CLI, and install glue.
 | Real CLIs load radin's files | `make verify-hosts` (opt-in) and `tests/verify-hosts.bats` | Linux and opencode 1.x unverified; opencode skills are a file check only. |
 | `--dry-run` changes nothing | `tests/install*.bats` ("--dry-run lists the writes the real run makes and changes nothing") | Companion command text is printed, not run. |
 | Install asks every question before the first write | `tests/install*.bats` wizard cases (forward, back, checkbox, `--update` Recap, `--yes` and `STEP_TOTAL`) | A terminal that rejects raw mode falls back to numbered prompts with no back; review only. |
-| A selected host with no CLI still installs | `tests/install*.bats` ("a selected host without its CLI warns...") | None. |
+| A selected host with no CLI still installs | `tests/install*.bats` ("every selected host installs its files when no host CLI exists") | None. |
 | `radin update` keeps a failed host in the manifest | `tests/install*.bats` ("--update leaves a host whose render fails untouched...") | None. |
 | Same checks locally and in CI | `make check` and `make test` in `.github/workflows/ci.yml` | Linux run unverified. |
 | Deterministic work lives in the CLI | `scripts/check-prose.sh` raw `git` lint over `lib/radin-run.md` and `lib/radin-batch-*.md` | Other deterministic steps in prose, and a raw `git` outside those files; review only. |
@@ -157,6 +157,7 @@ The graph tool name lives in one file and must exist in the upstream table ([whi
 ## Before committing
 
 - `make lint`, `make check` and `make test` come back clean.
+  - While iterating, run `make test-changed` or `make test T="tests/state-1.bats"`. The full `make test` stays the gate before a commit and in CI.
   - Every tree-only test replays one recorded `install.sh` run. A live run serves only install-time behavior.
   - The mock command is `tests/helpers/mock.c`, one compiled binary, because `/bin/sh` startup costs 20 ms per stub call.
   - No test makes a network request.
@@ -167,6 +168,22 @@ The graph tool name lives in one file and must exist in the upstream table ([whi
 
 - A feature is stable only when tests verify every path it adds or changes: install, update, doctor, uninstall, the `radin` dispatcher, the TUI, and each host's render.
 - Run the feature end to end and compare the result with its stated behavior before you call it complete.
-- Reject a test that passes only when everything goes right, pins formatting or escape bytes, or repeats another test's case.
+- Reject a test that passes only when everything goes right, pins formatting or escape bytes, or repeats another test's case. Delete a test that another test or a `make check` lint already covers.
+
+## Testing strategy
+
+Test cost is process spawns. A spawn is a wall-clock wait of 10 to 30 ms on macOS, not CPU, so the suite counts forks, not lines. Measure a change against the full `make test` wall time, which was 2m43s before the spawn work and 2m26s after, both at the default JOBS (one per core, 8 here). The slowest files (install-2, install-4, opencode-companions) set the floor at about 90 s.
+
+- **Pick the cheapest tier that can fail.**
+  1. Pure logic: call the script or the `render-host.sh` function once on a fixture file.
+  2. Installed tree: `replay_install` copies the one recorded `install.sh` run. `make test` records it once (`tests/helpers/build-template.sh`) and exports `RADIN_TEMPLATE`. A lone `bats` run records its own in `setup_file`.
+  3. Live `install.sh` (`real_install`, `install_from`): only when the subject is install-time behavior, such as a missing binary, a pre-existing file or a second run. Each run costs 2 to 3 s.
+- **Build shared state once per file.** A repo, a backlog or a seed tree goes in `setup_file`, and `setup` copies it with `cp -a`. Never rebuild it per test with `git init`, a commit and a `backlog add`.
+- **Reuse the compiled mock.** `tests/helpers/mock` comes from `make build`. A test never compiles `mock.c` into its own temp directory.
+- **Spawn once, not per file.** `install.sh` renders every file of a host in one `render-host.sh --batch` run and rewrites tokens with one `sed`. Add a loop around an external command only when you have measured that it stays small.
+- **One owner per behavior.** Before you add a test, grep `tests/` for the behavior. Extend the owning test with an assertion instead of adding a second install.
+- **Parallelism.** `make test` runs one bats process per file, `JOBS` at a time (default one per core). Keep every file under about 30 s so no file is the tail. Split a longer file into shards.
+- **Profile before you optimize.** Run `bats --timing tests/<file>.bats` alone. Times from a full run include contention and mislead.
+- **Dev loop.** `make test-changed` runs the files that cover your uncommitted changes (`scripts/affected-tests.sh`). `make test T="tests/a.bats tests/b.bats"` runs the files you name. `make golden` rewrites the golden sums through one file.
 
 See [decisions](docs/agents/DECISIONS.md) · [lifecycle diagrams](docs/agents/lifecycle.md) · [contributing](CONTRIBUTING.md).

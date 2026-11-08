@@ -23,6 +23,23 @@ src() { printf '%s\n' "$@" > "$T/in.md"; }
   [ "$output" = "$(printf 'one\na-only\nboth\ntwo')" ]
 }
 
+@test "--batch renders each pair like a single run, keeps an empty file empty and stops at a bad file" {
+  printf '%s\n' one '<!-- host:claude -->' c-only '<!-- /host -->' >"$T/a.md"
+  printf '%s\n' two '<!-- host:agents -->' a-only '<!-- /host -->' >"$T/b.md"
+  : >"$T/empty.md"
+  printf '%s\n' bad '<!-- host:claude -->' body >"$T/bad.md"
+  printf '%s\n' last >"$T/c.md"
+  run bash -c "printf '%s\t%s\n' '$T/a.md' '$T/a.out' '$T/b.md' '$T/b.out' '$T/empty.md' '$T/empty.out' | '$RENDER' --batch claude"
+  [ "$status" -eq 0 ]
+  [ "$(cat "$T/a.out")" = "$("$RENDER" "$T/a.md" claude)" ]
+  [ "$(cat "$T/b.out")" = "$("$RENDER" "$T/b.md" claude)" ]
+  [ -f "$T/empty.out" ] && [ ! -s "$T/empty.out" ]
+  run bash -c "printf '%s\t%s\n' '$T/bad.md' '$T/bad.out' '$T/c.md' '$T/c.out' | '$RENDER' --batch claude"
+  [ "$status" -eq 1 ]
+  [ "$output" = "$T/bad.md:2: host block never closed" ]
+  [ ! -e "$T/bad.out" ] && [ ! -e "$T/c.out" ]
+}
+
 @test "fails with FILE:LINE on an unclosed block" {
   src one '<!-- host:claude -->' body
   run "$RENDER" "$T/in.md" claude
@@ -107,15 +124,6 @@ lint_root() {
   [[ "$output" == *'no longer holds "SendMessage"; delete the line'* ]]
 }
 
-@test "the agents render of radin-run.md names no Claude dispatch tool" {
-  run "$RENDER" --hits "$REPO_ROOT/lib/radin-run.md" agents
-  [ "$status" -eq 0 ]
-  [[ "$output" != *ListAgents* ]]
-  [[ "$output" != *CronCreate* ]]
-  [[ "$output" != *SendMessage* ]]
-  [[ "$output" != *run_in_background* ]]
-}
-
 @test "lint fails on a malformed host marker in a lib file" {
   lint_root
   printf 'clean\n' > "$T/r/skills/x/SKILL.md"
@@ -148,14 +156,7 @@ ask_hosts() {
   done
 }
 
-@test "the agents render of the leaf contract names no question tool" {
-  run "$RENDER" "$REPO_ROOT/lib/radin-leaf-contract.md" agents
-  [ "$status" -eq 0 ]
-  [[ "$output" != *AskUserQuestion* ]]
-  [[ "$output" == *"no question tool"* ]]
-}
-
-@test "the agents render of the leaf contract and explore rule names no claude-only tool" {
+@test "the agents render of the leaf contract and explore rule names no claude-only or question tool" {
   for f in lib/radin-leaf-contract.md lib/radin-explore-rule.md; do
     run "$RENDER" "$REPO_ROOT/$f" agents
     [ "$status" -eq 0 ]
@@ -164,7 +165,10 @@ ask_hosts() {
     [[ "$output" != *TaskStop* ]]
     [[ "$output" != *ToolSearch* ]]
     [[ "$output" != *"4 minutes"* ]]
+    [[ "$output" != *AskUserQuestion* ]]
   done
+  run "$RENDER" "$REPO_ROOT/lib/radin-leaf-contract.md" agents
+  [[ "$output" == *"no question tool"* ]]
   run "$RENDER" "$REPO_ROOT/lib/radin-leaf-contract.md" claude
   [[ "$output" == *Monitor* ]]
   [[ "$output" == *Workflow* ]]

@@ -92,7 +92,11 @@ completed="$ns/state/completed.json"
 
 # Prints line $1's depends_on as a comma-separated id list (empty for []).
 deps_csv() {
-	printf '%s' "$1" | sed -nE 's/.*"depends_on":\[([^]]*)\].*/\1/p' | tr -d '" '
+	local re='.*"depends_on":\[([^]]*)\]' v
+	if [[ $1 =~ $re ]]; then
+		v="${BASH_REMATCH[1]//\"/}"
+		printf '%s' "${v// /}"
+	fi
 }
 
 # A task dispatched this many times without a terminal status is not
@@ -227,9 +231,8 @@ trace_block() {
 
 # Prints line $1's numeric field $2 (order|attempts|debugged), 0 when absent.
 num_field() {
-	local v
-	v="$(printf '%s' "$1" | sed -nE "s/.*\"$2\":([0-9]+).*/\1/p")"
-	printf '%s' "${v:-0}"
+	local re=".*\"$2\":([0-9]+)"
+	if [[ $1 =~ $re ]]; then printf '%s' "${BASH_REMATCH[1]}"; else printf 0; fi
 }
 
 journal() {
@@ -267,7 +270,7 @@ write_entry() {
 # Prints entry $2's line from steps-file $1, empty when absent.
 entry_line() {
 	# One grep, not a read loop: a fork per line made `wave` take minutes on 99 entries.
-	grep -F -m1 -- "{\"id\":\"$2\"," "$1" | tr -d '\n' || true
+	grep -F -m1 -- "{\"id\":\"$2\"," "$1" || true
 }
 
 # Sets task $1's status $2 with note $3, keeping its attempts.
@@ -593,8 +596,9 @@ dirty_recover() {
 # other unmerged dependency's tip: the branch the task stacks on. Prints
 # nothing when no dependency is unmerged, or none of them holds the rest.
 stack_parent() {
-	local dep cands="" c o ok
-	for dep in $(deps_csv "$(entry_line "$steps" "$1")" | tr ',' ' '); do
+	local dep deps cands="" c o ok
+	deps="$(deps_csv "$(entry_line "$steps" "$1")")"
+	for dep in ${deps//,/ }; do
 		completed_get "$dep" >/dev/null && continue
 		[ -e "$ns/state/unmerged/$dep" ] || continue
 		git -C "$repo_root" rev-parse --verify -q "refs/heads/radin/$dep" >/dev/null 2>&1 || continue
@@ -627,12 +631,12 @@ stack_depth() {
 # unmerged branch counts as resolved when $1 can stack on it, and prints its
 # branch tip. Returns 1, naming the first unresolved one on stderr.
 deps_check() {
-	local entry deps dep hash dep_line dep_status old_ifs parent
+	local entry deps dep hash dep_line dep_status old_ifs parent parent_known
 	entry="$(entry_line "$steps" "$1")"
 	[ -n "$entry" ] || die "no entry with id: $1"
-	parent="$(stack_parent "$1")"
 	deps="$(deps_csv "$entry")"
 	[ -n "$deps" ] || return 0
+	parent="" parent_known=""
 	old_ifs="$IFS"
 	IFS=','
 	# Splitting the csv into positional params is the point here.
@@ -645,7 +649,11 @@ deps_check() {
 		[ -n "$dep" ] || continue
 		if hash="$(completed_get "$dep")"; then
 			printf '%s\t%s\n' "$dep" "$hash"
-		elif [ -n "$parent" ] && [ -e "$ns/state/unmerged/$dep" ] &&
+		elif { [ -n "$parent_known" ] || {
+			parent="$(stack_parent "$id")" || :
+			parent_known=1
+		}; } &&
+			[ -n "$parent" ] && [ -e "$ns/state/unmerged/$dep" ] &&
 			hash="$(git -C "$repo_root" rev-parse --short=12 "refs/heads/radin/$dep" 2>/dev/null)"; then
 			printf '%s\t%s\n' "$dep" "$hash"
 		else

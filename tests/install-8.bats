@@ -38,6 +38,7 @@ load helpers/install
   [ -z "$(find "$TEST_HOME/.radin/hosts/claude/lib" -type f ! -name '*.md')" ]
   [ -f "$TEST_HOME/.radin/hosts/claude/lib/radin-run.md" ]
   [ ! -e "$TEST_HOME/.claude/.radin" ]
+  grep -q '"hostlib": \[.*"radin-run.md"' "$TEST_HOME/.radin/manifest.json"
 }
 
 @test "bare radin on a tty opens the TUI" {
@@ -81,6 +82,7 @@ load helpers/install
   [ "$(manifest_array hosts)" = '"claude", "codex", "opencode"' ]
   [ "$(manifest_array agents_clis)" = '"codex", "opencode"' ]
   assert_no_agents_marker
+  [ "$(wc -l <"$TEST_HOME/cc.log" | tr -d ' ')" = 2 ]
 }
 
 @test "--update --dry-run lists writes and changes no byte" {

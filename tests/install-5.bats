@@ -127,15 +127,6 @@ load helpers/install
   [[ "$WIZ_SCREEN" == *"hosts: claude"* ]]
 }
 
-@test "all three hosts build the C helpers once" {
-  mock_cli codex
-  mock_cli opencode
-  agents_root
-  run install_from "$AROOT" --yes --only claude,codex,opencode
-  [ "$status" -eq 0 ]
-  [ "$(wc -l <"$TEST_HOME/cc.log" | tr -d ' ')" = 2 ]
-}
-
 @test "opencode's own skill dir counts as present and gets no second copy" {
   mock_cli opencode
   agents_root
@@ -145,24 +136,6 @@ load helpers/install
   [ "$status" -eq 0 ]
   [ ! -e "$TEST_HOME/.agents/skills/lean-build" ]
   [ -f "$TEST_HOME/.agents/skills/safe-refactor/SKILL.md" ]
-}
-
-@test "--update refetches an owned skill, keeps it on a failed refetch and leaves a foreign one alone" {
-  mock_cli codex
-  agents_root
-  install_from "$AROOT" --yes --only codex >/dev/null
-  printf 'stale\n' >"$TEST_HOME/.agents/skills/ponytail/SKILL.md"
-  printf 'kept\n' >"$TEST_HOME/.agents/skills/lean-build/SKILL.md"
-  export MOCK_CURL_FAIL=/lean-build/
-  run install_from "$AROOT" --update
-  [ "$status" -eq 0 ]
-  grep -qx 'name: ponytail' "$TEST_HOME/.agents/skills/ponytail/SKILL.md"
-  [ "$(cat "$TEST_HOME/.agents/skills/lean-build/SKILL.md")" = kept ]
-  [ "$(manifest_array agents_skills | tr ',' '\n' | grep -c .)" = 19 ]
-  unset MOCK_CURL_FAIL
-  sed -i.bak 's/"lean-build", //; s/, "lean-build"//' "$TEST_HOME/.radin/manifest.json"
-  run install_from "$AROOT" --update
-  [ "$(cat "$TEST_HOME/.agents/skills/lean-build/SKILL.md")" = kept ]
 }
 
 @test "--dry-run prints a curl line per file of each skill it would fetch and writes nothing" {
