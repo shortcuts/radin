@@ -32,9 +32,10 @@
 #   radin-state.sh preflight                    # run the startup checks, print "empty" | "session<TAB>missing" | "stuck<TAB>id<TAB>attempts<TAB>note" | "waiting<TAB>id<TAB>note" | "rank<TAB>csv" | "leftovers", exit 0
 #   radin-state.sh steps-open                   # print "id<TAB>question" per open decision of a pending entry, exit 1 if none
 #   radin-state.sh steps-list                   # print "id<TAB>order<TAB>status<TAB>attempts<TAB>note" per entry, exit 1 if none
-#   radin-state.sh wave-partition [--wave N] [--cap N]  # read ids on stdin, print "group<TAB>n<TAB>csv", "apart<TAB>a<TAB>b<TAB>shared paths" and "unplanned<TAB>id"; exit 1 on empty input; claims nothing; the cap defaults to $RADIN_WAVE_CAP, else 4; --wave also records a parallel serialized telemetry event per apart pair, unplanned id and cap-split id
+#   radin-state.sh wave-partition [--wave N] [--cap N]  # read ids on stdin, print "group<TAB>n<TAB>csv", "apart<TAB>a<TAB>b<TAB>shared paths" and "unplanned<TAB>id"; exit 1 on empty input; claims nothing; the cap comes from `wave-cap`; --wave also records a parallel serialized telemetry event per apart pair, unplanned id and cap-split id
 #   radin-state.sh plan-discard <id> <wave> <paths-csv>  # drop a pending task's plan, flag planning needed; journal and record a parallel plan-discarded telemetry event with the planning tokens; exit 1 and write nothing unless the task is pending with a plan
-#   radin-state.sh wave                         # print "id<TAB>order" per pending task whose dependencies are all resolved, exit 1 if none; claims nothing
+#   radin-state.sh wave-cap                     # print the most tasks one wave runs at once: $RADIN_WAVE_CAP, else the install manifest's wave_cap, else 2
+#   radin-state.sh wave                         # print "id<TAB>order" for the first `wave-cap` pending tasks whose dependencies are all resolved, exit 1 if none; claims nothing
 #   radin-state.sh recover <id>                 # recover a task a dead session left in_progress; exit 3 prints commits only the model can judge
 #   radin-state.sh recover-reject <id>          # those commits do not satisfy the task: block the entry naming them
 #   radin-state.sh report                       # print the finished end-of-session report
@@ -265,14 +266,8 @@ write_entry() {
 
 # Prints entry $2's line from steps-file $1, empty when absent.
 entry_line() {
-	local line
-	while IFS= read -r line || [ -n "$line" ]; do
-		[ -n "$line" ] || continue
-		if [ "$(json_get id "$line")" = "$2" ]; then
-			printf '%s' "$line"
-		fi
-	done <"$1"
-	return 0
+	# One grep, not a read loop: a fork per line made `wave` take minutes on 99 entries.
+	grep -F -m1 -- "{\"id\":\"$2\"," "$1" | tr -d '\n' || true
 }
 
 # Sets task $1's status $2 with note $3, keeping its attempts.
@@ -349,14 +344,8 @@ claim() {
 completed_get() {
 	local line
 	[ -f "$completed" ] || return 1
-	while IFS= read -r line || [ -n "$line" ]; do
-		[ -n "$line" ] || continue
-		if [ "$(json_get id "$line")" = "$1" ]; then
-			json_get commit "$line"
-			return 0
-		fi
-	done <"$completed"
-	return 1
+	line="$(grep -F -m1 -- "{\"id\":\"$1\"," "$completed")" || return 1
+	json_get commit "$line"
 }
 
 # Prints the tree task $1's sub-agent worked in: its worktree if one exists,
@@ -693,6 +682,16 @@ record_status_line() {
 	[ -z "$longform" ] ||
 		(cd "$repo_root" && bash "$LIB_DIR/radin-backlog.sh" set-meta "$id" facts "$longform" >/dev/null)
 	RECORDED="$body"
+}
+
+# The most tasks one wave runs at once: RADIN_WAVE_CAP, else the install-time
+# `wave_cap` in the manifest, else 2.
+wave_cap() {
+	local cap="${RADIN_WAVE_CAP:-}"
+	[ -n "$cap" ] || cap="$(sed -n 's/.*"wave_cap": *\([0-9]*\).*/\1/p' "$HOME/.radin/manifest.json" 2>/dev/null | head -1)" || true
+	cap="${cap:-2}"
+	case "$cap" in '' | *[!0-9]* | 0*) die "wave cap needs a positive integer, got: $cap" ;; esac
+	printf '%s' "$cap"
 }
 
 cmd="${1:-}"
@@ -1165,8 +1164,7 @@ steps-list)
 	;;
 
 wave-partition)
-	cap="${RADIN_WAVE_CAP:-4}" wave=""
-	case "$cap" in '' | *[!0-9]* | 0*) die "wave-partition: RADIN_WAVE_CAP needs a positive integer, got: $cap" ;; esac
+	cap="$(wave_cap)" wave=""
 	shift
 	while [ "$#" -gt 0 ]; do
 		case "$1" in
@@ -1301,11 +1299,17 @@ plan-discard)
 	printf 'plan-discarded\t%s\t%s\t%s\n' "$id" "$wave" "$tokens"
 	;;
 
+wave-cap)
+	wave_cap
+	printf '\n'
+	;;
+
 wave)
 	# Read-only: a stacked dependency reads as resolved here, but nothing claims
 	# or blocks it, so reading the wave twice changes nothing.
 	[ -s "$steps" ] || exit 1
-	found=1
+	cap="$(wave_cap)"
+	found=1 shown=0
 	while IFS= read -r line || [ -n "$line" ]; do
 		[ -n "$line" ] || continue
 		[ "$(json_get status "$line")" = "pending" ] || continue
@@ -1316,6 +1320,8 @@ wave)
 		deps_check "$id" >/dev/null 2>&1 || continue
 		printf '%s\t%s\n' "$id" "$(num_field "$line" order)"
 		found=0
+		shown=$((shown + 1))
+		[ "$shown" -lt "$cap" ] || break
 	done <"$steps"
 	exit "$found"
 	;;

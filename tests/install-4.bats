@@ -142,6 +142,21 @@ SH
   [[ "$WIZ_SCREEN" == *"[1/7] Resolving radin source"* ]]
 }
 
+@test "--wave-cap N is stored in the manifest, defaults to 2, survives --update, and must be positive" {
+  run_install_defaults >/dev/null
+  grep -q '"wave_cap": 2' "$TEST_HOME/.radin/manifest.json"
+  cd "$REPO_ROOT" && run bash ./install.sh --yes --wave-cap 3 </dev/null
+  [ "$status" -eq 0 ]
+  grep -q '"wave_cap": 3' "$TEST_HOME/.radin/manifest.json"
+  run bash ./install.sh --yes --update </dev/null
+  [ "$status" -eq 0 ]
+  grep -q '"wave_cap": 3' "$TEST_HOME/.radin/manifest.json"
+  run bash ./install.sh --yes --wave-cap 0 </dev/null
+  [ "$status" -eq 2 ]
+  run bash ./install.sh --yes --wave-cap </dev/null
+  [ "$status" -eq 2 ]
+}
+
 @test "--update asks nothing and prints the Recap with the kept answers" {
   replay_install >/dev/null
   cd "$REPO_ROOT" && run bash ./install.sh --update </dev/null

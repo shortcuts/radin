@@ -531,3 +531,31 @@ mkplan() {
   [ "$status" -eq 0 ]
   [ "$output" = "Invoke /grilling to tackle this task." ]
 }
+
+epic_backlog() {
+  mkdir -p "$TASKS/big" "$TASKS/small"
+  cat >"$INDEX" <<'IDX'
+{"id":"loose","category":"feat","title":"loose","file":"tasks/loose.md","priority":21}
+{"id":"s-1","category":"feat","title":"s 1","file":"tasks/small/s-1.md","priority":13}
+{"id":"b-1","category":"feat","title":"b 1","file":"tasks/big/b-1.md","priority":8}
+{"id":"b-2","category":"feat","title":"b 2","file":"tasks/big/b-2.md","priority":8}
+{"id":"b-3","category":"feat","title":"b 3","file":"tasks/big/b-3.md","priority":5}
+IDX
+}
+
+@test "suggest names the epic holding the highest-priority task, and recommends it only above the threshold" {
+  epic_backlog
+  run cli suggest
+  [ "$status" -eq 0 ]
+  [ "${lines[0]}" = $'tasks\t5\tall' ]
+  [ "${lines[1]}" = $'epic\tsmall\t1' ]
+  RADIN_EPIC_THRESHOLD=4 run cli suggest
+  [ "${lines[0]}" = $'tasks\t5\tepic' ]
+}
+
+@test "suggest prints no epic line when the backlog holds no epic" {
+  prioritized_backlog
+  run cli suggest
+  [ "$status" -eq 0 ]
+  [ "$output" = $'tasks\t4\tall' ]
+}

@@ -47,6 +47,7 @@
 #   radin-backlog.sh remove <id-or-title>        # delete task file + index entry (exact single match required)
 #   radin-backlog.sh reconcile                  # drop backlog entries whose id is already in completed.json
 #   radin-backlog.sh epics                       # print every epic id, one per line
+#   radin-backlog.sh suggest [order flags]       # print "tasks<TAB><count><TAB>all|epic" (epic when the count exceeds RADIN_EPIC_THRESHOLD, default 20, and an epic exists) and "epic<TAB><id><TAB><task count>" for the epic that holds the first task in `order --steps`
 #   radin-backlog.sh scope <epic-id|id-or-title>  # print "ids<TAB><csv>" (the epic's tasks or the one task, plus every task they transitively depend on) and, when the closure added any, "dependencies<TAB><csv>"; exit 1 no match, 2 several tasks (candidates on stderr)
 #   radin-backlog.sh epic-add <epic-id>          # create the epic dir + DESCRIPTION.md (body from stdin when piped)
 #   radin-backlog.sh epic-show <epic-id>         # print the epic's DESCRIPTION.md
@@ -1596,6 +1597,24 @@ epics)
 		d="${d%/}"
 		printf '%s\n' "${d##*/}"
 	done
+	;;
+
+suggest)
+	require_index
+	shift
+	threshold="${RADIN_EPIC_THRESHOLD:-20}"
+	case "$threshold" in '' | *[!0-9]* | 0*) die "suggest: RADIN_EPIC_THRESHOLD needs a positive integer, got: $threshold" ;; esac
+	total="$(grep -c . "$BACKLOG_INDEX" || true)"
+	# The first ranked task that sits in an epic names the epic to tackle first.
+	top="$(awk -F'\t' 'NR == FNR { e[$1] = $2; next }
+		($1 in e) && e[$1] != "" { c[e[$1]]++; if (top == "") top = e[$1] }
+		END { if (top != "") printf "%s\t%s\n", top, c[top] }' \
+		<(awk "$AWK_JSON"'$0 != "" { print jstr($0, "id") "\t" fepic(jstr($0, "file")) }' "$BACKLOG_INDEX") \
+		<(bash "${BASH_SOURCE[0]}" order --steps "$@"))"
+	pick=all
+	{ [ -z "$top" ] || [ "$total" -le "$threshold" ]; } || pick=epic
+	printf 'tasks\t%s\t%s\n' "$total" "$pick"
+	[ -z "$top" ] || printf 'epic\t%s\n' "$top"
 	;;
 
 scope)

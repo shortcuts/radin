@@ -48,7 +48,7 @@ host_detected() {
 }
 
 usage_exit() {
-	printf 'usage: install.sh [--yes] [--verbose] [--details] [--update] [--refresh] [--list] [--dry-run] [--force] [--only ID[,ID...]]\n' >&2
+	printf 'usage: install.sh [--yes] [--verbose] [--details] [--update] [--refresh] [--list] [--dry-run] [--force] [--wave-cap N] [--only ID[,ID...]]\n' >&2
 	printf 'hosts: %s\n' "$(host_ids | tr '\n' ' ')" >&2
 	exit 2
 }
@@ -103,11 +103,18 @@ while [ $# -gt 0 ]; do
 		ONLY="${1#--only=}"
 		ONLY_SET="1"
 		;;
+	--wave-cap)
+		[ $# -ge 2 ] || usage_exit
+		WAVE_CAP="$2"
+		shift
+		;;
+	--wave-cap=*) WAVE_CAP="${1#--wave-cap=}" ;;
 	*) usage_exit ;;
 	esac
 	shift
 done
 [ -z "$ONLY_SET" ] || select_ids "$ONLY"
+[ -z "${WAVE_CAP+x}" ] || case "$WAVE_CAP" in '' | *[!0-9]* | 0*) usage_exit ;; esac
 
 if [ -n "$LIST" ]; then
 	for id in $(host_ids); do
@@ -130,6 +137,9 @@ manifest_list() {
 	[ -f "$MANIFEST_FILE" ] || return 0
 	sed -n 's/.*"'"$1"'": *\[\([^]]*\)\].*/\1/p' "$MANIFEST_FILE" | head -1 | tr -d '",'
 }
+# Tasks one /radin-batch wave runs at once. An update keeps the stored value.
+if [ -z "${WAVE_CAP+x}" ] && [ -n "$UPDATE" ]; then WAVE_CAP="$(manifest_value wave_cap)"; fi
+WAVE_CAP="${WAVE_CAP:-2}"
 
 # --verbose traces every command and lets companion installs write straight to
 # the terminal. A hang shows the command it is stuck in, which a captured log
@@ -602,6 +612,7 @@ $(_row "" "$MODEL_MINOR: fact-finding, low-complexity")"
 $(_row Models "n/a, Claude Code not selected")"
 	fi
 	rows="$rows
+$(_row Concurrency "$WAVE_CAP tasks at once")
 $(_row "Package manager" "$PKG_MGR")
 $(_row "Install into" "$(printf '~%s' "${RADIN_HOME#"$HOME"}")")"
 	while IFS= read -r line; do
@@ -2173,6 +2184,7 @@ cat >"$MANIFEST_FILE" <<EOF
   "installed_at": "$INSTALLED_AT",
   "package_manager": "$PKG_MGR",
   "install_root": "$RADIN_ROOT",
+  "wave_cap": $WAVE_CAP,
   "model_planning": "$MODEL_MAJOR",
   "model_execution": "$MODEL_MAJOR",
   "model_review": "$MODEL_MAJOR",

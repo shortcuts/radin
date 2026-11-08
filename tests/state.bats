@@ -12,6 +12,8 @@ setup() {
   isolate_env "$WORK/home"
   git -C "$P" commit -q --allow-empty -m init
   (cd "$P" && bash "$REPO_ROOT/lib/radin-backlog.sh" add fix "t one" <<<"body")
+  # Most tests want a wide wave; the cap tests unset it.
+  export RADIN_WAVE_CAP=4
 }
 
 teardown() {
@@ -465,6 +467,42 @@ stack_setup() {
   [ "$output" = $'t-one\t1\nt-two\t2\nt-three\t3' ]
   [ "$first" = "$output" ]
   [ "$(state steps-list)" = "$before" ]
+}
+
+@test "wave prints at most 2 ready tasks by default, the first by order" {
+  unset RADIN_WAVE_CAP
+  for i in 1 2 3 4 5 6; do printf 't-%s\t%s\t\tpending\n' "$i" "$i"; done | state steps-init >/dev/null
+  run state wave
+  [ "$status" -eq 0 ]
+  [ "${#lines[@]}" -eq 2 ]
+  [ "${lines[1]}" = $'t-2\t2' ]
+  [ "$(state wave-cap)" = 2 ]
+}
+
+@test "the wave cap comes from RADIN_WAVE_CAP, else the install manifest, and must be positive" {
+  unset RADIN_WAVE_CAP
+  for i in 1 2 3 4 5 6; do printf 't-%s\t%s\t\tpending\n' "$i" "$i"; done | state steps-init >/dev/null
+  mkdir -p "$HOME/.radin"
+  printf '{\n  "wave_cap": 3,\n  "version": "x"\n}\n' >"$HOME/.radin/manifest.json"
+  run state wave
+  [ "${#lines[@]}" -eq 3 ]
+  [ "$(state wave-cap)" = 3 ]
+  RADIN_WAVE_CAP=4 run state wave
+  [ "${#lines[@]}" -eq 4 ]
+  RADIN_WAVE_CAP=0 run state wave
+  [ "$status" -ne 0 ]
+  RADIN_WAVE_CAP=0 run state wave-cap
+  [ "$status" -ne 0 ]
+}
+
+@test "wave stays fast when completed.json holds hundreds of tasks" {
+  for i in $(seq 1 400); do printf '{"id":"done-%s","commit":"abc%s"}\n' "$i" "$i"; done >"$P/.radin/state/completed.json"
+  for i in $(seq 1 30); do printf 't-%s\t%s\tdone-%s,done-%s\tpending\n' "$i" "$i" "$((i * 10))" "$((i * 12))"; done | state steps-init >/dev/null
+  start=$SECONDS
+  RADIN_WAVE_CAP=30 run state wave
+  [ "$status" -eq 0 ]
+  [ "${#lines[@]}" -eq 30 ]
+  [ $((SECONDS - start)) -lt 10 ]
 }
 
 @test "wave counts a done dependency as resolved" {

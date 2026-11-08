@@ -40,13 +40,19 @@ you.
   and never name a tree for a sub-agent: `prepare` reads `session.json` and
   decides.
 - **The execution order is not confirmed.** `backlog order` computes it and
-  Phase 2 prints it. The user is asked only which tasks to tackle now, and
+  Phase 2 prints it. The user is asked only which tasks to tackle now (all, or
+  the suggested epic), and
   for any worktree or branch answer still missing, before anything is written
   to `BACKLOG_STEPS.json` and before any sub-agent is dispatched.
 - **Read-only dispatches get no worktree.** Planning, fact-finding and
   debugging sub-agents write no repo code and no shared file, so they never
   call `RADIN_CLI state prepare`, whatever Phase 0 recorded. Several
-  fact-finding or debugging dispatches due at once go out as one message.
+  fact-finding or debugging dispatches due at once go out in messages of at
+  most the wave cap.
+- **The wave cap limits sub-agents running at once.** Run `RADIN_CLI state wave-cap`
+  once per session. Every message you send holds at most that many dispatches,
+  and you start no dispatch while that many run. **Why:** 99 ready tasks
+  planned in one message stalled a run before its first commit.
 - **Phase 0's worktree answer sets execution concurrency.** `yes`: Phase 4 runs
   waves, and only a group the partition proves disjoint goes out in one message.
   `no`: Phase 4's serial loop runs one task at a time in the main checkout.
@@ -117,8 +123,8 @@ Then run `RADIN_CLI state stash-triage`. Each `candidate<TAB>hash<TAB>id` line
 becomes one `RADIN_CLI prompt factfind "<id>" "Does the uncommitted work in git
 stash <hash> (read it with git stash show -p --include-untracked <hash>)
 continue the task at TASK_FILE, judged against that task's body, acceptance and
-plan? Answer FOUND — yes or FOUND — no, with one reason."` dispatch, all in one
-message. For each answer run `RADIN_CLI state stash-claim <hash> <id>` on
+plan? Answer FOUND — yes or FOUND — no, with one reason."` dispatch, as many
+per message as the wave cap allows. For each answer run `RADIN_CLI state stash-claim <hash> <id>` on
 `FOUND — yes` and `RADIN_CLI state stash-claim <hash> -` on any other answer;
 a claim that exits non-zero ("already triaged") is ignored. Print the `left`
 line as `N radin-batch stashes left in place (git stash list)`.
@@ -163,11 +169,14 @@ questions a prompt may pre-answer.
    <!-- host:agents -->
 2. Ask per `RADIN_LIB/radin-ask-rule.md`, with fixed choices:
    <!-- /host -->
-   - **Task selection** (unless Phase 1 resolved a scope): "Which
-     tasks now?" Options: `All of them` /
-     `Only the ones I name` / `Just the first one`. `Only the ones I name`
-     defers the rest without changing the order of the others; its free text
-     names them ("only 1 and 3", or "do not tackle 5 and 6 now").
+   - **Task selection** (unless Phase 1 resolved a scope): run
+     `RADIN_CLI backlog suggest <Phase 0's --rank/--infer-deps flags>` first.
+     It prints `tasks<TAB>N<TAB>all|epic`, then `epic<TAB><id><TAB><count>`
+     when an epic exists. No `epic` line: every task runs, so ask nothing here.
+     Else ask "Which tasks now?" with exactly two options: `All of them (N
+     tasks)` and `Epic <id> (<count> tasks)`. Put first the one the `tasks`
+     line names, and end its label with `(Recommended)`. The user states a
+     narrower scope in the invoking prompt, so offer no third option.
    - **Worktree** (if Phase 0 printed `session`): "Git worktree for tasks that run in parallel?"
      Options: `Yes` / `No`.
    - **Branch** (if Phase 0 printed `session`): "Own branch per task?" Options:
@@ -180,12 +189,10 @@ questions a prompt may pre-answer.
        dependencies it pulled in, and the deferred count in the run summary, so
        the user sees what the run adds and leaves out.
      - **All of them**: no flag.
-     - **Just the first one**: `--first`.
-     - **Only the ones I name** (or "Other" text): read the references off the
-       free text (order numbers, titles, or ids) and pass them as they are:
-       `--only <the references csv>`. Run it with the `--rank` and
-       `--infer-deps` flags Step 1 used, so the numbers match the report. On
-       exit 2 the verb printed the candidates: ask again.
+     - **Epic <id>**: run `RADIN_CLI backlog scope "<id>"` as Phase 1 does and
+       pass `--only <its ids csv>`.
+     - **"Other" text**: treat it as a name and resolve it as Phase 1 does. On
+       exit 1 or 2, ask again.
 
 ## Phase 3: Persist Execution Plan
 
@@ -341,7 +348,8 @@ the loop from reaching Phase 4.5.
 
 ### Wave mode (worktree yes)
 
-A wave is the pending tasks whose dependencies are all done. Count waves from 1
+A wave is at most `state wave-cap` (default 2) of the pending tasks whose
+dependencies are all done, lowest `order` first. Count waves from 1
 in this session, and call the current number `N`. Dispatch, report, heartbeat
 and `--usage` work as in the loop above. Wave mode never passes `--next`,
 because it would claim a task outside the group.
