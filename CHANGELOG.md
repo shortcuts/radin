@@ -1,5 +1,17 @@
 # Changelog
 
+## [3.1.1](https://github.com/shortcuts/radin/compare/v3.1.0...v3.1.1) (2026-11-08)
+
+
+### Bug Fixes
+
+* concurrency ([c83ffc9](https://github.com/shortcuts/radin/commit/c83ffc9f054e8153df84a4266a66a6a45aaf2870))
+
+
+### Performance Improvements
+
+* **test:** cut process spawns and live installs ([aaa7f11](https://github.com/shortcuts/radin/commit/aaa7f114c8504b38227479387115165c9e5597c9))
+
 ## [3.1.0](https://github.com/shortcuts/radin/compare/v3.0.0...v3.1.0) (2026-11-06)
 
 
