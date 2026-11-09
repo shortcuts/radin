@@ -217,18 +217,23 @@ fn report_inner(s: &S, a: &[String], usages: &[String], io: &mut Io) -> R {
         return next_continue(io);
     }
     let line = third;
+    // A summary may quote another status word, so only the word after `STATUS:` counts.
+    let head = line
+        .split_once("STATUS:")
+        .map_or(line, |x| x.1)
+        .trim_start();
     let (mut word, mut tag) = ("", "");
-    if line.contains("STATUS: PLANNED") {
+    if head.starts_with("PLANNED") {
         word = "PLANNED";
-    } else if line.contains("BLOCKED (FACT)") {
+    } else if head.starts_with("BLOCKED (FACT)") {
         (word, tag) = ("BLOCKED", "FACT");
-    } else if line.contains("BLOCKED (DECISION)") {
+    } else if head.starts_with("BLOCKED (DECISION)") {
         (word, tag) = ("BLOCKED", "DECISION");
-    } else if line.contains("STATUS: INCONCLUSIVE") {
+    } else if head.starts_with("INCONCLUSIVE") {
         word = "INCONCLUSIVE";
-    } else if line.contains("SUCCESS") {
+    } else if head.starts_with("SUCCESS") {
         word = "SUCCESS";
-    } else if line.contains("FAILED") {
+    } else if head.starts_with("FAILED") {
         word = "FAILED";
     }
     if word.is_empty() {

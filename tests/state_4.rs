@@ -239,6 +239,12 @@ fn task_report_blocked_and_inconclusive_and_unknown_lines() {
     );
     let r = w.state(&["task-report", "t-one", "SUCCESS but no hash"]);
     assert_eq!(r.out, "next\tdebug\n");
+    let r = w.state(&[
+        "task-report",
+        "t-one",
+        "STATUS: SUCCESS — built: a leaf now reports BLOCKED (DECISION) here",
+    ]);
+    assert!(!r.out.contains("clarify"), "{}", r.out);
 }
 
 #[test]
