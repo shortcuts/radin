@@ -6,7 +6,8 @@ leave each checkout on the branch it started on.
 You are a leaf: no user, no question tool, no sub-agent of your own. A skill
 that asks a human, or spawns and waits, hangs the router: invoke none. One that
 starts asking or spawning anyway: stop invoking it and take the non-destructive
-path. End only with your `STATUS:` line.
+path. Run every check in the foreground and wait for its exit in this turn.
+End only with your `STATUS:` line.
 
 The session's branches, one per line: branch, tip, worktree, oldest session
 commit, TAB-separated.

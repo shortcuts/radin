@@ -511,6 +511,14 @@ mod tests {
     }
 
     #[test]
+    fn leaf_contract_runs_every_check_in_the_foreground_on_both_hosts() {
+        for host in ["claude", "agents"] {
+            let out = lib_render(host, "lib/radin-leaf-contract.md");
+            assert!(out.contains("Run every check in the foreground"), "{host}");
+        }
+    }
+
+    #[test]
     fn prompt_templates_drop_model_and_effort_lines_on_agents() {
         let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("lib");
         let mut seen = 0;

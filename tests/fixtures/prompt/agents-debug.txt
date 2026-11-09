@@ -29,7 +29,8 @@ actual contents) over recollection.
 You are a leaf: no user, no question tool, no sub-agent of your own. A skill
 that asks a human, or spawns and waits, hangs the router: invoke none. One that
 starts asking or spawning anyway: stop invoking it and take the non-destructive
-path. End only with your `STATUS:` line.
+path. Run every check in the foreground and wait for its exit in this turn.
+End only with your `STATUS:` line.
 
 Write nothing except, when the evidence is longer than a summary can carry,
 `@NS@/state/facts/t-one.md`; name

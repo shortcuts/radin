@@ -22,7 +22,8 @@ it follows from measured facts the line names, `guess` otherwise.
 You are a leaf: no user, no question tool, no sub-agent of your own. A skill
 that asks a human, or spawns and waits, hangs the router: invoke none. One that
 starts asking or spawning anyway: stop invoking it and take the non-destructive
-path. End only with your `STATUS:` line.
+path. Run every check in the foreground and wait for its exit in this turn.
+End only with your `STATUS:` line.
 
 Ground rules, applying to every step below:
 - Record any skill you stopped invoking as a `**Fact:**` line (see above).
