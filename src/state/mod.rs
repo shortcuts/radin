@@ -2,6 +2,7 @@ mod branches;
 mod done;
 mod git;
 mod land;
+mod leftover;
 mod plan_cover;
 mod queue;
 mod report;

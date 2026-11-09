@@ -390,3 +390,105 @@ fn plan_discard_counts_only_planning_tokens_since_the_previous_discard() {
         (0, "plan-discarded\tt-one\t2\t50\n")
     );
 }
+
+fn leftover_setup(w: &W) -> std::path::PathBuf {
+    w.plan_with(&["a.txt", "dir/b c.txt"]);
+    w.git(&["add", ".gitignore"]);
+    w.git(&["commit", "-q", "-m", "ignore"]);
+    w.steps_init("t-one\t1\t\tpending\n");
+    assert_eq!(w.state(&["session-set", "yes", "yes"]).code, 0);
+    std::path::PathBuf::from(w.prep_dir("t-one"))
+}
+
+#[test]
+fn leftover_file_in_a_pending_tasks_plan_lands_on_its_branch_and_main_stays_clean() {
+    let w = W::new();
+    let wt = leftover_setup(&w);
+    let head = w.git(&["rev-parse", "HEAD"]);
+    w.write("a.txt", "draft\n");
+    w.write("dir/b c.txt", "spaced\n");
+    let r = w.state(&["report"]);
+    assert_eq!(r.code, 0, "{}", r.all());
+    assert!(
+        r.out
+            .contains("residual changes moved to their tasks (2 files)."),
+        "{}",
+        r.out
+    );
+    assert_eq!(
+        w.git_at(&wt, &["log", "-1", "--format=%s"]),
+        "wip(t-one): unfinished work, task not complete"
+    );
+    assert_eq!(w.git_at(&wt, &["show", "HEAD:dir/b c.txt"]), "spaced");
+    assert_eq!(w.git(&["rev-parse", "HEAD"]), head);
+    assert!(w.git(&["status", "--porcelain"]).is_empty());
+    assert!(!w.exists("a.txt"));
+}
+
+#[test]
+fn leftover_file_of_an_in_progress_task_goes_to_main() {
+    let w = W::new();
+    let wt = leftover_setup(&w);
+    w.state(&["set-status", "t-one", "in_progress", ""]);
+    let tip = w.git_at(&wt, &["rev-parse", "HEAD"]);
+    w.write("a.txt", "draft\n");
+    let r = w.state(&["report"]);
+    assert_eq!(r.code, 0, "{}", r.all());
+    assert_eq!(w.git_at(&wt, &["rev-parse", "HEAD"]), tip);
+    assert_eq!(w.git(&["log", "-1", "--format=%s"]), "wip: update a.txt");
+    assert!(
+        r.out.contains("residual changes committed as "),
+        "{}",
+        r.out
+    );
+}
+
+#[test]
+fn leftover_file_no_plan_names_or_a_branch_changed_goes_to_main_and_a_mixed_dirty_tree_splits() {
+    let w = W::new();
+    let wt = leftover_setup(&w);
+    std::fs::create_dir_all(wt.join("dir")).unwrap();
+    std::fs::write(wt.join("dir/b c.txt"), "branch\n").unwrap();
+    w.git_at(&wt, &["add", "-A"]);
+    w.git_at(&wt, &["commit", "-qm", "feat: branch edit"]);
+    w.write("a.txt", "mine\n");
+    w.write("dir/b c.txt", "main edit\n");
+    w.write("other.txt", "stray\n");
+    let r = w.state(&["report"]);
+    assert_eq!(r.code, 0, "{}", r.all());
+    assert!(
+        r.out.contains("and 1 files moved to their tasks."),
+        "{}",
+        r.out
+    );
+    assert_eq!(w.git_at(&wt, &["show", "HEAD:a.txt"]), "mine");
+    assert_eq!(w.git_at(&wt, &["show", "HEAD:dir/b c.txt"]), "branch");
+    let main = w.git(&["show", "--name-only", "--format=", "HEAD"]);
+    assert_eq!(
+        main.lines().collect::<Vec<_>>(),
+        ["dir/b c.txt", "other.txt"]
+    );
+    assert!(w.git(&["status", "--porcelain"]).is_empty());
+}
+
+#[test]
+fn reconcile_routes_a_dirty_base_the_same_way() {
+    let w = W::new();
+    leftover_setup(&w);
+    w.write("a.txt", "draft\n");
+    w.write("other.txt", "stray\n");
+    let r = w.state(&["reconcile"]);
+    assert_eq!(r.code, 0, "{}", r.all());
+    assert!(
+        r.out
+            .contains("committed\tt-one\t1 files moved to radin/t-one\n"),
+        "{}",
+        r.out
+    );
+    assert!(
+        r.out
+            .contains("committed\t-\tbase checkout was dirty, saved as "),
+        "{}",
+        r.out
+    );
+}

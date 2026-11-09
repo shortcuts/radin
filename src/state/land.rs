@@ -1,4 +1,5 @@
 use super::git::{branch_worktree, commit_dirty, dirty_files, g, gt, gx, ok, wip_commit};
+use super::leftover;
 use super::store::{self, get, json_escape};
 use super::{arg, die, mkdir, write, S};
 use crate::backlog::{Fail, Io, R};
@@ -399,17 +400,17 @@ pub fn reconcile(s: &S, io: &mut Io) -> R {
     if s.radin_branches().is_empty() {
         return Ok(0);
     }
-    if !dirty_files(&s.root).is_empty() {
-        if !commit_dirty(
-            &s.root,
-            "radin committed these so the landing is not blocked. Amend or split as needed.",
-        ) {
-            return Err(die("cannot commit the dirty base checkout"));
-        }
+    let routed = leftover::route(
+        s,
+        "radin committed these so the landing is not blocked. Amend or split as needed.",
+    )?;
+    for (id, n) in &routed.to_tasks {
+        let _ = writeln!(io.out, "committed\t{id}\t{n} files moved to radin/{id}");
+    }
+    if let Some(r) = routed.main_hash {
         let _ = writeln!(
             io.out,
-            "committed\t-\tbase checkout was dirty, saved as {}",
-            s.gt(&["rev-parse", "--short", "HEAD"])
+            "committed\t-\tbase checkout was dirty, saved as {r}"
         );
     }
     if !gx(&s.root, &["checkout", "-q", &base], io) {

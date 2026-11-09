@@ -1,4 +1,3 @@
-use super::git::commit_dirty;
 use super::store::{get, num, read_lines, FINDING_SECTIONS};
 use super::{arg, die, S};
 use crate::backlog::{Io, R};
@@ -139,22 +138,19 @@ pub fn report(s: &S, io: &mut Io) -> R {
         })
         .collect();
 
-    let mut residual = "no residual changes".to_string();
-    if !super::git::dirty_files(&s.root).is_empty() {
-        if !commit_dirty(
-            &s.root,
-            "radin committed these at session end; no task owns them. Amend or split as needed.",
-        ) {
-            return Err(die("cannot commit the residual changes"));
+    let routed = super::leftover::route(
+        s,
+        "radin committed these at session end; no task owns them. Amend or split as needed.",
+    )?;
+    let moved: usize = routed.to_tasks.iter().map(|t| t.1).sum();
+    let residual = match (routed.main_hash, moved) {
+        (None, 0) => "no residual changes".to_string(),
+        (None, n) => format!("residual changes moved to their tasks ({n} files)"),
+        (Some(r), 0) => format!("residual changes committed as {r}"),
+        (Some(r), n) => {
+            format!("residual changes committed as {r} and {n} files moved to their tasks")
         }
-        let r = s.gt(&["rev-parse", "--short", "HEAD"]);
-        s.journal(
-            "wip-commit",
-            "",
-            &format!("{r} in {} -- left at session end", s.root.display()),
-        );
-        residual = format!("residual changes committed as {r}");
-    }
+    };
 
     let completed = read_lines(&s.completed);
     let mut succeeded = String::new();
