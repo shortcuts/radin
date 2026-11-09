@@ -29,13 +29,17 @@ fn task_report_accepts_a_commit_inside_the_plan_paths() {
 }
 
 #[test]
-fn task_report_fails_a_commit_with_a_file_outside_the_plan_and_records_out_of_bounds() {
+fn task_report_accepts_a_commit_with_a_file_outside_the_plan_and_records_out_of_bounds() {
     let w = W::new();
     w.plan_with(&["lib/a.sh"]);
     w.commit_files(&["lib/a.sh", "lib/other.sh"]);
     let r = w.report_success();
     assert_eq!(r.code, 0);
-    assert!(r.out.contains("next\tdebug"), "{}", r.out);
+    assert!(
+        r.out.contains(&format!("recorded at {}", w.hash.borrow())),
+        "{}",
+        r.out
+    );
     let tele = w.tele.borrow().clone();
     assert_eq!(tele.len(), 1);
     assert!(tele[0].starts_with("out-of-bounds "), "{}", tele[0]);
@@ -43,13 +47,6 @@ fn task_report_fails_a_commit_with_a_file_outside_the_plan_and_records_out_of_bo
         tele[0].contains("plan=lib/a.sh") && tele[0].contains("extra=lib/other.sh"),
         "{}",
         tele[0]
-    );
-    let r = w.report_success();
-    let h = w.hash.borrow().clone();
-    assert!(
-        r.out.contains(&format!("❌ Task 1 't one' failed: commit {h} changes files outside its plan paths: lib/other.sh (plan: lib/a.sh)")),
-        "{}",
-        r.out
     );
 }
 
@@ -62,14 +59,12 @@ fn a_directory_plan_path_matches_by_prefix() {
 }
 
 #[test]
-fn a_directory_plan_path_rejects_a_sibling_name_sharing_its_prefix() {
+fn a_directory_plan_path_does_not_match_a_sibling_name_sharing_its_prefix() {
     let w = W::new();
     w.plan_with(&["lib/"]);
     w.commit_files(&["libx.sh"]);
-    assert!(w
-        .report_failed()
-        .out
-        .contains("outside its plan paths: libx.sh"));
+    assert!(w.report_success().out.contains("recorded at"));
+    assert!(w.tele.borrow()[0].contains("extra=libx.sh"));
 }
 
 #[test]
@@ -88,10 +83,8 @@ fn a_plan_file_path_does_not_accept_a_longer_sibling_name() {
     let w = W::new();
     w.plan_with(&["lib/a"]);
     w.commit_files(&["lib/a", "lib/ab.sh"]);
-    assert!(w
-        .report_failed()
-        .out
-        .contains("outside its plan paths: lib/ab.sh"));
+    assert!(w.report_success().out.contains("recorded at"));
+    assert!(w.tele.borrow()[0].contains("extra=lib/ab.sh"));
 }
 
 #[test]
@@ -126,14 +119,12 @@ fn generated_install_sh_passes_when_shipped_is_in_the_plan() {
 }
 
 #[test]
-fn generated_install_sh_fails_when_shipped_is_not_in_the_plan() {
+fn generated_install_sh_is_accepted_when_shipped_is_not_in_the_plan() {
     let w = W::new();
     w.plan_with(&["lib/a.sh"]);
     w.commit_files(&["lib/a.sh", "install.sh"]);
-    assert!(w
-        .report_failed()
-        .out
-        .contains("outside its plan paths: install.sh"));
+    assert!(w.report_success().out.contains("recorded at"));
+    assert!(w.tele.borrow()[0].contains("extra=install.sh"));
 }
 
 #[test]
@@ -145,14 +136,12 @@ fn generated_svg_passes_with_its_mmd_in_the_plan() {
 }
 
 #[test]
-fn generated_svg_fails_without_its_mmd_in_the_plan() {
+fn generated_svg_is_accepted_without_its_mmd_in_the_plan() {
     let w = W::new();
     w.plan_with(&["lib/a.sh"]);
     w.commit_files(&["lib/a.sh", "docs/agents/lifecycle/f.svg"]);
-    assert!(w
-        .report_failed()
-        .out
-        .contains("outside its plan paths: docs/agents/lifecycle/f.svg"));
+    assert!(w.report_success().out.contains("recorded at"));
+    assert!(w.tele.borrow()[0].contains("extra=docs/agents/lifecycle/f.svg"));
 }
 
 #[test]
@@ -164,14 +153,12 @@ fn a_task_with_no_plan_paths_passes() {
 }
 
 #[test]
-fn a_failing_telemetry_call_still_fails_the_task_with_the_reason() {
+fn a_failing_telemetry_call_does_not_block_a_commit_with_an_extra_file() {
     let w = W::new();
     w.tele_fail.set(true);
     w.plan_with(&["lib/a.sh"]);
     w.commit_files(&["lib/other.sh"]);
-    let r = w.report_success();
-    assert_eq!(r.code, 0);
-    assert!(r.out.contains("next\tdebug"), "{}", r.out);
+    assert!(w.report_success().out.contains("recorded at"));
     assert!(w.tele.borrow().is_empty());
 }
 

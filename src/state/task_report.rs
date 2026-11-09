@@ -300,32 +300,7 @@ fn report_inner(s: &S, a: &[String], usages: &[String], io: &mut Io) -> R {
                 let unproven = unproven_criteria(s, id);
                 let plan = s.plan_files(id);
                 let extras = plan_extras(&s.task_dir(id), &hash, &plan);
-                if extras.is_empty() {
-                    let mut d = Io::default();
-                    let r = task_done(s, id, &hash, &mut d);
-                    let done_out = format!(
-                        "{}{}",
-                        d.out,
-                        d.err + &r.as_ref().err().map_or(String::new(), |e| e.msg.clone())
-                    );
-                    if matches!(r, Ok(0)) {
-                        io.out.push_str(&done_out);
-                        if let Some((_, sum)) = detail.split_once(';') {
-                            let sum = sum.trim_start_matches(' ');
-                            if !sum.is_empty() {
-                                s.journal("summary", id, sum);
-                            }
-                        }
-                        for c in &unproven {
-                            s.journal("unproven", id, c);
-                        }
-                        return next_continue(io);
-                    }
-                    detail = format!(
-                        "reported SUCCESS at {hash}, which does not validate: {}",
-                        done_out.trim_end_matches('\n')
-                    );
-                } else {
+                if !extras.is_empty() {
                     let csv = plan.join(",");
                     s.telemetry(
                         "out-of-bounds",
@@ -336,8 +311,31 @@ fn report_inner(s: &S, a: &[String], usages: &[String], io: &mut Io) -> R {
                             format!("extra={extras}"),
                         ],
                     );
-                    detail = format!("commit {hash} changes files outside its plan paths: {extras} (plan: {csv})");
                 }
+                let mut d = Io::default();
+                let r = task_done(s, id, &hash, &mut d);
+                let done_out = format!(
+                    "{}{}",
+                    d.out,
+                    d.err + &r.as_ref().err().map_or(String::new(), |e| e.msg.clone())
+                );
+                if matches!(r, Ok(0)) {
+                    io.out.push_str(&done_out);
+                    if let Some((_, sum)) = detail.split_once(';') {
+                        let sum = sum.trim_start_matches(' ');
+                        if !sum.is_empty() {
+                            s.journal("summary", id, sum);
+                        }
+                    }
+                    for c in &unproven {
+                        s.journal("unproven", id, c);
+                    }
+                    return next_continue(io);
+                }
+                detail = format!(
+                    "reported SUCCESS at {hash}, which does not validate: {}",
+                    done_out.trim_end_matches('\n')
+                );
             }
             None => detail = "reported SUCCESS with no commit hash in the line".into(),
         }
