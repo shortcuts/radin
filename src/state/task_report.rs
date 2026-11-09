@@ -147,6 +147,11 @@ pub fn task_report(s: &S, a: &[String], io: &mut Io) -> R {
             _ => rest.push(x.clone()),
         }
     }
+    if fuse && s.session_get().is_some_and(|(w, _)| w == "yes") {
+        return Err(die(
+            "--next is refused in wave mode (session worktree is yes): drop --next, a wave never claims a task outside its group",
+        ));
+    }
     if !fuse {
         return report_inner(s, &rest, &usages, io);
     }
