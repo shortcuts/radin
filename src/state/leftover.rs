@@ -47,7 +47,7 @@ fn single_paths(dir: &Path) -> Vec<String> {
     out
 }
 
-/// Branches with a live worktree whose task has no running leaf.
+/// Branches with a live worktree whose task has no running leaf and no uncommitted work.
 fn candidates(s: &S) -> Vec<Cand> {
     let worktrees = s.gt(&["worktree", "list", "--porcelain"]);
     s.radin_branches()
@@ -58,7 +58,11 @@ fn candidates(s: &S) -> Vec<Cand> {
                 && s.entry(&id)
                     .is_some_and(|e| get(&e, "status") == "in_progress");
             let wt = branch_worktree(&worktrees, &branch);
-            (!running && !wt.is_empty() && Path::new(&wt).is_dir()).then(|| Cand {
+            (!running
+                && !wt.is_empty()
+                && Path::new(&wt).is_dir()
+                && dirty_files(Path::new(&wt)).is_empty())
+            .then(|| Cand {
                 plan: s.plan_files(&id),
                 dir: PathBuf::from(wt),
                 id,

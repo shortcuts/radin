@@ -550,6 +550,23 @@ fn leftover_file_of_an_in_progress_task_goes_to_main() {
 }
 
 #[test]
+fn leftover_file_goes_to_main_when_the_idle_worktree_has_uncommitted_work() {
+    let w = W::new();
+    let wt = leftover_setup(&w);
+    let tip = w.git_at(&wt, &["rev-parse", "HEAD"]);
+    std::fs::write(wt.join("a.txt"), "task edit\n").unwrap();
+    w.write("a.txt", "draft\n");
+    let r = w.state(&["report"]);
+    assert_eq!(r.code, 0, "{}", r.all());
+    assert_eq!(w.git_at(&wt, &["rev-parse", "HEAD"]), tip);
+    assert_eq!(
+        std::fs::read_to_string(wt.join("a.txt")).unwrap(),
+        "task edit\n"
+    );
+    assert_eq!(w.git(&["show", "HEAD:a.txt"]), "draft");
+}
+
+#[test]
 fn leftover_file_no_plan_names_or_a_branch_changed_goes_to_main_and_a_mixed_dirty_tree_splits() {
     let w = W::new();
     let wt = leftover_setup(&w);
