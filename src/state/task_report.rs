@@ -136,6 +136,27 @@ fn first_hash(text: &str) -> Option<String> {
     None
 }
 
+const EXEC_CHECKS: [(&str, bool); 3] = [("test", true), ("lint", true), ("review", false)];
+const PLAN_CHECKS: [(&str, bool); 1] = [("plan-review", false)];
+
+/// Required keys the last `; checks:` clause of `line` lacks; the bool allows `na`.
+fn missing_checks(line: &str, required: &[(&'static str, bool)]) -> Vec<&'static str> {
+    let clause = line.rsplit_once("; checks:").map_or("", |x| x.1);
+    let got: Vec<(&str, &str)> = clause
+        .split(',')
+        .filter_map(|i| i.split_once('='))
+        .map(|(k, v)| (k.trim(), v.trim()))
+        .collect();
+    required
+        .iter()
+        .filter(|(k, na)| {
+            !got.iter()
+                .any(|(gk, gv)| gk == k && (*gv == "pass" || (*na && *gv == "na")))
+        })
+        .map(|(k, _)| *k)
+        .collect()
+}
+
 fn usage_ok(u: &str) -> bool {
     let f: Vec<&str> = u.split(' ').collect();
     f.len() == 4
@@ -257,6 +278,27 @@ fn report_inner(s: &S, a: &[String], usages: &[String], io: &mut Io) -> R {
     if word.is_empty() {
         return Err(die(format!("no SUCCESS/FAILED/INCONCLUSIVE/BLOCKED in that line: {line} -- pass --no-status when the sub-agent produced none")));
     }
+    let required: &[(&'static str, bool)] = match word {
+        "SUCCESS" => &EXEC_CHECKS,
+        "PLANNED"
+            if !matches!(
+                line.split_once('—').map_or(line, |x| x.1),
+                d if d.starts_with(" none needed") || d.starts_with(" deferred")
+            ) =>
+        {
+            &PLAN_CHECKS
+        }
+        _ => &[],
+    };
+    let lacks = missing_checks(line, required);
+    let mut forced = None;
+    if !lacks.is_empty() {
+        forced = Some(format!(
+            "reported {word} without a passing check: {}",
+            lacks.join(", ")
+        ));
+        word = "INCONCLUSIVE";
+    }
     if word == "PLANNED" {
         let detail = line.split_once('—').map_or(line, |x| x.1);
         if detail.starts_with(" deferred") {
@@ -298,7 +340,8 @@ fn report_inner(s: &S, a: &[String], usages: &[String], io: &mut Io) -> R {
     } else {
         line
     };
-    let mut detail = detail.strip_prefix(' ').unwrap_or(detail).to_string();
+    let mut detail =
+        forced.unwrap_or_else(|| detail.strip_prefix(' ').unwrap_or(detail).to_string());
     if word == "BLOCKED" {
         let _ = writeln!(io.out, "next\tclarify {tag}");
         return Ok(0);
@@ -343,7 +386,10 @@ fn report_inner(s: &S, a: &[String], usages: &[String], io: &mut Io) -> R {
                 );
                 if matches!(r, Ok(0)) {
                     io.out.push_str(&done_out);
-                    if let Some((_, sum)) = detail.split_once(';') {
+                    let body = detail
+                        .rsplit_once("; checks:")
+                        .map_or(detail.as_str(), |x| x.0);
+                    if let Some((_, sum)) = body.split_once(';') {
                         let sum = sum.trim_start_matches(' ');
                         if !sum.is_empty() {
                             s.journal("summary", id, sum);
@@ -402,4 +448,32 @@ fn unproven_criteria(s: &S, id: &str) -> Vec<String> {
         })
         .map(String::from)
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn missing_checks_applies_the_value_matrix() {
+        let ok = "x; checks: test=pass, lint=na, review=pass";
+        assert!(missing_checks(ok, &EXEC_CHECKS).is_empty());
+        assert_eq!(
+            missing_checks("x", &EXEC_CHECKS),
+            ["test", "lint", "review"]
+        );
+        let na = "x; checks: test=na, lint=na, review=na";
+        assert_eq!(missing_checks(na, &EXEC_CHECKS), ["review"]);
+        let fail = "x; checks: test=fail, lint=pass, review=pass";
+        assert_eq!(missing_checks(fail, &EXEC_CHECKS), ["test"]);
+        let extra = "x; checks: test=pass, lint=pass, review=pass, other=skipped";
+        assert!(missing_checks(extra, &EXEC_CHECKS).is_empty());
+        let quoted = "a; checks: test=pass; built: y; checks: test=pass, lint=pass, review=pass";
+        assert!(missing_checks(quoted, &EXEC_CHECKS).is_empty());
+        assert_eq!(
+            missing_checks("x; checks: plan-review=na", &PLAN_CHECKS),
+            ["plan-review"]
+        );
+        assert!(missing_checks("x; checks: plan-review=pass", &PLAN_CHECKS).is_empty());
+    }
 }

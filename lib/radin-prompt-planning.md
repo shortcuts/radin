@@ -48,7 +48,9 @@ Add `; exclusive: <reason>` to the PLANNED line when an acceptance criterion or 
 
 Your final message is exactly one of these lines, and nothing else:
 `STATUS: PLANNED — <plan file path(s), or "none needed: <reason>">;
-complexity <low|high>: <reason>[; exclusive: <reason>]`
+complexity <low|high>: <reason>[; exclusive: <reason>]; checks: plan-review=pass`
+Omit the `checks:` clause for `none needed`, because no plan exists to review.
+Otherwise a missing `plan-review=pass` makes the router record `STATUS: INCONCLUSIVE`.
 `STATUS: BLOCKED (FACT) — <what's unverifiable from here and why, e.g. a
 third-party API/library behavior local code and repo exploration can't
 settle>`

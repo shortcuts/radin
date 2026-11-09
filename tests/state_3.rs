@@ -177,13 +177,13 @@ fn task_report_planned_with_an_exclusive_clause_flags_the_task_and_silence_keeps
     w.state(&[
         "task-report",
         "t-one",
-        "STATUS: PLANNED — ok; complexity low: x",
+        "STATUS: PLANNED — ok; complexity low: x; checks: plan-review=pass",
     ]);
     assert!(!w.bl(&["meta", "t-one"], "").out.contains("exclusive"));
     w.state(&[
         "task-report",
         "t-one",
-        "STATUS: PLANNED — ok; complexity low: x; exclusive: bench p99",
+        "STATUS: PLANNED — ok; complexity low: x; exclusive: bench p99; checks: plan-review=pass",
     ]);
     assert!(w
         .bl(&["meta", "t-one"], "")
@@ -337,7 +337,7 @@ fn task_next_prints_no_overlap_line() {
     );
 }
 
-const PLANNED: &str = "STATUS: PLANNED — ok; complexity low: x";
+const PLANNED: &str = "STATUS: PLANNED — ok; complexity low: x; checks: plan-review=pass";
 
 #[test]
 fn plan_discard_drops_the_plan_flags_planning_needed_and_records_the_planning_tokens() {

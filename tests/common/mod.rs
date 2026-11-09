@@ -245,7 +245,7 @@ impl W {
         self.state(&[
             "task-report",
             "t-one",
-            &format!("STATUS: SUCCESS — {h}; built: x"),
+            &format!("STATUS: SUCCESS — {h}; built: x; checks: test=pass, lint=pass, review=pass"),
         ])
     }
 

@@ -133,7 +133,7 @@ fn task_report_success_journals_the_summary_and_each_unproven_criterion() {
     let r = w.state(&[
         "task-report",
         "t-two",
-        &format!("STATUS: SUCCESS — {h}; built: p; chose: none"),
+        &format!("STATUS: SUCCESS — {h}; built: p; chose: none; checks: test=pass, lint=pass, review=pass"),
     ]);
     assert!(r.out.ends_with("next\tcontinue\n"), "{}", r.out);
     let j = w.read(".radin/state/journal.jsonl");
@@ -298,7 +298,11 @@ fn task_report_blocked_and_inconclusive_and_unknown_lines() {
         "{}",
         r.err
     );
-    let r = w.state(&["task-report", "t-one", "SUCCESS but no hash"]);
+    let r = w.state(&[
+        "task-report",
+        "t-one",
+        "SUCCESS but no hash; checks: test=pass, lint=pass, review=pass",
+    ]);
     assert_eq!(
         r.out,
         "⚠️ Task 1 't one' failed: reported SUCCESS with no commit hash in the line. Its one debug pass is next.\nnext\tdebug\n"
@@ -306,7 +310,7 @@ fn task_report_blocked_and_inconclusive_and_unknown_lines() {
     let r = w.state(&[
         "task-report",
         "t-one",
-        "STATUS: SUCCESS — built: a leaf now reports BLOCKED (DECISION) here",
+        "STATUS: SUCCESS — built: a leaf now reports BLOCKED (DECISION) here; checks: test=pass, lint=pass, review=pass",
     ]);
     assert!(!r.out.contains("clarify"), "{}", r.out);
 }
@@ -504,4 +508,75 @@ fn task_report_deferred_planned_line_warns_nothing_and_sets_no_meta() {
         (0, "task-report: deferred t-one\nnext\tcontinue\n", "")
     );
     assert_eq!(w.bl(&["meta", "t-one"], "").out, before);
+}
+
+const ALL_PASS: &str = "checks: test=pass, lint=pass, review=pass";
+
+#[test]
+fn task_report_success_without_a_passing_check_is_inconclusive_and_names_the_check() {
+    let w = W::new();
+    w.plan_with(&["lib/a.sh"]);
+    w.commit_files(&["lib/a.sh"]);
+    let h = w.hash.borrow().clone();
+    let report = |tail: &str| {
+        w.state(&[
+            "task-report",
+            "t-one",
+            &format!("STATUS: SUCCESS — {h}; built: p{tail}"),
+        ])
+    };
+    let r = report("");
+    assert!(
+        r.out
+            .contains("inconclusive: reported SUCCESS without a passing check: test, lint, review"),
+        "{}",
+        r.out
+    );
+    assert!(r.out.ends_with("next\tcontinue\n"), "{}", r.out);
+    assert!(!w.exists(".radin/state/completed.json"));
+    assert_eq!(
+        w.state(&["steps-waiting"]).out,
+        "t-one\tinconclusive: reported SUCCESS without a passing check: test, lint, review\n"
+    );
+    let r = report("; checks: test=pass, lint=pass, review=skipped");
+    assert!(r.out.contains("passing check: review. "), "{}", r.out);
+    let r = report("; checks: test=na, lint=na, review=na");
+    assert!(r.out.contains("passing check: review. "), "{}", r.out);
+    let r = report("; checks: test=na, lint=na, review=pass");
+    assert!(
+        r.out.ends_with("next\tcontinue\n") && !r.out.contains("inconclusive"),
+        "{}",
+        r.out
+    );
+    assert_eq!(w.read(".radin/state/completed.json").lines().count(), 1);
+    let j = w.read(".radin/state/journal.jsonl");
+    assert!(j.contains("\"detail\":\"built: p\"}"), "{j}");
+    assert!(!j.contains(ALL_PASS) && !j.contains("test=na"), "{j}");
+}
+
+#[test]
+fn task_report_planned_needs_plan_review_unless_no_plan_was_written() {
+    let w = W::new();
+    w.plan_with(&["lib/a.sh"]);
+    w.clean();
+    let r = w.state(&[
+        "task-report",
+        "t-one",
+        "STATUS: PLANNED — p.md; complexity low: x",
+    ]);
+    assert!(
+        r.out
+            .contains("inconclusive: reported PLANNED without a passing check: plan-review"),
+        "{}",
+        r.out
+    );
+    assert!(!w.bl(&["meta", "t-one"], "").out.contains("complexity"));
+    let r = w.state(&[
+        "task-report",
+        "t-one",
+        "STATUS: PLANNED — none needed: tiny; complexity low: x",
+    ]);
+    assert_eq!(r.out, "task-report: planned t-one\nnext\tcontinue\n");
+    let meta = w.bl(&["meta", "t-one"], "").out;
+    assert!(meta.contains("complexity\tlow"), "{meta}");
 }
