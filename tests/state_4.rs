@@ -141,9 +141,10 @@ fn task_report_success_journals_the_summary_and_each_unproven_criterion() {
     assert!(!j.contains("\"detail\":\"crit one\""), "{j}");
     let rep = w.state(&["report"]).out;
     assert!(
-        rep.contains("✅ Session complete: 1 succeeded, 0 failed, 0 awaiting your decision."),
+        rep.contains("✅ Session complete: 1 succeeded, 0 landed with a follow-up, 0 failed, 0 awaiting your decision."),
         "{rep}"
     );
+    assert!(!rep.contains("Landed, follow-up filed:"), "{rep}");
     assert!(
         rep.contains(&format!(
             "\nSucceeded:\n- t two — {h}\n  built: p; chose: none\n"
@@ -151,6 +152,40 @@ fn task_report_success_journals_the_summary_and_each_unproven_criterion() {
         "{rep}"
     );
     assert!(rep.contains("Acceptance criteria with no measured Fact line (SUCCESS recorded anyway):\n- t-two — crit two\n"), "{rep}");
+}
+
+#[test]
+fn report_lists_a_task_that_landed_with_a_follow_up_apart_from_succeeded() {
+    let w = W::new();
+    w.clean();
+    w.steps_init("t-one\t1\t\tpending\nt-two\t2\t\tpending\n");
+    let fid = w
+        .bl(&["add", "fix", "Finish: t two"], "body\n")
+        .out
+        .trim()
+        .to_string();
+    w.write(
+        ".radin/state/completed.json",
+        "{\"id\":\"t-one\",\"commit\":\"aaaa1111\",\"title\":\"t one\"}\n{\"id\":\"t-two\",\"commit\":\"bbbb2222\",\"title\":\"t two\"}\n",
+    );
+    let j = w.read(".radin/state/journal.jsonl");
+    w.write(
+        ".radin/state/journal.jsonl",
+        &format!("{j}{{\"ts\":\"20260101T000000Z\",\"event\":\"follow-up\",\"id\":\"t-two\",\"detail\":\"{fid}\"}}\n"),
+    );
+    let rep = w.state(&["report"]).out;
+    assert!(
+        rep.contains("✅ Session complete: 1 succeeded, 1 landed with a follow-up, 0 failed, 0 awaiting your decision."),
+        "{rep}"
+    );
+    assert!(rep.contains("\nSucceeded:\n- t one — aaaa1111\n"), "{rep}");
+    assert!(!rep.contains("- t two — bbbb2222\n"), "{rep}");
+    assert!(
+        rep.contains(&format!(
+            "\nLanded, follow-up filed:\n- t two — bbbb2222 on the base. Follow-up: {fid} (Finish: t two)\n"
+        )),
+        "{rep}"
+    );
 }
 
 #[test]

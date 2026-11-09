@@ -98,6 +98,7 @@ pub fn report(s: &S, io: &mut Io) -> R {
             .collect(),
     );
     let summaries = pick("summary", true);
+    let followups = pick("follow-up", true);
     let outplan_block = dedupe(
         pick("out-of-plan", true)
             .iter()
@@ -154,6 +155,8 @@ pub fn report(s: &S, io: &mut Io) -> R {
 
     let completed = read_lines(&s.completed);
     let mut succeeded = String::new();
+    let mut landed_fu = String::new();
+    let (mut n_ok, mut n_fu) = (0, 0);
     for l in completed.iter().skip(base_completed) {
         let (cid, chash) = (get(l, "id"), get(l, "commit"));
         let ctitle = match get(l, "title") {
@@ -166,6 +169,22 @@ pub fn report(s: &S, io: &mut Io) -> R {
             .find(|(i, _)| *i == cid)
             .map(|(_, d)| unescape(d))
             .unwrap_or_default();
+        if let Some((_, fid)) = followups.iter().rev().find(|(i, _)| *i == cid) {
+            let ftitle = s.task_title(fid);
+            let ftitle = if ftitle.is_empty() {
+                fid.clone()
+            } else {
+                ftitle
+            };
+            landed_fu +=
+                &format!("\n- {ctitle} — {chash} on the base. Follow-up: {fid} ({ftitle})");
+            if !csum.is_empty() {
+                landed_fu += &format!("\n  {csum}");
+            }
+            n_fu += 1;
+            continue;
+        }
+        n_ok += 1;
         if (wt_mode == "yes" || br_mode == "yes") && s.branch_exists(&format!("radin/{cid}")) {
             let wtd = s.root.as_os_str().to_string_lossy().into_owned() + "-" + &cid;
             let wh = if std::path::Path::new(&wtd).is_dir() {
@@ -182,7 +201,6 @@ pub fn report(s: &S, io: &mut Io) -> R {
             succeeded += &format!("\n  {csum}");
         }
     }
-    let n_ok = completed.len().saturating_sub(base_completed);
 
     let (mut failed, mut blocked, mut deferred) = (Vec::new(), Vec::new(), Vec::new());
     for l in read_lines(&s.steps) {
@@ -198,7 +216,7 @@ pub fn report(s: &S, io: &mut Io) -> R {
     }
     let _ = writeln!(
         io.out,
-        "✅ Session complete: {n_ok} succeeded, {} failed, {} awaiting your decision.",
+        "✅ Session complete: {n_ok} succeeded, {n_fu} landed with a follow-up, {} failed, {} awaiting your decision.",
         failed.len(),
         blocked.len()
     );
@@ -207,7 +225,7 @@ pub fn report(s: &S, io: &mut Io) -> R {
             .bl_ok(&["count"])
             .and_then(|c| c.trim().parse().ok())
             .unwrap_or(0);
-        let added = (now - bb + n_ok as i64).max(0);
+        let added = (now - bb + (n_ok + n_fu) as i64).max(0);
         if s.exists("gate-done") {
             let _ = writeln!(
                 io.out,
@@ -220,6 +238,9 @@ pub fn report(s: &S, io: &mut Io) -> R {
     let _ = writeln!(io.out, "{residual}.");
     if !succeeded.is_empty() {
         let _ = writeln!(io.out, "\nSucceeded:{succeeded}");
+    }
+    if !landed_fu.is_empty() {
+        let _ = writeln!(io.out, "\nLanded, follow-up filed:{landed_fu}");
     }
     for (title, lines) in [
         ("Failed (left in the backlog for retry):", &failed),
