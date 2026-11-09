@@ -37,7 +37,7 @@ radin installs that stack and wires it into your host.
 - The router holds ids and exit codes. It never reads your code.
 - Each sub-agent starts empty and sees one task. No context carries over from task to task.
 - Ordering, status and merging run in a CLI. No model call pays for them.
-- Only a task rated `low` complexity runs on the cheaper model.
+- The cheaper model runs fact-finding only. Every execution task runs on sonnet.
 - [rtk](https://github.com/rtk-ai/rtk) and [caveman](https://github.com/JuliusBrussee/caveman) cut command output and agent prose.
   Their figures are in [the tool stack](#the-tool-stack). They are upstream's claims, not ours.
 
@@ -111,7 +111,7 @@ a thin router drives, and sub-agents work.
 - **A verify loop.** The worker checks its own diff and retries a failed check three times.
   One review gate at the end of the session reviews every commit and files its findings as new tasks.
 - **Just-in-time plans.** radin lints each plan and writes it against the tree as it is now.
-- **Model by size.** Only a task rated `low` complexity runs on the cheaper model.
+- **Model by role.** The cheaper model runs fact-finding only. Every execution task runs on sonnet.
 - **State on disk.** Interrupt a run at any point and the next run picks up from there.
 - **The CLI does the deterministic work.** Ordering, status and merging are code, not prompts.
 

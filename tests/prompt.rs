@@ -227,7 +227,7 @@ fn the_dispatch_lines_follow_the_host() {
 }
 
 #[test]
-fn a_complexity_low_task_takes_the_low_model_on_claude_and_none_on_agents() {
+fn a_complexity_low_task_runs_on_the_execution_model_on_claude_and_none_on_agents() {
     let low = |e: &E| {
         e.go_with(&["execution", "t-one"], &|n| {
             if n == "COMPLEXITY" {
@@ -240,8 +240,8 @@ fn a_complexity_low_task_takes_the_low_model_on_claude_and_none_on_agents() {
     let e = env(Host::Claude);
     let out = low(&e);
     let default = e.go(&["execution", "t-one"]);
-    assert_ne!(out.1.lines().next(), default.1.lines().next());
-    assert!(out.1.starts_with("model\t"));
+    assert_eq!(out.1, default.1);
+    assert!(out.1.starts_with("model\tRADIN_MODEL_EXECUTION\n"));
     let a = env(Host::Agents);
     let out = low(&a);
     assert_eq!(out.0, 0);

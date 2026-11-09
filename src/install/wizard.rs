@@ -108,7 +108,7 @@ impl Session<'_> {
         loop {
             match st {
                 1 => {
-                    let msg = "Choose radin-batch's sub-agent models? (defaults: sonnet, haiku for fact-finding and low-complexity tasks)";
+                    let msg = "Choose radin-batch's sub-agent models? (defaults: sonnet, haiku for fact-finding)";
                     let opts = ["yes".to_string(), "no".to_string()];
                     match self.pick_one(msg, 2, &opts, outer_back)? {
                         Answer::Back => return Ok(Models::Back),
@@ -127,7 +127,7 @@ impl Session<'_> {
                     }
                 }
                 _ => {
-                    let msg = "fact-finding and low-complexity sub-agents";
+                    let msg = "fact-finding sub-agents";
                     match self.pick_one(msg, HAIKU_INDEX, &names, true)? {
                         Answer::Back => st = 2,
                         Answer::Value(i) => {
@@ -169,10 +169,7 @@ impl Session<'_> {
                 "Models",
                 &format!("{}: planning, execution, review, debug", self.major),
             ));
-            rows.push(row(
-                "",
-                &format!("{}: fact-finding, low-complexity", self.minor),
-            ));
+            rows.push(row("", &format!("{}: fact-finding", self.minor)));
         } else {
             rows.push(row("Models", "n/a, Claude Code not selected"));
         }

@@ -51,7 +51,7 @@ Pass them after `bash`: `curl … | bash -s -- --yes`.
 | `acceptance` | Zero or more criteria. |
 | `location` | A `path:line` pointer. |
 | `planning` | `needed` when the task must be planned first. |
-| `complexity` | `low` or `high`. Only `low` runs on the cheaper model. |
+| `complexity` | `low` or `high`. It sizes the task and picks no model. |
 
 ## Files
 

@@ -105,7 +105,7 @@ fn arrow_keys_move_the_selection_and_enter_confirms_it() {
     t.keys("\x1b[A\r");
     t.wait_for("planning, execution, review and debug sub-agents");
     t.keys("\x1b[B\r");
-    t.wait_for("fact-finding and low-complexity sub-agents");
+    t.wait_for("fact-finding sub-agents");
     t.keys("\r");
     t.keys("\r");
     assert_eq!(t.exit_code(), 0);

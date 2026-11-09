@@ -159,9 +159,9 @@ fn tokens_resolve_to_installed_paths_and_models() {
     assert!(s
         .read(".radin/hosts/claude/lib/radin-prompt-factfind.md")
         .contains("model: \"haiku\""));
-    assert!(s
+    assert!(!s
         .read(".radin/hosts/claude/lib/radin-prompt-execution.md")
-        .contains("model-low: \"haiku\""));
+        .contains("model-low"));
     for sk in ["radin-batch", "radin-do"] {
         assert!(s
             .read(&format!(".claude/skills/{sk}/SKILL.md"))
@@ -408,9 +408,7 @@ fn update_asks_nothing_prints_the_recap_and_keeps_the_answers() {
         "{o}"
     );
     assert!(o.contains("Package manager  curl"), "{o}");
-    assert!(o.contains(
-        "keeping sub-agent models: opus, fable for fact-finding and low-complexity tasks"
-    ));
+    assert!(o.contains("keeping sub-agent models: opus, fable for fact-finding"));
     assert!(!o.contains("Pick 1-") && !o.contains("Step 1/"));
     assert!(s
         .read(".radin/hosts/claude/lib/radin-prompt-planning.md")

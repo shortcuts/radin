@@ -358,15 +358,15 @@ impl<'a> Session<'a> {
         let (a, b) = (&self.major, &self.minor);
         if self.o.update {
             self.ui.ok(&format!(
-                "keeping sub-agent models: {a}, {b} for fact-finding and low-complexity tasks"
+                "keeping sub-agent models: {a}, {b} for fact-finding"
             ));
         } else if !self.is_selected("claude") {
         } else if self.models_picked {
-            self.ui.ok(&format!(
-                "sub-agent models: {a}, {b} for fact-finding and low-complexity tasks"
-            ));
+            self.ui
+                .ok(&format!("sub-agent models: {a}, {b} for fact-finding"));
         } else {
-            self.ui.ok("keeping default sub-agent models (sonnet; haiku for fact-finding and low-complexity tasks)");
+            self.ui
+                .ok("keeping default sub-agent models (sonnet; haiku for fact-finding)");
         }
     }
 

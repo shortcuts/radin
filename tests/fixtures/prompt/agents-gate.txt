@@ -41,7 +41,8 @@ Size an entry with no `--planning needed` by this rule and pass
 `complexity low` means the change is mechanical: every edit is known before it
 starts, and no step needs measuring, tuning, debugging or a device run.
 Anything else is `complexity high`, and so is any doubt. Judge the work, not
-the category: a chore can be hard. A low task runs on a cheaper model.
+the category: a chore can be hard. The size picks no model: every execution
+task runs on the execution model, sonnet by default.
 
 File a failing check you could not fix the same way, as a `fix` entry. Each
 entry you file is one id in the final line's `filed` list.

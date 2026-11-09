@@ -53,7 +53,7 @@ radin does not score model output against a benchmark.
 Four choices lower token use.
 
 - **A small router.** Its context grows by one status line per task, so it stays cheap over a long run.
-- **The cheaper model for easy tasks.** Only a task rated `low` complexity runs on the minor model.
+- **The cheaper model for fact-finding.** Every execution task runs on the major model, whatever its complexity.
   Category does not decide it, because a `chore` can be hard.
 - **Deterministic work in code.** Ordering, status and merging run in the CLI, so no model call pays for them.
 - **A tool stack** that compresses command output and agent prose, described next.

@@ -4,11 +4,7 @@ Rendered by `radin prompt execution <id>`. `src/prompt.rs` holds the format.
 
 <!-- host:claude -->
 `model: "RADIN_MODEL_EXECUTION"`
-`model-low: "RADIN_MODEL_LOW"`
 `effort: "RADIN_EFFORT_EXECUTION"`
-`effort-low: "RADIN_EFFORT_LOW"`
-
-A task whose entry carries `complexity low` runs on the `model-low:` line instead.
 <!-- /host -->
 
 ```

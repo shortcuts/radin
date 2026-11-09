@@ -148,7 +148,7 @@ fn build(c: &Ctx, args: &[String]) -> R<Out> {
         }
         _ => {}
     }
-    let mut d = Dispatch {
+    let d = Dispatch {
         model: tick_line(&ttext, "model").unwrap_or_default(),
         effort: tick_line(&ttext, "effort").unwrap_or_default(),
     };
@@ -225,13 +225,6 @@ fn build(c: &Ctx, args: &[String]) -> R<Out> {
     }
     let task_file = field("TASK_FILE").unwrap_or_default();
     let category = field("CATEGORY").unwrap_or_default();
-    if kind == "execution" && !d.model.is_empty() && field("COMPLEXITY").as_deref() == Some("low") {
-        let Some(low) = tick_line(&ttext, "model-low").filter(|m| !m.is_empty()) else {
-            return die(format!("no model-low line in {}", template.display()));
-        };
-        d.model = low;
-        d.effort = tick_line(&ttext, "effort-low").unwrap_or_default();
-    }
     let plan_paths = field("PLAN_PATHS").unwrap_or_default();
     let skills = match field("SKILLS").unwrap_or_default() {
         s if s == "none" => String::new(),
