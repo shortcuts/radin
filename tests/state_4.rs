@@ -292,13 +292,46 @@ fn task_report_blocked_and_inconclusive_and_unknown_lines() {
         r.err
     );
     let r = w.state(&["task-report", "t-one", "SUCCESS but no hash"]);
-    assert_eq!(r.out, "next\tdebug\n");
+    assert_eq!(
+        r.out,
+        "⚠️ Task 1 't one' failed: reported SUCCESS with no commit hash in the line. Its one debug pass is next.\nnext\tdebug\n"
+    );
     let r = w.state(&[
         "task-report",
         "t-one",
         "STATUS: SUCCESS — built: a leaf now reports BLOCKED (DECISION) here",
     ]);
     assert!(!r.out.contains("clarify"), "{}", r.out);
+}
+
+#[test]
+fn task_report_refuses_a_different_failure_line_while_the_debug_pass_is_pending() {
+    let w = W::new();
+    w.clean();
+    w.steps_init("t-one\t1\t\tpending\n");
+    let first = w.state(&[
+        "task-report",
+        "t-one",
+        "STATUS: FAILED — real reason; open: x",
+    ]);
+    assert!(
+        first.out.contains("failed: real reason; open: x."),
+        "{}",
+        first.out
+    );
+    assert!(first.out.ends_with("next\tdebug\n"));
+    let second = w.state(&["task-report", "t-one", "STATUS: FAILED — short"]);
+    assert_eq!(second.code, 1, "{}", second.out);
+    assert!(second.err.contains("already reported"), "{}", second.err);
+    assert!(!w
+        .read(".radin/state/BACKLOG_STEPS.json")
+        .contains("\"failed\""));
+    let same = w.state(&[
+        "task-report",
+        "t-one",
+        "STATUS: FAILED — real reason; open: x",
+    ]);
+    assert!(same.out.contains("Kept on the backlog"), "{}", same.out);
 }
 
 #[test]

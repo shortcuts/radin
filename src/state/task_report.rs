@@ -1,7 +1,7 @@
 use super::done::task_done;
 use super::git::{dirty_files, wip_commit};
 use super::plan_cover::plan_extras;
-use super::store::{get, num, MAX_ATTEMPTS};
+use super::store::{get, json_escape, num, MAX_ATTEMPTS};
 use super::{arg, die, S};
 use crate::backlog::{Fail, Io, R};
 use std::fmt::Write;
@@ -34,10 +34,22 @@ fn task_fail(s: &S, id: &str, reason: &str) -> Result<Option<String>, Fail> {
         s.journal("debug", id, reason);
         return Ok(None);
     }
-    let diagnosed = s
-        .journal_lines()
+    let lines = s.journal_lines();
+    let diagnosed = lines
         .iter()
         .any(|l| l.contains(&format!("\"event\":\"diagnosis\",\"id\":\"{id}\"")));
+    let debug_key = format!("\"event\":\"debug\",\"id\":\"{id}\"");
+    let reported = format!("\"detail\":\"{}\"}}", json_escape(reason));
+    if !diagnosed
+        && lines
+            .iter()
+            .rfind(|l| l.contains(&debug_key))
+            .is_some_and(|l| !l.ends_with(&reported))
+    {
+        return Err(die(format!(
+            "{id} already reported a failure and awaits its debug pass; re-run with the line from the first report"
+        )));
+    }
     let note = if diagnosed {
         format!("{reason} (a diagnosis was recorded on the task file under **Root cause:**)")
     } else {
@@ -356,6 +368,11 @@ fn report_inner(s: &S, a: &[String], usages: &[String], io: &mut Io) -> R {
             next_continue(io)
         }
         None => {
+            let (order, title) = order_title(s, id);
+            let _ = writeln!(
+                io.out,
+                "⚠️ Task {order} '{title}' failed: {detail}. Its one debug pass is next."
+            );
             io.out.push_str("next\tdebug\n");
             Ok(0)
         }
