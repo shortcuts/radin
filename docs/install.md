@@ -12,8 +12,8 @@ For every flag and path, see [Reference](reference.md).
    curl -fsSL https://raw.githubusercontent.com/shortcuts/radin/main/install.sh | bash
    ```
 
-3. Answer three questions: sub-agent models, the package manager for the companion tools
-   (`brew`, `mise` or `curl`), and sub-agent effort.
+3. Answer two questions: sub-agent models, and the package manager for the companion tools
+   (`brew`, `mise` or `curl`). Each model keeps its default effort.
    To accept every default, add `-s -- --yes` after `bash`.
    To pick hosts, add `--only claude`, `--only codex` or `--only opencode`, or a comma list.
    `--list` prints each host and whether it is detected. `--dry-run` prints every write and changes nothing.
