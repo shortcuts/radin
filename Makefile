@@ -6,14 +6,10 @@ install:
 update:
 	./install.sh --update
 
-# The TUI and the cbm-config JSON helper are the two compiled files radin
-# ships; the two mocks are test-only.
-build: lib/radin-tui lib/radin-cbm-json tests/helpers/pty-run tests/helpers/mock
+# The TUI is the one compiled file radin ships; the two mocks are test-only.
+build: lib/radin-tui tests/helpers/pty-run tests/helpers/mock
 
 lib/radin-tui: lib/radin-tui.c
-	cc -O2 -o $@ $<
-
-lib/radin-cbm-json: lib/radin-cbm-json.c
 	cc -O2 -o $@ $<
 
 tests/helpers/pty-run: tests/helpers/pty-run.c
@@ -98,10 +94,10 @@ bench-tui:
 screenshot:
 	@scripts/screenshot-tui.sh
 
-SH_FILES = tests/bench-tui.sh scripts/screenshot-tui.sh install.sh bin/radin lib/radin-namespace.sh lib/radin-json.sh lib/radin-migrate.sh lib/radin-backlog.sh lib/radin-state.sh lib/radin-scope.sh lib/radin-prompt.sh lib/radin-cbm-hooks.sh lib/radin-cbm-config.sh lib/radin-update.sh lib/radin-doctor.sh lib/radin-stats.sh lib/radin-telemetry.sh lib/radin-uninstall.sh scripts/real-setup-sum.sh scripts/golden-render.sh scripts/affected-tests.sh scripts/render-host.sh scripts/verify-hosts.sh
+SH_FILES = tests/bench-tui.sh scripts/screenshot-tui.sh install.sh bin/radin lib/radin-namespace.sh lib/radin-json.sh lib/radin-migrate.sh lib/radin-backlog.sh lib/radin-state.sh lib/radin-update.sh lib/radin-doctor.sh lib/radin-uninstall.sh scripts/real-setup-sum.sh scripts/golden-render.sh scripts/affected-tests.sh scripts/render-host.sh scripts/verify-hosts.sh
 
 clean:
-	rm -f lib/radin-tui lib/radin-cbm-json tests/helpers/pty-run tests/helpers/mock
+	rm -f lib/radin-tui tests/helpers/pty-run tests/helpers/mock
 	cargo clean
 
 lint:

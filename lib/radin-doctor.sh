@@ -23,7 +23,7 @@ RADIN_HOME="$HOME/.radin"
 MISSING=0
 # BEGIN shipped (generated from SHIPPED by tests/shipped.rs; run make gen, never edit)
 SHIPPED_SKILLS="radin-batch radin-do radin-plan radin-record radin-review radin-stats radin-teardown radin-uninstall"
-SHIPPED_LIB="radin-host.sh radin-namespace.sh radin-json.sh radin-migrate.sh radin-backlog.sh radin-tui.c radin-cbm-json.c radin-state.sh radin-scope.sh radin-prompt.sh forbid-claude.txt forbid-agents.txt radin-cbm-hooks.sh radin-cbm-config.sh radin-update.sh radin-stats.sh radin-telemetry.sh radin-doctor.sh radin-uninstall.sh skill-names-claude.txt skill-names-agents.txt companion-skills.txt"
+SHIPPED_LIB="radin-host.sh radin-namespace.sh radin-json.sh radin-migrate.sh radin-backlog.sh radin-tui.c radin-state.sh forbid-claude.txt forbid-agents.txt radin-update.sh radin-doctor.sh radin-uninstall.sh skill-names-claude.txt skill-names-agents.txt companion-skills.txt"
 SHIPPED_HOSTLIB="radin-prompt-planning.md radin-prompt-execution.md radin-prompt-debug.md radin-prompt-factfind.md radin-prompt-gate.md radin-prompt-merge.md radin-leaf-contract.md radin-comment-rule.md radin-explore-rule.md radin-open-decisions.md radin-ask-rule.md radin-complexity-rule.md radin-planning-rule.md radin-prioritization.md radin-batch-recovery.md radin-batch-reporting.md radin-batch-gate.md radin-batch-merge.md radin-batch-clarify.md radin-batch-session.md radin-batch-resume.md radin-run.md radin-review-core.md"
 # END shipped
 

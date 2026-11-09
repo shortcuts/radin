@@ -1,0 +1,46 @@
+Deterministic review-scope resolution for radin-review, so the skill
+doesn't probe git/gh by hand.
+
+Usage: radin scope [arg]
+       radin scope --in-scope [arg]   # classify "path:line" lines on stdin
+       radin scope --commits [arg]    # the scope's commits, "<hash> <subject>"
+       radin scope --specs [arg]      # candidate specs, "id created branch commit source role plan facts", oldest first
+       radin scope --attribute [arg]  # map "path:line" lines on stdin to task + plan + plan-covers
+       radin scope --bucket           # bucket finding lines on stdin, no scope
+
+No arg: the current branch's diff against its merge-base with main/master.
+With arg: a commit-ish, a PR reference (#123, 123, GitHub PR URL), a
+directory path, a range (`last commit`, `last <n> commits`, `<rev>..<rev>`),
+a date phrase (`since yesterday`, `since last week`), or `staged`: the index
+diff, which a task reviews before it commits.
+
+Output (TAB-separated key/value lines):
+  type    commit|pr|dir|branch-diff|range|staged
+  scope   <normalized scope>
+  command <the diff/read command to run>
+  passes  <the ponytail skill(s) this scope type adds beyond the core's; empty unless dir>
+--in-scope resolves the same scope, then prints one `in<TAB>path:line` /
+`out<TAB>path:line` line per stdin citation in input order, then one final
+`dropped<TAB><n>`. A citation is `in` when the scope introduced that line:
+under the directory for a dir scope, inside a diff hunk otherwise.
+--commits resolves the same scope, then prints one "<hash> <subject>" line
+per commit it covers: newest first for git scopes, gh's order for a PR, and
+nothing for a `dir` scope.
+--attribute resolves the same scope, then prints `<citation><TAB><task id>
+<TAB><plan path|none><TAB><in|test|out|none>` per stdin citation in input
+order. The cited line is blamed; it maps only when the blamed commit is one
+of the scope's commits, joined through `radin state trace`. The last column
+is `plan-covers` for the cited path, `none` without a plan. Anything else
+prints `none` three times.
+--specs `role` is `follow-up` when a plan of the task (or the task file of a
+pending one) holds a `**Finding:**` or `**Severity:**` line, else `feature`.
+--specs `plan` is the task's plan paths, comma-separated; `facts` is its facts
+file when one exists. Both print `none` when absent, so no column is empty.
+--bucket reads review finding lines `<severity> <path:line> — <claim>
+[<rung>: <evidence>]` on stdin and prints `<bucket><TAB><line>` in input
+order. A nit is `noted`. A critical or warning is `act-on` with rung traced
+or ran, or with evidence that quotes a spec line (a double quote) or cites
+AGENTS.md, CLAUDE.md or CONTRIBUTING.md; any other one is `consider`. A line
+with no known severity or no rung is `unparsed`. `dismissed` stays a judgment.
+Exit: 0 resolved (--in-scope, --commits, --specs and --attribute too, even when they print nothing);
+1 unrecognized; 2 ambiguous (each candidate reading printed to stderr).

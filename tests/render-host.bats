@@ -137,50 +137,6 @@ src() { printf '%s\n' "$@" > "$T/in.md"; }
   [[ "$output" == *Workflow* ]]
 }
 
-@test "the assembled factfind prompt carries the leaf rules of each host" {
-  for host in claude agents; do
-    H="$T/$host"
-    mkdir -p "$H"
-    cp -R "$REPO_ROOT/lib" "$H/lib"
-    for f in "$H"/lib/*.md; do
-      run env RADIN_LIB_DIR="$H/lib" "$RENDER" "$f" "$host"
-      [ "$status" -eq 0 ]
-      printf '%s\n' "$output" > "$f"
-    done
-    git init -q "$H/proj"
-    git -C "$H/proj" config user.email t@t
-    git -C "$H/proj" config user.name t
-    git -C "$H/proj" commit -q --allow-empty -m init
-    (cd "$H/proj" && RADIN_HOST=$host bash "$H/lib/radin-backlog.sh" add fix "t one" <<<"body")
-    run bash -c "cd '$H/proj' && RADIN_HOST=$host bash '$H/lib/radin-prompt.sh' factfind t-one q"
-    [ "$status" -eq 0 ]
-    prompt=$(printf '%s\n' "$output" | awk -F'\t' '$1 == "prompt" { print $2 }')
-    text=$(cat "$prompt")
-    if [ "$host" = agents ]; then
-      [ "$(printf '%s\n' "$output" | cut -f1)" = prompt ]
-      [[ "$text" != *"<!-- host"* ]]
-      [[ "$text" != *Monitor* ]]
-      [[ "$text" != *Workflow* ]]
-      [[ "$text" != *ToolSearch* ]]
-    else
-      [ "$(printf '%s\n' "$output" | cut -f1)" = "$(printf 'model\neffort\nprompt')" ]
-      [[ "$text" == *ToolSearch* ]]
-      [[ "$text" == *Monitor* ]]
-    fi
-  done
-}
-
-render_lib() {
-  H="$T/$1"
-  mkdir -p "$H"
-  cp -R "$REPO_ROOT/lib" "$H/lib"
-  for f in "$H"/lib/*.md; do
-    run env RADIN_LIB_DIR="$H/lib" "$RENDER" "$f" "$2"
-    [ "$status" -eq 0 ]
-    printf '%s\n' "$output" > "$f"
-  done
-}
-
 @test "every prompt template drops its model and effort lines on agents" {
   for f in "$REPO_ROOT"/lib/radin-prompt-*.md; do
     run "$RENDER" "$f" agents
@@ -191,43 +147,6 @@ render_lib() {
     run "$RENDER" "$f" claude
     [ "$(printf '%s\n' "$output" | grep -c '^`model: "')" -eq 1 ]
   done
-}
-
-@test "prompt.sh finds its templates under hosts/<host>/lib in the installed layout" {
-  render_lib flat claude
-  H="$T/inst"
-  mkdir -p "$H/lib" "$H/hosts/claude"
-  cp "$T"/flat/lib/*.sh "$H/lib/"
-  mkdir "$H/hosts/claude/lib"
-  mv "$T"/flat/lib/*.md "$H/hosts/claude/lib/"
-  git init -q "$H/proj"
-  git -C "$H/proj" config user.email t@t
-  git -C "$H/proj" config user.name t
-  git -C "$H/proj" commit -q --allow-empty -m init
-  (cd "$H/proj" && RADIN_HOST=claude bash "$H/lib/radin-backlog.sh" add fix "t one" <<<"body")
-  run bash -c "cd '$H/proj' && RADIN_HOST=claude bash '$H/lib/radin-prompt.sh' execution t-one"
-  [ "$status" -eq 0 ]
-}
-
-@test "a claude lib without a model line still fails" {
-  render_lib broken claude
-  grep -v '^`model: "' "$T/broken/lib/radin-prompt-factfind.md" > "$T/broken/f.md"
-  mv "$T/broken/f.md" "$T/broken/lib/radin-prompt-factfind.md"
-  run env -u RADIN_HOST bash "$T/broken/lib/radin-prompt.sh" factfind t-one q
-  [ "$status" -eq 1 ]
-  [[ "$output" == *"no model line in"* ]]
-}
-
-@test "agents with a task marked complexity low still prints only the prompt" {
-  render_lib low agents
-  git init -q "$T/low/proj"
-  git -C "$T/low/proj" config user.email t@t
-  git -C "$T/low/proj" config user.name t
-  git -C "$T/low/proj" commit -q --allow-empty -m init
-  (cd "$T/low/proj" && RADIN_HOST=agents bash "$T/low/lib/radin-backlog.sh" add fix "t one" --complexity low <<<"body")
-  run bash -c "cd '$T/low/proj' && RADIN_HOST=agents bash '$T/low/lib/radin-prompt.sh' execution t-one"
-  [ "$status" -eq 0 ]
-  [ "$(printf '%s\n' "$output" | cut -f1)" = prompt ]
 }
 
 @test "a skill token renders each host's value" {
@@ -268,14 +187,6 @@ render_lib() {
   run "$RENDER" "$T/in.md" agents
   [ "$status" -eq 0 ]
   [ "$output" = research ]
-}
-
-@test "radin-scope.sh names the host's own ponytail passes" {
-  mkdir -p "$T/d"
-  run bash "$REPO_ROOT/lib/radin-scope.sh" "$T/d"
-  [[ "$output" == *$'passes\t/ponytail:ponytail-audit /ponytail:ponytail-debt'* ]]
-  RADIN_HOST=agents run bash "$REPO_ROOT/lib/radin-scope.sh" "$T/d"
-  [[ "$output" == *$'passes\tponytail-audit ponytail-debt'* ]]
 }
 
 @test "the agents render of radin-batch-recovery.md holds no model or effort token" {

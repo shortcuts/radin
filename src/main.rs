@@ -1,11 +1,25 @@
-use std::io::IsTerminal;
+use std::io::{IsTerminal, Read};
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
-    let (code, out, err) = radin::run(
+    let mut stdin: Option<String> = None;
+    let stdin_verbs = ["scope"];
+    if args
+        .iter()
+        .find(|a| !a.starts_with('-') && !["claude", "agents"].contains(&a.as_str()))
+        .is_some_and(|a| stdin_verbs.contains(&a.as_str()))
+        && !std::io::stdin().is_terminal()
+    {
+        let mut b = Vec::new();
+        let _ = std::io::stdin().read_to_end(&mut b);
+        stdin = Some(String::from_utf8_lossy(&b).into_owned());
+    }
+    let (code, out, err) = radin::run_in(
         &args,
         &|k| std::env::var(k).ok(),
         std::io::stdout().is_terminal(),
+        &std::env::current_dir().unwrap_or_default(),
+        stdin.as_deref(),
     );
     print!("{out}");
     eprint!("{err}");

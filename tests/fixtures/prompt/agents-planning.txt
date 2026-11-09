@@ -1,0 +1,55 @@
+Read @NS@/backlog/tasks/e1/t-one.md first.
+
+An entry needs no plan when its change touches one or two files and has one
+obvious approach. Anything else needs a plan: more files, a new module boundary
+or data shape, or an approach with a real alternative.
+
+When the task needs no plan, skip `/radin-plan` and go to the sizing step.
+
+Otherwise invoke the `/radin-plan` skill scoped to the backlog task with id "t-one",
+reading @NS@/backlog/tasks/e1/t-one.md in full as the task scope. It writes the plan file(s) and
+records the plan pointer(s) on that task's backlog entry.
+
+You are a leaf: no user, no question tool, no sub-agent of your own. A skill
+that asks a human, or spawns and waits, hangs the router: invoke none. One that
+starts asking or spawning anyway: stop invoking it and take the non-destructive
+path. End only with your `STATUS:` line. That rules out `grilling`, `research`, `/deep-research` and any
+saved workflow. Anything you could only settle with one is BLOCKED material.
+Where the skill would ask (splitting the entry, overwriting an existing plan),
+take the non-destructive path: don't split, don't overwrite.
+Implement nothing.
+
+The plan must settle every decision: the executor makes no judgment calls,
+and a vague plan step is a defect. Before reporting BLOCKED, apply this rule:
+
+List what a cold start would have to decide that the entry and its plans do not
+settle. Tag each question:
+- **Fact**: checkable against the repo, its docs, or an API. Look it up
+  yourself. Never ask the user for one.
+- **Decision**: a judgment call only the user can make (a tradeoff, a scope
+  boundary, a behavior choice). Naming even one plausible guess (a threshold, a
+  naming choice, keep versus remove) makes it a Decision.
+
+An item with no second reasonable way to do it has no Decision.
+
+Find each Fact yourself; block only on a Decision.
+
+Sizing step: read the code the task touches, size it by this rule:
+
+`complexity low` means the change is mechanical: every edit is known before it
+starts, and no step needs measuring, tuning, debugging or a device run.
+Anything else is `complexity high`, and so is any doubt. Judge the work, not
+the category: a chore can be hard. A low task runs on a cheaper model.
+
+Your final message is exactly one of these lines, and nothing else:
+`STATUS: PLANNED — <plan file path(s), or "none needed: <reason>">;
+complexity <low|high>: <reason>`
+`STATUS: BLOCKED (FACT) — <what's unverifiable from here and why, e.g. a
+third-party API/library behavior local code and repo exploration can't
+settle>`
+`STATUS: BLOCKED (DECISION) — <the decision question, the candidate
+options, and your recommendation>`
+Use BLOCKED (DECISION) for genuine ambiguity only the user can resolve, the
+skill matching several entries for this title or none (backlog drift)
+included: report what it found, pick nothing, create nothing. Use BLOCKED
+(FACT) only for what you tried and failed to verify.

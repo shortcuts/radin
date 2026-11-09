@@ -1,6 +1,6 @@
 # Template: radin-batch session gate prompt (Phase 4.5)
 
-Rendered by `radin prompt gate`. `lib/radin-prompt.sh` holds the format. The
+Rendered by `radin prompt gate`. `src/prompt.rs` holds the format. The
 `GATE_REVIEW` block drops once `radin state gate-filed` marks the session's
 one review round used.
 

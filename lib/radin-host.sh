@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Validates RADIN_HOST (claude|agents), which selects skill names and the prompt render.
-# Sourced by radin-scope.sh and the dispatcher.
+# Sourced by the dispatcher.
 # radin_skill NAME prints the host's spelling of a companion skill from skill-names-HOST.txt.
 # Must stay bash-3.2-compatible (macOS /bin/bash).
 case "${RADIN_HOST:-claude}" in

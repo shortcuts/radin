@@ -7,12 +7,12 @@ radin is a Claude Code plugin of skills, a CLI, and install glue.
 - **bash 3.2** (macOS ships it). Use no associative arrays, `mapfile`, or `${var,,}`. Add no `uname` branch. Resolve tools with `command -v` or `brew shellenv`. Branch only where a tool differs (`md5` versus `md5sum`). Call out every script edit.
 - **`~/.claude` is not ours.** `~/.radin` is. `install.sh` writes `.sh`, `.c` and `.txt` only under `~/.radin/lib` and `.md` only under `~/.radin/hosts/<host>/lib`. It runs `cp` only on radin's own named files, plus `mkdir -p`. It never runs `rm`, deletes with a wildcard, or overwrites a file radin does not ship. Nine exceptions:
   1. The `<!-- radin:begin -->`…`<!-- radin:end -->` block in `~/.claude/CLAUDE.md`.
-  2. The `lib/radin-cbm-config.sh` snapshot (kept in `~/.radin/backups`) and restore of `settings.json` and `~/.claude.json`.
+  2. The `radin wire` snapshot (kept in `~/.radin/backups`) and restore of `settings.json` and `~/.claude.json`.
   3. `skills/unslop/SKILL.md` and `skills/technical-writing/SKILL.md`. `install.sh` fetches both from upstream and overwrites them only when `manifest.json` lists them as radin's own. It also writes the skills of `lib/companion-skills.txt` into `~/.agents/skills`, and overwrites one only when `manifest.json` lists it in `agents_skills`.
   4. `skills/radin-execute`, `skills/radin-implement` and `skills/radin-run`, renamed to `radin-batch` and `radin-do`. `install.sh` removes one only when its `SKILL.md` still has radin's own `name:` line.
   5. `skills/thermo-nuclear`. `install.sh` removes it only when the fresh `thermo-nuclear-code-quality-review` copy is ready. `tests/bash-compat.bats` pins that one `rm`.
   6. `.ponytail-band`. `install.sh` writes `off` only when the file is absent, so ponytail's band starts hidden.
-  7. Two `Read(//…/.radin/**)` strings in `permissions.allow` of `settings.json`. `radin-cbm-config.sh allow` adds them and `unallow` removes exactly those strings and the two legacy `Read(//…/.claude/.radin/**)` ones. `unallow-legacy` removes the legacy pair alone, after a migration. No other key or rule changes ([why](docs/agents/DECISIONS.md#platform-and-install)).
+  7. Two `Read(//…/.radin/**)` strings in `permissions.allow` of `settings.json`. `cbm::allow` adds them and `cbm::unallow` removes exactly those strings and the two legacy `Read(//…/.claude/.radin/**)` ones. `cbm::unallow_legacy` removes the legacy pair alone, after a migration. No other key or rule changes ([why](docs/agents/DECISIONS.md#platform-and-install)).
   8. `~/.claude/.radin`. `install.sh` moves it once to `~/.radin` with `mv`, only when it holds a radin manifest, through `~/.radin.migrating`. A foreign `~/.radin` or a leftover staging directory aborts before any write ([why](docs/agents/DECISIONS.md#platform-and-install)).
   9. `--force` moves an unowned or edited radin-named path to `~/.radin/backups` with `mv`, then installs radin's file. It runs no `rm` there. Without `--force` that path stops its host or stays as the user left it ([why](docs/agents/DECISIONS.md#platform-and-install)).
 
@@ -25,7 +25,7 @@ radin is a Claude Code plugin of skills, a CLI, and install glue.
 | Rule | Enforcer | Gap |
 | --- | --- | --- |
 | bash 3.2 | `tests/bash-compat.bats` | Grep only; no 3.2 interpreter run. |
-| `~/.claude` ownership | `tests/cbm-config.bats` (`allow` keeps foreign rules, follows a symlink, `unallow` removes only radin's), `tests/install*.bats` ("never overwrites a skill radin did not install", the agents companion skill cases), `tests/bash-compat.bats` (`rm` allowlist), `SHIPPED` (install copies and uninstall removes only listed names) | Foreign content in the `CLAUDE.md` block and settings restore is untested. |
+| `~/.claude` ownership | `tests/cbm_config.rs` and `src/cbm/config.rs` (`allow` keeps foreign rules, follows a symlink, `unallow` removes only radin's), `tests/install*.bats` ("never overwrites a skill radin did not install", the agents companion skill cases), `tests/bash-compat.bats` (`rm` allowlist), `SHIPPED` (install copies and uninstall removes only listed names) | Foreign content in the `CLAUDE.md` block and settings restore is untested. |
 | Migration of `~/.claude/.radin` aborts before any write | `tests/install*.bats` (foreign `~/.radin`, failed `mv`, leftover staging directory, half-migrated, symlinked `~/.claude`, old updater) | An interrupted copy on a real second device is untested. |
 | Rendered `.md` only under `~/.radin/hosts/<host>/lib` | `tests/install*.bats` layout test, `tests/shipped.rs` (`lib` versus `hostlib` kinds) | None. |
 | One list of shipped files | `tests/shipped.rs`, run by `make check` | README row text is hand-written. |
@@ -142,11 +142,10 @@ The graph tool name lives in one file and must exist in the upstream table ([whi
 - **No router-side per-task verification in `radin-batch`.** The leaf verifies and reviews its own staged diff before it commits. A `FAILED` task gets a Debug prompt once per session. One that still fails asks the user and re-runs. The router defers only on the user's explicit word ([why](docs/agents/DECISIONS.md#the-run-loop)).
 - **What a sub-agent learns stays on its task.** It records a `**Fact:**` or `**Root cause:**` line, and the long form goes in `state/facts/<id>.md`. There is no shared note file and no cross-task memory.
 - **`radin-batch` worktree and branch answers never reach a prompt.** Only `radin-state.sh prepare` turns them into git commands. A model that receives them can eventually override a `no`.
-- **`lib/radin-cbm-config.sh` snapshots before the upstream write.** The upstream installer replaces the whole hook array and does not merge ([limits](docs/agents/DECISIONS.md#limits-of-the-codebase-memory-mcp-bracket)).
-- **Two C files only: the TUI (`lib/radin-tui.c`) and the JSON helper (`lib/radin-cbm-json.c`).**
+- **`radin wire` snapshots before the upstream write.** The upstream installer replaces the whole hook array and does not merge ([limits](docs/agents/DECISIONS.md#limits-of-the-codebase-memory-mcp-bracket)).
+- **One C file only: the TUI (`lib/radin-tui.c`).**
   - The TUI draws and dispatches keys with raw ANSI and `termios`. Every mutation shells out to `radin-backlog.sh`.
-  - The helper holds every JSON rule that `radin repair` and `radin hooks mcp` need. Those scripts keep none. radin needs no Python.
-  - `install.sh` builds both with `cc`, and the build is advisory. Without a compiler there is no TUI and no `radin repair`, and `radin hooks mcp` prints an entry to paste by hand ([rules](docs/agents/DECISIONS.md#the-human-tui)).
+  - `install.sh` builds it with `cc`, and the build is advisory. Without a compiler there is no TUI ([rules](docs/agents/DECISIONS.md#the-human-tui)).
 - **`order` moves a dependency up, never a dependent down.** Kahn's algorithm with a priority tie-break discards more of the human ranking.
 - **The TUI loads `backlog list --order created`,** so a mutation reorders nothing. `Shift-A`, `Shift-P`, `Shift-C`, and `Shift-T` are the only reorder keys. They last one session, and the header shows the active one. The CLI default stays `priority`, the contract `radin-prioritization.md` reads.
 - **One sub-agent takes one task** and returns one `STATUS` line. A leaf starts cold, so batching tasks for file locality saves no tokens.

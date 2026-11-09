@@ -1,6 +1,6 @@
 # Template: radin-batch fact-finding prompt (`BLOCKED (FACT)`)
 
-Rendered by `radin prompt factfind <id>`. `lib/radin-prompt.sh` holds the format.
+Rendered by `radin prompt factfind <id>`. `src/prompt.rs` holds the format.
 
 <!-- host:claude -->
 `model: "RADIN_MODEL_FACTFIND"`

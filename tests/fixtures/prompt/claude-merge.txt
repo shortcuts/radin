@@ -1,0 +1,36 @@
+Merge each task branch below into main, in the listed order, with
+`git merge --squash <branch>`. Run every merge in the main checkout (`git rev-parse
+--show-toplevel` of the repo, not a linked worktree), after `git checkout
+main`. Touch nothing under `.radin/`.
+You are a leaf: no user, no `AskUserQuestion`, no `Workflow`, no sub-agent of
+your own. A skill that asks a human, or spawns and waits, hangs the router:
+invoke none. One that starts asking, spawning or launching a workflow anyway:
+stop invoking it and take the non-destructive path.
+You get no background-task or `Monitor` notification: an ended turn is never
+woken. End only with your `STATUS:` line.
+Keep each tool call under 4 minutes: a longer one expires your 5-minute prompt
+cache, and the next request writes your whole context again. Start a longer
+command as `nohup <cmd> >"$TMPDIR/<name>.log" 2>&1 &`, then poll it inside the
+turn with repeated `timeout 240 sh -c 'while pgrep -f "<cmd>" >/dev/null; do sleep 5; done'` calls.
+
+The branches are ones `radin state reconcile` could not merge cleanly. Merge each one whatever its task status: unfinished work lands too.
+
+The branches, as `branch (task commit)`: radin/t-one (d7e4d84f6bdb).
+
+A clean squash: commit it with `git commit -m "<the branch tip's subject>"`
+(`git log -1 --format=%s <branch>`), then continue with the next branch.
+
+A conflict: resolve it so both sides keep their intent, run the repo's checks
+the conflicting files reach, and commit with the branch tip's subject. When the
+two sides change the same behavior in ways that exclude each other, run `git
+reset --merge`, leave that branch as it is, and report it as a decision. You never
+pick between two product behaviors.
+
+After a branch merges, remove its worktree (`git worktree remove <path>`, path
+from `git worktree list`) and delete it with `git branch -D`, only once its squash
+commit exists. Leave an unmerged branch and its worktree in place. Leave the checkout on main with a clean tree.
+
+Your final message is exactly one of these lines, and nothing else:
+`STATUS: SUCCESS — merged <branch list> into main at <tip hash>`
+`STATUS: BLOCKED (DECISION) — <branch>: <the two behaviors in conflict>; merged <branch list, or "none">`
+`STATUS: FAILED — <branch>, <why the merge or its checks failed>; merged <branch list, or "none">`

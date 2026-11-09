@@ -1,6 +1,6 @@
 # Complexity rule
 
-The one rule for sizing a task, which picks its execution model. `lib/radin-prompt.sh`
+The one rule for sizing a task, which picks its execution model. `src/prompt.rs`
 writes the fence into the planning prompt at the `COMPLEXITY_RULE` token.
 `radin-record` Step 4 reads this file.
 

@@ -1,6 +1,6 @@
 # Template: radin-batch debug prompt (Phase 4, after `STATUS: FAILED`)
 
-Rendered by `radin prompt debug <id>`. `lib/radin-prompt.sh` holds the format.
+Rendered by `radin prompt debug <id>`. `src/prompt.rs` holds the format.
 
 <!-- host:claude -->
 `model: "RADIN_MODEL_DEBUG"`

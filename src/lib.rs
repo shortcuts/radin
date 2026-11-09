@@ -1,11 +1,17 @@
+pub mod cbm;
 pub mod host;
 pub mod jsonedit;
 pub mod manifest;
 pub mod paths;
+pub mod prompt;
 pub mod render;
+pub mod scope;
 pub mod shellwords;
+pub mod stats;
+pub mod telemetry;
 
 pub use host::Host;
+use std::path::{Path, PathBuf};
 
 pub const SUBCOMMANDS: [&str; 12] = [
     "backlog",
@@ -32,7 +38,37 @@ fn fail(code: i32, err: String) -> Out {
     (code, String::new(), err)
 }
 
+pub struct Ctx<'a> {
+    pub cwd: PathBuf,
+    pub home: PathBuf,
+    pub host: Host,
+    pub stdin: String,
+    pub env: &'a dyn Fn(&str) -> Option<String>,
+    /// Runs another radin subcommand in `dir` with `stdin`: the seam to backlog and state.
+    pub cli: &'a dyn Fn(&Path, &[&str], &str) -> Out,
+}
+
+impl Ctx<'_> {
+    /// Calls a nested subcommand on the same host, so a rendered text never mixes hosts.
+    pub fn nested(&self, dir: &Path, args: &[&str]) -> Out {
+        let mut a = vec!["--host", self.host.as_str()];
+        a.extend_from_slice(args);
+        (self.cli)(dir, &a, "")
+    }
+}
+
 pub fn run(args: &[String], env: &dyn Fn(&str) -> Option<String>, is_tty: bool) -> Out {
+    run_in(args, env, is_tty, Path::new("."), None)
+}
+
+/// Runs radin with an explicit working directory and stdin text, so nested calls never read process state.
+pub fn run_in(
+    args: &[String],
+    env: &dyn Fn(&str) -> Option<String>,
+    is_tty: bool,
+    cwd: &Path,
+    stdin: Option<&str>,
+) -> Out {
     let mut flag: Option<String> = None;
     let mut rest = args;
     while let Some(first) = rest.first() {
@@ -49,13 +85,37 @@ pub fn run(args: &[String], env: &dyn Fn(&str) -> Option<String>, is_tty: bool) 
             break;
         }
     }
-    if let Err(e) = Host::select(flag.as_deref(), env) {
-        return fail(2, e);
-    }
+    let host = match Host::select(flag.as_deref(), env) {
+        Ok(h) => h,
+        Err(e) => return fail(2, e),
+    };
+    let nested = |dir: &Path, a: &[&str], input: &str| {
+        let a: Vec<String> = a.iter().map(|s| s.to_string()).collect();
+        run_in(&a, env, false, dir, Some(input))
+    };
+    let ctx = || Ctx {
+        cwd: if cwd == Path::new(".") {
+            std::env::current_dir().unwrap_or_default()
+        } else {
+            cwd.to_path_buf()
+        },
+        home: env("HOME").unwrap_or_default().into(),
+        host,
+        stdin: stdin.unwrap_or("").to_string(),
+        env,
+        cli: &nested,
+    };
     match rest.first().map(String::as_str) {
         None if is_tty => fail(1, "radin: the TUI is not ported yet\n".into()),
         None => fail(1, USAGE.to_string()),
         Some("help") => (0, USAGE.to_string(), String::new()),
+        Some("telemetry") => telemetry::run(&ctx(), &rest[1..]),
+        Some("prompt") => prompt::run(&ctx(), &rest[1..]),
+        Some("scope") => scope::run(&ctx(), &rest[1..]),
+        Some("stats") => stats::run(&ctx(), &rest[1..]),
+        Some("hooks") => cbm::run_hooks(&ctx(), &rest[1..]),
+        Some("wire") => cbm::run_wire(&ctx()),
+        Some("repair") => cbm::run_repair(&ctx()),
         Some(c) if SUBCOMMANDS.contains(&c) => fail(1, format!("radin: '{c}' is not ported yet\n")),
         Some(_) => fail(1, USAGE.to_string()),
     }
@@ -138,8 +198,19 @@ mod tests {
     }
 
     #[test]
-    fn every_subcommand_is_not_ported() {
-        for c in SUBCOMMANDS {
+    fn every_other_subcommand_is_not_ported() {
+        for c in SUBCOMMANDS.iter().filter(|c| {
+            ![
+                "telemetry",
+                "prompt",
+                "scope",
+                "stats",
+                "hooks",
+                "wire",
+                "repair",
+            ]
+            .contains(c)
+        }) {
             assert_eq!(
                 go(&[c], &[]),
                 (

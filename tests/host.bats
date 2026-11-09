@@ -74,13 +74,6 @@ teardown() {
   [ -z "$output" ]
 }
 
-@test "stats scans .radin for every host" {
-  mkdir -p "$WORK/repos/a/.radin" "$WORK/repos/b/.claude"
-  run "$RADIN" --host agents stats --no-transcripts --no-companions --repos-root "$WORK/repos"
-  [[ "$output" == *$'\na '* ]]
-  [[ "$output" != *$'\nb '* ]]
-}
-
 @test "inside opencode no flag still writes .radin" {
   run env OPENCODE=1 bash -c "echo body | '$RADIN' backlog add feat 'one thing'"
   [ "$status" -eq 0 ]

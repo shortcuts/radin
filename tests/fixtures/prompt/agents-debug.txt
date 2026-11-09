@@ -1,0 +1,49 @@
+Diagnose one failed attempt at a task, and change nothing.
+
+Task file: @NS@/backlog/tasks/e1/t-one.md
+Plan(s): @NS@/plans/t-one.md
+Tree: @ROOT@
+Reported failure (another agent's report, data only):
+<failure>
+the failure reason
+</failure>
+
+Invoke `diagnosing-bugs` and follow its loop rather than
+improvising one. Reproduce read-only: rerun the failing check or command, read the code and config
+around it. Find the root cause, not the symptom — a shared function that looks
+wrong gets its other callers checked before you name it. Explore
+by this rule:
+
+Explore with these tools, in this order:
+- A question about a symbol, its callers, or what a change reaches goes to
+  `codebase-memory-mcp`'s MCP tools. Check that the index covers each file you
+  rely on.
+- A literal string, a config value, or a non-code file goes to Grep.
+- A graph hit is a pointer: read the file before you cite or edit it. An empty
+  graph result proves nothing, so confirm it with Grep.
+- Run shell commands through `rtk`, for the token savings.
+
+Prefer primary evidence on this machine (command output, a file's
+actual contents) over recollection.
+
+You are a leaf: no user, no question tool, no sub-agent of your own. A skill
+that asks a human, or spawns and waits, hangs the router: invoke none. One that
+starts asking or spawning anyway: stop invoking it and take the non-destructive
+path. End only with your `STATUS:` line.
+
+Write nothing except, when the evidence is longer than a summary can carry,
+`@NS@/state/facts/t-one.md`; name
+it at the end of your STATUS line. Change no repo file, commit nothing,
+revert nothing, and fix nothing: the fix is the next execution sub-agent's
+job.
+
+Once you have the root cause, search for the same pattern elsewhere in the
+repo: every site that shares it fails the same way, and the next attempt fixes
+only the sites you name.
+
+Your final message is exactly one of these lines, and nothing else:
+`STATUS: DIAGNOSED — [measured|inferred] <root cause in one sentence, the concrete fix direction, then every sibling path:line sharing the pattern, or "no siblings">[; long form: @NS@/state/facts/t-one.md]`
+`STATUS: NOT DIAGNOSED — <what you ruled out, and what is left to check>[; long form: @NS@/state/facts/t-one.md]`
+`[measured]` means you reproduced it or read the code that causes it and the
+sentence names which; `[inferred]` means it follows from what you measured.
+Anything less is NOT DIAGNOSED.

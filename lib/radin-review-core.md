@@ -6,7 +6,7 @@ human triage on top. Run it inline. A caller that reads this file is a leaf or
 an agent and reaches no user.
 
 <!-- if:!LEVEL_diff -->
-`radin-prompt.sh` embeds the `diff` slice of this file in the execution
+`src/prompt.rs` embeds the `diff` slice of this file in the execution
 prompt and drops every block between an `if:!LEVEL_diff` line and its `end`
 line.
 <!-- end -->

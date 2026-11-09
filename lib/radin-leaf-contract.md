@@ -1,6 +1,6 @@
 # Leaf contract
 
-What every sub-agent prompt states about its limits. `lib/radin-prompt.sh`
+What every sub-agent prompt states about its limits. `src/prompt.rs`
 writes the fence in at the `LEAF_CONTRACT` token.
 
 ```

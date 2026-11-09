@@ -14,10 +14,7 @@ lib radin-json.sh
 lib radin-migrate.sh
 lib radin-backlog.sh
 lib radin-tui.c
-lib radin-cbm-json.c
 lib radin-state.sh
-lib radin-scope.sh
-lib radin-prompt.sh
 lib forbid-claude.txt
 lib forbid-agents.txt
 hostlib radin-prompt-planning.md
@@ -43,11 +40,7 @@ hostlib radin-batch-session.md
 hostlib radin-batch-resume.md
 hostlib radin-run.md
 hostlib radin-review-core.md
-lib radin-cbm-hooks.sh
-lib radin-cbm-config.sh
 lib radin-update.sh
-lib radin-stats.sh
-lib radin-telemetry.sh
 lib radin-doctor.sh
 lib radin-uninstall.sh
 # Tombstones: names an older radin shipped. Uninstall still removes them.

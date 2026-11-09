@@ -1,6 +1,6 @@
 # Planning rule
 
-The one rule for whether a task needs a plan before execution. `lib/radin-prompt.sh`
+The one rule for whether a task needs a plan before execution. `src/prompt.rs`
 writes the fence into the planning prompt at the `PLANNING_RULE` token.
 `radin-record` Step 4 and `radin-review` Step 5 read this file.
 

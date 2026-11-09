@@ -16,7 +16,7 @@ pub struct Namespace {
     pub created: bool,
 }
 
-fn git(cwd: &Path, args: &[&str]) -> Option<String> {
+pub(crate) fn git(cwd: &Path, args: &[&str]) -> Option<String> {
     let out = Command::new("git")
         .args(args)
         .current_dir(cwd)

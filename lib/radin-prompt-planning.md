@@ -1,6 +1,6 @@
 # Template: radin-batch planning prompt (Phase 4, an entry flagged `planning needed`)
 
-Rendered by `radin prompt planning <id>`. `lib/radin-prompt.sh` holds the format.
+Rendered by `radin prompt planning <id>`. `src/prompt.rs` holds the format.
 
 <!-- host:claude -->
 `model: "RADIN_MODEL_PLANNING"`

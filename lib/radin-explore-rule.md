@@ -1,6 +1,6 @@
 # Explore rule
 
-The one rule for which tool answers which question. `lib/radin-prompt.sh` writes
+The one rule for which tool answers which question. `src/prompt.rs` writes
 the fence into the execution, debug and factfind prompts at the `EXPLORE_RULE`
 token. `radin-plan` and `radin-review` read this file. It names no graph tool
 verb ([why](../docs/agents/DECISIONS.md#limits-of-the-codebase-memory-mcp-bracket)).

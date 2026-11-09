@@ -1,6 +1,6 @@
 # Template: radin-batch merge prompt (Phase 4.7)
 
-Rendered by `radin prompt merge`. `lib/radin-prompt.sh` holds the format.
+Rendered by `radin prompt merge`. `src/prompt.rs` holds the format.
 
 <!-- host:claude -->
 `model: "RADIN_MODEL_EXECUTION"`

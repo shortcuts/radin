@@ -1,6 +1,6 @@
 # Comment rule
 
-The one rule for code comments. `lib/radin-prompt.sh` writes the fence into the
+The one rule for code comments. `src/prompt.rs` writes the fence into the
 execution prompt at the `COMMENT_RULE` token. `radin-review-core.md` checks the
 same rule against the diff.
 
