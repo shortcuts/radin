@@ -223,3 +223,26 @@ fn inside_opencode_no_flag_still_writes_radin() {
     assert!(p.join(".radin/backlog/index.jsonl").is_file());
     assert!(!p.join(".agents").exists());
 }
+
+#[test]
+fn state_skips_a_socket_stdin_that_never_closes() {
+    // Claude Code's Bash tool hands commands an open socket on stdin.
+    let (_keep, theirs) = std::os::unix::net::UnixStream::pair().unwrap();
+    let home = tempfile::tempdir().unwrap();
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_radin"));
+    cmd.args(["state", "wave-cap"])
+        .current_dir(home.path())
+        .stdin(std::os::fd::OwnedFd::from(theirs))
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null());
+    common::isolate(&mut cmd, home.path());
+    let mut child = cmd.spawn().unwrap();
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+    while child.try_wait().unwrap().is_none() {
+        if std::time::Instant::now() > deadline {
+            child.kill().unwrap();
+            panic!("radin state blocked on a socket stdin");
+        }
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+}

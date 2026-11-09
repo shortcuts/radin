@@ -12,6 +12,7 @@ fn main() {
             .iter()
             .any(|a| ["--yes", "--update", "--list"].contains(&a.as_str()))
         && !std::io::stdin().is_terminal()
+        && !stdin_is_socket()
     {
         let mut b = Vec::new();
         let _ = std::io::stdin().read_to_end(&mut b);
@@ -27,4 +28,16 @@ fn main() {
     print!("{out}");
     eprint!("{err}");
     std::process::exit(code);
+}
+
+// An agent's shell passes an open socket on stdin that never reaches EOF.
+fn stdin_is_socket() -> bool {
+    use std::os::fd::AsFd;
+    use std::os::unix::fs::FileTypeExt;
+    std::io::stdin()
+        .as_fd()
+        .try_clone_to_owned()
+        .map(std::fs::File::from)
+        .and_then(|f| f.metadata())
+        .is_ok_and(|m| m.file_type().is_socket())
 }
