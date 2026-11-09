@@ -1,5 +1,5 @@
-# The only list of files radin ships. Edit here, then run `make gen`.
-# kind  name  (lib: host-neutral .sh .c .txt; hostlib: rendered .md, installed per host)
+# The only list of files radin ships. The binary embeds them; `cargo test --test shipped` checks the tree.
+# kind  name  (lib: host-neutral .txt; hostlib: rendered .md, installed per host)
 skill radin-batch
 skill radin-do
 skill radin-plan
@@ -8,10 +8,6 @@ skill radin-review
 skill radin-stats
 skill radin-teardown
 skill radin-uninstall
-lib radin-host.sh
-lib radin-namespace.sh
-lib radin-json.sh
-lib radin-migrate.sh
 lib forbid-claude.txt
 lib forbid-agents.txt
 hostlib radin-prompt-planning.md
@@ -37,7 +33,6 @@ hostlib radin-batch-session.md
 hostlib radin-batch-resume.md
 hostlib radin-run.md
 hostlib radin-review-core.md
-lib radin-update.sh
 # Tombstones: names an older radin shipped. Uninstall still removes them.
 # A renamed or retired skill is also removed by install, only while its SKILL.md names it.
 renamed skill radin-execute
@@ -57,6 +52,23 @@ retired lib radin-execute-clarify.md
 retired lib radin-execute-session.md
 retired lib radin-execute-resume.md
 retired lib radin-batch-review.md
+retired lib radin-backlog.sh
+retired lib radin-tui.c
+retired lib radin-cbm-json.c
+retired lib radin-state.sh
+retired lib radin-scope.sh
+retired lib radin-prompt.sh
+retired lib radin-cbm-hooks.sh
+retired lib radin-cbm-config.sh
+retired lib radin-stats.sh
+retired lib radin-telemetry.sh
+retired lib radin-doctor.sh
+retired lib radin-uninstall.sh
+retired lib radin-host.sh
+retired lib radin-namespace.sh
+retired lib radin-json.sh
+retired lib radin-migrate.sh
+retired lib radin-update.sh
 lib skill-names-claude.txt
 lib skill-names-agents.txt
 lib companion-skills.txt

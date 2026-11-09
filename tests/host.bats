@@ -5,13 +5,14 @@
 setup() {
   SRC="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
   WORK="$(cd "$(mktemp -d)" && pwd -P)"
-  # bin/radin hardcodes $HOME/.radin/lib, so a fake HOME links to the repo.
+  # A fake HOME links to the repo lib and the built binary.
   export HOME="$WORK/home"
   load helpers/isolate
   isolate_env "$HOME"
   mkdir -p "$HOME/.radin" "$WORK/proj"
   ln -s "$SRC/lib" "$HOME/.radin/lib"
-  ln -s "$SRC/bin" "$HOME/.radin/bin"
+  mkdir -p "$HOME/.radin/bin"
+  ln -s "$SRC/target/debug/radin" "$HOME/.radin/bin/radin"
   RADIN="$HOME/.radin/bin/radin"
   unset RADIN_HOST
   cd "$WORK/proj"

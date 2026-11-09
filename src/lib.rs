@@ -2,6 +2,7 @@ pub mod backlog;
 pub mod cbm;
 pub mod doctor;
 pub mod host;
+pub mod install;
 pub mod jsonedit;
 pub mod manifest;
 pub mod migrate;
@@ -20,13 +21,14 @@ pub mod uninstall;
 pub use host::Host;
 use std::path::{Path, PathBuf};
 
-pub const SUBCOMMANDS: [&str; 12] = [
+pub const SUBCOMMANDS: [&str; 13] = [
     "backlog",
     "state",
     "scope",
     "prompt",
     "stats",
     "telemetry",
+    "install",
     "update",
     "doctor",
     "uninstall",
@@ -35,7 +37,7 @@ pub const SUBCOMMANDS: [&str; 12] = [
     "repair",
 ];
 
-pub const USAGE: &str = "usage: radin [--host claude|agents] <backlog|state|scope|prompt|stats|telemetry|hooks|wire|repair|update|doctor|uninstall> [args]\n\
+pub const USAGE: &str = "usage: radin [--host claude|agents] <backlog|state|scope|prompt|stats|telemetry|hooks|wire|repair|install|update|doctor|uninstall> [args]\n\
 With no subcommand on a terminal, radin opens the TUI; \"radin help\" prints this text.\n\
 Each subcommand prints its own usage when run with no arguments.\n";
 
@@ -152,12 +154,13 @@ pub fn run_in(
         Some("prompt") => prompt::run(&ctx(), &rest[1..]),
         Some("scope") => scope::run(&ctx(), &rest[1..]),
         Some("stats") => stats::run(&ctx(), &rest[1..]),
+        Some("install") => install::run(&ctx(), &rest[1..], false),
+        Some("update") => install::run_update(&ctx(), &rest[1..]),
         Some("doctor") => doctor::run(&ctx(), &rest[1..]),
         Some("uninstall") => uninstall::run(&ctx(), &rest[1..]),
         Some("hooks") => cbm::run_hooks(&ctx(), &rest[1..]),
         Some("wire") => cbm::run_wire(&ctx()),
         Some("repair") => cbm::run_repair(&ctx()),
-        Some(c) if SUBCOMMANDS.contains(&c) => fail(1, format!("radin: '{c}' is not ported yet\n")),
         Some(_) => fail(1, USAGE.to_string()),
     }
 }
@@ -236,35 +239,6 @@ mod tests {
     #[test]
     fn help_prints_usage_to_stdout() {
         assert_eq!(go(&["help"], &[]), (0, USAGE.to_string(), String::new()));
-    }
-
-    #[test]
-    fn every_other_subcommand_is_not_ported() {
-        for c in SUBCOMMANDS.iter().filter(|c| {
-            ![
-                "backlog",
-                "state",
-                "telemetry",
-                "prompt",
-                "scope",
-                "stats",
-                "hooks",
-                "wire",
-                "repair",
-                "doctor",
-                "uninstall",
-            ]
-            .contains(c)
-        }) {
-            assert_eq!(
-                go(&[c], &[]),
-                (
-                    1,
-                    String::new(),
-                    format!("radin: '{c}' is not ported yet\n")
-                )
-            );
-        }
     }
 
     #[test]

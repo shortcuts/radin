@@ -1,10 +1,10 @@
-.PHONY: install update build run test test-changed golden verify-hosts bench-tui screenshot lint check gen diagrams serve-diagrams clean
+.PHONY: install update build run test test-changed golden verify-hosts bench-tui screenshot lint check diagrams serve-diagrams clean
 
 install:
-	./install.sh
+	cargo run -q -- install
 
 update:
-	./install.sh --update
+	cargo run -q -- install --update
 
 # Both compiled helpers are test-only; the TUI is part of the Rust binary.
 build: tests/helpers/pty-run tests/helpers/mock
@@ -30,21 +30,16 @@ test: build
 # A test that follows a cc symlink once overwrote the real settings.json, so
 # bats runs without CLAUDE_CONFIG_DIR and the run fails if a real file changes.
 # T="tests/host.bats tests/doctor.bats" runs only those files.
-# One recorded install.sh run (tests/helpers/build-template.sh) serves every file that
-# replays it; each file used to record its own, nine installs in all.
 	@before=$$(scripts/real-setup-sum.sh); \
 		env -u CLAUDE_CONFIG_DIR -u CODEX_HOME -u XDG_CONFIG_HOME -u OPENCODE_CONFIG cargo test; \
 		cargo_status=$$?; \
 		files="$(T)"; \
-		[ -n "$$files" ] || files="$$(ls tests/install*.bats; ls tests/*.bats | grep -v -e install)"; \
-		tpl=""; \
-		if grep -q 'helpers/install' $$files; then tpl=$$(mktemp -d); env -u CLAUDE_CONFIG_DIR -u CODEX_HOME -u XDG_CONFIG_HOME -u OPENCODE_CONFIG tests/helpers/build-template.sh "$$tpl"; fi; \
-		printf '%s\n' $$files | RADIN_TEMPLATE="$$tpl" \
+		[ -n "$$files" ] || files="$$(ls tests/*.bats)"; \
+		printf '%s\n' $$files | \
 		GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.fsync GIT_CONFIG_VALUE_0=none \
 		env -u CLAUDE_CONFIG_DIR -u CODEX_HOME -u XDG_CONFIG_HOME -u OPENCODE_CONFIG -u OPENCODE xargs -P $(JOBS) -n1 bats; \
 		status=$$?; \
 		[ $$cargo_status -eq 0 ] || status=1; \
-		[ -z "$$tpl" ] || rm -rf "$$tpl"; \
 		after=$$(scripts/real-setup-sum.sh); \
 		if [ "$$before" != "$$after" ]; then \
 			echo "make test changed the real setup:"; \
@@ -63,10 +58,8 @@ test-changed: build
 		esac
 
 # Rewrites the golden sums after an intended change to the Claude render.
-# The golden test lives in one file; --filter would still run setup_file's
-# install in all nine install*.bats files.
 golden:
-	env -u CLAUDE_CONFIG_DIR -u CODEX_HOME -u XDG_CONFIG_HOME -u OPENCODE_CONFIG GOLDEN_UPDATE=1 bats --filter 'golden render of the Claude install' tests/install-6.bats
+	env -u CLAUDE_CONFIG_DIR -u CODEX_HOME -u XDG_CONFIG_HOME -u OPENCODE_CONFIG GOLDEN_UPDATE=1 cargo test --test golden_render
 
 # Opt-in: drives the real opencode and codex CLIs without a model call. Needs a C
 # compiler, about a minute per host, and npm for VERIFY_ARGS=--install-missing.
@@ -90,7 +83,7 @@ bench-tui:
 screenshot:
 	@scripts/screenshot-tui.sh
 
-SH_FILES = scripts/screenshot-tui.sh install.sh bin/radin lib/radin-namespace.sh lib/radin-json.sh lib/radin-migrate.sh lib/radin-update.sh scripts/real-setup-sum.sh scripts/golden-render.sh scripts/affected-tests.sh scripts/render-host.sh scripts/verify-hosts.sh
+SH_FILES = scripts/screenshot-tui.sh install.sh scripts/record-bash-era.sh lib/radin-namespace.sh lib/radin-json.sh lib/radin-migrate.sh scripts/real-setup-sum.sh scripts/golden-render.sh scripts/affected-tests.sh scripts/render-host.sh scripts/verify-hosts.sh
 
 clean:
 	rm -f tests/helpers/pty-run tests/helpers/mock
@@ -112,9 +105,6 @@ check:
 	cargo clippy --all-targets -- -D warnings
 	markdownlint '**/*.md' --ignore node_modules --ignore CHANGELOG.md
 	cargo test --test lints --test shipped
-
-gen:
-	SHIPPED_GEN=1 cargo test --test shipped gen_writes_blocks -- --ignored
 
 # Pinned so a pele release never reshuffles the committed SVGs. node_modules is
 # removed after the run: radin ships no JS and tracks no lockfile.

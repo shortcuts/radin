@@ -3,11 +3,14 @@ use std::io::{IsTerminal, Read};
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let mut stdin: Option<String> = None;
-    let stdin_verbs = ["scope", "state"];
+    let stdin_verbs = ["scope", "state", "install", "update"];
     if args
         .iter()
         .find(|a| !a.starts_with('-') && !["claude", "agents"].contains(&a.as_str()))
         .is_some_and(|a| stdin_verbs.contains(&a.as_str()))
+        && !args
+            .iter()
+            .any(|a| ["--yes", "--update", "--list"].contains(&a.as_str()))
         && !std::io::stdin().is_terminal()
     {
         let mut b = Vec::new();

@@ -63,6 +63,10 @@ fn claude_render_matches_recorded_sums() {
         got.push((key, sum));
     }
     got.sort_by(|a, b| a.0.cmp(&b.0));
+    if std::env::var("GOLDEN_UPDATE").as_deref() == Ok("1") {
+        let text: String = got.iter().map(|(k, s)| format!("{s}  {k}\n")).collect();
+        fs::write(root.join("tests/golden-claude-render.sha256"), text).unwrap();
+    }
     let want: Vec<(String, String)> =
         fs::read_to_string(root.join("tests/golden-claude-render.sha256"))
             .unwrap()

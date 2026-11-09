@@ -18,6 +18,11 @@ pub struct Term {
 impl Term {
     /// Spawns radin in `proj` with an isolated HOME; `env` adds or, with an empty value, removes variables.
     pub fn spawn(proj: &Path, size: (u16, u16), env: &[(&str, &str)]) -> Term {
+        Term::spawn_args(proj, size, env, &[])
+    }
+
+    /// Like `spawn`, with command-line arguments.
+    pub fn spawn_args(proj: &Path, size: (u16, u16), env: &[(&str, &str)], args: &[&str]) -> Term {
         let (cols, rows) = size;
         let pair = native_pty_system()
             .openpty(PtySize {
@@ -29,6 +34,7 @@ impl Term {
             .unwrap();
         let home = proj.parent().unwrap().join("home");
         let mut cmd = CommandBuilder::new(env!("CARGO_BIN_EXE_radin"));
+        cmd.args(args);
         cmd.cwd(proj);
         cmd.env("HOME", &home);
         cmd.env("XDG_CONFIG_HOME", home.join(".config"));

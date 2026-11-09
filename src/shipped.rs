@@ -7,6 +7,7 @@ pub struct Shipped {
     pub hostlib: Vec<&'static str>,
     pub renamed_skills: Vec<&'static str>,
     pub retired_skills: Vec<&'static str>,
+    pub retired_lib: Vec<&'static str>,
 }
 
 pub fn shipped() -> Shipped {
@@ -19,6 +20,7 @@ pub fn shipped() -> Shipped {
             ["hostlib", n] => s.hostlib.push(n),
             ["renamed", "skill", n] => s.renamed_skills.push(n),
             ["retired", "skill", n] => s.retired_skills.push(n),
+            ["retired", "lib", n] => s.retired_lib.push(n),
             _ => {}
         }
     }

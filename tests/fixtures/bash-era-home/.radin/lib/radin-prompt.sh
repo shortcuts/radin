@@ -1,0 +1,309 @@
+#!/usr/bin/env bash
+# Assembles one radin-batch sub-agent prompt, so the router never reads the
+# template file, never substitutes a placeholder, and never sends a leaf the
+# steps its task does not have. Installed to ~/.radin/lib/radin-prompt.sh
+# by install.sh.
+#
+# Usage:
+#   radin-prompt.sh planning  <id>
+#   radin-prompt.sh execution <id>
+#   radin-prompt.sh debug     <id> <failure reason>
+#   radin-prompt.sh factfind  <id> <question>
+#   radin-prompt.sh gate
+#   radin-prompt.sh merge <branch>...     # the conflicting branches `state reconcile` printed, based on `state leftovers`
+#
+# Writes the prompt to <namespace>/state/prompts/<id>-<kind>.md and prints
+# `model<TAB><name>` and `effort<TAB><level>` when set (the agents host prints
+# neither), and `prompt<TAB><path>`. The router dispatches the path,
+# never the text: echoing a whole prompt back as a Task argument costs output
+# tokens on every dispatch. Exit 1 on a bad kind, an unresolvable id, or an
+# unresolved dependency.
+#
+# One template per kind, radin-prompt-<kind>.md: a single fenced prompt, guarded
+# blocks marked `<!-- if:NAME -->`/`<!-- if:!NAME -->` … `<!-- end -->`, and the
+# role's model on a `model: "<name>"` line in a claude block, written in at install time. Only the
+# fence reaches the sub-agent; the prose around it is for its editor. One file
+# per kind rather than one shared file, so a `---` line inside a prompt body
+# cannot end the extraction. Nothing about a prompt's text lives here.
+#
+# Must stay bash-3.2-compatible (macOS /bin/bash).
+set -euo pipefail
+
+TAB="$(printf '\t')"
+
+die() {
+	printf 'radin-prompt: %s\n' "$*" >&2
+	exit 1
+}
+
+LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+MD_DIR="$LIB_DIR/../hosts/${RADIN_HOST:-claude}/lib"
+[ -d "$MD_DIR" ] || MD_DIR="$LIB_DIR"
+
+kind="${1:-}"
+id="${2:-}"
+extra="${3:-}"
+if [ -z "$kind" ] || { [ -z "$id" ] && [ "$kind" != gate ] && [ "$kind" != merge ]; }; then
+	die "usage: radin-prompt.sh <planning|execution|debug|factfind> <id> [<failure|question>] | gate | merge [<branch>...]"
+fi
+
+case "$kind" in
+planning | execution | debug | factfind | gate | merge) ;;
+*) die "unknown prompt kind: $kind" ;;
+esac
+TEMPLATE="$MD_DIR/radin-prompt-$kind.md"
+[ -f "$TEMPLATE" ] || die "no template file: $TEMPLATE"
+
+case "$kind" in
+debug) [ -n "$extra" ] || die "the debug prompt needs the failure reason as its third argument" ;;
+factfind) [ -n "$extra" ] || die "the factfind prompt needs the question as its third argument" ;;
+esac
+
+# shellcheck disable=SC2016  # the backticks are the template's markdown, not a subshell
+model="$(sed -n 's/^`model: "\([^"]*\)"`$/\1/p' "$TEMPLATE" | head -1)"
+# The agents host inherits the parent's model, so its template has no model line.
+[ -n "$model" ] || [ "${RADIN_HOST:-claude}" = agents ] || die "no model line in $TEMPLATE"
+# shellcheck disable=SC2016
+effort="$(sed -n 's/^`effort: "\([^"]*\)"`$/\1/p' "$TEMPLATE" | head -1)"
+
+# An empty effort prints no line: an empty `effort` on an Agent call fails it.
+print_dispatch() {
+	[ -z "$model" ] || printf 'model\t%s\n' "$model"
+	[ -z "$effort" ] || printf 'effort\t%s\n' "$effort"
+	printf 'prompt\t%s\n' "$1"
+}
+
+fence() {
+	awk '
+		/^```$/ { fence = !fence; next }
+		fence { print }
+	' "$1"
+}
+
+body="$(fence "$TEMPLATE")"
+[ -n "$body" ] || die "no fenced prompt in $TEMPLATE"
+leaf_contract="$(fence "$MD_DIR/radin-leaf-contract.md")"
+[ -n "$leaf_contract" ] || die "no fenced contract in $MD_DIR/radin-leaf-contract.md"
+comment_rule="$(fence "$MD_DIR/radin-comment-rule.md")"
+[ -n "$comment_rule" ] || die "no fenced rule in $MD_DIR/radin-comment-rule.md"
+explore_rule="$(fence "$MD_DIR/radin-explore-rule.md")"
+[ -n "$explore_rule" ] || die "no fenced rule in $MD_DIR/radin-explore-rule.md"
+open_decisions_rule="$(fence "$MD_DIR/radin-open-decisions.md")"
+[ -n "$open_decisions_rule" ] || die "no fenced rule in $MD_DIR/radin-open-decisions.md"
+complexity_rule="$(fence "$MD_DIR/radin-complexity-rule.md")"
+[ -n "$complexity_rule" ] || die "no fenced rule in $MD_DIR/radin-complexity-rule.md"
+planning_rule="$(fence "$MD_DIR/radin-planning-rule.md")"
+[ -n "$planning_rule" ] || die "no fenced rule in $MD_DIR/radin-planning-rule.md"
+
+# One `eval` of the CLI's own export lines, rather than parsing them: the
+# namespace is this script's only input that is not an argument.
+eval "$(bash "$LIB_DIR/radin-backlog.sh" env --export)"
+
+# Placeholder substitution, longest name first where one contains another.
+sub_token() {
+	# $1 token, $2 value: parameter expansion, so a multi-line value (the
+	# ACCEPTANCE block) lands whole and no sed metacharacter is special.
+	body="${body//$1/$2}"
+}
+
+# Drops every guarded block whose name is not in the active list (see below).
+strip_guards() {
+	awk -v active="$1" '
+		/^<!-- if:/ {
+			name = $0
+			sub(/^<!-- if:/, "", name); sub(/ -->$/, "", name)
+			neg = (substr(name, 1, 1) == "!")
+			if (neg) name = substr(name, 2)
+			on = index(active, " " name " ") > 0
+			skip = neg ? on : !on
+			next
+		}
+		$0 == "<!-- end -->" { skip = 0; next }
+		!skip { print }
+	'
+}
+
+# The gate belongs to the session, not a task: no id, no task fields. Its one
+# guard, GATE_REVIEW, holds the review, and `gate-filed` marks it used.
+if [ "$kind" = gate ]; then
+	map="$(cd "$REPO_ROOT" && bash "$LIB_DIR/radin-state.sh" gate-map)" ||
+		die "no session commits, so no gate is due"
+	active=" GATE_REVIEW "
+	[ ! -e "$NAMESPACE_DIR/state/gate-reviewed" ] || active=" "
+	body="$(printf '%s\n' "$body" | strip_guards "$active")"
+	sub_token LEAF_CONTRACT "$leaf_contract"
+	sub_token PLANNING_RULE "$planning_rule"
+	sub_token COMPLEXITY_RULE "$complexity_rule"
+	sub_token GATE_MAP "$map"
+	mkdir -p "$NAMESPACE_DIR/state/prompts"
+	out="$NAMESPACE_DIR/state/prompts/session-gate.md"
+	printf '%s\n' "$body" >"$out"
+	print_dispatch "$out"
+	exit 0
+fi
+
+# Like the gate, the merge belongs to the session. `leftovers` names the base
+# branch, so the leaf never derives it from git.
+if [ "$kind" = merge ]; then
+	[ "$#" -gt 1 ] || die "usage: merge <branch>..."
+	list="$(cd "$REPO_ROOT" && bash "$LIB_DIR/radin-state.sh" leftovers)" || die "no leftover branch to merge"
+	list="$(printf '%s\n' "$list" | sed -n 1p)"
+	shift
+	for b in "$@"; do
+		tip="$(git -C "$REPO_ROOT" rev-parse --short=12 "$b")" || die "no such branch: $b"
+		list="$list"$'\n'"-$TAB$b$TAB$tip"
+	done
+	sub_token LEAF_CONTRACT "$leaf_contract"
+	sub_token MERGE_BASE "$(printf '%s\n' "$list" | sed -n 's/^base\t//p')"
+	sub_token MERGE_BRANCHES "$(printf '%s\n' "$list" | awk -F'\t' '$1 != "base" { printf "%s%s (%s)", sep, $2, $3; sep = ", " } END { print "" }')"
+	mkdir -p "$NAMESPACE_DIR/state/prompts"
+	out="$NAMESPACE_DIR/state/prompts/session-merge.md"
+	printf '%s\n' "$body" >"$out"
+	print_dispatch "$out"
+	exit 0
+fi
+
+field() {
+	(cd "$REPO_ROOT" && bash "$LIB_DIR/radin-backlog.sh" field "$id" "$1" 2>/dev/null)
+}
+
+task_id="$(field TASK_ID)" || die "no backlog task matches: $id"
+[ -n "$task_id" ] || die "no backlog task matches: $id"
+task_file="$(field TASK_FILE)"
+category="$(field CATEGORY)"
+# Category says what the change does to the codebase, not how hard it is: a
+# chore can still need tuning on a device. Only the planner's read of the code
+# marks a task low, and an unsized task keeps the execution model.
+if [ "$kind" = execution ] && [ -n "$model" ] && [ "$(field COMPLEXITY || true)" = low ]; then
+	# shellcheck disable=SC2016
+	low_model="$(sed -n 's/^`model-low: "\([^"]*\)"`$/\1/p' "$TEMPLATE" | head -1)"
+	[ -n "$low_model" ] || die "no model-low line in $TEMPLATE"
+	model="$low_model"
+	# shellcheck disable=SC2016
+	effort="$(sed -n 's/^`effort-low: "\([^"]*\)"`$/\1/p' "$TEMPLATE" | head -1)"
+fi
+
+plan_paths=""
+if plan_paths="$(field PLAN_PATHS)"; then :; else plan_paths=""; fi
+skills=""
+if skills="$(field SKILLS)"; then :; else skills=""; fi
+if [ "$skills" = "none" ]; then
+	skills=""
+else
+	# One instruction per line on the way in, one sentence in the prompt.
+	skills="$(printf '%s\n' "$skills" | awk 'NF { printf "%s%s", sep, $0; sep = "; " } END { print "" }')"
+fi
+acceptance=""
+if acceptance="$(field ACCEPTANCE)"; then :; else acceptance=""; fi
+facts=""
+if facts="$(field FACTS)"; then :; else facts=""; fi
+location=""
+if location="$(field LOCATION)"; then :; else location=""; fi
+epic_context=""
+if epic_context="$(field EPIC_CONTEXT)"; then :; else epic_context=""; fi
+# `|| die`, not a bare assignment: `set -e` exits on a failing command
+# substitution before any following check runs.
+task_body="$(field TASK_BODY)" || die "task file is empty or missing: $task_file"
+
+# Dependency commits are the router's old bookkeeping: `task-next` printed them
+# and the prompt carried them by hand. deps-check is the same read, so the
+# prompt gets them without the router holding a pair list.
+depends_on=""
+if [ "$kind" = execution ] && [ -f "$NAMESPACE_DIR/state/BACKLOG_STEPS.json" ]; then
+	deps="$(bash "$LIB_DIR/radin-state.sh" deps-check "$task_id")" ||
+		die "dependency of $task_id is unresolved, so no execution prompt is due yet"
+	while IFS="$TAB" read -r dep hash; do
+		[ -n "$dep" ] || continue
+		[ -z "$depends_on" ] || depends_on="$depends_on, "
+		depends_on="$depends_on$dep: $hash"
+	done <<-DEPS
+		$deps
+	DEPS
+fi
+
+# Commits landed since the plan was written that touched its `## Changes`
+# paths. The sidecar is written by `add-plan`; no sidecar or an unknown hash
+# (history rewrite) means no block.
+stale_plan=""
+head_file="$NAMESPACE_DIR/plans/$task_id.head"
+if [ "$kind" = execution ] && [ -f "$head_file" ]; then
+	base="$(cat "$head_file")"
+	if git -C "$REPO_ROOT" cat-file -e "$base^{commit}" 2>/dev/null; then
+		plan_files="$(cd "$REPO_ROOT" && bash "$LIB_DIR/radin-backlog.sh" files "$task_id" 2>/dev/null)" || plan_files=""
+		hit=""
+		if [ -n "$plan_files" ]; then
+			hit="$(git -C "$REPO_ROOT" diff --name-only "$base" HEAD 2>/dev/null |
+				grep -Fx -f <(printf '%s\n' "$plan_files") || true)"
+		fi
+		if [ -n "$hit" ]; then
+			hit_args=()
+			while IFS= read -r hit_path; do hit_args[${#hit_args[@]}]="$hit_path"; done <<-HIT
+				$hit
+			HIT
+			commits="$(git -C "$REPO_ROOT" log --format='%h %s' "$base..HEAD" -- "${hit_args[@]}" |
+				awk 'NF { printf "%s%s", sep, $0; sep = "; " }')"
+			files="$(printf '%s\n' "$hit" | awk 'NF { printf "%s%s", sep, $0; sep = ", " }')"
+			[ -z "$commits" ] || stale_plan="$commits | files: $files"
+		fi
+	fi
+fi
+
+task_dir=""
+if [ "$kind" = debug ]; then
+	task_dir="$(bash "$LIB_DIR/radin-state.sh" task-dir "$task_id")"
+fi
+
+# Guard names active for this task. A `<!-- if:NAME -->` block survives only
+# when its name is listed here, and `<!-- if:!NAME -->` only when it is not.
+active=" CAT_$category "
+[ -z "$plan_paths" ] || active="$active PLAN_PATHS "
+[ -z "$skills" ] || active="$active SKILLS "
+[ -z "$acceptance" ] || active="$active ACCEPTANCE "
+[ -z "$facts" ] || active="$active FACTS "
+[ -z "$location" ] || active="$active LOCATION "
+[ -z "$epic_context" ] || active="$active EPIC_CONTEXT "
+[ -z "$depends_on" ] || active="$active DEPENDS_ON "
+[ -z "$stale_plan" ] || active="$active STALE_PLAN "
+[ ! -s "$NAMESPACE_DIR/state/stash-claims/$task_id" ] || active="$active STASH_BASE "
+[ -z "$depends_on$stale_plan" ] || active="$active DRIFT "
+
+body="$(printf '%s\n' "$body" | strip_guards "$active")"
+
+review_core=""
+if [ "$kind" = execution ]; then
+	review_core="$(strip_guards " LEVEL_diff " <"$MD_DIR/radin-review-core.md")"
+fi
+
+sub_token LEAF_CONTRACT "$leaf_contract"
+sub_token COMMENT_RULE "$comment_rule"
+sub_token EXPLORE_RULE "$explore_rule"
+sub_token OPEN_DECISIONS_RULE "$open_decisions_rule"
+sub_token COMPLEXITY_RULE "$complexity_rule"
+sub_token PLANNING_RULE "$planning_rule"
+sub_token NAMESPACE_DIR "$NAMESPACE_DIR"
+sub_token TASK_FILE "$task_file"
+sub_token TASK_DIR "$task_dir"
+sub_token TASK_ID "$task_id"
+sub_token PLAN_PATHS "${plan_paths:-none}"
+sub_token DEPENDS_ON "${depends_on:-none}"
+sub_token STALE_PLAN "${stale_plan:-none}"
+sub_token SKILLS "${skills:-none}"
+sub_token CATEGORY "$category"
+sub_token ACCEPTANCE "$acceptance"
+sub_token FACTS "$facts"
+sub_token LOCATION "$location"
+case "$kind" in
+debug) sub_token FAILURE "$extra" ;;
+factfind) sub_token QUESTION "$extra" ;;
+esac
+# Last, because substitution is sequential: a body whose own prose mentions
+# TASK_ID or NAMESPACE_DIR would otherwise be rewritten. Guard stripping
+# already ran above, so an `<!-- if:NAME -->` line inside a body is inert.
+sub_token REVIEW_CORE "$review_core"
+sub_token EPIC_CONTEXT "$epic_context"
+sub_token TASK_BODY "$task_body"
+
+mkdir -p "$NAMESPACE_DIR/state/prompts" "$NAMESPACE_DIR/state/facts"
+out="$NAMESPACE_DIR/state/prompts/$task_id-$kind.md"
+printf '%s\n' "$body" >"$out"
+print_dispatch "$out"

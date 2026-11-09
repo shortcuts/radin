@@ -80,7 +80,7 @@ setup_host_env() { # host cli
 
 install_host() { # host
 	local log="$work/install-$1.log"
-	if ! bash "$root/install.sh" --yes --only "$1" </dev/null >"$log" 2>&1; then
+	if ! "$root/target/debug/radin" install --yes --only "$1" </dev/null >"$log" 2>&1; then
 		bad "$1" install "$(tail -n 15 "$log")"
 		return 1
 	fi

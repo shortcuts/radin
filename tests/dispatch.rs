@@ -45,13 +45,6 @@ fn bogus_env_host_exits_2() {
 }
 
 #[test]
-fn unported_subcommand_exits_1() {
-    let o = radin(&["update"], &[]);
-    assert_eq!(o.status.code(), Some(1));
-    assert_eq!(text(&o.stderr), "radin: 'update' is not ported yet\n");
-}
-
-#[test]
 fn state_reads_its_stdin_and_runs_in_the_current_directory() {
     use std::io::Write;
     let w = tempfile::tempdir().unwrap();

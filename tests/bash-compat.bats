@@ -8,12 +8,9 @@
 
 setup() {
   REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
-  FILES="install.sh bin/radin lib/*.sh scripts/*.sh"
-  # Known exceptions, in file order: removes a skill radin renamed, then the
-  # radin-installed thermo-nuclear copy right before the fresh npx copy is
-  # renamed over it.
-  RM_ALLOWED='rm -rf "$HOME/.claude/skills/$s"
-rm -rf "$HOME/.claude/skills/thermo-nuclear"'
+  FILES="install.sh lib/*.sh scripts/*.sh"
+  # The installer is Rust now: no shell file here removes anything under ~/.claude.
+  RM_ALLOWED=''
 }
 
 @test "no bash 4+ or uname construct in the shell files" {
