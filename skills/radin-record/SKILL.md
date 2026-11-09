@@ -16,7 +16,7 @@ The instruction sets the scope:
 - **Specific**: "add the auth timeout bug", "fix this issue", "work on adding that feature"
 - **Generic**: "add the findings", "record everything", "we should probably": scan the whole
   session for anything a reasonable person calls a bug, follow-up, idea, or feedback.
-  Each distinct item becomes its own entry.
+  Each distinct item becomes an entry, or joins one by the size rule below.
 
 Log the entry worded close to how it was raised.
 
@@ -27,8 +27,16 @@ own entry, sized as a **vertical slice**:
 - It cuts a narrow but complete path through every layer it touches.
 - Landed, it is demoable or verifiable on its own.
 - It fits one fresh context window.
+- It is worth a leaf. A leaf pays the same planning, checks and review whatever
+  its diff size, so a piece one function or one small diff covers joins the
+  piece that touches the same module.
 - A **prefactor**, the restructuring that makes the real change easy, is its
-  own entry, which every entry needing it depends on.
+  own entry, which every entry needing it depends on, when it is a slice on its
+  own. A small prefactor opens the entry that needs it.
+
+**The test:** would two leaves read the same files, and could one commit carry
+both? Yes: one entry. A piece that changes behavior another piece creates is
+part of that piece's entry, never a dependent entry.
 
 One mechanical change whose blast radius fans across the codebase is the exception,
 so log it as one entry per batch the change breaks, plus a final
@@ -102,9 +110,10 @@ from bare text and never invokes the skill the user chose.
 
 Run `RADIN_CLI backlog show` and read the open entries before you classify. It
 prints every entry with its epic. Find the entries each item shares a
-file, function or behavior with, and the entries it builds on. This read finds
-relations and dependencies only. It never merges the item into an entry or skips
-it, and Step 5 still appends.
+file, function or behavior with, and the entries it builds on. An item that
+passes Step 1's test against an **open** entry, one whose `RADIN_CLI backlog meta`
+prints no `plan` line, joins that entry: Step 5 appends it there. Against any
+other entry the item stays its own entry, ordered or related as below.
 
 Does landing this item require another item in the batch (or an existing backlog
 task from that read) to land first, by sharing a file/function/behavior or by an
@@ -213,14 +222,28 @@ existed. A title that matches several entries fails the call. Pass its id instea
 A new entry whose dependencies all exist may pass `--deps <csv-of-ids-or-titles>`
 on its `add` instead.
 
-Always append. Never scan for near-duplicates or merge with an existing entry, because a
-false-positive merge silently drops something the user cared about, which is worse
-than an occasional repeat.
+For an item that joins an open entry (Step 4), append its body under its own
+heading instead of an `add`:
+
+```bash
+RADIN_CLI backlog append <id> <<'EOF'
+### <short title>
+<the body, as for add>
+EOF
+```
+
+Then pass the entry's old and the item's new criteria in one
+`RADIN_CLI backlog set-meta <id> acceptance <criterion>...`, because the call
+replaces the list. An item whose verdict is "needed" also gets
+`RADIN_CLI backlog set-meta <id> planning needed`.
+
+Only append to an existing entry. Never remove one or rewrite its text, because
+a wrong join must lose nothing the user cared about.
 
 ## Step 6: Report back
 
-**Reply:** how many entries were logged, with titles, categories, plan
-flags and epic, and the
+**Reply:** how many entries were logged and which items joined an open entry,
+with titles, categories, plan flags and epic, and the
 backlog path the CLI printed; the decisions grilling settled and the questions
 left open, per entry. When nothing in scope rose to a loggable item, say so
 plainly and write no vague entry to prove the skill ran.
