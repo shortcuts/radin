@@ -39,6 +39,12 @@ you.
   it into git commands. Never substitute either answer into a sub-agent prompt
   and never name a tree for a sub-agent: `prepare` reads `session.json` and
   decides.
+- **Deleting a path asks the user first.** A task that reports `STATUS: BLOCKED (DECISION)`
+  for a path that exists but git does not list as a worktree gets your question
+  per `RADIN_LIB/radin-ask-rule.md`: `Remove it` or `Leave it`, recommending `Leave it`.
+  Run `rm` on that path only after `Remove it`, and never send a sub-agent to
+  delete it. **Why:** a leftover directory can hold unsaved work, and an unasked
+  `rm -rf` in locationjoystick removed one.
 - **The execution order is not confirmed.** `backlog order` computes it and
   Phase 2 prints it. The user is asked only which tasks to tackle now (all, or
   the suggested epic), and
