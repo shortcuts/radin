@@ -100,11 +100,20 @@ from bare text and never invokes the skill the user chose.
 
 ## Step 4: Classify each item and note dependencies
 
+Run `RADIN_CLI backlog show` and read the open entries before you classify. It
+prints every entry with its epic. Find the entries each item shares a
+file, function or behavior with, and the entries it builds on. This read finds
+relations and dependencies only. It never merges the item into an entry or skips
+it, and Step 5 still appends.
+
 Does landing this item require another item in the batch (or an existing backlog
-task) to land first, by sharing a file/function/behavior or by an explicit
-build-on? Note the other entry's exact title for Step 5's `set-deps`, and say why
+task from that read) to land first, by sharing a file/function/behavior or by an
+explicit build-on? Note the other entry's exact title for Step 5's `set-deps`, and say why
 it comes first in the dependent entry's description. The `depends_on` field
 carries the ordering, the prose the reason.
+
+An entry that relates to an existing task without ordering it gets one body line,
+`**Related:** <exact title>, <why they touch>`, so a later run sees the link.
 
 Classify into exactly one category (conventional-commit vocabulary):
 
