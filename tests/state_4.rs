@@ -380,3 +380,16 @@ fn recover_sends_a_clean_task_back_to_pending_and_wip_commits_a_dirty_one() {
         Some("blocked")
     );
 }
+
+#[test]
+fn an_id_verb_prints_its_usage_for_help_and_rejects_a_flag_as_its_id_without_a_branch() {
+    let w = W::new();
+    w.state(&["session-set", "no", "yes"]);
+    let help = w.state(&["prepare", "--help"]);
+    assert_eq!(help.code, 0, "{}", help.all());
+    assert!(help.out.contains("prepare <id>"), "{}", help.all());
+    let bad = w.state(&["prepare", "--bogus"]);
+    assert_ne!(bad.code, 0, "{}", bad.all());
+    assert!(bad.err.contains("prepare <id>"), "{}", bad.all());
+    assert_eq!(w.git(&["branch", "--list", "radin/--*"]), "");
+}

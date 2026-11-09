@@ -37,6 +37,33 @@ const HELP: &str = include_str!("help.txt");
 
 const VERBS: &str = "teardown|steps-init|steps-list|wave|wave-partition|plan-discard|steps-open|steps-waiting|answered|retry|task-next|task-report|task-fact|task-diagnosis|task-done|set-status|stuck|preflight|resume|recover|recover-reject|report|session-set|session-get|group-set|prepare|dirty-check|trace|completed-show|completed-list|unlanded|session-commits|gate-map|leftovers|stash-triage|stash-claim|reconcile|gate-fix|gate-filed|gate-done|deps-check|task-dir|journal-tail|plan-covers|review-findings|finding-classes";
 
+const ID_VERBS: &[&str] = &[
+    "task-next",
+    "task-report",
+    "task-fact",
+    "task-diagnosis",
+    "task-done",
+    "set-status",
+    "answered",
+    "retry",
+    "recover",
+    "recover-reject",
+    "plan-discard",
+    "prepare",
+    "trace",
+    "completed-show",
+    "deps-check",
+    "task-dir",
+    "gate-filed",
+];
+
+fn verb_usage(verb: &str) -> String {
+    HELP.lines()
+        .filter(|l| l.split_whitespace().next() == Some(verb))
+        .map(|l| format!("{}\n", l.trim_start()))
+        .collect()
+}
+
 pub fn die(m: impl AsRef<str>) -> Fail {
     Fail {
         code: 1,
@@ -241,6 +268,15 @@ fn dispatch(c: &Ctx, args: &[String], io: &mut Io) -> R {
             "unknown command: {} ({VERBS})",
             if verb.is_empty() { "<none>" } else { verb }
         )));
+    }
+    if ID_VERBS.contains(&verb) && arg(a, 0).starts_with('-') {
+        return match arg(a, 0) {
+            "--help" | "-h" => {
+                io.out.push_str(&verb_usage(verb));
+                Ok(0)
+            }
+            _ => Err(die(format!("usage: {}", verb_usage(verb).trim_end()))),
+        };
     }
     let s = S::new(c);
     match verb {
