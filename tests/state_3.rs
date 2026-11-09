@@ -366,6 +366,36 @@ fn plan_discard_drops_the_plan_flags_planning_needed_and_records_the_planning_to
 }
 
 #[test]
+fn plan_discard_deletes_the_discarded_plan_file_so_no_planner_reuses_it() {
+    let w = W::new();
+    w.plan_with(&["lib/a.sh"]);
+    w.state(&["task-report", "t-one", PLANNED]);
+    let r = w.state(&["plan-discard", "t-one", "1", "lib/a.sh"]);
+    assert_eq!(r.code, 0, "{}", r.all());
+    assert!(!w.exists(".radin/plans/t-one.md"), "{}", r.all());
+}
+
+#[test]
+fn plan_discard_keeps_a_plan_file_outside_the_radin_plans_dir() {
+    let w = W::new();
+    w.write(
+        "docs/t-one.md",
+        "# Plan\n\n## Changes\n\n- `lib/a.sh` — x\n",
+    );
+    let plan = w.p.join("docs/t-one.md");
+    assert_eq!(
+        w.bl(&["set-meta", "t-one", "plan", plan.to_str().unwrap()], "")
+            .code,
+        0
+    );
+    w.steps_init("t-one\t1\t\tpending\n");
+    w.state(&["task-report", "t-one", PLANNED]);
+    let r = w.state(&["plan-discard", "t-one", "1", "lib/a.sh"]);
+    assert_eq!(r.code, 0, "{}", r.all());
+    assert!(w.exists("docs/t-one.md"), "{}", r.all());
+}
+
+#[test]
 fn plan_discard_records_tokens_unknown_when_no_planning_usage_was_reported() {
     let w = W::new();
     w.plan_with(&["lib/a.sh"]);

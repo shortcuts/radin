@@ -5,6 +5,7 @@ use super::store::{self, get, json_escape, num, MAX_ATTEMPTS};
 use super::{arg, die, positive, S};
 use crate::backlog::{Fail, Io, R};
 use std::fmt::Write;
+use std::path::Component;
 
 fn first_line(s: &str) -> &str {
     s.lines().next().unwrap_or("")
@@ -416,6 +417,24 @@ pub fn plan_discard(s: &S, a: &[String], io: &mut Io) -> R {
         }
     }
     let tokens = tokens.map_or_else(|| "unknown".to_string(), |t| t.to_string());
+    let plans_dir = s.ns.join("plans");
+    let meta = s.bl_ok(&["meta", id]).unwrap_or_default();
+    for plan in meta.lines().filter_map(|l| l.strip_prefix("plan\t")) {
+        let file = s.root.join(plan);
+        if !file.starts_with(&plans_dir) || file.components().any(|c| c == Component::ParentDir) {
+            continue;
+        }
+        match std::fs::remove_file(&file) {
+            Ok(()) => {}
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+            Err(e) => {
+                return Err(die(format!(
+                    "plan-discard: cannot remove {}: {e}",
+                    file.display()
+                )))
+            }
+        }
+    }
     s.bl_must(&["set-meta", id, "plan", "--none"], "")?;
     s.bl_must(&["set-meta", id, "planning", "needed"], "")?;
     s.write_entry(id, "pending", 0, "", None)?;
