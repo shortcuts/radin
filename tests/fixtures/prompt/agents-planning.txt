@@ -14,7 +14,10 @@ You are a leaf: no user, no question tool, no sub-agent of your own. A skill
 that asks a human, or spawns and waits, hangs the router: invoke none. One that
 starts asking or spawning anyway: stop invoking it and take the non-destructive
 path. Run every check in the foreground and wait for its exit in this turn.
-End only with your `STATUS:` line. That rules out `grilling`, `research`, `/deep-research` and any
+End only with your `STATUS:` line.
+Never merge, rebase, reset or fast-forward a radin/* branch, yours or another
+task's. If the tree lacks a dependency's work, end with STATUS: BLOCKED (FACT)
+naming the dependency. That rules out `grilling`, `research`, `/deep-research` and any
 saved workflow. Anything you could only settle with one is BLOCKED material.
 Where the skill would ask (splitting the entry, overwriting an existing plan),
 take the non-destructive path: don't split, don't overwrite.

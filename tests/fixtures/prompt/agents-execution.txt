@@ -24,6 +24,9 @@ that asks a human, or spawns and waits, hangs the router: invoke none. One that
 starts asking or spawning anyway: stop invoking it and take the non-destructive
 path. Run every check in the foreground and wait for its exit in this turn.
 End only with your `STATUS:` line.
+Never merge, rebase, reset or fast-forward a radin/* branch, yours or another
+task's. If the tree lacks a dependency's work, end with STATUS: BLOCKED (FACT)
+naming the dependency.
 
 Ground rules, applying to every step below:
 - Record any skill you stopped invoking as a `**Fact:**` line (see above).

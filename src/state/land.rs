@@ -129,6 +129,29 @@ fn apply_claim(s: &S, dir: &Path, id: &str, io: &mut Io) {
     }
 }
 
+fn restack(s: &S, id: &str, parent: &str, io: &mut Io) -> Result<(), Fail> {
+    let (branch, start) = (format!("radin/{id}"), format!("radin/{parent}"));
+    let is_ancestor = |a: &str, b: &str| s.git_ok(&["merge-base", "--is-ancestor", a, b]);
+    if !is_ancestor(&start, &branch) {
+        if !is_ancestor(&branch, &start) {
+            let _ = writeln!(io.err, "prepare: {branch} does not contain {start}");
+            s.journal(
+                "stack-missed",
+                id,
+                &format!("{branch} does not contain {start}"),
+            );
+            return Ok(());
+        }
+        must(gx(&s.root, &["branch", "-f", &branch, &start], io))?;
+    }
+    if s.read(&format!("stacked/{id}")).is_empty() {
+        mkdir(s, "stacked");
+        let tip = s.gt(&["rev-parse", "--short=12", &start]);
+        write(s, &format!("stacked/{id}"), &format!("{parent} {tip}\n"));
+    }
+    Ok(())
+}
+
 pub fn prepare(s: &S, a: &[String], io: &mut Io) -> R {
     let id = arg(a, 0);
     if id.is_empty() {
@@ -149,6 +172,14 @@ pub fn prepare(s: &S, a: &[String], io: &mut Io) -> R {
     let mut wt_record = String::new();
     let wts = wt.to_string_lossy().into_owned();
     let res: Result<(), Fail> = (|| {
+        let reuses = if worktree == "yes" {
+            !wt.is_dir()
+        } else {
+            branch_mode == "yes"
+        };
+        if reuses && !parent.is_empty() && s.branch_exists(&branch) {
+            restack(s, id, &parent, io)?;
+        }
         if worktree == "yes" {
             if wt.is_dir() {
                 if !s.is_registered_worktree(&wt) {

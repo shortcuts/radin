@@ -17,6 +17,9 @@ Keep each tool call under 4 minutes: a longer one expires your 5-minute prompt
 cache, and the next request writes your whole context again. Start a longer
 command as `nohup <cmd> >"$TMPDIR/<name>.log" 2>&1 &`, then poll it in the
 foreground inside the turn with repeated `timeout 240 sh -c 'while pgrep -f "<cmd>" >/dev/null; do sleep 5; done'` calls.
+Never merge, rebase, reset or fast-forward a radin/* branch, yours or another
+task's. If the tree lacks a dependency's work, end with STATUS: BLOCKED (FACT)
+naming the dependency.
 <!-- /host -->
 <!-- host:agents -->
 You are a leaf: no user, no question tool, no sub-agent of your own. A skill
@@ -24,5 +27,8 @@ that asks a human, or spawns and waits, hangs the router: invoke none. One that
 starts asking or spawning anyway: stop invoking it and take the non-destructive
 path. Run every check in the foreground and wait for its exit in this turn.
 End only with your `STATUS:` line.
+Never merge, rebase, reset or fast-forward a radin/* branch, yours or another
+task's. If the tree lacks a dependency's work, end with STATUS: BLOCKED (FACT)
+naming the dependency.
 <!-- /host -->
 ```

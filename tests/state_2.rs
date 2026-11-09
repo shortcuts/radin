@@ -372,6 +372,62 @@ fn prepare_starts_a_dependent_on_its_unmerged_dependencys_branch_and_records_the
 }
 
 #[test]
+fn prepare_moves_an_existing_dependent_branch_with_no_commit_of_its_own_onto_the_dependency() {
+    let w = W::new();
+    w.stack_setup();
+    w.git(&["branch", "radin/t-two"]);
+    let r = w.state(&["prepare", "t-two"]);
+    assert_eq!(r.code, 0, "{}", r.all());
+    let dir = r.out.lines().last().unwrap();
+    assert_eq!(
+        w.git_at(std::path::Path::new(dir), &["show", "HEAD:shared.txt"]),
+        "one\nfrom-one"
+    );
+    let tip = w.git(&["rev-parse", "--short=12", "radin/t-one"]);
+    assert_eq!(
+        w.read(".radin/state/stacked/t-two").trim(),
+        format!("t-one {tip}")
+    );
+}
+
+#[test]
+fn prepare_leaves_an_existing_dependent_branch_that_holds_its_own_commit() {
+    let w = W::new();
+    let base = w.stack_setup();
+    w.git(&["checkout", "-q", "-b", "radin/t-two"]);
+    w.write("own.txt", "own\n");
+    w.git(&["add", "own.txt"]);
+    w.git(&["commit", "-q", "-m", "feat: t-two"]);
+    w.git(&["checkout", "-q", &base]);
+    let own = w.git(&["rev-parse", "radin/t-two"]);
+    let r = w.state(&["prepare", "t-two"]);
+    assert_eq!(r.code, 0, "{}", r.all());
+    assert_eq!(w.git(&["rev-parse", "radin/t-two"]), own);
+    assert!(r
+        .err
+        .contains("prepare: radin/t-two does not contain radin/t-one"));
+    assert!(!w.exists(".radin/state/stacked/t-two"));
+    assert!(w
+        .read(".radin/state/journal.jsonl")
+        .contains("stack-missed"));
+}
+
+#[test]
+fn prepare_records_the_stack_of_an_existing_dependent_branch_that_contains_the_dependency() {
+    let w = W::new();
+    w.stack_setup();
+    w.git(&["branch", "radin/t-two", "radin/t-one"]);
+    let r = w.state(&["prepare", "t-two"]);
+    assert_eq!(r.code, 0, "{}", r.all());
+    let tip = w.git(&["rev-parse", "--short=12", "radin/t-one"]);
+    assert_eq!(w.git(&["rev-parse", "--short=12", "radin/t-two"]), tip);
+    assert_eq!(
+        w.read(".radin/state/stacked/t-two").trim(),
+        format!("t-one {tip}")
+    );
+}
+
+#[test]
 fn prepare_gives_a_solo_task_its_own_worktree_and_the_main_checkout_keeps_its_branch() {
     let w = W::new();
     let base = w.base();
