@@ -6,21 +6,19 @@ For every flag and path, see [Reference](reference.md).
 ## Install radin
 
 1. Check that `curl`, `tar`, `bash` and the CLI of each host you pick are on your `PATH`.
-2. Optional: install a C compiler (Xcode Command Line Tools on macOS, gcc on Linux).
-   Without one, the installer skips the TUI and `radin repair` with a warning.
-3. Run the installer:
+2. Run the installer:
 
    ```sh
    curl -fsSL https://raw.githubusercontent.com/shortcuts/radin/main/install.sh | bash
    ```
 
-4. Answer three questions: sub-agent models, the package manager for the companion tools
+3. Answer three questions: sub-agent models, the package manager for the companion tools
    (`brew`, `mise` or `curl`), and sub-agent effort.
    To accept every default, add `-s -- --yes` after `bash`.
    To pick hosts, add `--only claude`, `--only codex` or `--only opencode`, or a comma list.
    `--list` prints each host and whether it is detected. `--dry-run` prints every write and changes nothing.
    Per-host setup: [Codex](hosts/codex.md), [opencode](hosts/opencode.md).
-5. Run `radin doctor` to check the install.
+4. Run `radin doctor` to check the install.
 
 The installer reports a companion tool that fails to install, skips it, and finishes the install.
 To trace an install that hangs or fails, add `-s -- --verbose`.

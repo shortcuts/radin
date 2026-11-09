@@ -4,7 +4,7 @@ radin is a Claude Code plugin of skills, a CLI, and install glue.
 
 ## Hard rules
 
-- **bash 3.2** (macOS ships it). Use no associative arrays, `mapfile`, or `${var,,}`. Add no `uname` branch. Resolve tools with `command -v` or `brew shellenv`. Branch only where a tool differs (`md5` versus `md5sum`). Call out every script edit.
+- **Rust, one binary.** Every deterministic behavior is a `radin` subcommand in `src/`. The crate sets `rust-version = "1.88"`. `install.sh` is the only shell file: POSIX `sh`, checked by `shellcheck` and `shfmt`, because it runs before the binary exists. Add no `uname` branch. Resolve tools with `command -v` or `brew shellenv`. Branch only where a tool differs (`md5` versus `md5sum`).
 - **`~/.claude` is not ours.** `~/.radin` is. `radin install` writes `.txt` only under `~/.radin/lib` and `.md` only under `~/.radin/hosts/<host>/lib`. It copies only radin's own named files, plus the directories they need. It never deletes with a wildcard or overwrites a file radin does not ship. Ten exceptions:
   1. The `<!-- radin:begin -->`…`<!-- radin:end -->` block in `~/.claude/CLAUDE.md`.
   2. The `radin wire` snapshot (kept in `~/.radin/backups`) and restore of `settings.json` and `~/.claude.json`.
@@ -26,8 +26,8 @@ radin is a Claude Code plugin of skills, a CLI, and install glue.
 
 | Rule | Enforcer | Gap |
 | --- | --- | --- |
-| bash 3.2 | `tests/bash-compat.bats` | Grep only; no 3.2 interpreter run. |
-| `~/.claude` ownership | `tests/cbm_config.rs` and `src/cbm/config.rs` (`allow` keeps foreign rules, follows a symlink, `unallow` removes only radin's), `tests/install_*.rs` ("never overwrites a skill radin did not install", the agents companion skill cases), `tests/bash-compat.bats` (`rm` allowlist), `SHIPPED` (install copies and uninstall removes only listed names) | Foreign content in the `CLAUDE.md` block and settings restore is untested. |
+| Rust style and lint | `make lint` and `make check` (`cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, `shellcheck` and `shfmt` on `install.sh`) | Review only for a runtime OS branch (no `uname`). |
+| `~/.claude` ownership | `tests/cbm_config.rs` and `src/cbm/config.rs` (`allow` keeps foreign rules, follows a symlink, `unallow` removes only radin's), `tests/install_*.rs` ("never overwrites a skill radin did not install", the agents companion skill cases), `SHIPPED` (install copies and uninstall removes only listed names) | Foreign content in the `CLAUDE.md` block and settings restore is untested. |
 | Migration of `~/.claude/.radin` aborts before any write | `tests/install_*.rs` (foreign `~/.radin`, failed `mv`, leftover staging directory, half-migrated, symlinked `~/.claude`, old updater) | An interrupted copy on a real second device is untested. |
 | Rendered `.md` only under `~/.radin/hosts/<host>/lib` | `tests/install_*.rs` layout test, `tests/shipped.rs` (`lib` versus `hostlib` kinds) | None. |
 | One list of shipped files | `tests/shipped.rs`, run by `make check` | README row text is hand-written. |
@@ -38,16 +38,16 @@ radin is a Claude Code plugin of skills, a CLI, and install glue.
 | One owner per prose rule | `LEAF_CONTRACT`, `EXPLORE_RULE`, `OPEN_DECISIONS_RULE` and `PLANNING_RULE` tokens, `tests/lints.rs` (new verbatim sentence copy) | A paraphrase or contradiction; review only. |
 | Name each companion directly, no guard or escape clause | `tests/lints.rs` guard phrases | A paraphrase escapes the phrase list. |
 | A test must be able to fail | `tests/lints.rs` bare `! cmd` lint | Other vacuous patterns; review only. |
-| Tests never touch the real device setup | `make test` runs bats with `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `XDG_CONFIG_HOME` and `OPENCODE_CONFIG` unset and fails when `scripts/real-setup-sum.sh` differs before and after; `tests/helpers/isolate.bash` isolates each file | A test that reads the keychain or another real path; review only. |
-| `RADIN_HOST` selects skill names, never a state dir | `tests/host.bats` | None. |
+| Tests never touch the real device setup | `make test` runs `cargo test` with `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `XDG_CONFIG_HOME` and `OPENCODE_CONFIG` unset and fails when `make real-setup-sum` differs before and after; `tests/common/mod.rs` `isolate` points every host path under a temp `HOME` | A test that reads the keychain or another real path; review only. |
+| `RADIN_HOST` selects skill names, never a state dir | `src/host.rs` unit tests | None. |
 | Legacy `.claude/.radin` and `.agents/.radin` migrate into `.radin` without loss | `tests/migrate.rs` | A crash between the copy and the rename is untested. |
 | `.gitignore` gets `.radin/` once | `tests/migrate.rs` | None. |
 | `radin doctor` checks every installed host | `tests/doctor.rs` | The real CLI probes (Codex `/hooks`, opencode version) run against stubs. |
 | `radin uninstall` removes only bytes radin still owns | `tests/uninstall.rs`, the three-host lifecycle test in `tests/install_*.rs` | Foreign text inside a radin block is stripped with it. |
-| The agents render names no Claude-only tool and holds no model line | `hosts/forbid-agents.txt`, `tests/lints.rs` forbid lint, `tests/render-host.bats` | A paraphrase of a tool name; review only. |
-| Every host path variable is isolated | `tests/isolation.bats`, `tests/real-setup-sum.bats` | None. |
+| The agents render names no Claude-only tool and holds no model line | `hosts/forbid-agents.txt`, `tests/lints.rs` forbid lint, `src/render.rs` unit tests | A paraphrase of a tool name; review only. |
+| Every host path variable is isolated | `tests/isolation.rs` (both tests) | None. |
 | A three-host lifecycle leaves no radin file | The three-host lifecycle test in `tests/install_*.rs` | The real CLIs are not run; `make verify-hosts` owns that. |
-| Real CLIs load radin's files | `make verify-hosts` (opt-in) and `tests/verify-hosts.bats` | Linux and opencode 1.x unverified; opencode skills are a file check only. |
+| Real CLIs load radin's files | `make verify-hosts` (opt-in) and `tests/verify_hosts.rs` (`a_complete_tree_passes_both_hosts` runs against stubs in `make test`) | Linux and opencode 1.x unverified; opencode skills are a file check only. |
 | `--dry-run` changes nothing | `tests/install_*.rs` ("--dry-run lists the writes the real run makes and changes nothing") | Companion command text is printed, not run. |
 | Install asks every question before the first write | `tests/install_*.rs` wizard cases (forward, back, checkbox, `--update` Recap, `--yes` and `STEP_TOTAL`) | A terminal that rejects raw mode falls back to numbered prompts with no back; review only. |
 | A selected host with no CLI still installs | `tests/install_*.rs` ("every selected host installs its files when no host CLI exists") | None. |
@@ -55,7 +55,7 @@ radin is a Claude Code plugin of skills, a CLI, and install glue.
 | Same checks locally and in CI | `make check` and `make test` in `.github/workflows/ci.yml` | Linux run unverified. |
 | Deterministic work lives in the CLI | `tests/lints.rs` raw `git` lint over `lib/radin-run.md` and `lib/radin-batch-*.md` | Other deterministic steps in prose, and a raw `git` outside those files; review only. |
 | No namespaced companion name outside the table | `tests/lints.rs` name lint (`.sh` literals, tokens missing from a table) and its skill-name tests | A bare name written without a slash; review only. |
-| Host-specific text lives in host blocks | `scripts/render-host.sh` (marker errors, surviving forbidden string) and the `tests/lints.rs` forbid lint with `hosts/forbid-baseline.txt` | A Claude-only idea worded with no forbidden string; review only. |
+| Host-specific text lives in host blocks | `src/render.rs` (marker errors, surviving forbidden string) and the `tests/lints.rs` forbid lint with `hosts/forbid-baseline.txt` | A Claude-only idea worded with no forbidden string; review only. |
 | Lifecycle diagrams match the skills and the run loop | None; `make diagrams` regenerates the SVGs | Review only. |
 | Claude render unchanged | `tests/golden_render.rs` and `tests/install_core.rs`, `make golden` | Files outside `SKILL.md` and `lib/*.md` are unhashed. |
 | Install removes only manifest-listed bash-era orphans | `tests/install_upgrade.rs` (orphans, dispatcher swap, hook rewrite, unmapped hook, no-match settings, second run) | A file edited by the user after the bash install is removed too. |
@@ -66,7 +66,7 @@ Add a row with every new hard rule.
 
 | Change | Edit |
 | --- | --- |
-| A host difference in a skill or lib file | A `<!-- host:NAME -->` block in the source. A forbidden string goes in `lib/forbid-<host>.txt`. A companion skill name is `@@skill:NAME@@` in prose and `radin_skill NAME` in a script, spelled by `lib/skill-names-<host>.txt`. |
+| A host difference in a skill or lib file | A `<!-- host:NAME -->` block in the source. A forbidden string goes in `lib/forbid-<host>.txt`. A companion skill name is `@@skill:NAME@@` in prose, spelled by `lib/skill-names-<host>.txt`. |
 | A skill's behavior | `skills/<name>/SKILL.md`, never the installed copy. |
 | Anything deterministic (install, update, doctor, uninstall, backlog, state, TUI) | A `radin` subcommand in `src/`, never a skill. |
 | Backlog loop of `radin-batch` and `radin-do` | `lib/radin-run.md`. |
@@ -156,11 +156,10 @@ The graph tool name lives in one file and must exist in the upstream table ([whi
 ## Before committing
 
 - `make lint`, `make check` and `make test` come back clean.
-  - While iterating, run `make test-changed` or `make test T="tests/state-1.bats"`. The full `make test` stays the gate before a commit and in CI.
+  - While iterating, run `cargo test --test <file>` (one integration binary per file in `tests/`). The full `make test` stays the gate before a commit and in CI.
   - Install tests run the `radin` binary under an isolated `HOME` with a stub `PATH` (`tests/common/stubs.rs`).
-  - The mock command is `tests/helpers/mock.c`, one compiled binary, because `/bin/sh` startup costs 20 ms per stub call.
   - No test makes a network request.
-- Optional: `make verify-hosts` runs the real opencode and codex CLIs. It needs a C compiler and, with `VERIFY_ARGS=--install-missing`, npm.
+- Optional: `make verify-hosts` runs the real opencode and codex CLIs. With `VERIFY_ARGS=--install-missing`, it installs a missing CLI with npm.
 - Update the docs in the same commit: `docs/agents/DECISIONS.md` (a new constraint or decision, as one rule plus its `**Why:**`), `docs/agents/lifecycle/*.mmd` (a changed skill flow, run-loop phase, leaf step or task status), the README (a new skill or companion).
 
 ## Test coverage
@@ -171,18 +170,17 @@ The graph tool name lives in one file and must exist in the upstream table ([whi
 
 ## Testing strategy
 
-Test cost is process spawns. A spawn is a wall-clock wait of 10 to 30 ms on macOS, not CPU, so the suite counts forks, not lines. Measure a change against the full `make test` wall time, which was 2m43s before the spawn work and 2m26s after, both at the default JOBS (one per core, 8 here). The slowest files (install-2, install-4, opencode-companions) set the floor at about 90 s.
+Test cost is process spawns. A spawn is a wall-clock wait of 10 to 30 ms on macOS, not CPU, so the suite counts forks, not lines.
 
 - **Pick the cheapest tier that can fail.**
-  1. Pure logic: call the script or the `render-host.sh` function once on a fixture file.
+  1. Pure logic: a unit test in the `src/` module or a call into the library on a fixture.
   2. Installed tree: `Sandbox::shared` runs one install per test binary and tests read it.
   3. Live `radin install` (`Sandbox::install`): only when the subject is install-time behavior, such as a missing binary, a pre-existing file or a second run. Each run costs 2 to 3 s.
-- **Build shared state once per file.** A repo, a backlog or a seed tree goes in `setup_file`, and `setup` copies it with `cp -a`. Never rebuild it per test with `git init`, a commit and a `backlog add`.
-- **Reuse the compiled mock.** `tests/helpers/mock` comes from `make build`. A test never compiles `mock.c` into its own temp directory.
+- **Build shared state once per test binary.** Never rebuild a repo, a backlog or a seed tree per test with `git init`, a commit and a `backlog add`; tier 2 shares one.
 - **Spawn once, not per file.** `radin install` renders every file of a host in memory. Add a loop around an external command only when you have measured that it stays small.
 - **One owner per behavior.** Before you add a test, grep `tests/` for the behavior. Extend the owning test with an assertion instead of adding a second install.
-- **Parallelism.** `make test` runs one bats process per file, `JOBS` at a time (default one per core). Keep every file under about 30 s so no file is the tail. Split a longer file into shards.
-- **Profile before you optimize.** Run `bats --timing tests/<file>.bats` alone. Times from a full run include contention and mislead.
-- **Dev loop.** `make test-changed` runs the files that cover your uncommitted changes (`scripts/affected-tests.sh`). `make test T="tests/a.bats tests/b.bats"` runs the files you name. `make golden` rewrites the golden sums through one file.
+- **Parallelism.** Each `tests/*.rs` file is one test binary, and its tests run in parallel threads. Keep each file under about 30 s, and split a longer one (`tests/state_1.rs` to `tests/state_4.rs` is the pattern).
+- **Profile before you optimize.** Run `time cargo test --test <file>` alone. Times from a full run include contention and mislead.
+- **Dev loop.** `cargo test --test <file>` runs one file. `make golden` rewrites the golden sums through `tests/golden_render.rs`.
 
 See [decisions](docs/agents/DECISIONS.md) · [lifecycle diagrams](docs/agents/lifecycle.md) · [contributing](CONTRIBUTING.md).

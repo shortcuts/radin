@@ -64,7 +64,7 @@ It fails when:
 - a shipped skill is missing from `~/.agents/skills` or has no `name:` line.
 - an unresolved token such as `@@skill:` or `RADIN_CLI` survives in an installed file.
 
-Prerequisites: a C compiler, and npm when you add `--install-missing`.
+Prerequisites: npm, when you add `--install-missing`.
 That flag installs the pinned `@opencode/cli@2.2.5` into the temporary directory.
 Without it, the target skips the host when `opencode` is not on `PATH`.
 

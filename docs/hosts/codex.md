@@ -48,7 +48,7 @@ It fails when:
 
 The target prints the hooks line from `radin doctor` and never judges it. You trust hooks in `/hooks`.
 
-Prerequisites: a C compiler, and npm when you add `--install-missing`.
+Prerequisites: npm, when you add `--install-missing`.
 That flag installs the pinned `@openai/codex@0.166.0` into the temporary directory.
 
 ## Sign-off checklist
