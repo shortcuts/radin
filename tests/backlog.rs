@@ -1429,10 +1429,14 @@ fn set_meta_sets_clears_and_rejects() {
         "location of m cleared\n"
     );
     assert!(!w.line("m").contains("location"));
+    w.ok(&["set-meta", "m", "exclusive", "yes"], "");
+    assert!(w.ok(&["meta", "m"], "").contains("exclusive\tyes\n"));
+    w.ok(&["set-meta", "m", "exclusive", "--none"], "");
+    assert!(!w.ok(&["meta", "m"], "").contains("exclusive"));
     for (args, msg) in [
         (
             &["set-meta", "m", "nope", "x"][..],
-            "key must be plan|skills|acceptance|facts|location|planning|complexity, got: nope",
+            "key must be plan|skills|acceptance|facts|location|planning|complexity|exclusive, got: nope",
         ),
         (
             &["set-meta", "m", "location"][..],
@@ -1449,6 +1453,10 @@ fn set_meta_sets_clears_and_rejects() {
         (
             &["set-meta", "m", "planning", "later"][..],
             "planning takes only \"needed\", got: later",
+        ),
+        (
+            &["set-meta", "m", "exclusive", "maybe"][..],
+            "exclusive takes only \"yes\", got: maybe",
         ),
         (
             &["set-meta", "m", "acceptance", "[ ] x"][..],

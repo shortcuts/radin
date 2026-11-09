@@ -101,7 +101,7 @@ impl Entry {
         ] {
             v.extend(self.arr(key).into_iter().map(|x| format!("{label}\t{x}")));
         }
-        for k in ["facts", "location", "planning", "complexity"] {
+        for k in ["facts", "location", "planning", "complexity", "exclusive"] {
             v.extend(self.opt(k).map(|x| format!("{k}\t{x}")));
         }
         v
@@ -317,6 +317,7 @@ pub fn require_meta_value(key: &str, v: &str) -> Result<(), Fail> {
         "complexity" if v != "low" && v != "high" => Err(die(format!(
             "complexity takes only \"low\" or \"high\", got: {v}"
         ))),
+        "exclusive" if v != "yes" => Err(die(format!("exclusive takes only \"yes\", got: {v}"))),
         "acceptance" if ["- ", "[ ]", "[x]", "[X]"].iter().any(|p| v.starts_with(p)) => Err(die(format!(
             "acceptance takes one criterion as bare text, with no \"- \" bullet and no \"[ ]\" checkbox: {v}"
         ))),
@@ -325,7 +326,7 @@ pub fn require_meta_value(key: &str, v: &str) -> Result<(), Fail> {
 }
 
 pub fn require_no_moved_label(text: &str) -> Result<(), Fail> {
-    const LABELS: [&str; 7] = [
+    const LABELS: [&str; 8] = [
         "**Plan:**",
         "**Skill:**",
         "**Acceptance:**",
@@ -333,6 +334,7 @@ pub fn require_no_moved_label(text: &str) -> Result<(), Fail> {
         "**Location:**",
         "**Planning:**",
         "**Complexity:**",
+        "**Exclusive:**",
     ];
     match text.split('\n').find(|l| LABELS.iter().any(|p| l.starts_with(p))) {
         Some(l) => Err(die(format!(

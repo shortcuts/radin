@@ -73,11 +73,11 @@ pub const USAGE: &[(&str, &str)] = &[
     ),
     (
         "set-meta",
-        r##"set-meta <id-or-title> <plan|skills|acceptance|facts|location|planning|complexity> <value>...|--none  # set/clear one index-line field (skills takes skill names; facts, location, planning and complexity take exactly one value; planning takes only "needed", complexity "low" or "high")"##,
+        r##"set-meta <id-or-title> <plan|skills|acceptance|facts|location|planning|complexity|exclusive> <value>...|--none  # set/clear one index-line field (skills takes skill names; facts, location, planning, complexity and exclusive take exactly one value; planning takes only "needed", complexity "low" or "high", exclusive "yes")"##,
     ),
     (
         "meta",
-        r##"meta <id-or-title>          # print "plan<TAB><path>" / "skill<TAB><instruction>" / "acceptance<TAB><criterion>" / "facts<TAB><path>" / "location<TAB><path:line>" / "planning<TAB>needed" / "complexity<TAB>low|high" lines from the task's entry"##,
+        r##"meta <id-or-title>          # print "plan<TAB><path>" / "skill<TAB><instruction>" / "acceptance<TAB><criterion>" / "facts<TAB><path>" / "location<TAB><path:line>" / "planning<TAB>needed" / "complexity<TAB>low|high" / "exclusive<TAB>yes" lines from the task's entry"##,
     ),
     (
         "order",

@@ -416,7 +416,7 @@ pub fn set_meta(cx: &Ctx, a: &[String], io: &mut Io) -> R {
             "set-meta needs an id or title, a key, and a value or --none",
         ));
     }
-    const KEYS: &str = "plan|skills|acceptance|facts|location|planning|complexity";
+    const KEYS: &str = "plan|skills|acceptance|facts|location|planning|complexity|exclusive";
     if !KEYS.split('|').any(|k| k == key) {
         return Err(usage_die(
             "set-meta",
@@ -433,7 +433,10 @@ pub fn set_meta(cx: &Ctx, a: &[String], io: &mut Io) -> R {
     let mut idx = cx.require()?;
     let i = idx.single(q)?;
     let id = idx.entries[i].id();
-    let scalar = matches!(key, "facts" | "location" | "planning" | "complexity");
+    let scalar = matches!(
+        key,
+        "facts" | "location" | "planning" | "complexity" | "exclusive"
+    );
     let value = if vals[0] == "--none" {
         if vals.len() > 1 {
             return Err(usage_die(

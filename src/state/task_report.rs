@@ -259,6 +259,9 @@ fn report_inner(s: &S, a: &[String], usages: &[String], io: &mut Io) -> R {
         } else {
             s.bl_must(&["set-meta", id, "complexity", size], "")?;
         }
+        if detail.contains("; exclusive:") {
+            s.bl_must(&["set-meta", id, "exclusive", "yes"], "")?;
+        }
         let _ = writeln!(io.out, "task-report: planned {id}");
         return next_continue(io);
     }

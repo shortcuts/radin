@@ -35,9 +35,11 @@ Sizing step: read the code the task touches, size it by this rule:
 
 COMPLEXITY_RULE
 
+Add `; exclusive: <reason>` to the PLANNED line when an acceptance criterion or the plan's Testing section measures time, frame rate, latency, throughput or memory as a pass or fail number.
+
 Your final message is exactly one of these lines, and nothing else:
 `STATUS: PLANNED — <plan file path(s), or "none needed: <reason>">;
-complexity <low|high>: <reason>`
+complexity <low|high>: <reason>[; exclusive: <reason>]`
 `STATUS: BLOCKED (FACT) — <what's unverifiable from here and why, e.g. a
 third-party API/library behavior local code and repo exploration can't
 settle>`

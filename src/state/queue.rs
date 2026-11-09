@@ -400,6 +400,13 @@ pub fn wave_partition(s: &S, a: &[String], io: &mut Io) -> R {
                 .collect()
         })
         .collect();
+    let exclusive: Vec<bool> = ids
+        .iter()
+        .map(|id| {
+            s.bl_ok(&["meta", id])
+                .is_some_and(|m| m.lines().any(|l| l == "exclusive\tyes"))
+        })
+        .collect();
     let n = ids.len();
     let mut conflict: HashSet<(usize, usize)> = HashSet::new();
     let mut apart: Vec<String> = Vec::new();
@@ -427,7 +434,7 @@ pub fn wave_partition(s: &S, a: &[String], io: &mut Io) -> R {
         let planned = !paths[i].is_empty();
         let mut placed = None;
         let mut capfull = false;
-        if planned {
+        if planned && !exclusive[i] {
             for g in 0..groups.len() {
                 if closed[g] || groups[g].iter().any(|m| conflict.contains(&(*m, i))) {
                     continue;
@@ -442,7 +449,7 @@ pub fn wave_partition(s: &S, a: &[String], io: &mut Io) -> R {
         }
         let g = placed.unwrap_or_else(|| {
             groups.push(Vec::new());
-            closed.push(!planned);
+            closed.push(!planned || exclusive[i]);
             groups.len() - 1
         });
         if capfull {
@@ -461,6 +468,13 @@ pub fn wave_partition(s: &S, a: &[String], io: &mut Io) -> R {
     }
     for l in apart {
         let _ = writeln!(io.out, "{l}");
+    }
+    for i in (0..n).filter(|i| exclusive[*i]) {
+        serialized(vec![
+            format!("task={}", ids[i]),
+            format!("wave={wave}"),
+            "reason=exclusive".into(),
+        ]);
     }
     for i in (0..n).filter(|i| paths[*i].is_empty()) {
         let _ = writeln!(io.out, "unplanned\t{}", ids[i]);

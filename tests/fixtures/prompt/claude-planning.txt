@@ -47,9 +47,11 @@ starts, and no step needs measuring, tuning, debugging or a device run.
 Anything else is `complexity high`, and so is any doubt. Judge the work, not
 the category: a chore can be hard. A low task runs on a cheaper model.
 
+Add `; exclusive: <reason>` to the PLANNED line when an acceptance criterion or the plan's Testing section measures time, frame rate, latency, throughput or memory as a pass or fail number.
+
 Your final message is exactly one of these lines, and nothing else:
 `STATUS: PLANNED — <plan file path(s), or "none needed: <reason>">;
-complexity <low|high>: <reason>`
+complexity <low|high>: <reason>[; exclusive: <reason>]`
 `STATUS: BLOCKED (FACT) — <what's unverifiable from here and why, e.g. a
 third-party API/library behavior local code and repo exploration can't
 settle>`

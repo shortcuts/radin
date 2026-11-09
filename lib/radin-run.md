@@ -365,6 +365,8 @@ because it would claim a task outside the group.
    `group<TAB>n<TAB>csv` line is a group, and the CLI records every
    serialization with its evidence. A task you leave out of a group runs in a
    later group of its own.
+   A task whose `backlog meta` prints `exclusive<TAB>yes` comes back as a group
+   of one, and you run it alone.
 4. Veto. For each group of two or more, dispatch
    `RADIN_CLI prompt factfind "<first id>" "Per their plans' ## Changes, does a
    symbol that one of tasks <csv> changes call or get called by a symbol

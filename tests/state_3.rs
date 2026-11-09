@@ -137,6 +137,65 @@ fn wave_partition_makes_a_task_with_no_plan_paths_a_closed_group_of_1_and_names_
     );
 }
 
+fn exclusive(w: &W, id: &str) {
+    assert_eq!(w.bl(&["set-meta", id, "exclusive", "yes"], "").code, 0);
+}
+
+#[test]
+fn wave_partition_gives_an_exclusive_task_a_group_of_its_own_and_keeps_its_apart_line() {
+    let w = W::new();
+    w.planned("w a", &["lib/a.sh"]);
+    w.planned("w b", &["lib/b.sh"]);
+    w.planned("w c", &["lib/c.sh"]);
+    w.planned("w d", &["lib/a.sh"]);
+    exclusive(&w, "w-a");
+    let r = ids(
+        &w,
+        &["wave-partition", "--wave", "1"],
+        "w-a\nw-b\nw-c\nw-d\n",
+    );
+    assert_eq!(
+        (r.code, r.out.as_str()),
+        (
+            0,
+            "group\t1\tw-a\ngroup\t3\tw-b,w-c,w-d\napart\tw-a\tw-d\tlib/a.sh\n"
+        )
+    );
+    assert!(w
+        .tele
+        .borrow()
+        .contains(&"serialized task=w-a wave=1 reason=exclusive".to_string()));
+    w.tele.borrow_mut().clear();
+    ids(&w, &["wave-partition"], "w-a\nw-b\n");
+    assert!(w.tele.borrow().is_empty());
+}
+
+#[test]
+fn task_report_planned_with_an_exclusive_clause_flags_the_task_and_silence_keeps_it() {
+    let w = W::new();
+    w.plan_with(&["lib/a.sh"]);
+    w.state(&[
+        "task-report",
+        "t-one",
+        "STATUS: PLANNED — ok; complexity low: x",
+    ]);
+    assert!(!w.bl(&["meta", "t-one"], "").out.contains("exclusive"));
+    w.state(&[
+        "task-report",
+        "t-one",
+        "STATUS: PLANNED — ok; complexity low: x; exclusive: bench p99",
+    ]);
+    assert!(w
+        .bl(&["meta", "t-one"], "")
+        .out
+        .contains("exclusive\tyes\n"));
+    w.state(&["task-report", "t-one", PLANNED]);
+    assert!(w
+        .bl(&["meta", "t-one"], "")
+        .out
+        .contains("exclusive\tyes\n"));
+}
+
 #[test]
 fn wave_partition_splits_a_wave_larger_than_cap_and_rejects_a_bad_cap() {
     let w = W::new();
