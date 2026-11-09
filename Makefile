@@ -98,7 +98,7 @@ bench-tui:
 screenshot:
 	@scripts/screenshot-tui.sh
 
-SH_FILES = tests/bench-tui.sh scripts/screenshot-tui.sh scripts/shipped.sh install.sh bin/radin lib/radin-namespace.sh lib/radin-json.sh lib/radin-migrate.sh lib/radin-backlog.sh lib/radin-state.sh lib/radin-scope.sh lib/radin-prompt.sh lib/radin-cbm-hooks.sh lib/radin-cbm-config.sh lib/radin-update.sh lib/radin-doctor.sh lib/radin-stats.sh lib/radin-telemetry.sh lib/radin-uninstall.sh scripts/check-prose.sh scripts/real-setup-sum.sh scripts/golden-render.sh scripts/affected-tests.sh scripts/render-host.sh scripts/verify-hosts.sh
+SH_FILES = tests/bench-tui.sh scripts/screenshot-tui.sh install.sh bin/radin lib/radin-namespace.sh lib/radin-json.sh lib/radin-migrate.sh lib/radin-backlog.sh lib/radin-state.sh lib/radin-scope.sh lib/radin-prompt.sh lib/radin-cbm-hooks.sh lib/radin-cbm-config.sh lib/radin-update.sh lib/radin-doctor.sh lib/radin-stats.sh lib/radin-telemetry.sh lib/radin-uninstall.sh scripts/real-setup-sum.sh scripts/golden-render.sh scripts/affected-tests.sh scripts/render-host.sh scripts/verify-hosts.sh
 
 clean:
 	rm -f lib/radin-tui lib/radin-cbm-json tests/helpers/pty-run tests/helpers/mock
@@ -119,11 +119,10 @@ check:
 	cargo fmt --check
 	cargo clippy --all-targets -- -D warnings
 	markdownlint '**/*.md' --ignore node_modules --ignore CHANGELOG.md
-	scripts/check-prose.sh
-	scripts/shipped.sh check
+	cargo test --test lints --test shipped
 
 gen:
-	scripts/shipped.sh gen
+	SHIPPED_GEN=1 cargo test --test shipped gen_writes_blocks -- --ignored
 
 # Pinned so a pele release never reshuffles the committed SVGs. node_modules is
 # removed after the run: radin ships no JS and tracks no lockfile.

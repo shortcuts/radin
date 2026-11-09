@@ -712,7 +712,7 @@ meta_of_line() {
 # Skills an execution sub-agent cannot run: it has no user to ask, no
 # sub-agent of its own, no `Workflow` tool, and a radin entry point would
 # recurse (docs/agents/DECISIONS.md has the why for each).
-# Written with the leading slash a user would type, so tests/skill-names.bats
+# Written with the leading slash a user would type, so tests/lints.rs
 # pins each one to a skill radin or a companion actually ships.
 # shortcut: an agents-host instruction with no slash ("Invoke grilling") is not detected; revisit when the host instruction format settles.
 skill_deny_list() {

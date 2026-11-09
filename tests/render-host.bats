@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Exercises scripts/render-host.sh and the forbid lint of scripts/check-prose.sh.
+# Exercises scripts/render-host.sh. The prose lints live in tests/lints.rs.
 
 setup() {
   REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
@@ -100,43 +100,6 @@ src() { printf '%s\n' "$@" > "$T/in.md"; }
   run "$RENDER" --hits "$T/in.md" agents
   [ "$status" -eq 0 ]
   [ "$output" = SendMessage ]
-}
-
-lint_root() {
-  mkdir -p "$T/r/hosts" "$T/r/skills/x" "$T/r/lib" "$T/r/tests"
-  : > "$T/r/tests/x.bats"
-  : > "$T/r/lib/radin-run.md"
-  : > "$T/r/lib/radin-leaf-contract.md"
-}
-
-@test "lint fails on a new forbidden string, passes once baselined, fails on a stale pair" {
-  lint_root
-  printf 'use SendMessage\n' > "$T/r/skills/x/SKILL.md"
-  run "$REPO_ROOT/scripts/check-prose.sh" "$T/r"
-  [ "$status" -eq 1 ]
-  [[ "$output" == *'skills/x/SKILL.md: forbidden string "SendMessage" outside a host block'* ]]
-  printf 'skills/x/SKILL.md\tSendMessage\n' > "$T/r/hosts/forbid-baseline.txt"
-  run "$REPO_ROOT/scripts/check-prose.sh" "$T/r"
-  [ "$status" -eq 0 ]
-  printf 'clean\n' > "$T/r/skills/x/SKILL.md"
-  run "$REPO_ROOT/scripts/check-prose.sh" "$T/r"
-  [ "$status" -eq 1 ]
-  [[ "$output" == *'no longer holds "SendMessage"; delete the line'* ]]
-}
-
-@test "lint fails on a malformed host marker in a lib file" {
-  lint_root
-  printf 'clean\n' > "$T/r/skills/x/SKILL.md"
-  printf '<!-- host:claude -->\nbody\n' > "$T/r/lib/radin-batch-gate.md"
-  run "$REPO_ROOT/scripts/check-prose.sh" "$T/r"
-  [ "$status" -eq 1 ]
-  [[ "$output" == *'lib/radin-batch-gate.md:1: host block never closed'* ]]
-}
-
-ask_hosts() {
-  mkdir -p "$T/h"
-  cp "$REPO_ROOT/lib/"* "$T/h/"
-  printf 'AskUserQuestion\n' > "$T/h/forbid-agents.txt"
 }
 
 @test "the agents render of each ask site has no AskUserQuestion" {
@@ -267,23 +230,6 @@ render_lib() {
   [ "$(printf '%s\n' "$output" | cut -f1)" = prompt ]
 }
 
-@test "lint passes a sentence shared by the claude and agents twins of one line" {
-  lint_root
-  printf 'clean\n' > "$T/r/skills/x/SKILL.md"
-  printf '%s\n' '<!-- host:claude -->' 'Read the shared plan file before you start the task.' '<!-- /host -->' '<!-- host:agents -->' 'Read the shared plan file before you start the task.' '<!-- /host -->' > "$T/r/lib/radin-twin.md"
-  run "$REPO_ROOT/scripts/check-prose.sh" "$T/r"
-  [ "$status" -eq 0 ]
-}
-
-@test "lint fails on a sentence repeated outside any host block" {
-  lint_root
-  printf 'clean\n' > "$T/r/skills/x/SKILL.md"
-  printf '%s\n' 'Read the shared plan file before you start the task.' '' 'Read the shared plan file before you start the task.' > "$T/r/lib/radin-twin.md"
-  run "$REPO_ROOT/scripts/check-prose.sh" "$T/r"
-  [ "$status" -eq 1 ]
-  [[ "$output" == *'lib/radin-twin.md:3: repeats lib/radin-twin.md:1; state it once there and point to it'* ]]
-}
-
 @test "a skill token renders each host's value" {
   src 'Invoke `@@skill:grilling@@` now, then @@skill:ponytail-review@@.'
   run "$RENDER" "$T/in.md" claude
@@ -322,21 +268,6 @@ render_lib() {
   run "$RENDER" "$T/in.md" agents
   [ "$status" -eq 0 ]
   [ "$output" = research ]
-}
-
-@test "lint fails on a skill name outside the table and on a token missing from it" {
-  lint_root
-  printf 'clean\n' > "$T/r/skills/x/SKILL.md"
-  cp "$REPO_ROOT"/lib/skill-names-*.txt "$T/r/lib/"
-  printf '# /ponytail:ponytail\n' > "$T/r/lib/radin-scope.sh"
-  run "$REPO_ROOT/scripts/check-prose.sh" "$T/r"
-  [ "$status" -eq 1 ]
-  [[ "$output" == *"lib/radin-scope.sh:1: skill name outside the table; use radin_skill NAME"* ]]
-  printf 'clean\n' > "$T/r/lib/radin-scope.sh"
-  printf '@@skill:nope@@\n' > "$T/r/skills/x/SKILL.md"
-  run "$REPO_ROOT/scripts/check-prose.sh" "$T/r"
-  [ "$status" -eq 1 ]
-  [[ "$output" == *"skills/x/SKILL.md:1: skill nope is not in lib/skill-names-claude.txt"* ]]
 }
 
 @test "radin-scope.sh names the host's own ponytail passes" {

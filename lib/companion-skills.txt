@@ -1,4 +1,4 @@
-# Companion skills fetched into ~/.agents/skills. Read by install.sh, lib/radin-doctor.sh and tests/skill-names.bats.
+# Companion skills fetched into ~/.agents/skills. Read by install.sh, lib/radin-doctor.sh and tests/lints.rs.
 # NAME COMPANION BASE FILES (BASE is the upstream skill directory on main; FILES is relative to BASE, SKILL.md first)
 surgical-patch caveman https://raw.githubusercontent.com/JuliusBrussee/caveman/refs/heads/main/skills/surgical-patch SKILL.md
 safe-refactor caveman https://raw.githubusercontent.com/JuliusBrussee/caveman/refs/heads/main/skills/safe-refactor SKILL.md

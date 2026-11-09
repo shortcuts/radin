@@ -27,22 +27,22 @@ radin is a Claude Code plugin of skills, a CLI, and install glue.
 | bash 3.2 | `tests/bash-compat.bats` | Grep only; no 3.2 interpreter run. |
 | `~/.claude` ownership | `tests/cbm-config.bats` (`allow` keeps foreign rules, follows a symlink, `unallow` removes only radin's), `tests/install*.bats` ("never overwrites a skill radin did not install", the agents companion skill cases), `tests/bash-compat.bats` (`rm` allowlist), `SHIPPED` (install copies and uninstall removes only listed names) | Foreign content in the `CLAUDE.md` block and settings restore is untested. |
 | Migration of `~/.claude/.radin` aborts before any write | `tests/install*.bats` (foreign `~/.radin`, failed `mv`, leftover staging directory, half-migrated, symlinked `~/.claude`, old updater) | An interrupted copy on a real second device is untested. |
-| Rendered `.md` only under `~/.radin/hosts/<host>/lib` | `tests/install*.bats` layout test, `scripts/shipped.sh check` (`lib` versus `hostlib` kinds) | None. |
-| One list of shipped files | `scripts/shipped.sh check`, run by `make check` | README row text is hand-written. |
+| Rendered `.md` only under `~/.radin/hosts/<host>/lib` | `tests/install*.bats` layout test, `tests/shipped.rs` (`lib` versus `hostlib` kinds) | None. |
+| One list of shipped files | `tests/shipped.rs`, run by `make check` | README row text is hand-written. |
 | Install changes only paths radin owns | `tests/install*.bats` (the unowned, edited and `--force` tests) | A foreign file inside a radin skill directory is overlaid, not checked. |
 | A forbid hit stops one host | `tests/install*.bats` (the claude and agents render-failure tests) | None. |
 | Companion install is advisory | `tests/install*.bats` ("a failing companion tool...") | None. |
-| One owner per delegation | `tests/skill-names.bats` (every name resolves) | Nothing for "one file per delegation" and graph tool names; review only. |
-| One owner per prose rule | `LEAF_CONTRACT`, `EXPLORE_RULE`, `OPEN_DECISIONS_RULE` and `PLANNING_RULE` tokens, `scripts/check-prose.sh` (new verbatim sentence copy) | A paraphrase or contradiction; review only. |
-| Name each companion directly, no guard or escape clause | `scripts/check-prose.sh` guard phrases | A paraphrase escapes the phrase list. |
-| A test must be able to fail | `scripts/check-prose.sh` bare `! cmd` lint | Other vacuous patterns; review only. |
+| One owner per delegation | `tests/lints.rs` (every name resolves) | Nothing for "one file per delegation" and graph tool names; review only. |
+| One owner per prose rule | `LEAF_CONTRACT`, `EXPLORE_RULE`, `OPEN_DECISIONS_RULE` and `PLANNING_RULE` tokens, `tests/lints.rs` (new verbatim sentence copy) | A paraphrase or contradiction; review only. |
+| Name each companion directly, no guard or escape clause | `tests/lints.rs` guard phrases | A paraphrase escapes the phrase list. |
+| A test must be able to fail | `tests/lints.rs` bare `! cmd` lint | Other vacuous patterns; review only. |
 | Tests never touch the real device setup | `make test` runs bats with `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `XDG_CONFIG_HOME` and `OPENCODE_CONFIG` unset and fails when `scripts/real-setup-sum.sh` differs before and after; `tests/helpers/isolate.bash` isolates each file | A test that reads the keychain or another real path; review only. |
 | `RADIN_HOST` selects skill names, never a state dir | `tests/host.bats` | None. |
 | Legacy `.claude/.radin` and `.agents/.radin` migrate into `.radin` without loss | `tests/migrate.bats` | A crash between the copy and the rename is untested. |
 | `.gitignore` gets `.radin/` once | `tests/migrate.bats` | None. |
 | `radin doctor` checks every installed host | `tests/doctor.bats` | The real CLI probes (Codex `/hooks`, opencode version) run against stubs. |
 | `radin uninstall` removes only bytes radin still owns | `tests/uninstall.bats`, the three-host lifecycle test in `tests/install*.bats` | Foreign text inside a radin block is stripped with it. |
-| The agents render names no Claude-only tool and holds no model line | `hosts/forbid-agents.txt`, `scripts/check-prose.sh` forbid lint, `tests/render-host.bats` | A paraphrase of a tool name; review only. |
+| The agents render names no Claude-only tool and holds no model line | `hosts/forbid-agents.txt`, `tests/lints.rs` forbid lint, `tests/render-host.bats` | A paraphrase of a tool name; review only. |
 | Every host path variable is isolated | `tests/isolation.bats`, `tests/real-setup-sum.bats` | None. |
 | A three-host lifecycle leaves no radin file | The three-host lifecycle test in `tests/install*.bats` | The real CLIs are not run; `make verify-hosts` owns that. |
 | Real CLIs load radin's files | `make verify-hosts` (opt-in) and `tests/verify-hosts.bats` | Linux and opencode 1.x unverified; opencode skills are a file check only. |
@@ -51,9 +51,9 @@ radin is a Claude Code plugin of skills, a CLI, and install glue.
 | A selected host with no CLI still installs | `tests/install*.bats` ("every selected host installs its files when no host CLI exists") | None. |
 | `radin update` keeps a failed host in the manifest | `tests/install*.bats` ("--update leaves a host whose render fails untouched...") | None. |
 | Same checks locally and in CI | `make check` and `make test` in `.github/workflows/ci.yml` | Linux run unverified. |
-| Deterministic work lives in the CLI | `scripts/check-prose.sh` raw `git` lint over `lib/radin-run.md` and `lib/radin-batch-*.md` | Other deterministic steps in prose, and a raw `git` outside those files; review only. |
-| No namespaced companion name outside the table | `scripts/check-prose.sh` sixth lint (`.sh` literals, tokens missing from a table) and `tests/skill-names.bats` | A bare name written without a slash; review only. |
-| Host-specific text lives in host blocks | `scripts/render-host.sh` (marker errors, surviving forbidden string) and the `scripts/check-prose.sh` forbid lint with `hosts/forbid-baseline.txt` | A Claude-only idea worded with no forbidden string; review only. |
+| Deterministic work lives in the CLI | `tests/lints.rs` raw `git` lint over `lib/radin-run.md` and `lib/radin-batch-*.md` | Other deterministic steps in prose, and a raw `git` outside those files; review only. |
+| No namespaced companion name outside the table | `tests/lints.rs` name lint (`.sh` literals, tokens missing from a table) and its skill-name tests | A bare name written without a slash; review only. |
+| Host-specific text lives in host blocks | `scripts/render-host.sh` (marker errors, surviving forbidden string) and the `tests/lints.rs` forbid lint with `hosts/forbid-baseline.txt` | A Claude-only idea worded with no forbidden string; review only. |
 | Lifecycle diagrams match the skills and the run loop | None; `make diagrams` regenerates the SVGs | Review only. |
 | Claude render unchanged | `tests/install*.bats` golden render test, `make golden` | Files outside `SKILL.md` and `lib/*.md` are unhashed. |
 

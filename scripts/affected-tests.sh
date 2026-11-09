@@ -28,18 +28,18 @@ while IFS= read -r f; do
 	# install.sh itself also drives the companion, update and uninstall tests.
 	install.sh | bin/radin)
 		grep -l -e 'helpers/install' -e 'install\.sh' -e 'bin/radin' tests/*.bats
-		ls tests/render-host.bats tests/skill-names.bats tests/host.bats
+		ls tests/render-host.bats tests/host.bats
 		;;
 	# install.sh copies and renders every one of these.
 	SHIPPED | hosts/* | skills/* | lib/*.md | lib/*.txt | scripts/render-host.sh | scripts/golden-render.sh | tests/golden-claude-render.sha256)
 		install_group
-		ls tests/render-host.bats tests/skill-names.bats tests/host.bats
+		ls tests/render-host.bats tests/host.bats
 		;;
 	lib/radin-*.sh | lib/radin-*.c)
 		# The tests that name the file.
 		grep -l -F "$(basename "$f")" tests/*.bats || true
 		;;
-	docs/* | *.md | .github/* | LICENSE | .gitignore | scripts/check-prose.sh | scripts/shipped.sh | scripts/affected-tests.sh) ;;
+	docs/* | *.md | .github/* | LICENSE | .gitignore | scripts/affected-tests.sh) ;;
 	*)
 		echo ALL
 		;;
