@@ -1,0 +1,42 @@
+{
+  "manifest_version": 2,
+  "version": "3.1.0",
+  "installed_at": "2026-11-09T08:00:00Z",
+  "package_manager": "brew",
+  "install_root": "/home/u/src/radin",
+  "wave_cap": 2,
+  "model_planning": "sonnet",
+  "model_execution": "sonnet",
+  "model_review": "sonnet",
+  "model_debug": "sonnet",
+  "model_factfind": "haiku",
+  "model_low": "haiku",
+  "effort_planning": "",
+  "effort_execution": "",
+  "effort_review": "",
+  "effort_debug": "",
+  "effort_factfind": "",
+  "effort_low": "",
+  "claude_md_guidance": true,
+  "codex_guidance": false,
+  "opencode_guidance": false,
+  "opencode_allow": "",
+  "cbm_agent_config": true,
+  "cli_on_path": false,
+  "hosts": ["claude", "agents"],
+  "agents_clis": [],
+  "skills": ["radin-batch", "radin-do", "thermo-nuclear"],
+  "lib": ["radin-host.sh", "forbid-claude.txt"],
+  "hostlib": ["radin-run.md"],
+  "agents_skills": ["grilling"],
+  "companion_tools": {
+    "rtk": true,
+    "codebase-memory-mcp": false
+  },
+  "files": {
+    ".claude/skills/radin-batch/SKILL.md": "4bd7f1c31d6cbbe6ad51332d3f17ba719019ea193a4d07e3a24752245076d7c5"
+  },
+  "backups": {
+    ".claude/settings.json": ".radin/backups/settings.json.1"
+  }
+}

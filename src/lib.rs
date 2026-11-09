@@ -1,18 +1,11 @@
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Host {
-    Claude,
-    Agents,
-}
+pub mod host;
+pub mod jsonedit;
+pub mod manifest;
+pub mod paths;
+pub mod render;
+pub mod shellwords;
 
-impl Host {
-    pub fn parse(s: &str) -> Option<Host> {
-        match s {
-            "claude" => Some(Host::Claude),
-            "agents" => Some(Host::Agents),
-            _ => None,
-        }
-    }
-}
+pub use host::Host;
 
 pub const SUBCOMMANDS: [&str; 12] = [
     "backlog",
@@ -33,7 +26,7 @@ pub const USAGE: &str = "usage: radin [--host claude|agents] <backlog|state|scop
 With no subcommand on a terminal, radin opens the TUI; \"radin help\" prints this text.\n\
 Each subcommand prints its own usage when run with no arguments.\n";
 
-type Out = (i32, String, String);
+pub type Out = (i32, String, String);
 
 fn fail(code: i32, err: String) -> Out {
     (code, String::new(), err)
@@ -56,21 +49,8 @@ pub fn run(args: &[String], env: &dyn Fn(&str) -> Option<String>, is_tty: bool) 
             break;
         }
     }
-    let name = flag
-        .filter(|h| !h.is_empty())
-        .or_else(|| env("RADIN_HOST").filter(|h| !h.is_empty()))
-        .unwrap_or_else(|| {
-            if env("OPENCODE").as_deref() == Some("1") {
-                "agents".into()
-            } else {
-                "claude".into()
-            }
-        });
-    if Host::parse(&name).is_none() {
-        return fail(
-            2,
-            format!("radin: unknown host '{name}' (expected claude|agents)\n"),
-        );
+    if let Err(e) = Host::select(flag.as_deref(), env) {
+        return fail(2, e);
     }
     match rest.first().map(String::as_str) {
         None if is_tty => fail(1, "radin: the TUI is not ported yet\n".into()),
