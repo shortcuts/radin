@@ -251,13 +251,13 @@ has none yet, else `execution`. A planning leaf with no `STATUS:` line goes in a
 <!-- host:claude -->
 `STATUS: BLOCKED (FACT|DECISION)`
 routes per Clarifying Ambiguity. Dispatch the prompt as one
-`Agent` call with exactly that model, that effort when an `effort` line printed, `name: "radin-<kind>-<task id>"`
-(`kind` is `planning`, `execution`, `debug` or `factfind`), and this text,
+`Agent` call with exactly that model, that effort when an `effort` line printed, `name:` set to the printed `name` value
+(it fits the 64-character limit; `kind` is `planning`, `execution`, `debug` or `factfind`), and this text,
 and nothing else. The name lets a usage report show which task and role cost
 the most:
 <!-- /host -->
 <!-- host:agents -->
-Start the prompt with your sub-agent tool and wait for it to finish. Pass that model when a `model` line printed, that effort when an `effort` line printed, and the agent name `radin-<kind>-<task id>` (`kind` is `planning`, `execution`, `debug` or `factfind`). The prompt text is this, and nothing else. A usage report uses the name to show which task and role cost the most. A result of `STATUS: BLOCKED (FACT|DECISION)` routes per Clarifying Ambiguity:
+Start the prompt with your sub-agent tool and wait for it to finish. Pass that model when a `model` line printed, that effort when an `effort` line printed, and the agent name from the printed `name` line (`kind` is `planning`, `execution`, `debug` or `factfind`). The prompt text is this, and nothing else. A usage report uses the name to show which task and role cost the most. A result of `STATUS: BLOCKED (FACT|DECISION)` routes per Clarifying Ambiguity:
 <!-- /host -->
 
 ```

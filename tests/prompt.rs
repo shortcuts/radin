@@ -205,7 +205,7 @@ fn the_dispatch_lines_follow_the_host() {
         .lines()
         .map(|l| l.split('\t').next().unwrap())
         .collect();
-    assert_eq!(keys, ["model", "effort", "prompt"]);
+    assert_eq!(keys, ["model", "effort", "name", "prompt"]);
     let text = e.prompt_of(&out);
     assert!(text.contains("ToolSearch") && text.contains("Monitor"));
     assert_eq!(
@@ -219,11 +219,41 @@ fn the_dispatch_lines_follow_the_host() {
         .lines()
         .map(|l| l.split('\t').next().unwrap())
         .collect();
-    assert_eq!(keys, ["prompt"]);
+    assert_eq!(keys, ["name", "prompt"]);
     let text = a.prompt_of(&out);
     for banned in ["<!-- host", "Monitor", "Workflow", "ToolSearch"] {
         assert!(!text.contains(banned), "{banned}");
     }
+}
+
+#[test]
+fn the_printed_name_fits_the_agent_tool_limit() {
+    let e = env(Host::Claude);
+    let long = "task-next-prints-an-agent-name-of-at-most-64-characters";
+    let fields = |n: &str| {
+        if n == "TASK_ID" {
+            Some(format!("{long}\n"))
+        } else {
+            e.fixture(n)
+        }
+    };
+    let name = |o: &Out| {
+        o.1.lines()
+            .find_map(|l| l.strip_prefix("name\t"))
+            .unwrap()
+            .to_string()
+    };
+    let out = e.go_with(&["execution", long], &fields);
+    assert_eq!(
+        name(&out),
+        "radin-execution-task-next-prints-an-agent-name-of-a-8cc2578f1436"
+    );
+    assert_eq!(name(&e.go(&["gate"])), "radin-gate");
+    assert_eq!(name(&e.go(&["merge", "radin/t-one"])), "radin-merge");
+    assert_eq!(
+        name(&e.go(&["factfind", "t-one", "q"])),
+        "radin-factfind-t-one"
+    );
 }
 
 #[test]
@@ -250,7 +280,7 @@ fn a_complexity_low_task_runs_on_the_execution_model_on_claude_and_none_on_agent
             .lines()
             .map(|l| l.split('\t').next().unwrap())
             .collect::<Vec<_>>(),
-        ["prompt"]
+        ["name", "prompt"]
     );
 }
 

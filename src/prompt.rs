@@ -1,7 +1,25 @@
 use crate::paths::{git, Namespace};
 use crate::{Ctx, Host, Out};
+use sha2::{Digest, Sha256};
 use std::fs;
 use std::path::{Path, PathBuf};
+
+const NAME_MAX: usize = 64;
+
+/// The Agent tool caps names at 64 characters; a cut name gets a hash tag so it stays unique.
+pub fn agent_name(kind: &str, task_id: &str) -> String {
+    let full = format!("radin-{kind}-{task_id}");
+    if full.len() <= NAME_MAX {
+        return full;
+    }
+    let tag: String = Sha256::digest(full.as_bytes())
+        .iter()
+        .take(6)
+        .map(|x| format!("{x:02x}"))
+        .collect();
+    let head: String = full.chars().take(NAME_MAX - tag.len() - 1).collect();
+    format!("{}-{tag}", head.trim_end_matches('-'))
+}
 
 type R<T> = Result<T, Out>;
 
@@ -65,7 +83,7 @@ struct Dispatch {
 }
 
 impl Dispatch {
-    fn print(&self, path: &Path) -> Out {
+    fn print(&self, name: &str, path: &Path) -> Out {
         let mut s = String::new();
         if !self.model.is_empty() {
             s += &format!("model\t{}\n", self.model);
@@ -73,6 +91,7 @@ impl Dispatch {
         if !self.effort.is_empty() {
             s += &format!("effort\t{}\n", self.effort);
         }
+        s += &format!("name\t{name}\n");
         (
             0,
             s + &format!("prompt\t{}\n", path.display()),
@@ -185,7 +204,7 @@ fn build(c: &Ctx, args: &[String]) -> R<Out> {
         sub(&mut body, "COMPLEXITY_RULE", &complexity);
         sub(&mut body, "GATE_MAP", chomp(&map.1));
         let out = write_prompt(&ns, "session-gate.md", &body)?;
-        return Ok(d.print(&out));
+        return Ok(d.print("radin-gate", &out));
     }
     if kind == "merge" {
         if args.len() < 2 {
@@ -212,7 +231,7 @@ fn build(c: &Ctx, args: &[String]) -> R<Out> {
         sub(&mut body, "MERGE_BASE", base);
         sub(&mut body, "MERGE_BRANCHES", &branches.join(", "));
         let out = write_prompt(&ns, "session-merge.md", &body)?;
-        return Ok(d.print(&out));
+        return Ok(d.print("radin-merge", &out));
     }
 
     let field = |name: &str| -> Option<String> {
@@ -389,5 +408,5 @@ fn build(c: &Ctx, args: &[String]) -> R<Out> {
     sub(&mut body, "TASK_BODY", &task_body);
 
     let out = write_prompt(&ns, &format!("{task_id}-{kind}.md"), &body)?;
-    Ok(d.print(&out))
+    Ok(d.print(&agent_name(kind, &task_id), &out))
 }

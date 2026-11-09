@@ -172,6 +172,7 @@ What an audit checks prose against:
 
 ## The run loop
 
+- **Each dispatch prints its agent `name`, at most 64 characters.** The router passes it to the Agent tool as is. **Why:** the Agent tool rejects a longer name, and the router shortened them ad hoc.
 - **The router makes one startup call, `state preflight`, and reads a side file only for a line it prints.** **Why:** six startup verbs each routed on an exit code. One call prints a tagged line per applicable branch, so the router loads recovery, session and prioritization text only when needed.
 - **Resume triage is a CLI verb, `state resume`.** **Why:** the retry rule has no judgment, and per-entry `set-status` calls by the router were error-prone.
 - **The router does no per-task verification.** A `SUCCESS` goes straight to bookkeeping. **Why:** a per-task refuter cost an extra sub-agent per success. The leaf verifies its own work, and Phase 4.5 gates the session. Do not reintroduce a refuter, and do not have the router re-read the diff.
