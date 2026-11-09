@@ -1,0 +1,48 @@
+  steps-init                    # write BACKLOG_STEPS.json from "id<TAB>order<TAB>depends-on-csv<TAB>pending|deferred" lines on stdin
+  task-next [<id>]  # pick, gate, claim and write the prompt in one call; an entry flagged planning=needed with no plan gets a planning prompt that counts against MAX_ATTEMPTS; exit 1 when nothing is left
+  task-report <id> <the sub-agent's STATUS: line (SUCCESS|FAILED|INCONCLUSIVE|BLOCKED|PLANNED)> [--next] [--usage "<kind> <tokens> <tool_uses> <duration_ms>"]...  # verify the tree, record the outcome (a SUCCESS whose commit changes a file outside the plan's ## Changes paths, directories by prefix, tests and generated output exempt, is FAILED with the files named and a parallel out-of-bounds telemetry record; a PLANNED line skips the tree check and writes planning --none and complexity; a SUCCESS line's text after its first ";" is journaled as a summary event for report; it also journals an unproven event per acceptance criterion no **Fact:** [measured] line names, shown by report), then a final "next<TAB>continue|debug|clarify FACT|clarify DECISION" line
+  task-report <id> --no-status <last line> [--next] [--usage "<kind> <tokens> <tool_uses> <duration_ms>"]...  # the same, for a sub-agent that ended with no STATUS: line
+  task-fact <id> "<STATUS: FOUND line>"  # becomes a **Fact:** line (token kept, else [guess]); a long form path goes to set-meta facts; any other line exits 1
+  task-diagnosis <id> "<STATUS: DIAGNOSED line>"  # the same, as a **Root cause:** line; status untouched
+  task-done <id> <commit-hash> # record completion, copy the entry's **Fact:** lines to state/facts/<id>.md, remove backlog and steps entries, in crash-safe order; exit 3 when the hash does not validate or the commit changes a file under .radin/
+  set-status <id> <pending|in_progress|failed|blocked> [note]
+  answered <id>                # the user answered a waiting task: back to pending, attempts 0, debugged kept
+  retry <id>                   # a human looked at a MAX_ATTEMPTS-blocked task: back to pending, attempts 0, debugged cleared
+  resume                       # move each failed entry and each retryable blocked entry to pending, attempts and debugged kept; print "id<TAB>old status" per move
+  stuck                        # print "id<TAB>attempts<TAB>note" per in_progress entry, exit 1 if none
+  steps-waiting                # print "id<TAB>note" per blocked entry whose note holds an unanswered question, exit 1 if none
+  preflight                    # run the startup checks, print "empty" | "session<TAB>missing" | "stuck<TAB>id<TAB>attempts<TAB>note" | "waiting<TAB>id<TAB>note" | "rank<TAB>csv" | "leftovers", exit 0
+  steps-open                   # print "id<TAB>question" per open decision of a pending entry, exit 1 if none
+  steps-list                   # print "id<TAB>order<TAB>status<TAB>attempts<TAB>note" per entry, exit 1 if none
+  wave-partition [--wave N] [--cap N]  # read ids on stdin, print "group<TAB>n<TAB>csv", "apart<TAB>a<TAB>b<TAB>shared paths" and "unplanned<TAB>id"; exit 1 on empty input; claims nothing; the cap comes from `wave-cap`; --wave also records a parallel serialized telemetry event per apart pair, unplanned id and cap-split id
+  plan-discard <id> <wave> <paths-csv>  # drop a pending task's plan, flag planning needed; journal and record a parallel plan-discarded telemetry event with the planning tokens; exit 1 and write nothing unless the task is pending with a plan
+  wave-cap                     # print the most tasks one wave runs at once: $RADIN_WAVE_CAP, else the install manifest's wave_cap, else 2
+  wave                         # print "id<TAB>order" for the first `wave-cap` pending tasks whose dependencies are all resolved, exit 1 if none; claims nothing
+  recover <id>                 # recover a task a dead session left in_progress; exit 3 prints commits only the model can judge
+  recover-reject <id>          # those commits do not satisfy the task: block the entry naming them
+  report                       # print the finished end-of-session report
+  session-set <yes|no> <yes|no>  # persist the worktree and branch answers
+  teardown                     # request a graceful stop: task-next picks nothing new until the next preflight; the gate and merge still run
+  session-get                  # print "worktree<TAB>yes" / "branch<TAB>no", exit 1 if unanswered
+  group-set [--wave N] <id>... # record these ids as one parallel group and a parallel dispatched telemetry event; prepare makes a worktree only for a group of 2+
+  prepare <id>                 # commit a dirty tree, create/reuse the task's tree and branch per session.json, print the dir to work in
+  dirty-check                  # git status --porcelain of the current directory, excluding .radin
+  trace <id|commit|branch>     # print "task|commit|branch|worktree|plan|facts|status<TAB>value" per matching task; exit 1 no match, 2 ambiguous
+  completed-show <id>          # print "id|commit|title|branch|worktree|plan|ts<TAB>value" lines, exit 1 if absent
+  unlanded                     # print "id<TAB>commit<TAB>branch<TAB>pending|orphan" per task whose commit the base branch lacks: pending (done on its branch, merge waiting) or orphan (recorded done, branch still ahead of the base); exit 1 if none
+  completed-list               # print "id<TAB>commit" per completion, exit 1 if none (the TUI's Done view)
+  session-commits              # print this session's commits, oldest first, one hash per line: task-done commits past the baseline, then gate fixes; exit 1 if none
+  gate-map                     # print "branch<TAB>tip<TAB>worktree<TAB>oldest session commit" per branch holding a session commit, oldest work first; exit 1 if none
+  reconcile                    # land every radin/* branch but an in_progress task's: wip-commit a dirty worktree, squash-merge, record the task done (an unfinished one first gets a "Finish: <title>" follow-up its dependents move to), drop worktree and branch; restore a recorded branch whose work is not in the base; print "merged<TAB>branch<TAB>tip", "removed<TAB>branch", "adopted<TAB>branch", "restored<TAB>branch<TAB>hash", "follow-up<TAB>id<TAB>new id", "conflict<TAB>branch" or "skipped<TAB>branch<TAB>reason"; exit 3 on a conflict
+  leftovers                    # print "base<TAB>branch", then a "branch", "stash" or "foreign" TAB line per unmerged radin/* branch, radin-batch stash or non-radin worktree in the repo, whatever session made it; exit 1 if none
+  stash-triage                 # print "candidate<TAB>hash<TAB>id" per untriaged radin-batch stash and open task the stash's paths appear in, then "left<TAB>n" (stashes not claimed by a task); nothing when no radin-batch stash exists
+  stash-claim <hash> <id|->    # record the router's verdict for a stash: a task id makes prepare apply the stash in that task's tree, "-" leaves it; exit 1 when the stash was triaged already
+  gate-fix <hash>...           # record the gate's fix commits (state/gate-fixes) so session-commits lists them
+  gate-filed <id>...           # the gate filed these entries: append them to BACKLOG_STEPS.json as pending and mark the session's one review round used; exit 1 when it is used already
+  gate-done                    # the gate returned SUCCESS or filed entries: mark the session reviewed for report
+  deps-check <id>             # print "dep<TAB>hash" per dependency, exit 1 naming the first unresolved one (radin-prompt.sh)
+  task-dir <id>                # print the task's worktree if it exists, else the repo root (radin-prompt.sh)
+  journal-tail [n]             # last n journal events (default 20)
+  plan-covers <plan-csv> <path>  # print in (a listed plan's Changes names the path), test (a test path, exempt) or out
+  review-findings              # stdin "<task><TAB><plan|executor|none><TAB><plan path>[<TAB><section>]" per logged review finding (section: plan only, a plan-template label): journal one review-finding event each, print the per-class and per-task rollup
+  finding-classes [--since <ts>] [--min <n>]  # print the plan-template sections plan findings land in, by distinct task, and the sections at >= n tasks (default 3); exit 1 when no finding passes

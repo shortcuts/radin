@@ -13,6 +13,8 @@ pub struct Namespace {
     pub namespace_dir: PathBuf,
     pub backlog_index: PathBuf,
     pub backlog_tasks_dir: PathBuf,
+    pub git_dir: String,
+    pub git_common_dir: String,
     pub created: bool,
 }
 
@@ -45,6 +47,7 @@ impl Namespace {
             _ => cwd.to_path_buf(),
         };
         let (git_dir, common) = (l.next().unwrap_or(""), l.next().unwrap_or(""));
+        let (git_dir, common) = (git_dir.to_string(), common.to_string());
         if git_dir != common {
             let branch = git(cwd, &["symbolic-ref", "--short", "-q", "HEAD"]).unwrap_or_default();
             let id = branch.trim_end().strip_prefix("radin/").unwrap_or("");
@@ -63,6 +66,8 @@ impl Namespace {
             backlog_index: namespace_dir.join("backlog/index.jsonl"),
             backlog_tasks_dir: namespace_dir.join("backlog/tasks"),
             created: !namespace_dir.exists(),
+            git_dir,
+            git_common_dir: common,
             repo_root: root,
             namespace_dir,
         }
@@ -121,6 +126,7 @@ mod tests {
         assert_eq!(ns.backlog_index, p.join(".radin/backlog/index.jsonl"));
         assert_eq!(ns.backlog_tasks_dir, p.join(".radin/backlog/tasks"));
         assert!(ns.created);
+        assert!(!ns.git_dir.is_empty() && !ns.git_common_dir.is_empty());
         assert!(!p.join(".radin").exists());
         ns.ensure_dirs().unwrap();
         for d in ["state/facts", "plans", "reviews", "backlog/tasks"] {
@@ -217,5 +223,6 @@ mod tests {
         let ns = Namespace::locate(&plain);
         assert_eq!(ns.repo_root, plain);
         assert_eq!(ns.namespace_dir, plain.join(".radin"));
+        assert!(ns.git_dir.is_empty() && ns.git_common_dir.is_empty());
     }
 }

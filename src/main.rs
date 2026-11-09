@@ -3,7 +3,7 @@ use std::io::{IsTerminal, Read};
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let mut stdin: Option<String> = None;
-    let stdin_verbs = ["scope"];
+    let stdin_verbs = ["scope", "state"];
     if args
         .iter()
         .find(|a| !a.starts_with('-') && !["claude", "agents"].contains(&a.as_str()))

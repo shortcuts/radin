@@ -1,3 +1,4 @@
+pub mod backlog;
 pub mod cbm;
 pub mod host;
 pub mod jsonedit;
@@ -7,6 +8,7 @@ pub mod prompt;
 pub mod render;
 pub mod scope;
 pub mod shellwords;
+pub mod state;
 pub mod stats;
 pub mod telemetry;
 
@@ -109,6 +111,28 @@ pub fn run_in(
         None if is_tty => fail(1, "radin: the TUI is not ported yet\n".into()),
         None => fail(1, USAGE.to_string()),
         Some("help") => (0, USAGE.to_string(), String::new()),
+        Some("backlog") => {
+            let mut e = backlog::Env::process(host, env);
+            if cwd != Path::new(".") {
+                e.cwd = cwd.to_path_buf();
+            }
+            if let Some(text) = stdin {
+                let text = text.to_string();
+                e.stdin = Box::new(move || Some(text.clone()));
+            }
+            backlog::run(&rest[1..], &e)
+        }
+        Some("state") => {
+            let c = ctx();
+            let ctx = state::Ctx {
+                cwd: c.cwd,
+                home: c.home,
+                stdin: c.stdin,
+                env,
+                cli: &nested,
+            };
+            state::run(&ctx, &rest[1..])
+        }
         Some("telemetry") => telemetry::run(&ctx(), &rest[1..]),
         Some("prompt") => prompt::run(&ctx(), &rest[1..]),
         Some("scope") => scope::run(&ctx(), &rest[1..]),
@@ -201,6 +225,8 @@ mod tests {
     fn every_other_subcommand_is_not_ported() {
         for c in SUBCOMMANDS.iter().filter(|c| {
             ![
+                "backlog",
+                "state",
                 "telemetry",
                 "prompt",
                 "scope",

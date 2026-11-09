@@ -141,7 +141,7 @@ The graph tool name lives in one file and must exist in the upstream table ([whi
 
 - **No router-side per-task verification in `radin-batch`.** The leaf verifies and reviews its own staged diff before it commits. A `FAILED` task gets a Debug prompt once per session. One that still fails asks the user and re-runs. The router defers only on the user's explicit word ([why](docs/agents/DECISIONS.md#the-run-loop)).
 - **What a sub-agent learns stays on its task.** It records a `**Fact:**` or `**Root cause:**` line, and the long form goes in `state/facts/<id>.md`. There is no shared note file and no cross-task memory.
-- **`radin-batch` worktree and branch answers never reach a prompt.** Only `radin-state.sh prepare` turns them into git commands. A model that receives them can eventually override a `no`.
+- **`radin-batch` worktree and branch answers never reach a prompt.** Only `radin state prepare` turns them into git commands. A model that receives them can eventually override a `no`.
 - **`radin wire` snapshots before the upstream write.** The upstream installer replaces the whole hook array and does not merge ([limits](docs/agents/DECISIONS.md#limits-of-the-codebase-memory-mcp-bracket)).
 - **One C file only: the TUI (`lib/radin-tui.c`).**
   - The TUI draws and dispatches keys with raw ANSI and `termios`. Every mutation shells out to `radin-backlog.sh`.

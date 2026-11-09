@@ -46,9 +46,47 @@ fn bogus_env_host_exits_2() {
 
 #[test]
 fn unported_subcommand_exits_1() {
-    let o = radin(&["backlog"], &[]);
+    let o = radin(&["update"], &[]);
     assert_eq!(o.status.code(), Some(1));
-    assert_eq!(text(&o.stderr), "radin: 'backlog' is not ported yet\n");
+    assert_eq!(text(&o.stderr), "radin: 'update' is not ported yet\n");
+}
+
+#[test]
+fn state_reads_its_stdin_and_runs_in_the_current_directory() {
+    use std::io::Write;
+    let w = tempfile::tempdir().unwrap();
+    let repo = w.path().canonicalize().unwrap().join("proj");
+    std::fs::create_dir(&repo).unwrap();
+    for a in [
+        &["init", "-q"][..],
+        &["commit", "-q", "--allow-empty", "-m", "i"],
+    ] {
+        assert!(common::git_in(&repo, a).status.success());
+    }
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_radin"));
+    cmd.args(["state", "steps-init"]).current_dir(&repo);
+    common::isolate(&mut cmd, &w.path().join("home"));
+    let mut child = cmd
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(b"x\t1\t\tpending\n")
+        .unwrap();
+    let o = child.wait_with_output().unwrap();
+    assert_eq!(o.status.code(), Some(0), "{}", text(&o.stderr));
+    assert_eq!(
+        text(&o.stdout),
+        format!(
+            "steps-init: wrote 1 entries to {}/.radin/state/BACKLOG_STEPS.json\n",
+            repo.display()
+        )
+    );
 }
 
 #[test]
