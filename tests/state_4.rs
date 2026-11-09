@@ -74,12 +74,19 @@ fn task_done_writes_the_completed_line_and_copies_facts_before_the_task_file_goe
     w.plan_with(&["lib/a.sh"]);
     w.state(&["task-fact", "t-one", "STATUS: FOUND — [measured] a"]);
     w.commit_files(&["lib/a.sh"]);
+    assert_eq!(
+        w.state_in(&["base-failing", "t-one", "--set"], "t::red\n")
+            .code,
+        0
+    );
+    assert!(w.p.join(".radin/state/base-failing/t-one.txt").exists());
     let h = w.hash.borrow().clone();
     let r = w.state(&["task-done", "t-one", &h]);
     assert_eq!(
         r.out,
         format!("task-done: t-one recorded at {h}; backlog and steps entries removed\n")
     );
+    assert!(!w.p.join(".radin/state/base-failing/t-one.txt").exists());
     let line = w.read(".radin/state/completed.json");
     assert!(line.starts_with(&format!("{{\"id\":\"t-one\",\"commit\":\"{h}\",\"title\":\"t one\",\"branch\":\"\",\"worktree\":\"\",\"plan\":\"")), "{line}");
     assert!(

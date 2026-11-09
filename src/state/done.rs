@@ -2,7 +2,7 @@ use super::git::{dirty_files, g, ok, wip_commit};
 use super::plan_cover::plan_extras;
 use super::queue::deps_check;
 use super::store::{self, get, json_escape, num, MAX_ATTEMPTS};
-use super::{arg, die, positive, S};
+use super::{arg, die, mkdir, positive, write, S};
 use crate::backlog::{Fail, Io, R};
 use std::fmt::Write;
 use std::path::Component;
@@ -147,6 +147,34 @@ pub fn task_diagnosis(s: &S, a: &[String], io: &mut Io) -> R {
     Ok(0)
 }
 
+pub fn base_failing(s: &S, a: &[String], io: &mut Io) -> R {
+    let id = arg(a, 0);
+    if id.is_empty() || id.contains('/') {
+        return Err(die("usage: base-failing <id> [--set]"));
+    }
+    let rel = format!("base-failing/{id}.txt");
+    if arg(a, 1) != "--set" {
+        let names = s.read(&rel);
+        io.out.push_str(&names);
+        return Ok(i32::from(names.is_empty()));
+    }
+    let mut names: Vec<&str> =
+        s.c.stdin
+            .lines()
+            .map(str::trim)
+            .filter(|l| !l.is_empty())
+            .collect();
+    names.sort_unstable();
+    names.dedup();
+    if names.is_empty() {
+        s.rm(&rel);
+    } else {
+        mkdir(s, "base-failing");
+        write(s, &rel, &format!("{}\n", names.join("\n")));
+    }
+    Ok(0)
+}
+
 pub fn task_done(s: &S, id: &str, hash: &str, io: &mut Io) -> R {
     if id.is_empty() || hash.is_empty() {
         return Err(die("usage: task-done <id> <commit-hash>"));
@@ -264,6 +292,7 @@ pub fn task_done(s: &S, id: &str, hash: &str, io: &mut Io) -> R {
             return Ok(e.code);
         }
     }
+    s.rm(&format!("base-failing/{id}.txt"));
     if s.steps.is_file() {
         let key = format!("\"id\":\"{id}\"");
         let kept: String = store::read_lines(&s.steps)

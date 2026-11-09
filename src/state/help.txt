@@ -5,6 +5,7 @@
   task-fact <id> "<STATUS: FOUND line>"  # becomes a **Fact:** line (token kept, else [guess]); a long form path goes to set-meta facts; any other line exits 1
   task-diagnosis <id> "<STATUS: DIAGNOSED line>"  # the same, as a **Root cause:** line; status untouched
   task-done <id> <commit-hash> # record completion, copy the entry's **Fact:** lines to state/facts/<id>.md, remove backlog and steps entries, in crash-safe order; exit 3 when the hash does not validate or the commit changes a file under .radin/
+  base-failing <id> [--set]    # print the red test names recorded for the task's base, exit 1 when none; --set reads names from stdin (one per line) and replaces the record, empty stdin clears it
   set-status <id> <pending|in_progress|failed|blocked> [note]
   answered <id>                # the user answered a waiting task: back to pending, attempts 0, debugged kept
   retry <id>                   # a human looked at a MAX_ATTEMPTS-blocked task: back to pending, attempts 0, debugged cleared

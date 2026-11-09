@@ -35,7 +35,7 @@ pub struct S<'a> {
 
 const HELP: &str = include_str!("help.txt");
 
-const VERBS: &str = "teardown|steps-init|steps-list|wave|wave-partition|plan-discard|steps-open|steps-waiting|answered|retry|task-next|task-report|task-fact|task-diagnosis|task-done|set-status|stuck|preflight|resume|recover|recover-reject|report|session-set|session-get|group-set|prepare|dirty-check|trace|completed-show|completed-list|unlanded|session-commits|gate-map|leftovers|stash-triage|stash-claim|reconcile|gate-fix|gate-filed|gate-done|deps-check|task-dir|journal-tail|plan-covers|review-findings|finding-classes";
+const VERBS: &str = "teardown|steps-init|steps-list|wave|wave-partition|plan-discard|steps-open|steps-waiting|answered|retry|task-next|task-report|task-fact|task-diagnosis|task-done|base-failing|set-status|stuck|preflight|resume|recover|recover-reject|report|session-set|session-get|group-set|prepare|dirty-check|trace|completed-show|completed-list|unlanded|session-commits|gate-map|leftovers|stash-triage|stash-claim|reconcile|gate-fix|gate-filed|gate-done|deps-check|task-dir|journal-tail|plan-covers|review-findings|finding-classes";
 
 const ID_VERBS: &[&str] = &[
     "task-next",
@@ -300,6 +300,7 @@ fn dispatch(c: &Ctx, args: &[String], io: &mut Io) -> R {
         "task-fact" => done::task_fact(&s, a, io),
         "task-diagnosis" => done::task_diagnosis(&s, a, io),
         "task-done" => done::task_done(&s, arg(a, 0), arg(a, 1), io),
+        "base-failing" => done::base_failing(&s, a, io),
         "recover" => done::recover(&s, a, io),
         "recover-reject" => done::recover_reject(&s, a, io),
         "plan-discard" => done::plan_discard(&s, a, io),

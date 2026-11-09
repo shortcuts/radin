@@ -598,3 +598,23 @@ fn reconcile_routes_a_dirty_base_the_same_way() {
         r.out
     );
 }
+
+#[test]
+fn base_failing_records_and_clears_per_task() {
+    let w = W::new();
+    assert_eq!(w.state_in(&["base-failing", "t-one"], "").code, 1);
+    assert_eq!(
+        w.state_in(&["base-failing", "t-one", "--set"], "b\na\na\n\n")
+            .code,
+        0
+    );
+    assert_eq!(w.state(&["base-failing", "t-one"]).out, "a\nb\n");
+    assert_eq!(w.state(&["base-failing", "t-two"]).code, 1);
+    w.state_in(&["base-failing", "t-one", "--set"], "c\n");
+    assert_eq!(w.state(&["base-failing", "t-one"]).out, "c\n");
+    w.state_in(&["base-failing", "t-one", "--set"], "");
+    assert_eq!(w.state(&["base-failing", "t-one"]).code, 1);
+    let r = w.state_in(&["base-failing", "a/b", "--set"], "x\n");
+    assert_eq!(r.code, 1, "{}", r.all());
+    assert!(!w.p.join(".radin/state/base-failing/a").exists());
+}

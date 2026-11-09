@@ -6,7 +6,7 @@ flowchart TD
   s2 --> s3
   s2b --> s3[4. Category skill<br/>fix, refactor, feat, chore]
   s3 --> s4[5. Write test<br/>fails before, passes after]
-  s4 --> s5[8. Run checks the diff reaches]
+  s4 --> s5[8. Run checks the diff reaches<br/>red outside the diff: base-failing]
   s5 --> green{Green?}
   green -- no, under 3 rounds --> s5
   green -- no, 3 rounds --> failed([STATUS: FAILED])

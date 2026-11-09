@@ -198,6 +198,7 @@ not touch.
    A check that fails outside your diff: save your changes with
    `git stash push -u`, re-run that check on
    the base, then `git stash pop` (pop only when the stash saved something).
+   Before you judge a red check, run `RADIN_CLI state base-failing "t-one"`: a listed name is red on the base, so skip its stash re-run and never claim it as your regression. After the re-run, pipe the red names into `RADIN_CLI state base-failing "t-one" --set`, one per line.
    An ignored `.radin/` stays in place. When `git check-ignore -q .radin` fails,
    append `-- . ':(exclude).radin'`: git rejects that pathspec for an ignored path. Red on
    the base too: fix it in this task through `surgical-patch`, as its
