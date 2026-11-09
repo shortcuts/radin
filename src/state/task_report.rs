@@ -247,6 +247,10 @@ fn report_inner(s: &S, a: &[String], usages: &[String], io: &mut Io) -> R {
     }
     if word == "PLANNED" {
         let detail = line.split_once('—').map_or(line, |x| x.1);
+        if detail.starts_with(" deferred") {
+            let _ = writeln!(io.out, "task-report: deferred {id}");
+            return next_continue(io);
+        }
         if detail.starts_with(" none needed") {
             s.bl_must(&["set-meta", id, "planning", "--none"], "")?;
         }

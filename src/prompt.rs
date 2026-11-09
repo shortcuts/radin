@@ -120,7 +120,7 @@ fn build(c: &Ctx, args: &[String]) -> R<Out> {
     let a = |i: usize| args.get(i).map_or("", String::as_str);
     let (kind, id, extra) = (a(0), a(1), a(2));
     if kind.is_empty() || (id.is_empty() && kind != "gate" && kind != "merge") {
-        return die("usage: radin prompt <planning|execution|debug|factfind> <id> [<failure|question>] | gate | merge [<branch>...]");
+        return die("usage: radin prompt <planning|execution|debug|factfind> <id> [<failure|question>] | planning <id> [<earlier-id>...] | gate | merge [<branch>...]");
     }
     if ![
         "planning",
@@ -303,10 +303,25 @@ fn build(c: &Ctx, args: &[String]) -> R<Out> {
         String::new()
     };
 
+    let earlier = if kind == "planning" {
+        args.iter()
+            .skip(2)
+            .filter_map(|e| {
+                let o = c.nested(&root, &["backlog", "field", e, "PLAN_PATHS"]);
+                (o.0 == 0).then(|| chomp(&o.1).to_string())
+            })
+            .filter(|p| !p.is_empty())
+            .collect::<Vec<_>>()
+            .join(", ")
+    } else {
+        String::new()
+    };
+
     let mut active = format!(" CAT_{category} ");
     let claims = fs::metadata(ns.join(format!("state/stash-claims/{task_id}")));
     for (on, name) in [
         (!plan_paths.is_empty(), "PLAN_PATHS"),
+        (!earlier.is_empty(), "EARLIER_PLANS"),
         (!skills.is_empty(), "SKILLS"),
         (!acceptance.is_empty(), "ACCEPTANCE"),
         (!facts.is_empty(), "FACTS"),
@@ -352,6 +367,7 @@ fn build(c: &Ctx, args: &[String]) -> R<Out> {
         ("TASK_FILE", &task_file),
         ("TASK_DIR", &task_dir),
         ("TASK_ID", &task_id),
+        ("EARLIER_PLAN_PATHS", &earlier),
         ("PLAN_PATHS", &or_none(&plan_paths)),
         ("DEPENDS_ON", &or_none(&depends_on)),
         ("STALE_PLAN", &or_none(&stale_plan)),

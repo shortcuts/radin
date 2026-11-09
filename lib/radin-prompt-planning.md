@@ -10,6 +10,15 @@ Rendered by `radin prompt planning <id>`. `src/prompt.rs` holds the format.
 ```
 Read TASK_FILE first.
 
+<!-- if:EARLIER_PLANS -->
+Tasks planned before this one in this wave left the plans EARLIER_PLAN_PATHS.
+Read the `## Changes` of each. Before you write a plan, list the files and
+symbols your change touches. Write no plan when a file is shared, when a symbol
+of yours calls or is called by one of theirs (check the graph's callers and
+callees), when a dependency is shared, or when you doubt it. End with
+`STATUS: PLANNED — deferred: <what is shared, and with which task id>`.
+
+<!-- end -->
 PLANNING_RULE
 
 When the task needs no plan, skip `/radin-plan` and go to the sizing step.

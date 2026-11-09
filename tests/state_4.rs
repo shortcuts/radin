@@ -447,3 +447,21 @@ fn an_id_verb_prints_its_usage_for_help_and_rejects_a_flag_as_its_id_without_a_b
     assert!(bad.err.contains("prepare <id>"), "{}", bad.all());
     assert_eq!(w.git(&["branch", "--list", "radin/--*"]), "");
 }
+
+#[test]
+fn task_report_deferred_planned_line_warns_nothing_and_sets_no_meta() {
+    let w = W::new();
+    w.clean();
+    w.steps_init("t-one\t1\t\tpending\n");
+    let before = w.bl(&["meta", "t-one"], "").out;
+    let r = w.state(&[
+        "task-report",
+        "t-one",
+        "STATUS: PLANNED — deferred: shares a.rs with t-two",
+    ]);
+    assert_eq!(
+        (r.code, r.out.as_str(), r.err.as_str()),
+        (0, "task-report: deferred t-one\nnext\tcontinue\n", "")
+    );
+    assert_eq!(w.bl(&["meta", "t-one"], "").out, before);
+}

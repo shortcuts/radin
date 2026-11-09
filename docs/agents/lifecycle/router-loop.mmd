@@ -14,7 +14,7 @@ flowchart TD
   mode -- no, serial --> next{{task-next}}
   mode -- yes, waves --> wave{{state wave}}
   wave -- exit 1 --> p45
-  wave --> wplan[plan unplanned tasks<br/>one message]
+  wave --> wplan[plan unplanned tasks one at a time,<br/>each reads earlier plans, deferred leave the wave]
   wplan --> leafP
   wplan --> part[state wave-partition --wave N]
   part --> veto[factfind per group:<br/>graph veto, never merge groups]

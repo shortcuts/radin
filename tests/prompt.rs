@@ -352,3 +352,16 @@ fn an_unresolved_dependency_stops_the_execution_prompt() {
         o.2
     );
 }
+
+#[test]
+fn earlier_plans_reach_only_a_planning_prompt_that_names_them() {
+    let e = env(Host::Claude);
+    let alone = e.prompt_of(&e.go(&["planning", "t-one"]));
+    assert!(!alone.contains("deferred"), "{alone}");
+    let after = e.prompt_of(&e.go(&["planning", "t-one", "t-two"]));
+    assert!(after.contains("deferred"), "{after}");
+    assert!(
+        after.contains(&format!("{}/plans/t-one.md", e.ns.display())),
+        "{after}"
+    );
+}

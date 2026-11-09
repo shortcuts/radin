@@ -355,12 +355,13 @@ and `--usage` work as in the loop above. Wave mode never passes `--next`,
 because it would claim a task outside the group.
 
 1. Run `RADIN_CLI state wave`. Exit 1 means nothing is left, so go to Phase 4.5.
-2. Plan the wave's tasks together. Run
-   `RADIN_CLI state wave | RADIN_CLI state wave-partition`. For each
-   `unplanned<TAB><id>` line whose `RADIN_CLI backlog meta "<id>"` prints
-   `planning<TAB>needed`, run `RADIN_CLI state task-next "<id>"` and dispatch
-   its `planning` prompt. Send every such dispatch in one message, and run
-   `task-report` on each. A planned task is never claimed here.
+2. **Plan one task at a time.** Walk the `state wave` ids in order. For each
+   id whose `RADIN_CLI backlog meta "<id>"` prints `planning<TAB>needed`, run
+   `RADIN_CLI state task-next "<id>"`, then
+   `RADIN_CLI prompt planning "<id>" <kept ids>`. Dispatch that prompt alone,
+   wait, and run `task-report`. A `PLANNED — deferred` line drops the id from
+   this wave. Any other line adds the id to the kept ids, and so does an id
+   that is already planned. A planned task is never claimed here.
 3. Run `RADIN_CLI state wave | RADIN_CLI state wave-partition --wave N`. Each
    `group<TAB>n<TAB>csv` line is a group, and the CLI records every
    serialization with its evidence. A task you leave out of a group runs in a
@@ -389,8 +390,10 @@ because it would claim a task outside the group.
    veto symbols, and re-plan the discarded tasks in one message as in step 2.
    Then re-run the partition over the tasks left (step 3 without
    `--wave`, and step 4). A task split off only by the cap keeps its plan.
-7. The wave ends when every task in it has a report or left the wave. Add 1
-   to `N` and go to step 1.
+   A deferred task has no plan to discard.
+7. The wave ends when every task in it has a report or left the wave. A
+   deferred task stays pending, and step 1 offers it again. Add 1 to `N` and go
+   to step 1.
 
 ## Phase 4.5: Session Gate
 
