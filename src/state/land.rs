@@ -151,6 +151,11 @@ pub fn prepare(s: &S, a: &[String], io: &mut Io) -> R {
     let res: Result<(), Fail> = (|| {
         if worktree == "yes" {
             if wt.is_dir() {
+                if !s.is_registered_worktree(&wt) {
+                    return Err(die(format!(
+                        "{wts} exists but is not a registered worktree of this repo"
+                    )));
+                }
                 prepare_commit(s, &wt, id, io)?;
             } else if s.branch_exists(&branch) {
                 must(gx(&s.root, &["worktree", "add", &wts, &branch], io))?;
@@ -222,6 +227,15 @@ impl S<'_> {
         let mut p = self.root.as_os_str().to_owned();
         p.push(format!("-{id}"));
         p.into()
+    }
+
+    /// Git lists a worktree by its real path, so both sides are canonicalized.
+    fn is_registered_worktree(&self, wt: &Path) -> bool {
+        let want = std::fs::canonicalize(wt).ok();
+        self.gt(&["worktree", "list", "--porcelain"])
+            .lines()
+            .filter_map(|l| l.strip_prefix("worktree "))
+            .any(|p| std::fs::canonicalize(p).ok() == want)
     }
 }
 

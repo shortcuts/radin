@@ -429,6 +429,19 @@ fn prepare_reuses_the_worktree_a_dead_attempt_left_for_a_task_that_runs_alone() 
 }
 
 #[test]
+fn prepare_fails_on_a_leftover_directory_at_the_worktree_path_and_keeps_it() {
+    let w = W::new();
+    w.state(&["session-set", "yes", "yes"]);
+    let wt = format!("{}-t-one", w.p.display());
+    fs::create_dir_all(format!("{wt}/.gradle")).unwrap();
+    let r = w.state(&["prepare", "t-one"]);
+    assert_ne!(r.code, 0, "{}", r.all());
+    assert!(r.all().contains(&wt), "{}", r.all());
+    assert!(r.all().contains("not a registered worktree"), "{}", r.all());
+    assert!(std::path::Path::new(&format!("{wt}/.gradle")).is_dir());
+}
+
+#[test]
 fn group_set_rejects_no_id_and_a_path_character() {
     let w = W::new();
     assert_ne!(w.state(&["group-set"]).code, 0);
