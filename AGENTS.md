@@ -38,10 +38,10 @@ radin is a Claude Code plugin of skills, a CLI, and install glue.
 | A test must be able to fail | `tests/lints.rs` bare `! cmd` lint | Other vacuous patterns; review only. |
 | Tests never touch the real device setup | `make test` runs bats with `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `XDG_CONFIG_HOME` and `OPENCODE_CONFIG` unset and fails when `scripts/real-setup-sum.sh` differs before and after; `tests/helpers/isolate.bash` isolates each file | A test that reads the keychain or another real path; review only. |
 | `RADIN_HOST` selects skill names, never a state dir | `tests/host.bats` | None. |
-| Legacy `.claude/.radin` and `.agents/.radin` migrate into `.radin` without loss | `tests/migrate.bats` | A crash between the copy and the rename is untested. |
-| `.gitignore` gets `.radin/` once | `tests/migrate.bats` | None. |
-| `radin doctor` checks every installed host | `tests/doctor.bats` | The real CLI probes (Codex `/hooks`, opencode version) run against stubs. |
-| `radin uninstall` removes only bytes radin still owns | `tests/uninstall.bats`, the three-host lifecycle test in `tests/install*.bats` | Foreign text inside a radin block is stripped with it. |
+| Legacy `.claude/.radin` and `.agents/.radin` migrate into `.radin` without loss | `tests/migrate.rs` | A crash between the copy and the rename is untested. |
+| `.gitignore` gets `.radin/` once | `tests/migrate.rs` | None. |
+| `radin doctor` checks every installed host | `tests/doctor.rs` | The real CLI probes (Codex `/hooks`, opencode version) run against stubs. |
+| `radin uninstall` removes only bytes radin still owns | `tests/uninstall.rs`, the three-host lifecycle test in `tests/install*.bats` | Foreign text inside a radin block is stripped with it. |
 | The agents render names no Claude-only tool and holds no model line | `hosts/forbid-agents.txt`, `tests/lints.rs` forbid lint, `tests/render-host.bats` | A paraphrase of a tool name; review only. |
 | Every host path variable is isolated | `tests/isolation.bats`, `tests/real-setup-sum.bats` | None. |
 | A three-host lifecycle leaves no radin file | The three-host lifecycle test in `tests/install*.bats` | The real CLIs are not run; `make verify-hosts` owns that. |

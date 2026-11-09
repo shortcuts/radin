@@ -2,11 +2,7 @@ use std::fs;
 use std::path::Path;
 use std::process::Command;
 
-const TARGETS: [&str; 3] = [
-    "install.sh",
-    "lib/radin-doctor.sh",
-    "lib/radin-uninstall.sh",
-];
+const TARGETS: [&str; 1] = ["install.sh"];
 
 fn repo() -> &'static Path {
     Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -34,9 +30,7 @@ fn vars_for(target: &str) -> &'static [(&'static str, &'static str)] {
     const RETIRED: (&str, &str) = ("RETIRED_SKILLS", "retired skill");
     const RETIRED_LIB: (&str, &str) = ("RETIRED_LIB", "retired lib");
     match target {
-        "install.sh" => &[SKILLS, LIB, HOSTLIB, RENAMED, RETIRED, RETIRED_LIB],
-        "lib/radin-doctor.sh" => &[SKILLS, LIB, HOSTLIB],
-        _ => &[SKILLS, LIB, HOSTLIB, RENAMED, RETIRED],
+        _ => &[SKILLS, LIB, HOSTLIB, RENAMED, RETIRED, RETIRED_LIB],
     }
 }
 

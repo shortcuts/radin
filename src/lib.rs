@@ -1,16 +1,20 @@
 pub mod backlog;
 pub mod cbm;
+pub mod doctor;
 pub mod host;
 pub mod jsonedit;
 pub mod manifest;
+pub mod migrate;
 pub mod paths;
 pub mod prompt;
 pub mod render;
 pub mod scope;
 pub mod shellwords;
+pub mod shipped;
 pub mod state;
 pub mod stats;
 pub mod telemetry;
+pub mod uninstall;
 
 pub use host::Host;
 use std::path::{Path, PathBuf};
@@ -137,6 +141,8 @@ pub fn run_in(
         Some("prompt") => prompt::run(&ctx(), &rest[1..]),
         Some("scope") => scope::run(&ctx(), &rest[1..]),
         Some("stats") => stats::run(&ctx(), &rest[1..]),
+        Some("doctor") => doctor::run(&ctx(), &rest[1..]),
+        Some("uninstall") => uninstall::run(&ctx(), &rest[1..]),
         Some("hooks") => cbm::run_hooks(&ctx(), &rest[1..]),
         Some("wire") => cbm::run_wire(&ctx()),
         Some("repair") => cbm::run_repair(&ctx()),
@@ -234,6 +240,8 @@ mod tests {
                 "hooks",
                 "wire",
                 "repair",
+                "doctor",
+                "uninstall",
             ]
             .contains(c)
         }) {

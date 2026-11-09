@@ -39,8 +39,6 @@ hostlib radin-batch-resume.md
 hostlib radin-run.md
 hostlib radin-review-core.md
 lib radin-update.sh
-lib radin-doctor.sh
-lib radin-uninstall.sh
 # Tombstones: names an older radin shipped. Uninstall still removes them.
 # A renamed or retired skill is also removed by install, only while its SKILL.md names it.
 renamed skill radin-execute
