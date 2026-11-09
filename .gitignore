@@ -4,8 +4,6 @@
 .env
 **.omc
 **.radin
-tests/helpers/pty-run
-tests/helpers/mock
 node_modules
 /target
 !tests/fixtures/bash-era-home/.radin

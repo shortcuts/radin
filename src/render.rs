@@ -465,6 +465,95 @@ mod tests {
         );
     }
 
+    fn lib_render(host: &str, rel: &str) -> String {
+        let path = Path::new(env!("CARGO_MANIFEST_DIR")).join(rel);
+        let text = fs::read_to_string(&path).unwrap();
+        render(&text, rel, &Rules::embedded(host).unwrap()).unwrap()
+    }
+
+    #[test]
+    fn agents_render_of_each_ask_site_names_the_ask_rule_and_no_question_tool() {
+        for f in [
+            "lib/radin-run.md",
+            "lib/radin-batch-merge.md",
+            "skills/radin-review/SKILL.md",
+            "skills/radin-record/SKILL.md",
+            "skills/radin-do/SKILL.md",
+        ] {
+            let out = lib_render("agents", f);
+            assert!(out.contains("radin-ask-rule.md"), "{f}");
+            assert!(!out.contains("AskUserQuestion"), "{f}");
+        }
+        for f in ["lib/radin-batch-session.md", "lib/radin-batch-clarify.md"] {
+            assert!(!lib_render("agents", f).contains("AskUserQuestion"), "{f}");
+        }
+    }
+
+    #[test]
+    fn leaf_contract_and_explore_rule_name_no_claude_only_tool_on_agents() {
+        for f in ["lib/radin-leaf-contract.md", "lib/radin-explore-rule.md"] {
+            let out = lib_render("agents", f);
+            for bad in [
+                "Monitor",
+                "Workflow",
+                "TaskStop",
+                "ToolSearch",
+                "4 minutes",
+                "AskUserQuestion",
+            ] {
+                assert!(!out.contains(bad), "{f} holds {bad}");
+            }
+        }
+        let leaf = "lib/radin-leaf-contract.md";
+        assert!(lib_render("agents", leaf).contains("no question tool"));
+        let claude = lib_render("claude", leaf);
+        assert!(claude.contains("Monitor") && claude.contains("Workflow"));
+    }
+
+    #[test]
+    fn prompt_templates_drop_model_and_effort_lines_on_agents() {
+        let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("lib");
+        let mut seen = 0;
+        for e in fs::read_dir(dir).unwrap() {
+            let name = e.unwrap().file_name().into_string().unwrap();
+            if !name.starts_with("radin-prompt-") {
+                continue;
+            }
+            seen += 1;
+            let rel = format!("lib/{name}");
+            let agents = lib_render("agents", &rel);
+            assert!(
+                !agents
+                    .lines()
+                    .any(|l| l.starts_with("`model") || l.starts_with("`effort")),
+                "{rel}"
+            );
+            assert!(
+                !agents.contains("RADIN_MODEL_") && !agents.contains("model-low"),
+                "{rel}"
+            );
+            let claude = lib_render("claude", &rel);
+            assert_eq!(
+                claude
+                    .lines()
+                    .filter(|l| l.starts_with("`model: \""))
+                    .count(),
+                1,
+                "{rel}"
+            );
+        }
+        assert!(seen >= 6);
+    }
+
+    #[test]
+    fn recovery_prompt_holds_model_and_effort_tokens_only_on_claude() {
+        let f = "lib/radin-batch-recovery.md";
+        let agents = lib_render("agents", f);
+        assert!(!agents.contains("RADIN_MODEL_") && !agents.contains("RADIN_EFFORT_"));
+        assert!(lib_render("claude", f)
+            .contains("`model: \"RADIN_MODEL_REVIEW\"`, `effort: \"RADIN_EFFORT_REVIEW\"`"));
+    }
+
     #[test]
     fn tokens_replace_in_install_order() {
         let t = |host| Tokens {

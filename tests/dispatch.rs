@@ -93,3 +93,133 @@ fn no_subcommand_off_a_terminal_prints_usage_to_stderr() {
 fn unknown_word_exits_1() {
     assert_eq!(radin(&["frobnicate"], &[]).status.code(), Some(1));
 }
+
+fn in_proj(
+    dir: &std::path::Path,
+    home: &std::path::Path,
+    args: &[&str],
+    env: &[(&str, &str)],
+    stdin: &str,
+) -> Output {
+    use std::io::Write;
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_radin"));
+    cmd.args(args).current_dir(dir);
+    common::isolate(&mut cmd, home);
+    cmd.envs(env.iter().copied());
+    let mut child = cmd
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(stdin.as_bytes())
+        .unwrap();
+    child.wait_with_output().unwrap()
+}
+
+fn proj() -> (tempfile::TempDir, std::path::PathBuf, std::path::PathBuf) {
+    let w = tempfile::tempdir().unwrap();
+    let root = w.path().canonicalize().unwrap();
+    let p = root.join("proj");
+    std::fs::create_dir(&p).unwrap();
+    let h = root.join("home");
+    (w, p, h)
+}
+
+#[test]
+fn every_host_writes_the_same_radin_dir() {
+    let (_w, p, h) = proj();
+    let add = |args: &[&str]| in_proj(&p, &h, args, &[], "body\n");
+    assert_eq!(
+        add(&["backlog", "add", "feat", "one thing"]).status.code(),
+        Some(0)
+    );
+    assert_eq!(
+        add(&["--host", "agents", "backlog", "add", "feat", "two thing"])
+            .status
+            .code(),
+        Some(0)
+    );
+    assert!(p.join(".radin/backlog/index.jsonl").is_file());
+    assert!(!p.join(".claude").exists() && !p.join(".agents").exists());
+    for args in [
+        &["--host=agents", "backlog", "count"][..],
+        &["--host", "claude", "backlog", "count"],
+    ] {
+        assert_eq!(text(&in_proj(&p, &h, args, &[], "").stdout).trim(), "2");
+    }
+}
+
+#[test]
+fn host_after_the_subcommand_is_not_the_dispatchers() {
+    let (_w, p, h) = proj();
+    in_proj(&p, &h, &["backlog", "--host", "agents"], &[], "");
+    assert!(!p.join(".agents").exists());
+}
+
+#[test]
+fn host_all_is_an_unknown_host() {
+    let o = radin(&["--host", "all", "backlog", "count"], &[]);
+    assert_eq!(o.status.code(), Some(2));
+    assert_eq!(
+        text(&o.stderr),
+        "radin: unknown host 'all' (expected claude|agents)\n"
+    );
+}
+
+#[test]
+fn state_verbs_read_radin_for_every_host() {
+    let (_w, p, h) = proj();
+    let git = |a: &[&str]| {
+        let mut full = vec!["-c", "user.email=t@t", "-c", "user.name=t"];
+        full.extend_from_slice(a);
+        let o = common::git_in(&p, &full);
+        assert!(o.status.success(), "{a:?}");
+        text(&o.stdout)
+    };
+    git(&["init", "-q", "."]);
+    git(&["commit", "-q", "--allow-empty", "-m", "init"]);
+    std::fs::create_dir_all(p.join(".radin")).unwrap();
+    std::fs::write(p.join(".radin/x"), "x\n").unwrap();
+    git(&["add", "-f", ".radin/x"]);
+    git(&["commit", "-q", "-m", "touch state"]);
+    let hash = git(&["rev-parse", "HEAD"]);
+    let o = in_proj(
+        &p,
+        &h,
+        &[
+            "--host",
+            "agents",
+            "state",
+            "task-done",
+            "some-id",
+            hash.trim(),
+        ],
+        &[],
+        "",
+    );
+    assert_eq!(o.status.code(), Some(3));
+    assert!(text(&o.stdout).contains("under .radin/") || text(&o.stderr).contains("under .radin/"));
+    std::fs::write(p.join(".radin/y"), "y\n").unwrap();
+    let o = in_proj(&p, &h, &["state", "dirty-check"], &[], "");
+    assert_eq!(text(&o.stdout), "");
+}
+
+#[test]
+fn inside_opencode_no_flag_still_writes_radin() {
+    let (_w, p, h) = proj();
+    let o = in_proj(
+        &p,
+        &h,
+        &["backlog", "add", "feat", "one thing"],
+        &[("OPENCODE", "1")],
+        "body\n",
+    );
+    assert_eq!(o.status.code(), Some(0));
+    assert!(p.join(".radin/backlog/index.jsonl").is_file());
+    assert!(!p.join(".agents").exists());
+}

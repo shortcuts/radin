@@ -24,7 +24,7 @@ fn string_len(s: &str) -> Option<usize> {
     None
 }
 
-/// The last `"key":"…"` string of a JSONL line, unescaped like lib/radin-json.sh did.
+/// The last `"key":"…"` string of a JSONL line, unescaped.
 pub fn get(line: &str, key: &str) -> String {
     let pat = format!("\"{key}\":\"");
     let mut end = line.len();

@@ -1,4 +1,4 @@
-# Companion skill names for the claude host. One 'NAME VALUE' per line; read by scripts/render-host.sh and lib/radin-host.sh.
+# Companion skill names for the claude host. One 'NAME VALUE' per line; read by the radin binary.
 grilling /mattpocock-skills:grilling
 research /mattpocock-skills:research
 codebase-design /mattpocock-skills:codebase-design

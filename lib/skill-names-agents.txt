@@ -1,4 +1,4 @@
-# Companion skill names for the agents host. One 'NAME VALUE' per line; read by scripts/render-host.sh and lib/radin-host.sh.
+# Companion skill names for the agents host. One 'NAME VALUE' per line; read by the radin binary.
 grilling grilling
 research research
 codebase-design codebase-design

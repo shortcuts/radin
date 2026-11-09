@@ -55,44 +55,6 @@ fn prose_files(root: &Path) -> Vec<String> {
     f
 }
 
-fn lint_bats_bang(root: &Path) -> Vec<String> {
-    let bang = re(r"^[ \t]+! ");
-    let skip = re(r"^[ \t]*(#|\}|$)");
-    let mut names: Vec<String> = fs::read_dir(root.join("tests"))
-        .into_iter()
-        .flatten()
-        .filter_map(|e| e.ok()?.file_name().into_string().ok())
-        .filter(|n| n.ends_with(".bats"))
-        .collect();
-    names.sort();
-    let mut out = Vec::new();
-    for n in names {
-        let file = format!("tests/{n}");
-        let text = read(root, &file).unwrap_or_default();
-        let mut blk = 0;
-        let mut rows: Vec<(usize, bool)> = Vec::new();
-        let mut last: HashMap<usize, usize> = HashMap::new();
-        for (i, l) in text.lines().enumerate() {
-            if l.starts_with("@test ") {
-                blk += 1;
-            }
-            rows.push((blk, bang.is_match(l)));
-            if !skip.is_match(l) && blk > 0 {
-                last.insert(blk, i);
-            }
-        }
-        for (i, (b, is_bang)) in rows.iter().enumerate() {
-            if *is_bang && last.get(b).is_some_and(|&l| i < l) {
-                out.push(format!(
-                    "{file}:{}: bare `! cmd` mid-test never fails; use `run ! cmd` or `[ -z \"$(cmd)\" ]`",
-                    i + 1
-                ));
-            }
-        }
-    }
-    out
-}
-
 fn lint_guard(root: &Path) -> Vec<String> {
     let comp = "caveman|ponytail|rtk|thermo|mattpocock|codebase-memory|graph tool";
     let guard = re(&format!(
@@ -314,8 +276,7 @@ fn lint_names(root: &Path) -> Vec<String> {
 }
 
 fn lint_all(root: &Path) -> Vec<String> {
-    let mut out = lint_bats_bang(root);
-    out.extend(lint_guard(root));
+    let mut out = lint_guard(root);
     out.extend(lint_git(root));
     out.extend(lint_dup(root));
     out.extend(lint_forbid(root));
@@ -328,11 +289,7 @@ fn fixture() -> tempfile::TempDir {
     for d in ["hosts", "skills/x", "lib", "tests"] {
         fs::create_dir_all(t.path().join(d)).unwrap();
     }
-    for f in [
-        "tests/x.bats",
-        "lib/radin-run.md",
-        "lib/radin-leaf-contract.md",
-    ] {
+    for f in ["lib/radin-run.md", "lib/radin-leaf-contract.md"] {
         put(t.path(), f, "");
     }
     t
@@ -347,20 +304,6 @@ const SENTENCE: &str = "Read the shared plan file before you start the task.";
 #[test]
 fn repo_passes_every_lint() {
     assert_eq!(lint_all(repo()), Vec::<String>::new());
-}
-
-#[test]
-fn bare_bang_mid_test_fails_and_last_command_passes() {
-    let t = fixture();
-    put(
-        t.path(),
-        "tests/x.bats",
-        "@test \"a\" {\n  ! false\n  true\n}\n@test \"b\" {\n  true\n  ! false\n}\n",
-    );
-    assert_eq!(
-        lint_bats_bang(t.path()),
-        vec!["tests/x.bats:2: bare `! cmd` mid-test never fails; use `run ! cmd` or `[ -z \"$(cmd)\" ]`"]
-    );
 }
 
 #[test]

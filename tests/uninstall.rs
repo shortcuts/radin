@@ -219,7 +219,9 @@ fn a_second_run_reports_absent() {
     let r = w.uninstall(&[]);
     assert_eq!(r.code, 0);
     assert!(!r.out.contains("REMOVED"));
-    assert!(r.out.contains("  ABSENT   .radin/lib/companion-skills.txt\n"));
+    assert!(r
+        .out
+        .contains("  ABSENT   .radin/lib/companion-skills.txt\n"));
 }
 
 #[test]

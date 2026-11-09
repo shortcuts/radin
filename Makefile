@@ -1,4 +1,4 @@
-.PHONY: install update build run test test-changed golden verify-hosts bench-tui screenshot lint check diagrams serve-diagrams clean
+.PHONY: install update run test golden verify-hosts real-setup-sum bench-tui screenshot lint check diagrams serve-diagrams clean
 
 install:
 	cargo run -q -- install
@@ -6,69 +6,48 @@ install:
 update:
 	cargo run -q -- install --update
 
-# Both compiled helpers are test-only; the TUI is part of the Rust binary.
-build: tests/helpers/pty-run tests/helpers/mock
-
-tests/helpers/pty-run: tests/helpers/pty-run.c
-	cc -O1 -o $@ $<
-
-tests/helpers/mock: tests/helpers/mock.c
-	cc -O1 -o $@ $<
-
 # Runs the TUI against this repo's own backlog, straight from the build tree.
 run:
 	cargo run -q
 
-# One bats per file, run concurrently: every file isolates its state under
-# mktemp -d, and bats' own -j costs more in bookkeeping than it wins here. The
-# slowest files go first so no worker starts one last.
-# One worker per core: 32 workers saturated the machine and made the timing test flake.
-JOBS ?= $(shell getconf _NPROCESSORS_ONLN)
-test: build
-# Every temp repo a test builds is deleted in teardown, so git's fsync is pure
-# latency here: it cost ~0.1s per test that runs `git init`.
 # A test that follows a cc symlink once overwrote the real settings.json, so
-# bats runs without CLAUDE_CONFIG_DIR and the run fails if a real file changes.
-# T="tests/host.bats tests/doctor.bats" runs only those files.
-	@before=$$(scripts/real-setup-sum.sh); \
+# cargo test runs without CLAUDE_CONFIG_DIR and the run fails if a real file changes.
+test:
+	@before=$$($(MAKE) -s real-setup-sum); \
 		env -u CLAUDE_CONFIG_DIR -u CODEX_HOME -u XDG_CONFIG_HOME -u OPENCODE_CONFIG cargo test; \
-		cargo_status=$$?; \
-		files="$(T)"; \
-		[ -n "$$files" ] || files="$$(ls tests/*.bats)"; \
-		printf '%s\n' $$files | \
-		GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.fsync GIT_CONFIG_VALUE_0=none \
-		env -u CLAUDE_CONFIG_DIR -u CODEX_HOME -u XDG_CONFIG_HOME -u OPENCODE_CONFIG -u OPENCODE xargs -P $(JOBS) -n1 bats; \
 		status=$$?; \
-		[ $$cargo_status -eq 0 ] || status=1; \
-		after=$$(scripts/real-setup-sum.sh); \
+		after=$$($(MAKE) -s real-setup-sum); \
 		if [ "$$before" != "$$after" ]; then \
 			echo "make test changed the real setup:"; \
 			printf "before:\n%s\nafter:\n%s\n" "$$before" "$$after"; status=1; \
 		fi; \
 		exit $$status
 
-# Runs only the bats files that cover what changed since HEAD (see
-# scripts/affected-tests.sh). A dev-loop shortcut: run `make test` before a commit.
-test-changed: build
-	@t=$$(scripts/affected-tests.sh | tr '\n' ' '); \
-		case "$$t" in \
-		"") echo "no test covers the changed paths" ;; \
-		"ALL ") $(MAKE) test ;; \
-		*) echo "running: $$t"; $(MAKE) test T="$$t" ;; \
-		esac
+# One checksum line per real device-setup file, or "absent".
+real-setup-sum:
+	@set -- "$$HOME/.claude/settings.json" "$$HOME/.config/.claude/settings.json" "$$HOME/.claude.json" \
+		"$${CODEX_HOME:-$$HOME/.codex}/AGENTS.md" "$${CODEX_HOME:-$$HOME/.codex}/hooks.json" "$${CODEX_HOME:-$$HOME/.codex}/config.toml" \
+		"$${XDG_CONFIG_HOME:-$$HOME/.config}/opencode/AGENTS.md" "$${XDG_CONFIG_HOME:-$$HOME/.config}/opencode/opencode.json" \
+		"$$HOME/.radin/manifest.json"; \
+		[ -z "$$OPENCODE_CONFIG" ] || set -- "$$@" "$$OPENCODE_CONFIG"; \
+		[ -z "$$CLAUDE_CONFIG_DIR" ] || set -- "$$@" "$$CLAUDE_CONFIG_DIR/settings.json"; \
+		for f; do \
+			if [ -f "$$f" ]; then echo "$$f $$(cksum <"$$f")"; else echo "$$f absent"; fi; \
+		done
 
 # Rewrites the golden sums after an intended change to the Claude render.
 golden:
 	env -u CLAUDE_CONFIG_DIR -u CODEX_HOME -u XDG_CONFIG_HOME -u OPENCODE_CONFIG GOLDEN_UPDATE=1 cargo test --test golden_render
 
-# Opt-in: drives the real opencode and codex CLIs without a model call. Needs a C
-# compiler, about a minute per host, and npm for VERIFY_ARGS=--install-missing.
+# Opt-in: drives the real opencode and codex CLIs without a model call, about a
+# minute per host. VERIFY_ARGS=--install-missing installs a missing CLI with npm.
 VERIFY_ARGS ?=
 verify-hosts:
-	@before=$$(scripts/real-setup-sum.sh); \
-		env -u CLAUDE_CONFIG_DIR -u CODEX_HOME -u XDG_CONFIG_HOME -u OPENCODE_CONFIG scripts/verify-hosts.sh $(VERIFY_ARGS); \
+	@before=$$($(MAKE) -s real-setup-sum); \
+		case "$(VERIFY_ARGS)" in *--install-missing*) VERIFY_INSTALL_MISSING=1; export VERIFY_INSTALL_MISSING ;; esac; \
+		env -u CLAUDE_CONFIG_DIR -u CODEX_HOME -u XDG_CONFIG_HOME -u OPENCODE_CONFIG cargo test --test verify_hosts -- --ignored --nocapture; \
 		status=$$?; \
-		after=$$(scripts/real-setup-sum.sh); \
+		after=$$($(MAKE) -s real-setup-sum); \
 		if [ "$$before" != "$$after" ]; then \
 			echo "make verify-hosts changed the real setup:"; \
 			printf "before:\n%s\nafter:\n%s\n" "$$before" "$$after"; status=1; \
@@ -79,18 +58,22 @@ verify-hosts:
 bench-tui:
 	@cargo test --release --test tui_bench -- --ignored --nocapture
 
-# Renders docs/img/tui.svg from the real TUI; see scripts/screenshot-tui.sh.
+# Renders docs/img/tui.svg from the real TUI on a seeded demo backlog, so the README
+# screenshot never shows a screen the code no longer draws. The xterm package is
+# pinned and removed after the run: radin tracks no JS dependency.
 screenshot:
-	@scripts/screenshot-tui.sh
+	@set -e; work=$$(mktemp -d); trap 'rm -rf "$$work" node_modules' EXIT; \
+		RADIN_SCREENSHOT_RAW="$$work/screen" cargo test -q --test tui_pty screenshot_dump -- --ignored >/dev/null; \
+		npm i --no-save --no-package-lock @xterm/headless@5.5.0 >/dev/null; \
+		node scripts/tui-svg.mjs "$$work/screen" docs/img/tui.svg 150 26
 
-SH_FILES = scripts/screenshot-tui.sh install.sh scripts/record-bash-era.sh lib/radin-namespace.sh lib/radin-json.sh lib/radin-migrate.sh scripts/real-setup-sum.sh scripts/golden-render.sh scripts/affected-tests.sh scripts/render-host.sh scripts/verify-hosts.sh
+SH_FILES = install.sh
 
 clean:
-	rm -f tests/helpers/pty-run tests/helpers/mock
 	cargo clean
 
 lint:
-	bash -n $(SH_FILES)
+	sh -n $(SH_FILES)
 	shellcheck $(SH_FILES)
 	shfmt -w $(SH_FILES)
 	cargo fmt
@@ -98,7 +81,7 @@ lint:
 	markdownlint --fix '**/*.md' --ignore node_modules --ignore CHANGELOG.md
 
 check:
-	bash -n $(SH_FILES)
+	sh -n $(SH_FILES)
 	shellcheck $(SH_FILES)
 	shfmt -d $(SH_FILES)
 	cargo fmt --check

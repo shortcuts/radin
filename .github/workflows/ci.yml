@@ -37,9 +37,6 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
-      - name: install bats-core
-        run: sudo apt-get update && sudo apt-get install -y bats
-
       - run: make test
 
   verify-hosts:
