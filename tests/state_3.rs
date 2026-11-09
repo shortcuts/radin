@@ -379,6 +379,23 @@ fn plan_discard_records_tokens_unknown_when_no_planning_usage_was_reported() {
 }
 
 #[test]
+fn task_report_rejects_an_all_zero_usage_as_made_up_and_records_no_tokens() {
+    let w = W::new();
+    w.plan_with(&["lib/a.sh"]);
+    let r = w.state(&["task-report", "t-one", PLANNED, "--usage", "planning 0 0 0"]);
+    assert_eq!(r.code, 0, "{}", r.all());
+    assert_eq!(
+        r.err,
+        "radin-state: ignoring malformed --usage: planning 0 0 0\n"
+    );
+    let r = w.state(&["plan-discard", "t-one", "1", "lib/a.sh"]);
+    assert_eq!(
+        (r.code, r.out.as_str()),
+        (0, "plan-discarded\tt-one\t1\tunknown\n")
+    );
+}
+
+#[test]
 fn plan_discard_refuses_a_task_that_is_not_pending_or_has_no_plan_and_writes_nothing() {
     let w = W::new();
     w.plan_with(&["lib/a.sh"]);

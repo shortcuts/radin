@@ -131,6 +131,7 @@ fn usage_ok(u: &str) -> bool {
         && f[1..]
             .iter()
             .all(|n| !n.is_empty() && n.bytes().all(|c| c.is_ascii_digit()))
+        && f[1..].iter().any(|n| n.bytes().any(|c| c != b'0'))
 }
 
 pub fn task_report(s: &S, a: &[String], io: &mut Io) -> R {
