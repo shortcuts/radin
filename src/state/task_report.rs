@@ -41,6 +41,7 @@ fn task_fail(s: &S, id: &str, reason: &str) -> Result<Option<String>, Fail> {
     let debug_key = format!("\"event\":\"debug\",\"id\":\"{id}\"");
     let reported = format!("\"detail\":\"{}\"}}", json_escape(reason));
     if !diagnosed
+        && !s.exists(&format!("prompts/{id}-debug.md"))
         && lines
             .iter()
             .rfind(|l| l.contains(&debug_key))

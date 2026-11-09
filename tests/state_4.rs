@@ -346,6 +346,21 @@ fn task_report_refuses_a_different_failure_line_while_the_debug_pass_is_pending(
 }
 
 #[test]
+fn task_report_records_a_new_failure_line_once_the_debug_prompt_was_dispatched() {
+    let w = W::new();
+    w.clean();
+    w.steps_init("t-one\t1\t\tpending\n");
+    w.state(&["task-report", "t-one", "STATUS: FAILED — first reason"]);
+    w.write(".radin/state/prompts/t-one-debug.md", "prompt\n");
+    let second = w.state(&["task-report", "t-one", "STATUS: FAILED — new reason"]);
+    assert_eq!(second.code, 0, "{}", second.err);
+    assert!(second.out.contains("failed: new reason."), "{}", second.out);
+    assert!(w
+        .read(".radin/state/BACKLOG_STEPS.json")
+        .contains("\"failed\""));
+}
+
+#[test]
 fn trace_answers_one_reading_and_names_an_ambiguous_one() {
     let w = W::new();
     w.plan_with(&["lib/a.sh"]);
