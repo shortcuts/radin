@@ -256,7 +256,6 @@ fn wave_partition_rejects_a_bad_wave() {
 fn group_set_wave_records_a_dispatched_event_without_wave_the_event_has_no_wave_key() {
     let w = W::new();
     w.state(&["group-set", "--wave", "2", "t-one", "t-two"]);
-    assert_eq!(w.read(".radin/state/groups/t-one").trim(), "2");
     assert_eq!(
         *w.tele.borrow(),
         vec!["dispatched ids=t-one,t-two size=2 wave=2"]

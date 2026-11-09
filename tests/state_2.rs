@@ -372,30 +372,35 @@ fn prepare_starts_a_dependent_on_its_unmerged_dependencys_branch_and_records_the
 }
 
 #[test]
-fn prepare_without_a_recorded_group_makes_no_worktree_branch_yes_cuts_radin_id_in_the_checkout() {
+fn prepare_gives_a_solo_task_its_own_worktree_and_the_main_checkout_keeps_its_branch() {
     let w = W::new();
+    let base = w.base();
     w.state(&["session-set", "yes", "yes"]);
-    assert_eq!(w.prep_dir("t-one"), w.p.to_string_lossy());
-    assert_eq!(w.base(), "radin/t-one");
-    assert_eq!(w.git(&["worktree", "list"]).lines().count(), 1);
+    let wt = format!("{}-t-one", w.p.display());
+    assert_eq!(w.prep_dir("t-one"), wt);
+    assert_eq!(
+        w.git_at(std::path::Path::new(&wt), &["branch", "--show-current"]),
+        "radin/t-one"
+    );
+    assert_eq!(w.base(), base);
+    assert_eq!(w.git(&["worktree", "list"]).lines().count(), 2);
 }
 
 #[test]
-fn prepare_without_a_recorded_group_commits_to_the_base_when_branch_is_no() {
+fn prepare_commits_to_the_base_when_worktree_and_branch_are_no() {
     let w = W::new();
     let before = w.base();
-    w.state(&["session-set", "yes", "no"]);
+    w.state(&["session-set", "no", "no"]);
     assert_eq!(w.prep_dir("t-one"), w.p.to_string_lossy());
     assert_eq!(w.base(), before);
     assert!(w.git(&["branch", "--list", "radin/t-one"]).is_empty());
 }
 
 #[test]
-fn prepare_makes_a_worktree_for_a_recorded_group_of_two_and_group_set_writes_the_size() {
+fn prepare_makes_a_worktree_for_each_member_of_a_recorded_group() {
     let w = W::new();
     w.state(&["session-set", "yes", "no"]);
     w.state(&["group-set", "t-one", "t-two"]);
-    assert_eq!(w.read(".radin/state/groups/t-one").trim(), "2");
     let wt = format!("{}-t-one", w.p.display());
     assert_eq!(w.prep_dir("t-one"), wt);
     assert_eq!(
@@ -424,13 +429,8 @@ fn prepare_reuses_the_worktree_a_dead_attempt_left_for_a_task_that_runs_alone() 
 }
 
 #[test]
-fn group_set_rejects_no_id_and_a_path_character_and_steps_init_drops_recorded_groups() {
+fn group_set_rejects_no_id_and_a_path_character() {
     let w = W::new();
     assert_ne!(w.state(&["group-set"]).code, 0);
     assert_ne!(w.state(&["group-set", "../x"]).code, 0);
-    assert!(!w.exists(".radin/state/groups"));
-    w.state(&["group-set", "t-one", "t-two"]);
-    assert!(w.exists(".radin/state/groups/t-one"));
-    w.steps_init("t-one\t1\t\tpending\n");
-    assert!(!w.exists(".radin/state/groups"));
 }

@@ -84,10 +84,6 @@ pub fn group_set(s: &S, a: &[String]) -> R {
     }) {
         return Err(usage());
     }
-    mkdir(s, "groups");
-    for g in a {
-        write(s, &format!("groups/{g}"), &format!("{}\n", a.len()));
-    }
     let ids = a.join(",");
     s.journal("group", "", &format!("ids={ids}"));
     let mut kv = vec![format!("ids={ids}"), format!("size={}", a.len())];

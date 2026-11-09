@@ -177,7 +177,7 @@ questions a prompt may pre-answer.
      tasks)` and `Epic <id> (<count> tasks)`. Put first the one the `tasks`
      line names, and end its label with `(Recommended)`. The user states a
      narrower scope in the invoking prompt, so offer no third option.
-   - **Worktree** (if Phase 0 printed `session`): "Git worktree for tasks that run in parallel?"
+   - **Worktree** (if Phase 0 printed `session`): "Git worktree per task?"
      Options: `Yes` / `No`.
    - **Branch** (if Phase 0 printed `session`): "Own branch per task?" Options:
      `Yes` / `No`. Its meaning and wording: `RADIN_LIB/radin-batch-session.md`.

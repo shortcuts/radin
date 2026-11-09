@@ -138,7 +138,6 @@ pub fn prepare(s: &S, a: &[String], io: &mut Io) -> R {
     };
     let branch = format!("radin/{id}");
     let wt = s.task_dir_path(id);
-    let group: u64 = s.read(&format!("groups/{id}")).trim().parse().unwrap_or(1);
     let parent = s.stack_parent(id);
     let start = if parent.is_empty() {
         String::new()
@@ -149,7 +148,7 @@ pub fn prepare(s: &S, a: &[String], io: &mut Io) -> R {
     let mut wt_record = String::new();
     let wts = wt.to_string_lossy().into_owned();
     let res: Result<(), Fail> = (|| {
-        if worktree == "yes" && (group >= 2 || wt.is_dir()) {
+        if worktree == "yes" {
             if wt.is_dir() {
                 prepare_commit(s, &wt, id, io)?;
             } else if s.branch_exists(&branch) {

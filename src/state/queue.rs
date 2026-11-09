@@ -62,7 +62,6 @@ pub fn steps_init(s: &S, io: &mut Io) -> R {
     for f in ["gate-fixes", "gate-reviewed", "gate-done"] {
         s.rm(f);
     }
-    let _ = std::fs::remove_dir_all(s.state.join("groups"));
     s.journal("steps-init", "", &format!("{n} entries"));
     let _ = writeln!(
         io.out,

@@ -24,7 +24,7 @@
   session-set <yes|no> <yes|no>  # persist the worktree and branch answers
   teardown                     # request a graceful stop: task-next picks nothing new until the next preflight; the gate and merge still run
   session-get                  # print "worktree<TAB>yes" / "branch<TAB>no", exit 1 if unanswered
-  group-set [--wave N] <id>... # record these ids as one parallel group and a parallel dispatched telemetry event; prepare makes a worktree only for a group of 2+
+  group-set [--wave N] <id>... # record these ids as one parallel group and a parallel dispatched telemetry event
   prepare <id>                 # commit a dirty tree, create/reuse the task's tree and branch per session.json, print the dir to work in
   dirty-check                  # git status --porcelain of the current directory, excluding .radin
   trace <id|commit|branch>     # print "task|commit|branch|worktree|plan|facts|status<TAB>value" per matching task; exit 1 no match, 2 ambiguous

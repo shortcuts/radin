@@ -3,10 +3,10 @@
 `radin-batch` reads this file only when `RADIN_CLI state preflight` prints
 `session<TAB>missing` at Phase 0. No worktree/branch answer is recorded for this repo yet.
 
-The two answers are not independent. `worktree: yes` allows a worktree only
-for a group of 2 or more parallel tasks: each gets `radin/<task-id>` in its own
-worktree. Any other task follows `branch`: a branch in the main checkout on
-`yes`, a commit to the base on `no`. `worktree: no` never makes a worktree. The
+The two answers are not independent. `worktree: yes` gives every task, solo or
+parallel, `radin/<task-id>` in its own worktree. `worktree: no` never makes a
+worktree, and `branch` applies only then: a branch in the main checkout on
+`yes`, a commit to the base on `no`. The
 `worktree` answer also sets concurrency, per the Core Constraints of
 `RADIN_LIB/radin-run.md`. Say both when you ask.
 
