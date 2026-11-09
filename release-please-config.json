@@ -1,5 +1,6 @@
 {
-  "release-type": "simple",
+  "release-type": "rust",
+  "include-component-in-tag": false,
   "packages": {
     ".": {
       "extra-files": [

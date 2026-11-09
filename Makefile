@@ -41,6 +41,8 @@ test: build
 # One recorded install.sh run (tests/helpers/build-template.sh) serves every file that
 # replays it; each file used to record its own, nine installs in all.
 	@before=$$(scripts/real-setup-sum.sh); \
+		env -u CLAUDE_CONFIG_DIR -u CODEX_HOME -u XDG_CONFIG_HOME -u OPENCODE_CONFIG cargo test; \
+		cargo_status=$$?; \
 		files="$(T)"; \
 		[ -n "$$files" ] || files="$$(ls tests/install*.bats tests/state-*.bats tests/backlog.bats tests/tui-*.bats; ls tests/*.bats | grep -v -e install -e state- -e backlog -e tui-)"; \
 		tpl=""; \
@@ -49,6 +51,7 @@ test: build
 		GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.fsync GIT_CONFIG_VALUE_0=none \
 		env -u CLAUDE_CONFIG_DIR -u CODEX_HOME -u XDG_CONFIG_HOME -u OPENCODE_CONFIG -u OPENCODE xargs -P $(JOBS) -n1 bats; \
 		status=$$?; \
+		[ $$cargo_status -eq 0 ] || status=1; \
 		[ -z "$$tpl" ] || rm -rf "$$tpl"; \
 		after=$$(scripts/real-setup-sum.sh); \
 		if [ "$$before" != "$$after" ]; then \
@@ -99,17 +102,22 @@ SH_FILES = tests/bench-tui.sh scripts/screenshot-tui.sh scripts/shipped.sh insta
 
 clean:
 	rm -f lib/radin-tui lib/radin-cbm-json tests/helpers/pty-run tests/helpers/mock
+	cargo clean
 
 lint:
 	bash -n $(SH_FILES)
 	shellcheck $(SH_FILES)
 	shfmt -w $(SH_FILES)
+	cargo fmt
+	cargo clippy --all-targets -- -D warnings
 	markdownlint --fix '**/*.md' --ignore node_modules --ignore CHANGELOG.md
 
 check:
 	bash -n $(SH_FILES)
 	shellcheck $(SH_FILES)
 	shfmt -d $(SH_FILES)
+	cargo fmt --check
+	cargo clippy --all-targets -- -D warnings
 	markdownlint '**/*.md' --ignore node_modules --ignore CHANGELOG.md
 	scripts/check-prose.sh
 	scripts/shipped.sh check

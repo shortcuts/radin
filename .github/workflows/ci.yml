@@ -12,6 +12,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+
       - name: install lint tools
         run: |
           sudo apt-get update
@@ -24,6 +30,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
 
       - name: install bats-core
         run: sudo apt-get update && sudo apt-get install -y bats
