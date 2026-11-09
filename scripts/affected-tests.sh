@@ -24,7 +24,6 @@ while IFS= read -r f; do
 	case "$f" in
 	tests/*.bats) echo "$f" ;;
 	tests/helpers/install.bash) install_group ;;
-	lib/radin-tui.c) ls tests/tui-*.bats ;;
 	# install.sh itself also drives the companion, update and uninstall tests.
 	install.sh | bin/radin)
 		grep -l -e 'helpers/install' -e 'install\.sh' -e 'bin/radin' tests/*.bats

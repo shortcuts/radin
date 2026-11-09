@@ -830,7 +830,7 @@ step "Installing radin into ~/.radin and skills into ~/.claude"
 # dev clone must not ship.
 # BEGIN shipped (generated from SHIPPED by tests/shipped.rs; run make gen, never edit)
 SHIPPED_SKILLS="radin-batch radin-do radin-plan radin-record radin-review radin-stats radin-teardown radin-uninstall"
-SHIPPED_LIB="radin-host.sh radin-namespace.sh radin-json.sh radin-migrate.sh radin-tui.c forbid-claude.txt forbid-agents.txt radin-update.sh skill-names-claude.txt skill-names-agents.txt companion-skills.txt"
+SHIPPED_LIB="radin-host.sh radin-namespace.sh radin-json.sh radin-migrate.sh forbid-claude.txt forbid-agents.txt radin-update.sh skill-names-claude.txt skill-names-agents.txt companion-skills.txt"
 SHIPPED_HOSTLIB="radin-prompt-planning.md radin-prompt-execution.md radin-prompt-debug.md radin-prompt-factfind.md radin-prompt-gate.md radin-prompt-merge.md radin-leaf-contract.md radin-comment-rule.md radin-explore-rule.md radin-open-decisions.md radin-ask-rule.md radin-complexity-rule.md radin-planning-rule.md radin-prioritization.md radin-batch-recovery.md radin-batch-reporting.md radin-batch-gate.md radin-batch-merge.md radin-batch-clarify.md radin-batch-session.md radin-batch-resume.md radin-run.md radin-review-core.md"
 RENAMED_SKILLS="radin-execute radin-implement radin-run"
 RETIRED_SKILLS="radin-update radin-show radin-doctor radin-setup-hooks"
@@ -1188,11 +1188,14 @@ if [ -n "$TUI_CC" ]; then
 	# A binary whose recorded source hash still matches is not rebuilt: -O2 on
 	# the TUI costs seconds and the source rarely changes between installs.
 	# The two builds share no input or output, so they compile at once.
-	TUI_SUM="$(sha256_of "$RADIN_HOME/lib/radin-tui.c")"
+	TUI_SUM=""
+	[ -f "$RADIN_HOME/lib/radin-tui.c" ] && TUI_SUM="$(sha256_of "$RADIN_HOME/lib/radin-tui.c")"
 	JSON_SUM="$(sha256_of "$RADIN_HOME/lib/radin-cbm-json.c")"
 	TUI_PID=""
 	JSON_PID=""
-	if [ -x "$RADIN_HOME/bin/radin-tui" ] && [ "$(cat "$RADIN_HOME/bin/.radin-tui.sum" 2>/dev/null)" = "$TUI_SUM" ]; then
+	if [ -z "$TUI_SUM" ]; then
+		:
+	elif [ -x "$RADIN_HOME/bin/radin-tui" ] && [ "$(cat "$RADIN_HOME/bin/.radin-tui.sum" 2>/dev/null)" = "$TUI_SUM" ]; then
 		ok "TUI up to date."
 	else
 		"$TUI_CC" -O2 -o "$RADIN_HOME/bin/radin-tui" \

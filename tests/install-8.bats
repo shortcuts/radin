@@ -11,7 +11,6 @@ load helpers/install
   [ -f "$TEMPLATE/home/.claude/skills/radin-batch/SKILL.md" ]
   [ -f "$TEMPLATE/home/.radin/lib/radin-backlog.sh" ]
   [ -f "$TEMPLATE/home/.radin/manifest.json" ]
-  [ -x "$TEMPLATE/home/.radin/bin/radin-tui" ]
   [ -x "$TEMPLATE/home/.radin/bin/radin-cbm-json" ]
   # Agents read the backlog through the CLI.
   grep -q 'what is pending: run `.* backlog show`' "$TEMPLATE/home/.claude/CLAUDE.md"
@@ -82,7 +81,7 @@ load helpers/install
   [ "$(manifest_array hosts)" = '"claude", "codex", "opencode"' ]
   [ "$(manifest_array agents_clis)" = '"codex", "opencode"' ]
   assert_no_agents_marker
-  [ "$(wc -l <"$TEST_HOME/cc.log" | tr -d ' ')" = 2 ]
+  [ "$(wc -l <"$TEST_HOME/cc.log" | tr -d ' ')" = 1 ]
 }
 
 @test "--update --dry-run lists writes and changes no byte" {

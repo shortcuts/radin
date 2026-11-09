@@ -5,7 +5,6 @@
 **.omc
 **.radin
 tests/helpers/pty-run
-lib/radin-tui
 tests/helpers/mock
 node_modules
 /target

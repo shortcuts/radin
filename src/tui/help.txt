@@ -1,0 +1,54 @@
+radin tui keys
+
+  j / down      next task
+  k / up        previous task
+  g / G         first / last task
+  e             edit in $EDITOR: a task row's body, or an epic row's
+                own DESCRIPTION.md
+  enter         an epic row: collapse/expand. A task row: nothing, unless
+                the terminal is under 100 columns -- then the detail overlay
+  ^d / ^u       scroll the detail half a pane
+  h / l         arrow left / right: on a task row, switch the detail
+                between the task body and the task's plan files. The
+                marker line above the rule names the active one, and it
+                stays put as j/k walk the list
+  v             view the composed detail in $PAGER: the body, the epic's
+                own description, every plan file and the dependency titles --
+                everything the pane leaves out
+  o             view the execution order in $PAGER: the priority order
+                with the dependency fix radin-batch will actually use
+  Tab           the Done view: completed tasks and their commits (read-only)
+  a             new task (category, title, then body in $EDITOR)
+  d             delete the selected task (asks first)
+  c             move the task to the next category
+  r             retitle the task (its id never changes)
+  p             set priority: pick from 21 13 8 5 3 2 1 or clear it
+  D             edit depends_on: pick from the other tasks, space toggles
+  m             move the task into an epic, or out of one
+  E             create an epic, then write its DESCRIPTION.md in $EDITOR
+  /             search id and title; matching rows are marked * (empty clears)
+  n / N         next / previous matching row (wraps)
+  A / P / C / T sort by creation order / priority / category / title.
+                Creation order is the default every start returns to, and
+                the order no edit reshuffles
+  w / b         toggle the worktree / branch answer radin-batch reads at
+                its start (wt and br in the header, ? = not answered)
+  R             reload from disk
+  q             quit
+
+The priority column is coloured by a fixed map: 21/13 red, 8/5 yellow,
+3/2/1 green, nothing when unset or off the scale. Every other colour is
+structural, never a value: each category has its own badge colour, an
+epic header row is bold cyan, borders and secondary text are dim.
+256 colours when TERM or COLORTERM says so, else 16. Set NO_COLOR to a
+non-empty value to drop colour: bold, dim and reverse video remain.
+A title too long for the pane wraps onto up to three lines; whether
+radin-plan has planned the task, its dependencies and its epic read in
+the detail pane.
+A * in the left margin marks a row matching the active / search.
+Epic rows are headers; collapse is per-session.
+At 100 columns or more the detail is the right-hand 60% of the screen;
+under that it is not drawn at all and enter opens it full-screen.
+Tasks live in .radin/backlog/ in this repo.
+
+press any key

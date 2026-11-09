@@ -12,7 +12,6 @@ lib radin-host.sh
 lib radin-namespace.sh
 lib radin-json.sh
 lib radin-migrate.sh
-lib radin-tui.c
 lib forbid-claude.txt
 lib forbid-agents.txt
 hostlib radin-prompt-planning.md

@@ -6,11 +6,8 @@ install:
 update:
 	./install.sh --update
 
-# The TUI is the one compiled file radin ships; the two mocks are test-only.
-build: lib/radin-tui tests/helpers/pty-run tests/helpers/mock
-
-lib/radin-tui: lib/radin-tui.c
-	cc -O2 -o $@ $<
+# Both compiled helpers are test-only; the TUI is part of the Rust binary.
+build: tests/helpers/pty-run tests/helpers/mock
 
 tests/helpers/pty-run: tests/helpers/pty-run.c
 	cc -O1 -o $@ $<
@@ -18,14 +15,13 @@ tests/helpers/pty-run: tests/helpers/pty-run.c
 tests/helpers/mock: tests/helpers/mock.c
 	cc -O1 -o $@ $<
 
-# Runs the TUI against this repo's own backlog, straight from the build tree --
-# no install needed: it finds radin-backlog.sh next to the binary.
-run: lib/radin-tui
-	./lib/radin-tui
+# Runs the TUI against this repo's own backlog, straight from the build tree.
+run:
+	cargo run -q
 
 # One bats per file, run concurrently: every file isolates its state under
 # mktemp -d, and bats' own -j costs more in bookkeeping than it wins here. The
-# slowest files go first so no worker starts one last; tui is four shards.
+# slowest files go first so no worker starts one last.
 # One worker per core: 32 workers saturated the machine and made the timing test flake.
 JOBS ?= $(shell getconf _NPROCESSORS_ONLN)
 test: build
@@ -33,14 +29,14 @@ test: build
 # latency here: it cost ~0.1s per test that runs `git init`.
 # A test that follows a cc symlink once overwrote the real settings.json, so
 # bats runs without CLAUDE_CONFIG_DIR and the run fails if a real file changes.
-# T="tests/state-1.bats tests/backlog.bats" runs only those files.
+# T="tests/host.bats tests/doctor.bats" runs only those files.
 # One recorded install.sh run (tests/helpers/build-template.sh) serves every file that
 # replays it; each file used to record its own, nine installs in all.
 	@before=$$(scripts/real-setup-sum.sh); \
 		env -u CLAUDE_CONFIG_DIR -u CODEX_HOME -u XDG_CONFIG_HOME -u OPENCODE_CONFIG cargo test; \
 		cargo_status=$$?; \
 		files="$(T)"; \
-		[ -n "$$files" ] || files="$$(ls tests/install*.bats tests/state-*.bats tests/backlog.bats tests/tui-*.bats; ls tests/*.bats | grep -v -e install -e state- -e backlog -e tui-)"; \
+		[ -n "$$files" ] || files="$$(ls tests/install*.bats; ls tests/*.bats | grep -v -e install)"; \
 		tpl=""; \
 		if grep -q 'helpers/install' $$files; then tpl=$$(mktemp -d); env -u CLAUDE_CONFIG_DIR -u CODEX_HOME -u XDG_CONFIG_HOME -u OPENCODE_CONFIG tests/helpers/build-template.sh "$$tpl"; fi; \
 		printf '%s\n' $$files | RADIN_TEMPLATE="$$tpl" \
@@ -86,18 +82,18 @@ verify-hosts:
 		fi; \
 		exit $$status
 
-# Key-to-frame latency on a seeded 42-task backlog; see tests/bench-tui.sh.
+# Key-to-frame latency on a seeded 42-task backlog; see tests/tui_bench.rs.
 bench-tui:
-	@tests/bench-tui.sh
+	@cargo test --release --test tui_bench -- --ignored --nocapture
 
 # Renders docs/img/tui.svg from the real TUI; see scripts/screenshot-tui.sh.
 screenshot:
 	@scripts/screenshot-tui.sh
 
-SH_FILES = tests/bench-tui.sh scripts/screenshot-tui.sh install.sh bin/radin lib/radin-namespace.sh lib/radin-json.sh lib/radin-migrate.sh lib/radin-update.sh scripts/real-setup-sum.sh scripts/golden-render.sh scripts/affected-tests.sh scripts/render-host.sh scripts/verify-hosts.sh
+SH_FILES = scripts/screenshot-tui.sh install.sh bin/radin lib/radin-namespace.sh lib/radin-json.sh lib/radin-migrate.sh lib/radin-update.sh scripts/real-setup-sum.sh scripts/golden-render.sh scripts/affected-tests.sh scripts/render-host.sh scripts/verify-hosts.sh
 
 clean:
-	rm -f lib/radin-tui tests/helpers/pty-run tests/helpers/mock
+	rm -f tests/helpers/pty-run tests/helpers/mock
 	cargo clean
 
 lint:

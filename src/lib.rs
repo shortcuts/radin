@@ -14,6 +14,7 @@ pub mod shipped;
 pub mod state;
 pub mod stats;
 pub mod telemetry;
+pub mod tui;
 pub mod uninstall;
 
 pub use host::Host;
@@ -112,7 +113,17 @@ pub fn run_in(
         cli: &nested,
     };
     match rest.first().map(String::as_str) {
-        None if is_tty => fail(1, "radin: the TUI is not ported yet\n".into()),
+        None if is_tty => {
+            let c = ctx();
+            let ctx = state::Ctx {
+                cwd: c.cwd,
+                home: c.home,
+                stdin: c.stdin,
+                env,
+                cli: &nested,
+            };
+            tui::run(&ctx)
+        }
         None => fail(1, USAGE.to_string()),
         Some("help") => (0, USAGE.to_string(), String::new()),
         Some("backlog") => {
@@ -257,16 +268,8 @@ mod tests {
     }
 
     #[test]
-    fn bare_radin_depends_on_terminal() {
+    fn bare_radin_off_a_terminal_prints_usage() {
         let none = |_: &str| None;
-        assert_eq!(
-            run(&[], &none, true),
-            (
-                1,
-                String::new(),
-                "radin: the TUI is not ported yet\n".into()
-            )
-        );
         assert_eq!(
             run(&[], &none, false),
             (1, String::new(), USAGE.to_string())

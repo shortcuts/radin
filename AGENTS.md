@@ -143,9 +143,6 @@ The graph tool name lives in one file and must exist in the upstream table ([whi
 - **What a sub-agent learns stays on its task.** It records a `**Fact:**` or `**Root cause:**` line, and the long form goes in `state/facts/<id>.md`. There is no shared note file and no cross-task memory.
 - **`radin-batch` worktree and branch answers never reach a prompt.** Only `radin state prepare` turns them into git commands. A model that receives them can eventually override a `no`.
 - **`radin wire` snapshots before the upstream write.** The upstream installer replaces the whole hook array and does not merge ([limits](docs/agents/DECISIONS.md#limits-of-the-codebase-memory-mcp-bracket)).
-- **One C file only: the TUI (`lib/radin-tui.c`).**
-  - The TUI draws and dispatches keys with raw ANSI and `termios`. Every mutation shells out to `radin-backlog.sh`.
-  - `install.sh` builds it with `cc`, and the build is advisory. Without a compiler there is no TUI ([rules](docs/agents/DECISIONS.md#the-human-tui)).
 - **`order` moves a dependency up, never a dependent down.** Kahn's algorithm with a priority tie-break discards more of the human ranking.
 - **The TUI loads `backlog list --order created`,** so a mutation reorders nothing. `Shift-A`, `Shift-P`, `Shift-C`, and `Shift-T` are the only reorder keys. They last one session, and the header shows the active one. The CLI default stays `priority`, the contract `radin-prioritization.md` reads.
 - **One sub-agent takes one task** and returns one `STATUS` line. A leaf starts cold, so batching tasks for file locality saves no tokens.
