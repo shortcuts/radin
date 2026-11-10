@@ -114,6 +114,9 @@ jobs:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       BUILD_MANIFEST_NAME: target/distrib/${{ join(matrix.targets, '-') }}-dist-manifest.json
     steps:
+      - name: enable windows longpaths
+        run: |
+          git config --global core.longpaths true
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
@@ -146,7 +149,7 @@ jobs:
         name: Post-build
         # We force bash here just because github makes it really hard to get values up
         # to "real" actions without writing to env-vars, and writing to env-vars has
-        # inconsistent syntax between shells.
+        # inconsistent syntax between shell and powershell.
         shell: bash
         run: |
           # Parse out what we just built and upload it to scratch storage

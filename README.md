@@ -49,6 +49,13 @@ Run `/radin-stats` to see what each tool saved on your machine.
 curl -fsSL https://raw.githubusercontent.com/shortcuts/radin/main/install.sh | bash
 ```
 
+With Rust 1.88 or newer, install with cargo instead, then run the installer:
+
+```sh
+cargo install --git https://github.com/shortcuts/radin --locked
+radin install
+```
+
 You need `curl`, `tar`, `bash` and the CLI of each host you pick. Add `-s -- --yes` to accept every default.
 Update, repair and uninstall: [docs/install.md](docs/install.md).
 

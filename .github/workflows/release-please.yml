@@ -7,12 +7,19 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  actions: write
 
 jobs:
   release-please:
     runs-on: ubuntu-latest
     steps:
       - uses: google-github-actions/release-please-action@v4
+        id: rp
         with:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+      - name: Dispatch release.yml on the new tag
+        if: steps.rp.outputs.release_created == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run release.yml --ref "${{ steps.rp.outputs.tag_name }}"

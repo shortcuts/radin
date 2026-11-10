@@ -23,6 +23,17 @@ For every flag and path, see [Reference](reference.md).
 The installer reports a companion tool that fails to install, skips it, and finishes the install.
 To trace an install that hangs or fails, add `-s -- --verbose`.
 
+### Install with cargo
+
+With Rust 1.88 or newer, build the binary from the repository, then run the installer:
+
+```sh
+cargo install --git https://github.com/shortcuts/radin --locked
+radin install
+```
+
+`radin update` later replaces the binary in `$CARGO_HOME/bin` through the release installer.
+
 ## Update radin
 
 ```sh
