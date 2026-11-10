@@ -3,11 +3,20 @@ use std::io::{IsTerminal, Read};
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let mut stdin: Option<String> = None;
-    let stdin_verbs = ["scope", "state", "install", "update"];
-    if args
+    let mut words = args
         .iter()
-        .find(|a| !a.starts_with('-') && !["claude", "agents"].contains(&a.as_str()))
-        .is_some_and(|a| stdin_verbs.contains(&a.as_str()))
+        .filter(|a| !a.starts_with('-') && !["claude", "agents"].contains(&a.as_str()));
+    let first = words.next().map(String::as_str);
+    let reads_stdin = match first {
+        Some("scope" | "install" | "update") => true,
+        Some("state") => match words.next().map(String::as_str) {
+            Some("steps-init" | "wave-partition" | "review-findings") => true,
+            Some("base-failing") => args.iter().any(|a| a == "--set"),
+            _ => false,
+        },
+        _ => false,
+    };
+    if reads_stdin
         && !args
             .iter()
             .any(|a| ["--yes", "--update", "--list"].contains(&a.as_str()))

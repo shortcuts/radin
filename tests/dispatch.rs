@@ -83,6 +83,42 @@ fn state_reads_its_stdin_and_runs_in_the_current_directory() {
 }
 
 #[test]
+fn a_state_verb_without_stdin_never_waits_on_an_open_pipe() {
+    let w = tempfile::tempdir().unwrap();
+    let repo = w.path().canonicalize().unwrap().join("proj");
+    std::fs::create_dir(&repo).unwrap();
+    for a in [
+        &["init", "-q"][..],
+        &["commit", "-q", "--allow-empty", "-m", "i"],
+    ] {
+        assert!(common::git_in(&repo, a).status.success());
+    }
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_radin"));
+    cmd.args(["state", "base-failing", "x"]).current_dir(&repo);
+    common::isolate(&mut cmd, &w.path().join("home"));
+    let mut child = cmd
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+        .unwrap();
+    let held_open = child.stdin.take();
+    let start = std::time::Instant::now();
+    let status = loop {
+        if let Some(s) = child.try_wait().unwrap() {
+            break Some(s);
+        }
+        if start.elapsed() > std::time::Duration::from_secs(10) {
+            child.kill().unwrap();
+            break None;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    };
+    drop(held_open);
+    assert_eq!(status.and_then(|s| s.code()), Some(1));
+}
+
+#[test]
 fn no_subcommand_off_a_terminal_prints_usage_to_stderr() {
     let o = radin(&[], &[]);
     assert_eq!(o.status.code(), Some(1));
