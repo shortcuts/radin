@@ -800,6 +800,7 @@ fn list_order_created_gives_index_order_the_default_stays_priority() {
         ids(&w.ok(&["list", "--order", "created"], "")),
         ["added-first", "added-second", "unranked"]
     );
+    assert_eq!(ids(&w.ok(&["list", "--unset-priority"], "")), ["unranked"]);
     let r = w.fails(&["list", "--order", "bogus"], "");
     assert!(
         r.err
@@ -836,6 +837,14 @@ fn order_moves_a_dependency_up_and_leaves_every_other_position_alone() {
     assert_eq!(
         w.ok(&["order", "--report"], ""),
         "1. high (id: high)\n2. low (id: low)\n3. mid a (id: mid-a)\n4. mid b (id: mid-b)\ndependency override: low moved above mid-a (priority 5)\n"
+    );
+    assert_eq!(
+        w.ok(&["order", "--report", "--only", "mid-a,low"], ""),
+        "2. low (id: low)\n3. mid a (id: mid-a)\ndependency override: low moved above mid-a (priority 5)\n"
+    );
+    assert_eq!(
+        w.ok(&["order", "--report", "--only", "high"], ""),
+        "1. high (id: high)\n"
     );
 }
 

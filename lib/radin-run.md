@@ -46,7 +46,7 @@ you.
   delete it. **Why:** a leftover directory can hold unsaved work, and an unasked
   `rm -rf` in locationjoystick removed one.
 - **The execution order is not confirmed.** `backlog order` computes it and
-  Phase 2 prints it. The user is asked only which tasks to tackle now (all, or
+  Phase 2 prints the selected part. The user is asked only which tasks to tackle now (all, or
   the suggested epic), and
   for any worktree or branch answer still missing, before anything is written
   to `BACKLOG_STEPS.json` and before any sub-agent is dispatched.
@@ -108,8 +108,10 @@ Empty output means no branch applies. Act on each line by its first field:
   and follow it to ask and persist them. Otherwise ask nothing and change
   nothing: a mid-run change would flip how running tasks get their tree.
 - `stuck<TAB>id<TAB>attempts<TAB>note`: a previous run dispatched this task
-  and never got a terminal status for it. Never re-dispatch one blind. Read
-  `RADIN_LIB/radin-batch-recovery.md` and follow it for each id.
+  and never got a terminal status for it. Never re-dispatch one blind. Run
+  `RADIN_CLI state recover "<id>"` for each id. Exit 0: print its
+  `recovered` line. Exit 3: read `RADIN_LIB/radin-batch-recovery.md` and
+  follow it for that id.
 - `waiting<TAB>id<TAB>reason<TAB>note`: this entry holds an unanswered question.
   `steps-init` rewrites `BACKLOG_STEPS.json` in Phase 3, so a waiting entry
   that stays unanswered restarts without its decision. Settle every one per
@@ -123,7 +125,7 @@ Empty output means no branch applies. Act on each line by its first field:
   a priority, so read no task body, run no criteria pass, infer no
   dependency.
 - `leftovers`: a task branch from an earlier session, finished or not, is
-  still outside the base. Read `RADIN_LIB/radin-batch-merge.md` and follow it.
+  still outside the base. Land it now as Phase 4.7 does.
 
 Then run `RADIN_CLI state stash-triage`. Each `candidate<TAB>hash<TAB>id` line
 becomes one `RADIN_CLI prompt factfind "<id>" "Does the uncommitted work in git
@@ -155,27 +157,18 @@ they meant, via one `AskUserQuestion`. Never guess.
 they meant, via one ask (`RADIN_LIB/radin-ask-rule.md`). Never guess.
 <!-- /host -->
 
-## Phase 2: Print Order, Select Tasks
+## Phase 2: Select Tasks, Print Order
 
 Phase 0's preferences and the scope from Phase 1 are the only
 questions a prompt may pre-answer.
 
-1. Print this verbatim, and compose nothing of your own:
-
-   ```bash
-   RADIN_CLI backlog order --report <Phase 0's --rank/--infer-deps flags>
-   ```
-
-   One `<order>. <title> (id: <id>)` line per task in final order, then one
-   `dependency override:` line per dependency the fix moved up. The verb is
-   idempotent, so re-run it here rather than reusing Phase 0's output.
-   <!-- host:claude -->
-2. Ask via one `AskUserQuestion` call with fixed choices:
-   <!-- /host -->
-   <!-- host:agents -->
-2. Ask per `RADIN_LIB/radin-ask-rule.md`, with fixed choices:
-   <!-- /host -->
-   - **Task selection** (unless Phase 1 resolved a scope): run
+<!-- host:claude -->
+1. Ask via one `AskUserQuestion` call with fixed choices:
+<!-- /host -->
+<!-- host:agents -->
+1. Ask per `RADIN_LIB/radin-ask-rule.md`, with fixed choices:
+<!-- /host -->
+- **Task selection** (unless Phase 1 resolved a scope): run
      `RADIN_CLI backlog suggest <Phase 0's --rank/--infer-deps flags>` first.
      It prints `tasks<TAB>N<TAB>all|epic`, then `epic<TAB><id><TAB><count>`
      when an epic exists. No `epic` line: every task runs, so ask nothing here.
@@ -183,13 +176,14 @@ questions a prompt may pre-answer.
      tasks)` and `Epic <id> (<count> tasks)`. Put first the one the `tasks`
      line names, and end its label with `(Recommended)`. The user states a
      narrower scope in the invoking prompt, so offer no third option.
-   - **Worktree** (if Phase 0 printed `session`): "Git worktree per task?"
+- **Worktree** (if Phase 0 printed `session`): "Git worktree per task?"
      Options: `Yes` / `No`.
-   - **Branch** (if Phase 0 printed `session`): "Own branch per task?" Options:
+- **Branch** (if Phase 0 printed `session`): "Own branch per task?" Options:
      `Yes` / `No`. Its meaning and wording: `RADIN_LIB/radin-batch-session.md`.
    Write nothing to `BACKLOG_STEPS.json` and launch no sub-agent before the
    answer arrives.
-3. The answers are routed independently, and each is routed once.
+
+2. The answers are routed independently, and each is routed once.
    - **Task selection** decides Phase 3's selection flag, and nothing else:
      - **A scope from Phase 1**: `--only <the scope csv>`. Name the scope, the
        dependencies it pulled in, and the deferred count in the run summary, so
@@ -199,6 +193,14 @@ questions a prompt may pre-answer.
        pass `--only <its ids csv>`.
      - **"Other" text**: treat it as a name and resolve it as Phase 1 does. On
        exit 1 or 2, ask again.
+3. Print this verbatim, and compose nothing of your own:
+
+   ```bash
+   RADIN_CLI backlog order --report <Phase 0's --rank/--infer-deps flags> <the selection flag>
+   ```
+
+   One `<order>. <title> (id: <id>)` line per selected task, then one
+   `dependency override:` line per dependency the fix moved up.
 
 ## Phase 3: Persist Execution Plan
 
@@ -413,7 +415,10 @@ Read `RADIN_LIB/radin-batch-gate.md` and follow it to dispatch the gate.
 
 Skip it when `RADIN_CLI state session-get` prints `worktree<TAB>no` and `branch<TAB>no`.
 
-Read `RADIN_LIB/radin-batch-merge.md` and follow it to land every task branch, finished or not.
+Run `RADIN_CLI state reconcile` and print its output, unasked. It lands every
+task branch, finished or not, files each `follow-up` entry itself, and prints
+each branch it kept with its reason. Exit 3: a branch conflicted, so read
+`RADIN_LIB/radin-batch-merge.md` and follow it.
 
 ## Phase 5: Final Summary
 

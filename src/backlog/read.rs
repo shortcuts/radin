@@ -136,7 +136,8 @@ pub fn show(cx: &Ctx, a: &[String], io: &mut Io) -> R {
 
 pub fn list(cx: &Ctx, a: &[String], io: &mut Io) -> R {
     let idx = cx.require()?;
-    let (mut planned, mut meta, mut created, mut order) = (false, false, false, "priority");
+    let (mut planned, mut meta, mut created, mut unset, mut order) =
+        (false, false, false, false, "priority");
     let mut i = 0;
     while i < a.len() {
         match a[i].as_str() {
@@ -158,11 +159,16 @@ pub fn list(cx: &Ctx, a: &[String], io: &mut Io) -> R {
             "--planned" => planned = true,
             "--meta" => meta = true,
             "--created" => created = true,
+            "--unset-priority" => unset = true,
             o => return Err(usage_die("list", &format!("unknown list option: {o}"))),
         }
         i += 1;
     }
-    let mut rows: Vec<&Entry> = idx.entries.iter().collect();
+    let mut rows: Vec<&Entry> = idx
+        .entries
+        .iter()
+        .filter(|e| !unset || e.priority().is_none())
+        .collect();
     if order == "priority" {
         let key = |e: &Entry| e.priority().map(|p| p.parse::<f64>().unwrap_or(0.0));
         rows.sort_by(|x, y| match (key(x), key(y)) {

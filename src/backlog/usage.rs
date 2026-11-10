@@ -13,7 +13,7 @@ pub const USAGE: &[(&str, &str)] = &[
     ),
     (
         "list",
-        r##"list [--order created|priority] [--planned] [--meta] [--created]  # print "id<US>category<US>title<US>file<US>priority<US>depends-on-csv" (US = \037), priority-descending by default, unset priorities last (--order created gives index order; --planned appends a P/empty field; --meta appends the `meta` lines joined by RS = \036, so one fork reads every entry's fields; --created appends the entry's ISO creation stamp, empty for an old entry without one)"##,
+        r##"list [--order created|priority] [--planned] [--meta] [--created] [--unset-priority]  # print "id<US>category<US>title<US>file<US>priority<US>depends-on-csv" (US = \037), priority-descending by default, unset priorities last (--order created gives index order; --planned appends a P/empty field; --meta appends the `meta` lines joined by RS = \036, so one fork reads every entry's fields; --created appends the entry's ISO creation stamp, empty for an old entry without one; --unset-priority prints only the entries with no priority)"##,
     ),
     (
         "find",
@@ -81,7 +81,7 @@ pub const USAGE: &[(&str, &str)] = &[
     ),
     (
         "order",
-        r##"order <--rank-needed|--report|--steps> [--rank <csv-of-ids>] [--infer-deps <id>=<csv>]... [--defer <csv-of-ids>|--only <csv-of-ids-orders-or-titles>|--first]  # the execution order: the priority order with the topological dependency fix applied (--rank-needed: print every unset-priority id, exit 1 when there are none; --report: "<order>. <title> (id: <id>)" plus one "dependency override:" line per violated edge; --steps: "id<TAB>order<TAB>depends-on-csv<TAB>pending|excluded", which is `radin state steps-init`'s stdin format; --only defers every id outside the csv, --first every id but the one at order 1)"##,
+        r##"order <--rank-needed|--report|--steps> [--rank <csv-of-ids>] [--infer-deps <id>=<csv>]... [--defer <csv-of-ids>|--only <csv-of-ids-orders-or-titles>|--first]  # the execution order: the priority order with the topological dependency fix applied (--rank-needed: print every unset-priority id, exit 1 when there are none; --report: "<order>. <title> (id: <id>)" plus one "dependency override:" line per violated edge, only the --only ids when given, each keeping its global order number; --steps: "id<TAB>order<TAB>depends-on-csv<TAB>pending|excluded", which is `radin state steps-init`'s stdin format; --only defers every id outside the csv, --first every id but the one at order 1)"##,
     ),
     (
         "field",

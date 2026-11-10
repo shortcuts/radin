@@ -1,19 +1,7 @@
 # Shared: radin-batch Crash Recovery
 
-`radin-batch` reads this file only when `RADIN_CLI state preflight` prints a `stuck` line.
-A previous run dispatched a task and never got a terminal status for it.
-
-A stuck task's sub-agent died with the session, so what it left on disk is
-unknown. Never re-dispatch one blind. For each id `stuck` printed:
-
-```bash
-RADIN_CLI state recover "<task id>"
-```
-
-Exit 0: it finished the recovery. Print the
-`recovered<TAB><id><TAB><what it did>` line it printed and move on.
-
-Exit 3: the one branch no command can settle. A dead sub-agent committed work
+`radin-batch` reads this file only when `RADIN_CLI state recover "<task id>"`
+exits 3, the one branch no command can settle. A dead sub-agent committed work
 on the task's branch but never reported, so it printed the `branch`,
 `worktree` and `branch_commit` lines. The bar is the criteria the entry states:
 

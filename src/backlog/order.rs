@@ -223,8 +223,12 @@ pub fn compute(es: &[OEntry], o: &Opts) -> Result<(i32, String), String> {
     let mut out = String::new();
     match o.mode.as_str() {
         "report" => {
+            // --only scopes the report but keeps each task's global order number, the one --steps records.
+            let shown = |id: &str| o.only.is_empty() || !b.deferred.contains(id);
             for (k, &i) in b.order.iter().enumerate() {
-                let _ = writeln!(out, "{}. {} (id: {})", k + 1, es[i].title, es[i].id);
+                if shown(&es[i].id) {
+                    let _ = writeln!(out, "{}. {} (id: {})", k + 1, es[i].title, es[i].id);
+                }
             }
             let prio = |id: &str| {
                 es.iter()
@@ -234,7 +238,7 @@ pub fn compute(es: &[OEntry], o: &Opts) -> Result<(i32, String), String> {
             };
             for (dep, ent) in &b.violated {
                 let pe = prio(ent);
-                if pe.is_none() && prio(dep).is_none() {
+                if !shown(ent) || pe.is_none() && prio(dep).is_none() {
                     continue;
                 }
                 let _ = writeln!(

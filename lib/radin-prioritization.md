@@ -5,19 +5,20 @@
 `order` cannot compute: how to rank the entries whose `priority` is unset, and
 when one entry's body implies a dependency on another's.
 
-## Priority criteria
+## Read the unset entries
 
-`RADIN_CLI backlog order` is the sort, the dependency fix and the report.
-One rule is left here:
+Run `RADIN_CLI backlog list --unset-priority --meta` once. Each row holds the
+id, category, title, file, depends-on csv and meta lines, such as acceptance
+and location, of one unset entry. Rank from these rows. Read a body with
+`RADIN_CLI backlog field "<id>" TASK_BODY` only to confirm a dependency two
+rows suggest.
 
-1. **A prioritization pass writes nothing.** Read a task's body only for an id
-   `--rank-needed` printed; the title alone is never the task. No
-   `set-priority`, no `set-deps`. A set `priority` and a set `depends_on` are
-   the human's, used verbatim. Whatever this pass concludes leaves as an
-   `order` flag, which validates it, and never as an index write. The
-   condition is a priority on every entry, not "both fields set": the CLI
-   cannot store an explicitly empty `depends_on`, so an absent one is the
-   human's "no dependencies", not a gap to fill.
+## A prioritization pass writes nothing
+
+No `set-priority`, no `set-deps`. A set `priority` and a set `depends_on` are
+the human's, used verbatim. The pass leaves only as `order` flags, which
+validate it. An absent `depends_on` is the human's "no dependencies", not a
+gap to fill: the CLI cannot store an explicitly empty one.
 
 ### Weighted criteria for unset entries (in order of weight)
 
