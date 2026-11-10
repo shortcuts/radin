@@ -1,5 +1,62 @@
 # Changelog
 
+## [3.2.0](https://github.com/shortcuts/radin/compare/v3.1.0...v3.2.0) (2026-11-10)
+
+
+### Features
+
+* **batch:** plan wave tasks one at a time, defer on overlap ([960e237](https://github.com/shortcuts/radin/commit/960e2370c92f8b2185c734556ae111920c6ea050))
+* **install:** port install.sh to radin install and radin update ([0e56f28](https://github.com/shortcuts/radin/commit/0e56f28b3e079d38628b47f763ebf39f91a99deb))
+* **lints:** port prose and shipped-list lints to Rust tests ([828cca4](https://github.com/shortcuts/radin/commit/828cca4c36716f1ac774514158dc10cec85e6e54))
+* **record:** read the backlog to record relations and dependencies ([82e0dcb](https://github.com/shortcuts/radin/commit/82e0dcb00b55e865992169266bc5d713a4142a52))
+* **record:** size entries to be worth a leaf and join items to unplanned entries ([6a5c28e](https://github.com/shortcuts/radin/commit/6a5c28eb82f235096a41be9f85b060708a8ba01f))
+* **rust:** port cbm hooks, wire, repair, allow rules; delete bash and C helper ([ab3b7dc](https://github.com/shortcuts/radin/commit/ab3b7dc09304dc91a06824bb207c784e67e508a5))
+* **rust:** port core layers, host, render, manifest, namespace, json edit ([9e13865](https://github.com/shortcuts/radin/commit/9e1386521493545d2a45ed8d2417778d3921e3a3))
+* **rust:** port doctor, uninstall, migrate; delete bash and bats ([4ac593a](https://github.com/shortcuts/radin/commit/4ac593a7f471347aae5e452489e6855f07ba08a3))
+* **rust:** port radin state to src/state, delete bash script ([fcde923](https://github.com/shortcuts/radin/commit/fcde923dd47b6fa829fb513a32e1dadd3994fdea))
+* scaffold rust crate, cargo wrappers, cargo-dist and release-please ([0622acb](https://github.com/shortcuts/radin/commit/0622acb5429bad76f944d08727c66e7b8fb93c5b))
+* **state:** add base-failing to record a base's red tests per task ([858b8ae](https://github.com/shortcuts/radin/commit/858b8ae2de272e00c10eaeff97a16db0e7f8bdef))
+* **state:** exclusive flag keeps a time-measured task in a wave of its own ([77cf0e5](https://github.com/shortcuts/radin/commit/77cf0e5484532baa04164c9dfcc3d95d58a78e35))
+* **state:** journal planned, landing marker transitions and follow-up origin ([bed7afb](https://github.com/shortcuts/radin/commit/bed7afbfa25a9003103922217ae9be6f20f78040))
+* **state:** require a checks clause on SUCCESS and PLANNED ([ec27702](https://github.com/shortcuts/radin/commit/ec277025a85ede3f0f691504c36f345216bc3863))
+* **state:** stamp run id, dispatch and transition context on journal, completed.json and telemetry ([c1dd4b4](https://github.com/shortcuts/radin/commit/c1dd4b4e16a5fa2f3a7303dc0ca8af734787dd5d))
+* **state:** store block reason in a field, persist BLOCKED reports, rename deferred to excluded ([136b73c](https://github.com/shortcuts/radin/commit/136b73c49a529d002795d810dc56fd7e741b4120))
+* **tui:** port the TUI to ratatui, delete the C source ([abf54dd](https://github.com/shortcuts/radin/commit/abf54dd0115fcf7e2684be3999f0c52786667d86))
+
+
+### Bug Fixes
+
+* **batch:** resolve contradictions in router and leaf prompts ([e055aab](https://github.com/shortcuts/radin/commit/e055aab6473249aa07a174b9f4bd26f40ab4f1b0))
+* **cli:** skip a socket stdin instead of blocking on it ([ce5948b](https://github.com/shortcuts/radin/commit/ce5948b167f4cddaae6795f7fd53bebd702a8563))
+* concurrency ([c83ffc9](https://github.com/shortcuts/radin/commit/c83ffc9f054e8153df84a4266a66a6a45aaf2870))
+* **main:** read stdin only for the state verbs that consume it ([62be62a](https://github.com/shortcuts/radin/commit/62be62a81502a932b021c7594b79c53b59c23b8b))
+* **prompt:** print agent names within 64 chars ([187d551](https://github.com/shortcuts/radin/commit/187d551245e471b0ba7929ad7c6f12705747ca8f))
+* **prompt:** run every execution task on the execution model ([843e1d5](https://github.com/shortcuts/radin/commit/843e1d51f86cfae1f1a8ce4ea44cdc2856b38301))
+* **prompt:** run every leaf check in the foreground ([378ddc5](https://github.com/shortcuts/radin/commit/378ddc58667b0958bd1461af883fe9a64dd60e13))
+* **release:** dispatch release.yml on the release-please tag and document cargo install ([44faeb8](https://github.com/shortcuts/radin/commit/44faeb816ac4c666888d0998292bdcbb055e6708))
+* **review:** judge diff scope creep by outcome, not plan file list ([1f4499b](https://github.com/shortcuts/radin/commit/1f4499ba59a177def6d688a81072688951983e4e))
+* **run:** ask before deleting a stale worktree path ([a9ed4e7](https://github.com/shortcuts/radin/commit/a9ed4e78e8684b73ba8ffb88a0e9405e2d4bf68e))
+* **state:** accept a SUCCESS commit with files outside the plan ([52aa346](https://github.com/shortcuts/radin/commit/52aa3464ca88600a6d1a7102d8996488ac8f86a5))
+* **state:** classify a STATUS line by the word after STATUS: ([7894c1d](https://github.com/shortcuts/radin/commit/7894c1d7186fd9c67b21481440f8f9de9a0810c1))
+* **state:** delete the plan file that plan-discard drops ([a0aeec9](https://github.com/shortcuts/radin/commit/a0aeec979529b2343c82b5c19f2fa69626057dd6))
+* **state:** give every solo task a worktree when worktree is yes ([e103f50](https://github.com/shortcuts/radin/commit/e103f5052db02782c4ab878086071ac535c35430))
+* **state:** refuse --next in wave mode ([07d2e1a](https://github.com/shortcuts/radin/commit/07d2e1abaf24f4525a240e4c5ee821c9d1e4eddd))
+* **state:** refuse a non-worktree directory at the task path ([ce79854](https://github.com/shortcuts/radin/commit/ce79854d7ea3481b2061d678f491ed2da3548b96))
+* **state:** reject a flag as a task id ([2515d21](https://github.com/shortcuts/radin/commit/2515d219a2d8efe310826d31b0d0a43f8be82beb))
+* **state:** reject a task-report usage of all zeros ([a83f6f5](https://github.com/shortcuts/radin/commit/a83f6f50f54fb3f71b72dd0f108774bf2138397c))
+* **state:** report a Finish follow-up task outside Succeeded ([c3b051a](https://github.com/shortcuts/radin/commit/c3b051a78665c8a7d25e36e03ee2d49881350f7c))
+* **state:** route leftover files to the task whose plan names them ([f239d69](https://github.com/shortcuts/radin/commit/f239d693d459345a89c2be9f70816b21053e8eb0))
+* **state:** skip an idle task worktree with uncommitted work when routing leftovers ([369ac44](https://github.com/shortcuts/radin/commit/369ac444289fa1270c43cecdf2b43264d2f56b19))
+* **state:** stack an existing dependent branch on its dependency tip ([165d2ee](https://github.com/shortcuts/radin/commit/165d2ee3c7a11ae8b2fae6b464f86f34b5dba6fd))
+* **state:** task-report prints the failure reason and refuses a different second report ([6fe86f1](https://github.com/shortcuts/radin/commit/6fe86f1799ba77322b1d8b2ee14f021cf3cf7172))
+* **state:** task-report records a new failure once the debug prompt was dispatched ([9de6a00](https://github.com/shortcuts/radin/commit/9de6a0016135dc05e52d0fbadc43319b1115a75a))
+
+
+### Performance Improvements
+
+* **batch:** cut router context in phase 0 and phase 2 ([d014e01](https://github.com/shortcuts/radin/commit/d014e01fc0d138c1f3548ab122b1fa1dabe75af8))
+* **test:** cut process spawns and live installs ([aaa7f11](https://github.com/shortcuts/radin/commit/aaa7f114c8504b38227479387115165c9e5597c9))
+
 ## [3.1.0](https://github.com/shortcuts/radin/compare/v3.0.0...v3.1.0) (2026-11-06)
 
 
