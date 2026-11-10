@@ -298,4 +298,15 @@ fn reconcile_lands_every_leftover_branch_but_a_live_one_and_files_a_follow_up_fo
     let two = w.bl(&["find", "t-two"], "").out;
     assert_eq!(two.lines().next().unwrap().split('\t').nth(5).unwrap(), fu);
     assert!(!w.state(&["reconcile"]).out.contains("merged"));
+    assert!(w.bl(&["meta", &fu], "").out.contains("origin\tt-one\n"));
+    let j = w.read(".radin/state/journal.jsonl");
+    for ev in [
+        "\"event\":\"marker-set\",\"id\":\"t-one\",\"detail\":\"landing/t-one ",
+        "\"event\":\"marker-set\",\"id\":\"t-one\",\"detail\":\"landing/t-one.follow-up ",
+        "\"event\":\"marker-clear\",\"id\":\"t-one\",\"detail\":\"landing/t-one\"",
+        "\"event\":\"marker-clear\",\"id\":\"t-one\",\"detail\":\"landing/t-one.follow-up\"",
+        "\"event\":\"reconcile-skipped\",\"id\":\"t-three\",\"detail\":\"in progress\"",
+    ] {
+        assert!(j.contains(ev), "{ev} in {j}");
+    }
 }

@@ -60,9 +60,10 @@ pub fn steps_init(s: &S, io: &mut Io) -> R {
         ),
     )
     .map_err(|e| die(e.to_string()))?;
-    for f in ["gate-fixes", "gate-reviewed", "gate-done", "dispatch-seq"] {
-        s.rm(f);
+    for f in ["gate-fixes", "gate-reviewed", "gate-done"] {
+        s.clear_marker("", f);
     }
+    s.rm("dispatch-seq");
     for d in ["dispatch", "wave-of"] {
         let _ = std::fs::remove_dir_all(s.state.join(d));
     }
@@ -161,7 +162,7 @@ pub fn stuck(s: &S, io: &mut Io) -> R {
 }
 
 pub fn preflight(s: &S, io: &mut Io) -> R {
-    s.rm("teardown");
+    s.clear_marker("", "teardown");
     s.bl(&["reconcile"], "");
     if s.bl_ok(&["count"]).is_some_and(|c| c.trim() == "0") {
         io.out.push_str("empty\n");

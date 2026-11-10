@@ -329,6 +329,24 @@ fn report_inner(s: &S, a: &[String], usages: &[String], io: &mut Io) -> R {
         if detail.contains("; exclusive:") {
             s.bl_must(&["set-meta", id, "exclusive", "yes"], "")?;
         }
+        s.journal(
+            "planned",
+            id,
+            &format!(
+                "complexity={} exclusive={} plan={}",
+                if size.is_empty() { "unsized" } else { size },
+                if detail.contains("; exclusive:") {
+                    "yes"
+                } else {
+                    "no"
+                },
+                if detail.starts_with(" none needed") {
+                    "none"
+                } else {
+                    "yes"
+                }
+            ),
+        );
         let _ = writeln!(io.out, "task-report: planned {id}");
         return next_continue(io);
     }

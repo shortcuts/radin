@@ -1,7 +1,7 @@
 use super::git::{branch_worktree, commit_dirty, dirty_files, g, gt, gx, ok, wip_commit};
 use super::leftover;
 use super::store::{self, get, json_escape};
-use super::{arg, die, mkdir, write, S};
+use super::{arg, die, S};
 use crate::backlog::{Fail, Io, R};
 use std::fmt::Write;
 use std::path::Path;
@@ -145,9 +145,8 @@ fn restack(s: &S, id: &str, parent: &str, io: &mut Io) -> Result<(), Fail> {
         must(gx(&s.root, &["branch", "-f", &branch, &start], io))?;
     }
     if s.read(&format!("stacked/{id}")).is_empty() {
-        mkdir(s, "stacked");
         let tip = s.gt(&["rev-parse", "--short=12", &start]);
-        write(s, &format!("stacked/{id}"), &format!("{parent} {tip}\n"));
+        s.set_marker(id, &format!("stacked/{id}"), &format!("{parent} {tip}\n"));
     }
     Ok(())
 }
@@ -227,21 +226,19 @@ pub fn prepare(s: &S, a: &[String], io: &mut Io) -> R {
         wt.clone()
     };
     if made {
-        s.rm(&format!("stacked/{id}"));
+        s.clear_marker(id, &format!("stacked/{id}"));
         if !parent.is_empty() {
-            mkdir(s, "stacked");
-            write(
-                s,
+            s.set_marker(
+                id,
                 &format!("stacked/{id}"),
                 &format!("{parent} {}\n", s.gt(&["rev-parse", "--short=12", &start])),
             );
         }
     }
     apply_claim(s, &dir, id, io);
-    mkdir(s, "prepared");
     let real = gt(&dir, &["rev-parse", "--abbrev-ref", "HEAD"]);
-    write(
-        s,
+    s.set_marker(
+        id,
         &format!("prepared/{id}.json"),
         &format!(
             "{{\"branch\":\"{}\",\"worktree\":\"{}\"}}\n",
@@ -314,15 +311,20 @@ fn follow_up(s: &S, id: &str, hash: &str, io: &mut Io) -> bool {
         body += &format!("\n**Open decision:** {note}");
     }
     let (code, out, _) = s.bl(
-        &["add", &row[1], &format!("Finish: {}", row[2])],
+        &[
+            "add",
+            &row[1],
+            &format!("Finish: {}", row[2]),
+            "--origin",
+            id,
+        ],
         &format!("{body}\n"),
     );
     if code != 0 {
         return false;
     }
     let fid = out.trim_end_matches('\n').to_string();
-    mkdir(s, "landing");
-    write(s, &mark, &format!("{fid}\n"));
+    s.set_marker(id, &mark, &format!("{fid}\n"));
     for l in s
         .bl_ok(&["list", "--order", "created"])
         .unwrap_or_default()
@@ -346,8 +348,8 @@ fn follow_up(s: &S, id: &str, hash: &str, io: &mut Io) -> bool {
 fn record_landed(s: &S, id: &str, hash: &str, io: &mut Io) -> bool {
     if !s.exists(&format!("unmerged/{id}")) {
         if s.find_row(id).is_none() {
-            s.rm(&format!("landing/{id}"));
-            s.rm(&format!("conflict/{id}"));
+            s.clear_marker(id, &format!("landing/{id}"));
+            s.clear_marker(id, &format!("conflict/{id}"));
             return true;
         }
         if !follow_up(s, id, hash, io) {
@@ -358,8 +360,7 @@ fn record_landed(s: &S, id: &str, hash: &str, io: &mut Io) -> bool {
             return false;
         }
     }
-    mkdir(s, "prepared");
-    s.touch(&format!("prepared/{id}.merged"));
+    s.set_marker(id, &format!("prepared/{id}.merged"), "");
     let mut d = Io::default();
     let r = super::done::task_done(s, id, hash, &mut d);
     io.err.push_str(&d.out);
@@ -372,7 +373,7 @@ fn record_landed(s: &S, id: &str, hash: &str, io: &mut Io) -> bool {
             format!("conflict/{id}"),
             format!("stacked/{id}"),
         ] {
-            s.rm(&rel);
+            s.clear_marker(id, &rel);
         }
         true
     } else {
@@ -427,6 +428,7 @@ pub fn reconcile(s: &S, io: &mut Io) -> R {
             if s.exists(&format!("conflict/{uid}")) || s.landed(&uhash, &base) {
                 if record_landed(s, &uid, &uhash, io) {
                     let _ = writeln!(io.out, "adopted\tradin/{uid}");
+                    s.journal("reconcile-adopted", &uid, &format!("radin/{uid}"));
                 }
             } else if s.git_ok(&[
                 "rev-parse",
@@ -436,8 +438,14 @@ pub fn reconcile(s: &S, io: &mut Io) -> R {
             ]) {
                 gx(&s.root, &["branch", &format!("radin/{uid}"), &uhash], io);
                 let _ = writeln!(io.out, "restored\tradin/{uid}\t{uhash}");
+                s.journal("reconcile-restored", &uid, &format!("radin/{uid} {uhash}"));
             } else {
                 let _ = writeln!(io.out, "skipped\tradin/{uid}\tcommit {uhash} is gone");
+                s.journal(
+                    "reconcile-skipped",
+                    &uid,
+                    &format!("commit {uhash} is gone"),
+                );
             }
         }
     }
@@ -475,6 +483,7 @@ pub fn reconcile(s: &S, io: &mut Io) -> R {
                 .is_some_and(|e| get(&e, "status") == "in_progress")
         {
             let _ = writeln!(io.out, "skipped\t{rb}\tin progress");
+            s.journal("reconcile-skipped", &rid, "in progress");
             continue;
         }
         let wt = branch_worktree(&worktrees, &rb);
@@ -496,18 +505,22 @@ pub fn reconcile(s: &S, io: &mut Io) -> R {
             let (sparent, sbase) = (f.next().unwrap_or(""), f.next().unwrap_or(""));
             if s.branch_exists(&format!("radin/{sparent}")) {
                 let _ = writeln!(io.out, "skipped\t{rb}\twaiting on radin/{sparent}");
+                s.journal(
+                    "reconcile-skipped",
+                    &rid,
+                    &format!("waiting on radin/{sparent}"),
+                );
                 continue;
             }
             let rdir = wt_dir.clone().unwrap_or_else(|| s.root.clone());
             if gx(&rdir, &["rebase", "--onto", &base, sbase, &rb], io) {
-                s.rm(&stacked);
+                s.clear_marker(&rid, &stacked);
                 gx(&s.root, &["checkout", "-q", &base], io);
             } else {
                 gx(&rdir, &["rebase", "--abort"], io);
                 gx(&s.root, &["checkout", "-q", &base], io);
-                mkdir(s, "conflict");
-                write(
-                    s,
+                s.set_marker(
+                    &rid,
                     &format!("conflict/{rid}"),
                     &format!("{}\n", s.gt(&["rev-parse", "--short=12", &rb])),
                 );
@@ -530,14 +543,12 @@ pub fn reconcile(s: &S, io: &mut Io) -> R {
             continue;
         }
         if !s.exists(&format!("unmerged/{rid}")) {
-            mkdir(s, "landing");
-            write(s, &format!("landing/{rid}"), &format!("{tip}\n"));
+            s.set_marker(&rid, &format!("landing/{rid}"), &format!("{tip}\n"));
         }
         if squash_merge_one(s, &rid, &rb, &wt, &tip, io) {
             merged.push(rb);
         } else {
-            mkdir(s, "conflict");
-            write(s, &format!("conflict/{rid}"), &format!("{tip}\n"));
+            s.set_marker(&rid, &format!("conflict/{rid}"), &format!("{tip}\n"));
             conflicts.push(rb);
         }
     }

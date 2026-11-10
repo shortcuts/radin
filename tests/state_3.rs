@@ -194,6 +194,18 @@ fn task_report_planned_with_an_exclusive_clause_flags_the_task_and_silence_keeps
         .bl(&["meta", "t-one"], "")
         .out
         .contains("exclusive\tyes\n"));
+    let j = w.read(".radin/state/journal.jsonl");
+    for d in [
+        "complexity=low exclusive=no plan=yes",
+        "complexity=low exclusive=yes plan=yes",
+    ] {
+        assert!(
+            j.contains(&format!(
+                "\"event\":\"planned\",\"id\":\"t-one\",\"detail\":\"{d}\""
+            )),
+            "{d} in {j}"
+        );
+    }
 }
 
 #[test]

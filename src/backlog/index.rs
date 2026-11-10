@@ -101,7 +101,14 @@ impl Entry {
         ] {
             v.extend(self.arr(key).into_iter().map(|x| format!("{label}\t{x}")));
         }
-        for k in ["facts", "location", "planning", "complexity", "exclusive"] {
+        for k in [
+            "facts",
+            "location",
+            "planning",
+            "complexity",
+            "exclusive",
+            "origin",
+        ] {
             v.extend(self.opt(k).map(|x| format!("{k}\t{x}")));
         }
         v

@@ -1433,10 +1433,21 @@ fn set_meta_sets_clears_and_rejects() {
     assert!(w.ok(&["meta", "m"], "").contains("exclusive\tyes\n"));
     w.ok(&["set-meta", "m", "exclusive", "--none"], "");
     assert!(!w.ok(&["meta", "m"], "").contains("exclusive"));
+    assert_eq!(
+        w.ok(&["set-meta", "m", "origin", "t-one"], ""),
+        "origin of m set\n"
+    );
+    assert!(w.ok(&["meta", "m"], "").contains("origin\tt-one\n"));
+    w.ok(&["set-meta", "m", "origin", "--none"], "");
+    assert!(!w.ok(&["meta", "m"], "").contains("origin"));
+    w.ok(&["add", "fix", "from t-one", "--origin", "t-one"], "b");
+    assert!(w
+        .ok(&["meta", "from-t-one"], "")
+        .contains("origin\tt-one\n"));
     for (args, msg) in [
         (
             &["set-meta", "m", "nope", "x"][..],
-            "key must be plan|skills|acceptance|facts|location|planning|complexity|exclusive, got: nope",
+            "key must be plan|skills|acceptance|facts|location|planning|complexity|exclusive|origin, got: nope",
         ),
         (
             &["set-meta", "m", "location"][..],

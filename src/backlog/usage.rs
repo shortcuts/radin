@@ -25,7 +25,7 @@ pub const USAGE: &[(&str, &str)] = &[
     ),
     (
         "add",
-        r##"add <category> <title> [--skill <name>]... [--acceptance <criterion>]... [--planning needed] [--complexity low|high] [--location <path:line>] [--deps <csv-of-ids-or-titles>]  # create task, body read from stdin, prints its bare id on stdout (the human sentence goes to stderr)"##,
+        r##"add <category> <title> [--skill <name>]... [--acceptance <criterion>]... [--planning needed] [--complexity low|high] [--location <path:line>] [--origin <task-id>] [--deps <csv-of-ids-or-titles>]  # create task, body read from stdin, prints its bare id on stdout (the human sentence goes to stderr)"##,
     ),
     (
         "add-plan",
@@ -73,11 +73,11 @@ pub const USAGE: &[(&str, &str)] = &[
     ),
     (
         "set-meta",
-        r##"set-meta <id-or-title> <plan|skills|acceptance|facts|location|planning|complexity|exclusive> <value>...|--none  # set/clear one index-line field (skills takes skill names; facts, location, planning, complexity and exclusive take exactly one value; planning takes only "needed", complexity "low" or "high", exclusive "yes")"##,
+        r##"set-meta <id-or-title> <plan|skills|acceptance|facts|location|planning|complexity|exclusive|origin> <value>...|--none  # set/clear one index-line field (skills takes skill names; facts, location, planning, complexity, exclusive and origin take exactly one value; planning takes only "needed", complexity "low" or "high", exclusive "yes")"##,
     ),
     (
         "meta",
-        r##"meta <id-or-title>          # print "plan<TAB><path>" / "skill<TAB><instruction>" / "acceptance<TAB><criterion>" / "facts<TAB><path>" / "location<TAB><path:line>" / "planning<TAB>needed" / "complexity<TAB>low|high" / "exclusive<TAB>yes" lines from the task's entry"##,
+        r##"meta <id-or-title>          # print "plan<TAB><path>" / "skill<TAB><instruction>" / "acceptance<TAB><criterion>" / "facts<TAB><path>" / "location<TAB><path:line>" / "planning<TAB>needed" / "complexity<TAB>low|high" / "exclusive<TAB>yes" / "origin<TAB><task-id>" lines from the task's entry"##,
     ),
     (
         "order",

@@ -47,6 +47,19 @@ fn steps_init_takes_depends_on_from_the_index_and_writes_the_baseline_and_journa
     assert!(w
         .read(".radin/state/journal.jsonl")
         .contains("\"event\":\"steps-init\",\"id\":\"\",\"detail\":\"2 entries\""));
+    w.write(".radin/state/gate-done", "");
+    w.write(".radin/state/teardown", "");
+    w.steps_init("t-one\t1\t\tpending\n");
+    w.state(&["preflight"]);
+    let j = w.read(".radin/state/journal.jsonl");
+    for d in ["gate-done", "teardown"] {
+        assert!(
+            j.contains(&format!(
+                "\"event\":\"marker-clear\",\"id\":\"\",\"detail\":\"{d}\""
+            )),
+            "{d} in {j}"
+        );
+    }
 }
 
 #[test]

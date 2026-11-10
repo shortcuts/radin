@@ -219,6 +219,23 @@ impl<'a> S<'a> {
         let _ = std::fs::remove_file(self.state.join(rel));
     }
 
+    /// Writes a landing marker or run flag and journals the transition.
+    pub fn set_marker(&self, id: &str, rel: &str, text: &str) {
+        if let Some(dir) = Path::new(rel).parent() {
+            mkdir(self, &dir.to_string_lossy());
+        }
+        write(self, rel, text);
+        self.journal("marker-set", id, &format!("{rel} {}", text.trim()));
+    }
+
+    /// Removes a marker and journals it only when the file existed.
+    pub fn clear_marker(&self, id: &str, rel: &str) {
+        if self.exists(rel) {
+            self.rm(rel);
+            self.journal("marker-clear", id, rel);
+        }
+    }
+
     pub fn exists(&self, rel: &str) -> bool {
         self.state.join(rel).exists()
     }

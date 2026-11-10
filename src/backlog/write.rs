@@ -60,7 +60,7 @@ pub fn add(cx: &Ctx, a: &[String], io: &mut Io) -> R {
         ));
     }
     let (mut skills, mut accept) = (vec![], vec![]);
-    let (mut planning, mut complexity, mut location, mut deps) = ("", "", "", "");
+    let (mut planning, mut complexity, mut location, mut origin, mut deps) = ("", "", "", "", "");
     let mut i = 2;
     while i < a.len() {
         let o = a[i].as_str();
@@ -70,6 +70,7 @@ pub fn add(cx: &Ctx, a: &[String], io: &mut Io) -> R {
             "--planning" => "--planning needs a value",
             "--complexity" => "--complexity needs a value",
             "--location" => "--location needs a path:line",
+            "--origin" => "--origin needs a task id",
             "--deps" => "--deps needs a csv of ids or titles",
             _ => return Err(usage_die("add", &format!("unknown add option: {o}"))),
         };
@@ -80,6 +81,7 @@ pub fn add(cx: &Ctx, a: &[String], io: &mut Io) -> R {
             "--planning" => planning = v,
             "--complexity" => complexity = v,
             "--location" => location = v,
+            "--origin" => origin = v,
             _ => deps = v,
         }
         i += 2;
@@ -93,6 +95,7 @@ pub fn add(cx: &Ctx, a: &[String], io: &mut Io) -> R {
         ("planning", planning),
         ("complexity", complexity),
         ("location", location),
+        ("origin", origin),
     ] {
         if !v.is_empty() {
             require_meta_value(k, v)?;
@@ -138,6 +141,7 @@ pub fn add(cx: &Ctx, a: &[String], io: &mut Io) -> R {
         ("planning", planning),
         ("complexity", complexity),
         ("location", location),
+        ("origin", origin),
     ] {
         if !v.is_empty() {
             obj.insert(k.into(), Value::String(v.into()));
@@ -416,7 +420,7 @@ pub fn set_meta(cx: &Ctx, a: &[String], io: &mut Io) -> R {
             "set-meta needs an id or title, a key, and a value or --none",
         ));
     }
-    const KEYS: &str = "plan|skills|acceptance|facts|location|planning|complexity|exclusive";
+    const KEYS: &str = "plan|skills|acceptance|facts|location|planning|complexity|exclusive|origin";
     if !KEYS.split('|').any(|k| k == key) {
         return Err(usage_die(
             "set-meta",
@@ -435,7 +439,7 @@ pub fn set_meta(cx: &Ctx, a: &[String], io: &mut Io) -> R {
     let id = idx.entries[i].id();
     let scalar = matches!(
         key,
-        "facts" | "location" | "planning" | "complexity" | "exclusive"
+        "facts" | "location" | "planning" | "complexity" | "exclusive" | "origin"
     );
     let value = if vals[0] == "--none" {
         if vals.len() > 1 {
