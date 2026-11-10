@@ -65,7 +65,7 @@ Then report:
      `**Fact:** [measured]` line or test output that proves it. An unproven
      criterion is a finding, whatever the code looks like.
 2. **Scope creep.** Every change no criterion or plan entry asks for.
-   - `diff`: every staged file outside the plan's `## Changes`.
+   - `diff`: every staged change that serves no criterion, plan intent or repo rule. A staged file the plan's `## Changes` does not list is no finding by itself.
 3. **Simplest native solution.** Every place the scope is more code, more
    abstraction or less native than the spec needs, and every structural
    finding a pass raises. A documented repo rubric (`AGENTS.md`,
