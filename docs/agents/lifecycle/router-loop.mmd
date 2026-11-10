@@ -20,7 +20,7 @@ flowchart TD
   part --> veto[factfind per group:<br/>graph veto, never merge groups]
   veto --> group[state group-set --wave N<br/>one group, up to the cap]
   group --> leafE
-  next -- exit 1, nothing left or teardown requested --> p45[Phase 4.5<br/>session gate: lint, format, review]
+  next -- exit 1, nothing left or teardown requested --> p45[Phase 4.5<br/>session gate: tests, lint, format, review]
   p45 -- findings filed, once --> next
   next -- exit 0 --> kind{kind}
   kind -- planning --> leafP[[Planning leaf]]

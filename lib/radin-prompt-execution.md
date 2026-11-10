@@ -13,14 +13,14 @@ Execute the task below.
 Your final message is exactly one of these lines, and nothing else:
 `STATUS: SUCCESS — <commit hash(es), or "no new commit, already satisfied by <existing
 hash>">; built: <what now works, one clause>; chose: <each judgment call you
-made and why, or "none">; open: <decisions left for the user, or "none">; checks:
+made and why, or "none">; open: <what you skipped, did not check, or a risk the user must know, or "none">; checks:
 test=<pass|na>, lint=<pass|na>, review=pass`
 `STATUS: FAILED — <reason>`
 `STATUS: INCONCLUSIVE — <what could not be checked, and why>`
 `STATUS: BLOCKED (FACT) — <what's unverifiable from here and why, e.g. a third-party
 API/library behavior local code and repo exploration can't settle>`
-`STATUS: BLOCKED (DECISION) — <what you need from the user (a decision, a confirmation,
-guidance or a human action), the options, and your recommendation>`
+`STATUS: BLOCKED (DECISION) — <the action only the user can take (a device, a
+credential, a path to delete), the options, and your recommendation>`
 This line is mandatory whether the task was implemented, found already done, or
 blocked. The `checks:` clause is mandatory and last. `pass` means the check ran
 this session and exercised the change. `na` is allowed for `test` and `lint`
@@ -43,19 +43,21 @@ Ground rules, applying to every step below:
   INCONCLUSIVE name each route tried. Find any checkable fact yourself (read
   more of the repo, check a config, run a read-only command, check how an
   existing similar case was handled) and tag only the unverifiable one
-  BLOCKED (FACT). Needing the user's answer, confirmation or an action on
-  their side is BLOCKED (DECISION) carrying exactly what unblocks you, with
-  anything you touched reverted so the tree is clean; it is never FAILED or
-  INCONCLUSIVE.
+  BLOCKED (FACT). Needing an action only the user can take is BLOCKED
+  (DECISION) carrying exactly what unblocks you, with anything you touched
+  reverted so the tree is clean; it is never FAILED or INCONCLUSIVE. Every
+  other choice is yours: take the option closest to the task's intent and name
+  it in `chose:`.
 - Never commit, revert, or otherwise touch anything under `.radin/`.
   It is the router's state, not task work, except the `RADIN_CLI backlog
-  append` call above.
+  fact` calls above.
 - Explore by this rule:
 
 EXPLORE_RULE
 
 - Your only stops are the `STATUS:` lines above. Work beyond the task that you think would help goes
-  in a `**Fact:**` line, not in the diff.
+  in a `**Fact:**` line, not in the diff. A check red on the base is the
+  exception: step 8 fixes it.
 
 <!-- if:EPIC_CONTEXT -->
 Shared context for the epic this task belongs to, inherited by every task in
@@ -118,8 +120,8 @@ ACCEPTANCE
    `## Testing` is a check you run.
    Where the code contradicts a plan step: a mechanical deviation (renamed
    function, moved file, adjusted signature) you adjust and record as a
-   `**Fact:**` line; a deviation that changes a decision the plan made is
-   `STATUS: BLOCKED (DECISION)`, describing it.
+   `**Fact:**` line; a deviation that changes a decision the plan made you
+   settle closest to the plan's intent and name in `chose:`.
 <!-- end -->
 <!-- if:!PLAN_PATHS -->
 3. This task has no plan, so implement directly from the entry text.
@@ -143,8 +145,8 @@ Commits landed after this task's plan was written and touched the files
    the assumptions still hold: proceed. A mechanical divergence (renamed
    function, moved file, adjusted signature): implement against the current
    code and record what you adjusted as a `**Fact:**` line. A divergence that
-   changes a design decision the plan made: report
-   `STATUS: BLOCKED (DECISION)` describing it, and guess nothing.
+   changes a design decision the plan made: settle it closest to the plan's
+   intent and name it in `chose:`.
 <!-- end -->
 <!-- if:CAT_fix -->
 4. Invoke `@@skill:surgical-patch@@` and implement through it: the narrowest
@@ -161,8 +163,7 @@ Commits landed after this task's plan was written and touched the files
 <!-- if:CAT_chore -->
 4. No category skill applies: the ladder below is the whole discipline.
 <!-- end -->
-   Apply the `@@skill:ponytail@@` ladder in every case: the minimum code that
-   satisfies the task, reusing what the repo already has. Its SubagentStart
+   Apply the `@@skill:ponytail@@` ladder in every case. Its SubagentStart
    hook already put the ladder in your context, so invoke no skill for it.
 5. Where the task changes behavior (not a pure deletion/rename), add or update a unit
    test that pins the expected behavior, following existing test conventions in the repo.
@@ -170,8 +171,8 @@ Commits landed after this task's plan was written and touched the files
    names, then with your change and confirm it passes. A test that passes
    either way, or fails for another reason, pins nothing: correct it first.
    Make the code correct for every valid input, not only the tested ones. A
-   test you believe is wrong is `STATUS: BLOCKED (DECISION)`, never code to
-   work around.
+   test you believe is wrong: correct the test, never work around it in code,
+   and name it in `chose:`.
    For each such test, record a `**Fact:**` line: `test <name>: failed before
    (<its failure>), passes now`.
 6. Comments in the code you write follow this rule:
@@ -182,10 +183,8 @@ COMMENT_RULE
    that turns a check red is the one to fix before you move on.
 8. Choose the checks from what your diff reaches: ask the graph
    for the symbols your working-tree diff changes and their callers. Run the
-   typecheck and the tests that exercise those callers as you go. Run the whole
-   suite (`make test`, `go test ./...`) only when you judge this task needs it,
-   as when the blast radius covers most of the repo. Phase 4.5 runs it once. Once
-   before committing, run lint and format scoped to the packages or
+   typecheck and the tests that exercise those callers as you go, and no
+   others: the session gate runs the whole suite once. Once before committing, run lint and format scoped to the packages or
    directories you touched.
    A check counts only when it ran and exercised the change: a syntax-only
    check, or one that failed to start, does not. If all that is missing is

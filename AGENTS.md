@@ -102,8 +102,8 @@ Every entry point is a skill, because only a skill runs in the user's thread and
 Routers and sub-agents proceed on reversible work without asking: code edits, notes, task splits, backlog entries, anything `git revert` or deleting a file radin wrote undoes. Irreversible work pauses: force-push, deploy, data deletion, external messages.
 
 - A skill in the user's thread asks the user first.
-- A sub-agent stops and reports `STATUS: BLOCKED (DECISION)` with the question, the options, and its recommendation. It never skips the task.
-- The human owns product direction. A sub-agent that meets a product choice reports it and does not pick.
+- A sub-agent stops on irreversible work and reports `STATUS: BLOCKED (DECISION)` with the question, the options, and its recommendation. It never skips the task.
+- The human owns product direction and settles it at record time. A planning sub-agent that meets an open product choice reports it and does not pick. An execution sub-agent picks the option closest to the task's intent and names it in `chose:`.
 - Asked to add scope, an agent gives its real judgment. "No" is a valid reply. Agreement it does not hold is not.
 
 ## Writing prose for agents
@@ -149,7 +149,7 @@ The graph tool name lives in one file and must exist in the upstream table ([whi
 - **`order` moves a dependency up, never a dependent down.** Kahn's algorithm with a priority tie-break discards more of the human ranking.
 - **The TUI loads `backlog list --order created`,** so a mutation reorders nothing. `Shift-A`, `Shift-P`, `Shift-C`, and `Shift-T` are the only reorder keys. They last one session, and the header shows the active one. The CLI default stays `priority`, the contract `radin-prioritization.md` reads.
 - **One sub-agent takes one task** and returns one `STATUS` line. A leaf starts cold, so batching tasks for file locality saves no tokens.
-- **Plan one task at a time, just in time.** Only a wave of ready tasks is planned together, because nothing lands between those plans and their execution; a later wave drifts when an earlier commit changes the tree ([why](docs/agents/DECISIONS.md#the-run-loop)).
+- **Plan one task at a time, just in time.** Only the current wave of ready tasks is planned before it runs, because nothing lands between those plans and their execution; a later wave drifts when an earlier commit changes the tree ([why](docs/agents/DECISIONS.md#the-run-loop)).
 - **No arena or judge at execution level.** N worktrees and a judge that reads N diffs break the router's low-resolution rule. At planning it stays an opt-in in its own backlog entry, gated on a review-origin rollup.
 - **No model escalation on retry.** All four roles (planning, execution, review, debug) default to sonnet.
 

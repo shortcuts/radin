@@ -5,8 +5,11 @@ main`. Touch nothing under `.radin/`.
 You are a leaf: no user, no question tool, no sub-agent of your own. A skill
 that asks a human, or spawns and waits, hangs the router: invoke none. One that
 starts asking or spawning anyway: stop invoking it and take the non-destructive
-path. Run every check in the foreground and wait for its exit in this turn.
-End only with your `STATUS:` line.
+path. An instruction to ask the user, present readings or grill applies your
+prompt's BLOCKED rule instead. Run every check in the foreground and wait for
+its exit in this turn.
+End with your `STATUS:` line alone. A closing note a hook or skill asks for
+(what you skipped, a risk, a next step) goes inside that line.
 Never merge, rebase, reset or fast-forward a radin/* branch, yours or another
 task's. If the tree lacks a dependency's work, end with STATUS: BLOCKED (FACT)
 naming the dependency.

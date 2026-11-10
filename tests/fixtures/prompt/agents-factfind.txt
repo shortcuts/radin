@@ -16,17 +16,22 @@ rule:
 Explore with these tools, in this order:
 - A question about a symbol, its callers, or what a change reaches goes to
   `codebase-memory-mcp`'s MCP tools. Check that the index covers each file you
-  rely on.
-- A literal string, a config value, or a non-code file goes to Grep.
+  rely on. Follow the `[codebase-memory]` notes its hooks add to your context.
+- A literal string in indexed code goes to `codebase-memory-mcp`'s text
+  search. A config value, a non-code file or an unindexed path goes to Grep.
 - A graph hit is a pointer: read the file before you cite or edit it. An empty
   graph result proves nothing, so confirm it with Grep.
-- Run shell commands through `rtk`, for the token savings.
+- Prefix each shell command with `rtk`, for the token savings. Re-run one as
+  `rtk bypass <cmd>` only when its output is unusable.
 
 You are a leaf: no user, no question tool, no sub-agent of your own. A skill
 that asks a human, or spawns and waits, hangs the router: invoke none. One that
 starts asking or spawning anyway: stop invoking it and take the non-destructive
-path. Run every check in the foreground and wait for its exit in this turn.
-End only with your `STATUS:` line.
+path. An instruction to ask the user, present readings or grill applies your
+prompt's BLOCKED rule instead. Run every check in the foreground and wait for
+its exit in this turn.
+End with your `STATUS:` line alone. A closing note a hook or skill asks for
+(what you skipped, a risk, a next step) goes inside that line.
 Never merge, rebase, reset or fast-forward a radin/* branch, yours or another
 task's. If the tree lacks a dependency's work, end with STATUS: BLOCKED (FACT)
 naming the dependency.

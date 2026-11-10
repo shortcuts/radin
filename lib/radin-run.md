@@ -100,9 +100,8 @@ RADIN_CLI state preflight
 It always exits 0 and prints one tab-separated line per branch that applies.
 Empty output means no branch applies. Act on each line by its first field:
 
-- `empty`: the backlog holds no entry. Tell the user and ask whether to
-  create an empty backlog or stop. Those are the only two outcomes. An empty
-  backlog ends the run: report it and stop. No other line prints with it.
+- `empty`: the backlog holds no entry. Tell the user and stop. No other line
+  prints with it.
 - `session<TAB>missing`: no worktree/branch answer is recorded, which happens
   only on the first run in a repo. Read `RADIN_LIB/radin-batch-session.md`
   and follow it to ask and persist them. Otherwise ask nothing and change
@@ -185,9 +184,7 @@ questions a prompt may pre-answer.
 
 2. The answers are routed independently, and each is routed once.
    - **Task selection** decides Phase 3's selection flag, and nothing else:
-     - **A scope from Phase 1**: `--only <the scope csv>`. Name the scope, the
-       dependencies it pulled in, and the deferred count in the run summary, so
-       the user sees what the run adds and leaves out.
+     - **A scope from Phase 1**: `--only <the scope csv>`.
      - **All of them**: no flag.
      - **Epic <id>**: run `RADIN_CLI backlog scope "<id>"` as Phase 1 does and
        pass `--only <its ids csv>`.
@@ -225,7 +222,7 @@ Exit 1 with no output: go to Phase 4. Exit 0 prints `id<TAB>question` for each
 open decision of a selected task. Settle them as Phase 0's `waiting` line does, and
 append each answer per `RADIN_LIB/radin-batch-clarify.md`. A question the user explicitly
 defers stays open: append it again as `**Open decision:** <question>, <options>,
-<your recommendation>`, so the leaf blocks on it. Continue to Phase 4.
+<your recommendation>`. Continue to Phase 4.
 
 ## Phase 4: Task Execution Loop
 
@@ -348,11 +345,7 @@ next task's dispatch and carry on. The loop stops only at a
 Never verify a `SUCCESS` yourself: no per-task verification sub-agent, and no
 re-reading the diff. That read is the cost the leaf's own verify loop and
 Phase 4.5's gate exist to avoid. A task is finished when `task-report` has recorded it,
-whatever the sub-agent's prose said. A commit still on a side branch counts as done only after the merge. Phase 4.7 lands every task branch, and an unfinished task's branch lands with a follow-up entry (see "A task is done when its commit is in the base branch" in `docs/DECISIONS.md`).
-
-An entry stays `failed` or `blocked` only after the user explicitly deferred
-it. A deferred entry is not retried within this session, and does not block
-the loop from reaching Phase 4.5.
+whatever the sub-agent's prose said. A commit still on a side branch counts as done only after the merge. Phase 4.7 lands every task branch, and an unfinished task's branch lands with a follow-up entry.
 
 ### Wave mode (worktree yes)
 
@@ -380,8 +373,8 @@ because it would claim a task outside the group.
    `RADIN_CLI prompt factfind "<first id>" "Per their plans' ## Changes, does a
    symbol that one of tasks <csv> changes call or get called by a symbol
    another of them changes? Use the graph's callers and callees. Answer FOUND
-   — no, or FOUND — yes: <idA>,<idB> and the symbols."`, all groups in one
-   message. On `FOUND — yes`, move the later task of the pair (higher `order`)
+   — no, or FOUND — yes: <idA>,<idB> and the symbols."`, in messages of at
+   most the wave cap. On `FOUND — yes`, move the later task of the pair (higher `order`)
    to a group of its own and run
    `RADIN_CLI telemetry record parallel vetoed task=<later> with=<earlier> wave=N evidence="<the symbols>"`.
    Any other answer keeps the group. Never merge two groups.
@@ -395,7 +388,7 @@ because it would claim a task outside the group.
 6. A landed group can stale the plans after it. For each later task with an
    `apart` line against a landed task, or vetoed against one, run
    `RADIN_CLI state plan-discard "<id>" N <paths>` with the shared paths or the
-   veto symbols, and re-plan the discarded tasks in one message as in step 2.
+   veto symbols, and re-plan the discarded tasks one at a time as in step 2.
    Then re-run the partition over the tasks left (step 3 without
    `--wave`, and step 4). A task split off only by the cap keeps its plan.
    A deferred task has no plan to discard.
@@ -405,8 +398,8 @@ because it would claim a task outside the group.
 
 ## Phase 4.5: Session Gate
 
-Execution sub-agents run the tests their diffs reached. The gate runs lint and
-format once per session, then reviews the session's commits and files each
+Execution sub-agents run only the tests their diffs reach. The gate runs the
+full test suite, lint and format once per session, then reviews the session's commits and files each
 `act-on` finding to the backlog. Skip it when the session recorded no commit.
 
 Read `RADIN_LIB/radin-batch-gate.md` and follow it to dispatch the gate.
@@ -429,7 +422,7 @@ RADIN_CLI state report
 ```
 
 Print its output verbatim. Read
-`RADIN_LIB/radin-batch-reporting.md` for the two things it
+`RADIN_LIB/radin-batch-reporting.md` for the one thing it
 cannot do.
 
 Then run `RADIN_CLI state steps-waiting`. Exit 1: go to Phase 6. Exit 0

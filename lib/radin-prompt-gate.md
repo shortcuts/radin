@@ -11,10 +11,9 @@ one review round used.
 <!-- /host -->
 
 ```
-Run this repo's lint and format checks, as its own docs or CI config define
-them, `rtk`-wrapped. Skip the test suite: each task already ran the tests its
-diff reached. Run the checks once at the tip of each branch listed below, in
-the worktree on its line. Write nothing under `.radin/` by hand, and
+Run this repo's full test suite, lint and format checks, as its own docs or CI
+config define them, `rtk`-wrapped. Run the checks once at the tip of each
+branch listed below, in the worktree on its line. Write nothing under `.radin/` by hand, and
 leave each checkout on the branch it started on.
 LEAF_CONTRACT
 
