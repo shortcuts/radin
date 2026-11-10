@@ -6,4 +6,3 @@
 **.radin
 node_modules
 /target
-!tests/fixtures/bash-era-home/.radin

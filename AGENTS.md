@@ -5,7 +5,7 @@ radin is a Claude Code plugin of skills, a CLI, and install glue.
 ## Hard rules
 
 - **Rust, one binary.** Every deterministic behavior is a `radin` subcommand in `src/`. The crate sets `rust-version = "1.88"`. `install.sh` is the only shell file: POSIX `sh`, checked by `shellcheck` and `shfmt`, because it runs before the binary exists. Add no `uname` branch. Resolve tools with `command -v` or `brew shellenv`. Branch only where a tool differs (`md5` versus `md5sum`).
-- **`~/.claude` is not ours.** `~/.radin` is. `radin install` writes `.txt` only under `~/.radin/lib` and `.md` only under `~/.radin/hosts/<host>/lib`. It copies only radin's own named files, plus the directories they need. It never deletes with a wildcard or overwrites a file radin does not ship. Eleven exceptions:
+- **`~/.claude` is not ours.** `~/.radin` is. `radin install` writes `.txt` only under `~/.radin/lib` and `.md` only under `~/.radin/hosts/<host>/lib`. It copies only radin's own named files, plus the directories they need. It never deletes with a wildcard or overwrites a file radin does not ship. Ten exceptions:
   1. The `<!-- radin:begin -->`…`<!-- radin:end -->` block in `~/.claude/CLAUDE.md`.
   2. The `radin wire` snapshot (kept in `~/.radin/backups`) and restore of `settings.json` and `~/.claude.json`.
   3. `skills/unslop/SKILL.md` and `skills/technical-writing/SKILL.md`. `radin install` fetches both from upstream and overwrites them only when `manifest.json` lists them as radin's own. It also writes the skills of `lib/companion-skills.txt` into `~/.agents/skills`, and overwrites one only when `manifest.json` lists it in `agents_skills`.
@@ -16,8 +16,7 @@ radin is a Claude Code plugin of skills, a CLI, and install glue.
   8. `~/.claude/.radin`. `radin install` moves it once to `~/.radin` with `mv`, only when it holds a radin manifest, through `~/.radin.migrating`. A foreign `~/.radin` or a leftover staging directory aborts before any write ([why](docs/agents/DECISIONS.md#platform-and-install)).
   9. `--force` moves an unowned or edited radin-named path to `~/.radin/backups` with `mv`, then installs radin's file. It runs no `rm` there. Without `--force` that path stops its host or stays as the user left it ([why](docs/agents/DECISIONS.md#platform-and-install)).
 
-  10. The bash-era orphans. `radin install` removes a file only when the previous `manifest.json` lists it in `lib`, the current `SHIPPED` lists it in neither `lib` nor `hostlib`, and it is a regular file under `~/.radin/lib`. It also removes `bin/radin-tui`, `bin/radin-cbm-json` and their `.sum` files when the manifest has `manifest_version`. It rewrites a `settings.json` hook only when its command runs `~/.radin/lib/radin-<name>.sh` and `<name>` has a verb ([why](docs/agents/DECISIONS.md#platform-and-install)).
-  11. The `fff` MCP server entry. `radin install` adds it through `claude mcp add -s user` and `codex mcp add`, and writes `mcp.fff` into the opencode config, only when the host has no `fff` entry. `manifest.json` records each one it added as `fff:<host>` in `companion_tools`, and `radin uninstall` removes only those ([why](docs/agents/DECISIONS.md#platform-and-install)).
+  10. The `fff` MCP server entry. `radin install` adds it through `claude mcp add -s user` and `codex mcp add`, and writes `mcp.fff` into the opencode config, only when the host has no `fff` entry. `manifest.json` records each one it added as `fff:<host>` in `companion_tools`, and `radin uninstall` removes only those ([why](docs/agents/DECISIONS.md#platform-and-install)).
 
   Call out every `install.sh` edit. It is a stub that fetches the release installer and runs `radin install`.
 - **Companion install is advisory.** A failed install prints a warning and the run continues. The installer asks one question: which package manager installs the companions (`brew`, `mise`, or `curl`). radin adds no package manager the user has not already run.
@@ -60,7 +59,6 @@ radin is a Claude Code plugin of skills, a CLI, and install glue.
 | Host-specific text lives in host blocks | `src/render.rs` (marker errors, surviving forbidden string) and the `tests/lints.rs` forbid lint with `hosts/forbid-baseline.txt` | A Claude-only idea worded with no forbidden string; review only. |
 | Lifecycle diagrams match the skills and the run loop | None; `make diagrams` regenerates the SVGs | Review only. |
 | Claude render unchanged | `tests/golden_render.rs` and `tests/install_core.rs`, `make golden` | Files outside `SKILL.md` and `lib/*.md` are unhashed. |
-| Install removes only manifest-listed bash-era orphans | `tests/install_upgrade.rs` (orphans, dispatcher swap, hook rewrite, unmapped hook, no-match settings, second run) | A file edited by the user after the bash install is removed too. |
 
 Add a row with every new hard rule.
 

@@ -1,59 +1,16 @@
 #[path = "common/stubs.rs"]
 mod stubs;
 
-use serde_json::Value;
 use std::fs;
 use std::os::unix::fs::{symlink, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use stubs::{Sandbox, R};
+use stubs::Sandbox;
 
 const BIN: &str = env!("CARGO_BIN_EXE_radin");
 
 fn repo() -> &'static Path {
     Path::new(env!("CARGO_MANIFEST_DIR"))
-}
-
-fn cp(from: &Path, to: &Path) {
-    fs::create_dir_all(to).unwrap();
-    assert!(Command::new("cp")
-        .arg("-a")
-        .arg(format!("{}/.", from.display()))
-        .arg(to)
-        .status()
-        .unwrap()
-        .success());
-}
-
-fn bash_era() -> Sandbox {
-    let s = Sandbox::new();
-    cp(&repo().join("tests/fixtures/bash-era-home"), &s.home);
-    fs::create_dir_all(s.p(".local/bin")).unwrap();
-    symlink(s.p(".radin/bin/radin"), s.p(".local/bin/radin")).unwrap();
-    s
-}
-
-fn json(s: &Sandbox, rel: &str) -> Value {
-    serde_json::from_str(&s.read(rel)).unwrap()
-}
-
-fn hook_commands(s: &Sandbox) -> Vec<String> {
-    json(s, ".claude/settings.json")["hooks"]["SessionStart"][0]["hooks"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|h| h["command"].as_str().unwrap().to_string())
-        .collect()
-}
-
-fn lib_names(s: &Sandbox) -> Vec<String> {
-    let mut v: Vec<String> = fs::read_dir(s.p(".radin/lib"))
-        .unwrap()
-        .flatten()
-        .map(|e| e.file_name().to_string_lossy().into_owned())
-        .collect();
-    v.sort();
-    v
 }
 
 /// Serves the repo's install.sh for the old updater's URL and a fake release installer for the new one.
@@ -88,144 +45,6 @@ STUB_NAME=curl exec "$MOCK_BIN/.stub" "$@"
     let _ = fs::remove_file(&p);
     fs::write(&p, body).unwrap();
     fs::set_permissions(&p, fs::Permissions::from_mode(0o755)).unwrap();
-}
-
-fn update_hosts(s: &Sandbox) -> R {
-    s.install(&["--update", "--yes"])
-}
-
-#[test]
-fn update_on_a_bash_era_install_removes_orphans_swaps_the_dispatcher_and_keeps_the_link() {
-    let s = bash_era();
-    assert!(fs::read(s.p(".radin/bin/radin"))
-        .unwrap()
-        .starts_with(b"#!"));
-    let m = json(&s, ".radin/manifest.json");
-    assert_eq!(m["manifest_version"], 2);
-    assert!(m["lib"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .any(|v| v == "radin-update.sh"));
-    let r = update_hosts(&s);
-    let o = r.all();
-    assert_eq!(r.code, 0, "{o}");
-    for n in [
-        "radin-update.sh",
-        "radin-backlog.sh",
-        "radin-tui.c",
-        "radin-cbm-json.c",
-        "radin-doctor.sh",
-    ] {
-        assert!(
-            o.contains(&format!(
-                "removed {}",
-                s.p(&format!(".radin/lib/{n}")).display()
-            )),
-            "{n}\n{o}"
-        );
-    }
-    assert_eq!(
-        lib_names(&s),
-        [
-            "companion-skills.txt",
-            "forbid-agents.txt",
-            "forbid-claude.txt",
-            "skill-names-agents.txt",
-            "skill-names-claude.txt"
-        ]
-    );
-    for f in [
-        "radin-tui",
-        "radin-cbm-json",
-        ".radin-tui.sum",
-        ".radin-cbm-json.sum",
-    ] {
-        assert!(!s.p(&format!(".radin/bin/{f}")).exists(), "{f}");
-    }
-    assert!(!fs::read(s.p(".radin/bin/radin"))
-        .unwrap()
-        .starts_with(b"#!"));
-    assert_eq!(
-        fs::read_link(s.p(".local/bin/radin")).unwrap(),
-        s.p(".radin/bin/radin")
-    );
-    let m = json(&s, ".radin/manifest.json");
-    assert!(!m["lib"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .any(|v| v == "radin-update.sh"));
-    assert_eq!(m["install_root"], s.p(".radin").to_str().unwrap());
-    assert_eq!(m["cli_on_path"], true);
-}
-
-#[test]
-fn update_rewrites_a_hook_that_runs_a_removed_script_and_warns_about_an_unmapped_one() {
-    let s = bash_era();
-    let r = update_hosts(&s);
-    let o = r.all();
-    assert_eq!(r.code, 0, "{o}");
-    let doctor = format!("{}/.radin/bin/radin doctor", s.home.display());
-    assert_eq!(
-        hook_commands(&s),
-        [
-            doctor.as_str(),
-            "$HOME/.radin/lib/radin-nope.sh",
-            "echo foreign"
-        ]
-    );
-    assert!(
-        o.contains("hook $HOME/.radin/lib/radin-nope.sh still names a removed script"),
-        "{o}"
-    );
-}
-
-#[test]
-fn a_settings_file_with_no_matching_hook_keeps_its_hooks_byte_for_byte() {
-    let s = bash_era();
-    let plain = "{\n  \"hooks\": {\n    \"SessionStart\": [\n      {\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"echo foreign\"\n          }\n        ]\n      }\n    ]\n  }\n}\n";
-    s.put(".claude/settings.json", plain);
-    let r = update_hosts(&s);
-    assert_eq!(r.code, 0, "{}", r.all());
-    let after = json(&s, ".claude/settings.json");
-    assert_eq!(
-        after["hooks"],
-        serde_json::from_str::<Value>(plain).unwrap()["hooks"]
-    );
-    assert!(!r.all().contains("hook echo foreign"));
-}
-
-#[test]
-fn doctor_is_clean_after_the_upgrade_and_a_second_update_changes_no_byte() {
-    let s = bash_era();
-    assert_eq!(update_hosts(&s).code, 0);
-    let mut j = json(&s, ".claude/settings.json");
-    j["hooks"]["SessionStart"][0]["hooks"]
-        .as_array_mut()
-        .unwrap()
-        .retain(|h| !h["command"].as_str().unwrap().contains("nope"));
-    s.put(
-        ".claude/settings.json",
-        &serde_json::to_string_pretty(&j).unwrap(),
-    );
-    let d = s.run_env(&["doctor"], "", &[]);
-    assert_eq!(d.code, 0, "{}", d.all());
-    let stable = |s: &Sandbox| -> Vec<(String, String)> {
-        s.tree()
-            .into_iter()
-            .filter(|(k, _)| {
-                k != ".radin/manifest.json"
-                    && !k.ends_with(".log")
-                    && !k.starts_with(".radin/backups/")
-            })
-            .collect()
-    };
-    let before = stable(&s);
-    let r = update_hosts(&s);
-    assert_eq!(r.code, 0, "{}", r.all());
-    assert!(!r.all().contains("removed "));
-    assert_eq!(before, stable(&s));
 }
 
 fn seed_old_layout(s: &Sandbox, real: Option<&Path>) {
@@ -413,36 +232,6 @@ fn the_install_sh_stub_exits_one_with_one_line_when_the_download_fails() {
     let err = String::from_utf8_lossy(&r.stderr);
     assert_eq!(err.lines().count(), 1, "{err}");
     assert!(err.contains("could not download"));
-}
-
-#[test]
-fn the_old_updater_of_a_bash_era_install_reaches_the_rust_binary_through_the_stub() {
-    let s = bash_era();
-    route_curl(&s);
-    let upd = s.p(".radin/lib/radin-update.sh");
-    let r = s
-        .command_of(
-            "bash",
-            &[upd.to_str().unwrap(), "--yes"],
-            &[("RADIN_TEST_BIN", BIN)],
-        )
-        .output()
-        .unwrap();
-    let o = format!(
-        "{}{}",
-        String::from_utf8_lossy(&r.stdout),
-        String::from_utf8_lossy(&r.stderr)
-    );
-    assert!(r.status.success(), "{o}");
-    assert!(!fs::read(s.p(".radin/bin/radin"))
-        .unwrap()
-        .starts_with(b"#!"));
-    assert!(!s.p(".radin/lib/radin-update.sh").exists());
-    assert_eq!(
-        json(&s, ".radin/manifest.json")["install_root"],
-        s.p(".radin").to_str().unwrap()
-    );
-    assert!(o.contains("radin updated in"), "{o}");
 }
 
 #[test]

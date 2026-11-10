@@ -1,3 +1,0 @@
----
-name: writing-for-agents
----

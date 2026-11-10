@@ -1,3 +1,0 @@
----
-name: diagnosing-bugs
----

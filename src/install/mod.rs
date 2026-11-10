@@ -320,7 +320,6 @@ impl<'a> Session<'a> {
             self.dry_run_report();
             return Err(Stop::Done(0));
         }
-        let era = self.bash_era();
         std::fs::create_dir_all(self.rh.join("lib"))?;
         for f in crate::shipped::shipped().lib {
             let b = self
@@ -331,9 +330,6 @@ impl<'a> Session<'a> {
         }
         self.remove_orphans();
         self.install_binary()?;
-        if era {
-            self.rewrite_hooks();
-        }
 
         self.ui.step("Sub-agent models");
         self.models_step();

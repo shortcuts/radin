@@ -436,14 +436,6 @@ impl U<'_, '_> {
         {
             self.remove_path("radin (~/.local/bin symlink)", &link);
         }
-        for (label, f) in [
-            ("radin-tui", "radin-tui"),
-            ("radin-cbm-json", "radin-cbm-json"),
-            ("build stamp", ".radin-tui.sum"),
-            ("build stamp", ".radin-cbm-json.sum"),
-        ] {
-            self.remove_path(label, &self.rh.join("bin").join(f));
-        }
         if !self.dry {
             let _ = fs::remove_dir(self.rh.join("bin"));
         }
