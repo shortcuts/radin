@@ -513,9 +513,14 @@ pub fn wave_partition(s: &S, a: &[String], io: &mut Io) -> R {
         }
         groups[g].push(i);
     }
+    let mut recorded = String::new();
     for g in &groups {
         let csv: Vec<&str> = g.iter().map(|m| ids[*m].as_str()).collect();
         let _ = writeln!(io.out, "group\t{}\t{}", g.len(), csv.join(","));
+        let _ = writeln!(recorded, "{}", csv.join(","));
+    }
+    if s.state.is_dir() {
+        super::write(s, "partition", &recorded);
     }
     for l in apart {
         let _ = writeln!(io.out, "{l}");

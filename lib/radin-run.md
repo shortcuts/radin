@@ -379,7 +379,7 @@ because it would claim a task outside the group.
    `RADIN_CLI telemetry record parallel vetoed task=<later> with=<earlier> wave=N evidence="<the symbols>"`.
    Any other answer keeps the group. Never merge two groups.
 5. Run the groups one after another. For one group, run
-   `RADIN_CLI state group-set --wave N <id>...`, which records the dispatch.
+   `RADIN_CLI state group-set --wave N <id>...`, which records the dispatch and refuses ids from two groups of the latest partition.
    Run `RADIN_CLI state task-next "<id>"` for each member, dispatch all of
    them in one message, and wait for every `STATUS:` line. Run `task-report`
    on each. A `debug` or `clarify` route follows the table above, then the

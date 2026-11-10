@@ -650,3 +650,18 @@ fn base_failing_records_and_clears_per_task() {
     assert_eq!(r.code, 1, "{}", r.all());
     assert!(!w.p.join(".radin/state/base-failing/a").exists());
 }
+
+#[test]
+fn group_set_refuses_tasks_that_the_partition_put_in_different_groups() {
+    let w = W::new();
+    w.planned("w a", &["lib/a.sh"]);
+    w.planned("w b", &[]);
+    w.planned("w c", &["lib/c.sh"]);
+    ids(&w, &["wave-partition", "--wave", "1"], "w-a\nw-b\nw-c\n");
+    let merged = w.state(&["group-set", "--wave", "1", "w-a", "w-b"]);
+    assert_ne!(merged.code, 0);
+    assert!(merged.err.contains("different groups"), "{}", merged.err);
+    assert_eq!(w.state(&["group-set", "--wave", "1", "w-a", "w-c"]).code, 0);
+    assert_eq!(w.state(&["group-set", "--wave", "1", "w-b"]).code, 0);
+    assert_ne!(w.state(&["group-set", "--wave", "1", "w-zzz"]).code, 0);
+}

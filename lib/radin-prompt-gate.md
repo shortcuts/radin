@@ -31,7 +31,7 @@ follow it at level session, one branch line at a time. The scope of a line is
 yourself.
 
 Pipe every finding line through `RADIN_CLI scope --bucket`. Drop each
-`consider` and `noted` line. File each `act-on` line as one backlog entry, `fix`
+`consider` and `noted` line. Run `RADIN_CLI backlog show` first. Append an `act-on` line to an open entry that has the same location file, with `RADIN_CLI backlog append`. File each other `act-on` line as one backlog entry, `fix`
 for incorrect behavior and `refactor` for the rest:
 
 RADIN_CLI backlog add <fix|refactor> "<short title>" --location "<path:line>" [--planning needed] [--complexity low|high] <<'EOF'
@@ -58,5 +58,6 @@ Your final message is exactly one of these lines, and nothing else:
 `STATUS: INCONCLUSIVE — <check that could not run, and why>`
 <!-- if:GATE_REVIEW -->
 When you filed entries, end a SUCCESS or FAILED line with `; filed <id>,<id>`.
+When you left a branch line unreviewed, end the line with `; unreviewed <branch>,<branch>`.
 <!-- end -->
 ```

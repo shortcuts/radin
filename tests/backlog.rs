@@ -1653,3 +1653,18 @@ fn untouched_lines_keep_their_bytes_when_another_entry_changes() {
     w.ok(&["set-priority", "new", "5"], "");
     assert_eq!(w.index().lines().next().unwrap(), legacy);
 }
+
+#[test]
+fn add_warns_when_an_open_entry_already_has_the_same_location_file() {
+    let w = W::new();
+    w.ok(&["add", "fix", "first", "--location", "t/A.kt:106"], "b\n");
+    let r = w.cli(&["add", "fix", "second", "--location", "t/A.kt:91"], "b\n");
+    assert_eq!(r.code, 0);
+    assert!(
+        r.err.contains("warning") && r.err.contains("first") && r.err.contains("t/A.kt"),
+        "{}",
+        r.err
+    );
+    let other = w.cli(&["add", "fix", "third", "--location", "t/B.kt:1"], "b\n");
+    assert!(!other.err.contains("warning"), "{}", other.err);
+}

@@ -16,7 +16,7 @@ blocked. The `checks:` clause is mandatory and last. `pass` means the check ran
 this session and exercised the change. `na` is allowed for `test` and `lint`
 only when step 5 or step 8 found nothing to run and a `**Fact:**` line says
 why. `review` is the step 9 review. Any other value or a missing item makes the
-router record `STATUS: INCONCLUSIVE`. The router acts on this line alone. Your commit stays on your own branch, and the router records the task done after the merge.
+router record `STATUS: INCONCLUSIVE`. `built:` names only what your own commits add. Credit work already on the branch to its hash in the first clause. The router acts on this line alone. Your commit stays on your own branch, and the router records the task done after the merge.
 
 Before you report, record each item below with one call per line:
 `RADIN_CLI backlog fact "t-one" <measured|inferred|guess> "<the line>"`. On SUCCESS, `task-done` keeps these lines in the task's facts

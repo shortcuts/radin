@@ -84,6 +84,21 @@ pub fn group_set(s: &S, a: &[String]) -> R {
     }) {
         return Err(usage());
     }
+    if let Ok(parts) = std::fs::read_to_string(s.state.join("partition")) {
+        // Only the latest partition may start a run; merging its groups is what it exists to stop.
+        let group_of = |id: &str| parts.lines().position(|l| l.split(',').any(|m| m == id));
+        let first = group_of(&a[0]);
+        if let Some(bad) = a.iter().find(|id| group_of(id).is_none()) {
+            return Err(die(format!(
+                "group-set: '{bad}' is in no group of the latest wave-partition"
+            )));
+        }
+        if a.iter().any(|id| group_of(id) != first) {
+            return Err(die(
+                "group-set: those tasks are in different groups of the latest wave-partition; run one group, or a subset of it",
+            ));
+        }
+    }
     let ids = a.join(",");
     let mut detail = format!("ids={ids}");
     if !wave.is_empty() {

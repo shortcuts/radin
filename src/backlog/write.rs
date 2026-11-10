@@ -150,6 +150,18 @@ pub fn add(cx: &Ctx, a: &[String], io: &mut Io) -> R {
     if !deps.is_empty() {
         obj.insert("depends_on".into(), strs(&deps));
     }
+    let file = location.rsplit_once(':').map_or(location, |(f, _)| f);
+    if !file.is_empty() {
+        for e in &idx.entries {
+            if e.str("location").rsplit_once(':').map_or("", |(f, _)| f) == file {
+                io.err.push_str(&format!(
+                    "warning: open entry \"{}\" (id: {}) has the same location file {file}; append to it with `append` unless the cause differs\n",
+                    e.title(),
+                    e.id()
+                ));
+            }
+        }
+    }
     idx.entries.push(Entry::new(obj));
     idx.write()?;
     io.err.push_str(&format!(
