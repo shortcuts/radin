@@ -177,6 +177,11 @@ impl<'a> S<'a> {
     pub fn telemetry(&self, kind: &str, kv: &[String]) {
         let mut v = vec!["telemetry", "record", "parallel", kind];
         v.extend(kv.iter().map(String::as_str));
+        let run = self.run_id();
+        let run_kv = format!("run={run}");
+        if !run.is_empty() {
+            v.push(&run_kv);
+        }
         (self.c.cli)(&self.root, &v, "");
     }
 

@@ -1,5 +1,6 @@
 mod epic;
 mod index;
+pub(crate) use index::epic_of;
 mod order;
 mod plan;
 mod read;

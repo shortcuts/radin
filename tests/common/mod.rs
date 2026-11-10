@@ -208,6 +208,17 @@ impl W {
             .to_string()
     }
 
+    pub fn run_id(&self) -> String {
+        let b = self.read(".radin/state/baseline.json");
+        b.split("\"run_id\":\"")
+            .nth(1)
+            .unwrap()
+            .split('"')
+            .next()
+            .unwrap()
+            .into()
+    }
+
     pub fn steps_init(&self, rows: &str) {
         assert_eq!(self.state_in(&["steps-init"], rows).code, 0);
     }

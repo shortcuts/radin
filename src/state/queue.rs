@@ -54,13 +54,17 @@ pub fn steps_init(s: &S, io: &mut Io) -> R {
     store::write_atomic(
         &s.state.join("baseline.json"),
         &format!(
-            "{{\"backlog_count\":{count},\"completed_count\":{done},\"base_branch\":\"{}\"}}\n",
-            store::json_escape(&base)
+            "{{\"backlog_count\":{count},\"completed_count\":{done},\"base_branch\":\"{}\",\"run_id\":\"{}\"}}\n",
+            store::json_escape(&base),
+            store::run_stamp()
         ),
     )
     .map_err(|e| die(e.to_string()))?;
-    for f in ["gate-fixes", "gate-reviewed", "gate-done"] {
+    for f in ["gate-fixes", "gate-reviewed", "gate-done", "dispatch-seq"] {
         s.rm(f);
+    }
+    for d in ["dispatch", "wave-of"] {
+        let _ = std::fs::remove_dir_all(s.state.join(d));
     }
     s.journal("steps-init", "", &format!("{n} entries"));
     let _ = writeln!(

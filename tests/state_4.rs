@@ -39,8 +39,9 @@ fn steps_init_takes_depends_on_from_the_index_and_writes_the_baseline_and_journa
     assert_eq!(
         w.read(".radin/state/baseline.json"),
         format!(
-            "{{\"backlog_count\":2,\"completed_count\":0,\"base_branch\":\"{}\"}}\n",
-            w.base()
+            "{{\"backlog_count\":2,\"completed_count\":0,\"base_branch\":\"{}\",\"run_id\":\"{}\"}}\n",
+            w.base(),
+            w.run_id()
         )
     );
     assert!(w
@@ -594,4 +595,63 @@ fn task_report_planned_needs_plan_review_unless_no_plan_was_written() {
     assert_eq!(r.out, "task-report: planned t-one\nnext\tcontinue\n");
     let meta = w.bl(&["meta", "t-one"], "").out;
     assert!(meta.contains("complexity\tlow"), "{meta}");
+}
+
+#[test]
+fn journal_completed_and_telemetry_carry_the_run_dispatch_and_wave() {
+    let w = W::new();
+    w.bl(&["set-meta", "t-one", "complexity", "low"], "");
+    w.bl(&["set-meta", "t-one", "acceptance", "crit a"], "");
+    w.plan_with(&["lib/a.sh"]);
+    w.commit_files(&["lib/a.sh"]);
+    let h = w.hash.borrow().clone();
+    let run = w.run_id();
+    assert!(run.starts_with('r') && run.contains('-'), "{run}");
+    let j = w.read(".radin/state/journal.jsonl");
+    assert!(
+        j.contains(&format!("\"run\":\"{run}\",\"event\":\"steps-init\"")),
+        "{j}"
+    );
+    w.state(&["task-next"]);
+    w.state(&["group-set", "--wave", "2", "t-one"]);
+    assert_eq!(
+        *w.tele.borrow().last().unwrap(),
+        format!("dispatched ids=t-one size=1 wave=2 run={run}")
+    );
+    w.state(&["task-report", "t-one", "STATUS: FAILED — boom"]);
+    w.state(&[
+        "task-report",
+        "t-one",
+        "STATUS: FAILED — boom",
+        "--usage",
+        "debug 7 1 1",
+    ]);
+    let j = w.read(".radin/state/journal.jsonl");
+    let has = |s: &str| j.contains(s);
+    assert!(has(&format!("\"run\":\"{run}\",\"from\":\"pending\",\"dispatch\":1,\"kind\":\"execution\",\"event\":\"in_progress\",\"id\":\"t-one\"")), "{j}");
+    assert!(has(&format!("\"run\":\"{run}\",\"wave\":\"2\",\"event\":\"group\",\"id\":\"\",\"detail\":\"ids=t-one; wave=2\"")), "{j}");
+    assert!(
+        has(&format!(
+            "\"run\":\"{run}\",\"dispatch\":2,\"kind\":\"debug\",\"event\":\"debug\""
+        )),
+        "{j}"
+    );
+    assert!(has(&format!("\"run\":\"{run}\",\"dispatch\":2,\"kind\":\"debug\",\"event\":\"usage\",\"id\":\"t-one\",\"detail\":\"debug 7 1 1\"")), "{j}");
+    assert!(has(&format!("\"run\":\"{run}\",\"from\":\"in_progress\",\"dispatch\":2,\"kind\":\"debug\",\"wave\":\"2\",\"event\":\"failed\"")), "{j}");
+    assert_eq!(j.matches("\"event\":\"in_progress\"").count(), 1, "{j}");
+    w.state(&["answered", "t-one"]);
+    w.state(&["task-next"]);
+    let j = w.read(".radin/state/journal.jsonl");
+    assert!(
+        j.contains("\"dispatch\":3,\"kind\":\"execution\",\"event\":\"in_progress\""),
+        "{j}"
+    );
+    assert_eq!(w.state(&["task-done", "t-one", &h]).code, 0);
+    let line = w.read(".radin/state/completed.json");
+    let tail = format!("\"run\":\"{run}\",\"attempts\":1,\"debugged\":1,\"claimed\":\"20");
+    assert!(line.contains(&tail), "{line}");
+    assert!(
+        line.ends_with("\",\"category\":\"fix\",\"priority\":\"\",\"epic\":\"\",\"complexity\":\"low\",\"acceptance\":\"crit a\"}\n"),
+        "{line}"
+    );
 }

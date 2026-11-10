@@ -85,7 +85,15 @@ pub fn group_set(s: &S, a: &[String]) -> R {
         return Err(usage());
     }
     let ids = a.join(",");
-    s.journal("group", "", &format!("ids={ids}"));
+    let mut detail = format!("ids={ids}");
+    if !wave.is_empty() {
+        mkdir(s, "wave-of");
+        for id in a {
+            write(s, &format!("wave-of/{id}"), &wave);
+        }
+        detail += &format!("; wave={wave}");
+    }
+    s.journal_ctx("group", "", &detail, &[("wave", wave.clone())]);
     let mut kv = vec![format!("ids={ids}"), format!("size={}", a.len())];
     if !wave.is_empty() {
         kv.push(format!("wave={wave}"));

@@ -265,12 +265,30 @@ pub fn task_done(s: &S, id: &str, hash: &str, io: &mut Io) -> R {
         .unwrap_or_default();
     let out_of_plan = plan_extras(&dir, hash, &s.plan_files(id));
     if s.completed_get(id).is_none() {
+        let row = s.find_row(id).unwrap_or_default();
+        let col = |i: usize| row.get(i).cloned().unwrap_or_default();
+        let meta = s.bl_ok(&["meta", id]).unwrap_or_default();
+        let meta_of = |k: &str| {
+            meta.lines()
+                .filter_map(|l| l.strip_prefix(&format!("{k}\t")))
+                .collect::<Vec<_>>()
+                .join(" | ")
+        };
+        let entry = s.entry(id).unwrap_or_default();
+        let claimed = s
+            .dispatches(id)
+            .first()
+            .map(|d| d.2.clone())
+            .unwrap_or_default();
         store::append(
             &s.completed,
             &format!(
-                "{{\"id\":\"{}\",\"commit\":\"{}\",\"title\":\"{}\",\"branch\":\"{}\",\"worktree\":\"{}\",\"plan\":\"{}\",\"ts\":\"{}\",\"created\":\"{}\"}}\n",
+                "{{\"id\":\"{}\",\"commit\":\"{}\",\"title\":\"{}\",\"branch\":\"{}\",\"worktree\":\"{}\",\"plan\":\"{}\",\"ts\":\"{}\",\"created\":\"{}\",\"run\":\"{}\",\"attempts\":{},\"debugged\":{},\"claimed\":\"{}\",\"category\":\"{}\",\"priority\":\"{}\",\"epic\":\"{}\",\"complexity\":\"{}\",\"acceptance\":\"{}\"}}\n",
                 json_escape(id), json_escape(hash), json_escape(&title), json_escape(&prov_branch),
-                json_escape(&prov_worktree), json_escape(&plans), store::now_utc(), json_escape(&created)
+                json_escape(&prov_worktree), json_escape(&plans), store::now_utc(), json_escape(&created),
+                json_escape(&s.run_id()), num(&entry, "attempts"), num(&entry, "debugged"), json_escape(&claimed),
+                json_escape(&col(1)), json_escape(&col(4)), json_escape(&crate::backlog::epic_of(&col(3))),
+                json_escape(&meta_of("complexity")), json_escape(&meta_of("acceptance"))
             ),
         );
     }
@@ -467,7 +485,12 @@ pub fn plan_discard(s: &S, a: &[String], io: &mut Io) -> R {
     s.bl_must(&["set-meta", id, "plan", "--none"], "")?;
     s.bl_must(&["set-meta", id, "planning", "needed"], "")?;
     s.write_entry(id, "pending", 0, "", None)?;
-    s.journal("plan-discard", id, &format!("wave {wave}; paths {paths}"));
+    s.journal_ctx(
+        "plan-discard",
+        id,
+        &format!("wave {wave}; paths {paths}"),
+        &[("wave", wave.to_string())],
+    );
     s.telemetry(
         "plan-discarded",
         &[

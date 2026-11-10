@@ -31,7 +31,8 @@ fn task_fail(s: &S, id: &str, reason: &str) -> Result<Option<String>, Fail> {
             &get(&entry, "note"),
             Some(1),
         )?;
-        s.journal("debug", id, reason);
+        s.dispatch_new(id, "debug");
+        s.journal_ctx("debug", id, reason, &s.dispatch_extras(id, Some("debug")));
         return Ok(None);
     }
     let lines = s.journal_lines();
@@ -216,7 +217,8 @@ fn report_inner(s: &S, a: &[String], usages: &[String], io: &mut Io) -> R {
     let entry = s.need_entry(id)?;
     for u in usages {
         if usage_ok(u) {
-            s.journal("usage", id, u);
+            let kind = u.split(' ').next();
+            s.journal_ctx("usage", id, u, &s.dispatch_extras(id, kind));
         } else {
             let _ = writeln!(io.err, "radin-state: ignoring malformed --usage: {u}");
         }
@@ -344,6 +346,9 @@ fn report_inner(s: &S, a: &[String], usages: &[String], io: &mut Io) -> R {
     let mut detail =
         forced.unwrap_or_else(|| detail.strip_prefix(' ').unwrap_or(detail).to_string());
     if word == "BLOCKED" {
+        if tag == "FACT" {
+            s.dispatch_new(id, "factfind");
+        }
         let _ = writeln!(io.out, "next\tclarify {tag}");
         return Ok(0);
     }

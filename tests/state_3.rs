@@ -358,9 +358,12 @@ fn plan_discard_drops_the_plan_flags_planning_needed_and_records_the_planning_to
     let meta = w.bl(&["meta", "t-one"], "").out;
     assert!(meta.contains("planning\tneeded"), "{meta}");
     assert!(!meta.contains("plan\t"), "{meta}");
+    let run = w.run_id();
     assert_eq!(
         *w.tele.borrow(),
-        vec!["plan-discarded task=t-one wave=1 paths=lib/a.sh tokens=1234"]
+        vec![format!(
+            "plan-discarded task=t-one wave=1 paths=lib/a.sh tokens=1234 run={run}"
+        )]
     );
     assert!(w.state(&["task-next"]).out.contains("kind\tplanning"));
 }

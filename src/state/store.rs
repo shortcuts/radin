@@ -146,20 +146,82 @@ pub fn now_utc() -> String {
     )
 }
 
+pub fn run_stamp() -> String {
+    format!(
+        "r{}-{}",
+        now_utc().replace(['-', ':'], ""),
+        std::process::id()
+    )
+}
+
 impl S<'_> {
     pub fn journal(&self, event: &str, id: &str, detail: &str) {
+        self.journal_ctx(event, id, detail, &[]);
+    }
+
+    /// `dispatch` is a number, every other extra a string; empty extras are skipped.
+    pub fn journal_ctx(&self, event: &str, id: &str, detail: &str, extras: &[(&str, String)]) {
         if self.state.is_dir() {
+            let mut x = String::new();
+            for (k, v) in extras.iter().filter(|(_, v)| !v.is_empty()) {
+                x += &if *k == "dispatch" {
+                    format!("\"{k}\":{v},")
+                } else {
+                    format!("\"{k}\":\"{}\",", json_escape(v))
+                };
+            }
             append(
                 &self.state.join("journal.jsonl"),
                 &format!(
-                    "{{\"ts\":\"{}\",\"event\":\"{}\",\"id\":\"{}\",\"detail\":\"{}\"}}\n",
+                    "{{\"ts\":\"{}\",\"run\":\"{}\",{x}\"event\":\"{}\",\"id\":\"{}\",\"detail\":\"{}\"}}\n",
                     now_utc(),
+                    json_escape(&self.run_id()),
                     json_escape(event),
                     json_escape(id),
                     json_escape(detail)
                 ),
             );
         }
+    }
+
+    pub fn run_id(&self) -> String {
+        get(&self.read("baseline.json"), "run_id")
+    }
+
+    /// Takes the next run-wide dispatch number for `id`; 0 without a state dir.
+    pub fn dispatch_new(&self, id: &str, kind: &str) -> u64 {
+        if !self.state.is_dir() {
+            return 0;
+        }
+        let n = self.read("dispatch-seq").trim().parse::<u64>().unwrap_or(0) + 1;
+        let _ = fs::write(self.state.join("dispatch-seq"), n.to_string());
+        let _ = fs::create_dir_all(self.state.join("dispatch"));
+        append(
+            &self.state.join(format!("dispatch/{id}")),
+            &format!("{n} {kind} {}\n", now_utc()),
+        );
+        n
+    }
+
+    /// The dispatches of `id` as (number, kind, ts), oldest first.
+    pub fn dispatches(&self, id: &str) -> Vec<(u64, String, String)> {
+        read_lines(&self.state.join(format!("dispatch/{id}")))
+            .iter()
+            .filter_map(|l| {
+                let mut f = l.split(' ');
+                Some((f.next()?.parse().ok()?, f.next()?.into(), f.next()?.into()))
+            })
+            .collect()
+    }
+
+    /// Dispatch extras for a journal line: the last dispatch of `id`, of `kind` when given.
+    pub fn dispatch_extras(&self, id: &str, kind: Option<&str>) -> Vec<(&'static str, String)> {
+        self.dispatches(id)
+            .into_iter()
+            .rfind(|d| kind.is_none_or(|k| d.1 == k))
+            .map_or_else(Vec::new, |(n, k, _)| {
+                vec![("dispatch", n.to_string()), ("kind", k)]
+            })
     }
 
     pub fn entry(&self, id: &str) -> Option<String> {
@@ -182,8 +244,14 @@ impl S<'_> {
     ) -> Result<(), Fail> {
         let mut found = false;
         let mut out = String::new();
+        let mut from = String::new();
+        let mut unchanged = false;
         for line in read_lines(&self.steps) {
             if get(&line, "id") == id {
+                from = get(&line, "status");
+                unchanged = from == status
+                    && num(&line, "attempts") == attempts
+                    && get(&line, "note") == note;
                 let deps = deps_inner(&line).map_or_else(|| "[]".to_string(), |d| format!("[{d}]"));
                 let dbg = debugged.unwrap_or_else(|| num(&line, "debugged"));
                 out += &entry_json(id, num(&line, "order"), status, &deps, attempts, dbg, note);
@@ -197,7 +265,15 @@ impl S<'_> {
         if !found {
             return Err(die(format!("no entry with id: {id}")));
         }
-        self.journal(status, id, note);
+        if !unchanged {
+            let mut x = vec![("from", from)];
+            x.extend(self.dispatch_extras(id, None));
+            x.push((
+                "wave",
+                self.read(&format!("wave-of/{id}")).trim().to_string(),
+            ));
+            self.journal_ctx(status, id, note, &x);
+        }
         Ok(())
     }
 
@@ -238,6 +314,15 @@ impl S<'_> {
             );
             return Ok(false);
         }
+        self.rm(&format!("wave-of/{id}"));
+        self.dispatch_new(
+            id,
+            if status == "pending" {
+                "planning"
+            } else {
+                "execution"
+            },
+        );
         self.write_entry(id, status, attempts, note, None)?;
         Ok(true)
     }

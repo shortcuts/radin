@@ -313,7 +313,7 @@ When the dispatch's completion notification carries a usage block (total tokens,
 tool uses, duration in ms), add `--usage "<kind> <tokens> <tool_uses> <duration_ms>"`
 to that task's next `task-report` call, `kind` being `planning`, `execution`,
 `debug` or `factfind` for the dispatch that produced it. A debug or fact-finder
-dispatch's usage rides on the re-run's `task-report`, one `--usage` per dispatch.
+dispatch's usage rides on the re-run's `task-report`, one `--usage` per dispatch, and the journal books it to the dispatch of that kind.
 No usage block, no flag; a synchronous result's `totalTokens` counts only the
 final request, so it never supplies the number.
 <!-- /host -->
