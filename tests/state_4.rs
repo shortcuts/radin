@@ -18,7 +18,7 @@ fn steps_init_rejects_a_bad_order_a_bad_status_and_empty_input_and_writes_nothin
     let r = w.state_in(&["steps-init"], "t-one\t1\t\tdone\n");
     assert_eq!(
         r.err,
-        "radin-state: bad status for 't-one': done (pending|deferred)\n"
+        "radin-state: bad status for 't-one': done (pending|excluded)\n"
     );
     assert_eq!(
         w.state_in(&["steps-init"], "").err,
@@ -31,10 +31,10 @@ fn steps_init_rejects_a_bad_order_a_bad_status_and_empty_input_and_writes_nothin
 fn steps_init_takes_depends_on_from_the_index_and_writes_the_baseline_and_journal() {
     let w = W::new();
     w.bl(&["add", "fix", "t two", "--deps", "t-one"], "body\n");
-    w.steps_init("t-one\t1\t\tpending\nt-two\t2\tignored\tdeferred\n");
+    w.steps_init("t-one\t1\t\tpending\nt-two\t2\tignored\texcluded\n");
     assert_eq!(
         w.read(".radin/state/BACKLOG_STEPS.json"),
-        "{\"id\":\"t-one\",\"order\":1,\"status\":\"pending\",\"depends_on\":[],\"attempts\":0,\"debugged\":0,\"note\":\"\"}\n{\"id\":\"t-two\",\"order\":2,\"status\":\"deferred\",\"depends_on\":[\"t-one\"],\"attempts\":0,\"debugged\":0,\"note\":\"\"}\n"
+        "{\"id\":\"t-one\",\"order\":1,\"status\":\"pending\",\"reason\":\"\",\"depends_on\":[],\"attempts\":0,\"debugged\":0,\"note\":\"\"}\n{\"id\":\"t-two\",\"order\":2,\"status\":\"excluded\",\"reason\":\"\",\"depends_on\":[\"t-one\"],\"attempts\":0,\"debugged\":0,\"note\":\"\"}\n"
     );
     assert_eq!(
         w.read(".radin/state/baseline.json"),
@@ -54,10 +54,10 @@ fn answered_resets_attempts_and_keeps_debugged_while_retry_clears_both() {
     let w = W::new();
     w.write(
         ".radin/state/BACKLOG_STEPS.json",
-        "{\"id\":\"t-one\",\"order\":1,\"status\":\"blocked\",\"depends_on\":[],\"attempts\":3,\"debugged\":1,\"note\":\"deferred: q\"}\n",
+        "{\"id\":\"t-one\",\"order\":1,\"status\":\"blocked\",\"reason\":\"deferred\",\"depends_on\":[],\"attempts\":3,\"debugged\":1,\"note\":\"q\"}\n",
     );
     assert_eq!(w.state(&["answered", "t-one"]).code, 0);
-    assert_eq!(w.read(".radin/state/BACKLOG_STEPS.json"), "{\"id\":\"t-one\",\"order\":1,\"status\":\"pending\",\"depends_on\":[],\"attempts\":0,\"debugged\":1,\"note\":\"\"}\n");
+    assert_eq!(w.read(".radin/state/BACKLOG_STEPS.json"), "{\"id\":\"t-one\",\"order\":1,\"status\":\"pending\",\"reason\":\"\",\"depends_on\":[],\"attempts\":0,\"debugged\":1,\"note\":\"\"}\n");
     w.state(&["set-status", "t-one", "failed", "x"]);
     assert_eq!(w.state(&["retry", "t-one"]).code, 0);
     assert!(w
@@ -288,7 +288,7 @@ fn task_report_blocked_and_inconclusive_and_unknown_lines() {
     assert_eq!(r.out, "⚠️ Task 1 't one' inconclusive: maybe. Not counted as a pass. Kept on the backlog with a note, moving on.\nnext\tcontinue\n");
     assert_eq!(
         w.state(&["steps-waiting"]).out,
-        "t-one\tinconclusive: maybe\n"
+        "t-one\tinconclusive\tinconclusive: maybe\n"
     );
     let r = w.state(&["task-report", "t-one", "no marker"]);
     assert_eq!(r.code, 1);
@@ -445,7 +445,7 @@ fn gate_filed_appends_pending_entries_once_per_session_and_gate_fix_stores_short
     w.steps_init("t-one\t1\t\tpending\n");
     w.bl(&["add", "fix", "t two"], "body\n");
     assert_eq!(w.state(&["gate-filed", "t-two"]).code, 0);
-    assert!(w.read(".radin/state/BACKLOG_STEPS.json").ends_with("{\"id\":\"t-two\",\"order\":2,\"status\":\"pending\",\"depends_on\":[],\"attempts\":0,\"debugged\":0,\"note\":\"\"}\n"));
+    assert!(w.read(".radin/state/BACKLOG_STEPS.json").ends_with("{\"id\":\"t-two\",\"order\":2,\"status\":\"pending\",\"reason\":\"\",\"depends_on\":[],\"attempts\":0,\"debugged\":0,\"note\":\"\"}\n"));
     assert_eq!(
         w.state(&["gate-filed", "t-two"]).err,
         "radin-state: the gate's review round is already used\n"
@@ -552,7 +552,7 @@ fn task_report_success_without_a_passing_check_is_inconclusive_and_names_the_che
     assert!(!w.exists(".radin/state/completed.json"));
     assert_eq!(
         w.state(&["steps-waiting"]).out,
-        "t-one\tinconclusive: reported SUCCESS without a passing check: test, lint, review\n"
+        "t-one\tinconclusive\tinconclusive: reported SUCCESS without a passing check: test, lint, review\n"
     );
     let r = report("; checks: test=pass, lint=pass, review=skipped");
     assert!(r.out.contains("passing check: review. "), "{}", r.out);
@@ -654,4 +654,96 @@ fn journal_completed_and_telemetry_carry_the_run_dispatch_and_wave() {
         line.ends_with("\",\"category\":\"fix\",\"priority\":\"\",\"epic\":\"\",\"complexity\":\"low\",\"acceptance\":\"crit a\"}\n"),
         "{line}"
     );
+}
+
+#[test]
+fn a_blocked_report_is_stored_as_a_waiting_entry_and_answered_returns_it_to_pending() {
+    let w = W::new();
+    w.clean();
+    w.steps_init("t-one\t1\t\tpending\n");
+    w.state(&["set-status", "t-one", "in_progress"]);
+    w.state(&[
+        "task-report",
+        "t-one",
+        "STATUS: BLOCKED (DECISION) — which?",
+    ]);
+    assert_eq!(w.state(&["steps-waiting"]).out, "t-one\tdecision\twhich?\n");
+    let pre = w.state(&["preflight"]).out;
+    assert!(pre.contains("waiting\tt-one\tdecision\twhich?\n"), "{pre}");
+    assert!(!pre.contains("stuck"), "{pre}");
+    w.state(&["answered", "t-one"]);
+    assert!(w
+        .read(".radin/state/BACKLOG_STEPS.json")
+        .contains("\"status\":\"pending\",\"reason\":\"\""));
+}
+
+#[test]
+fn a_dependency_block_logs_one_event_and_lifts_when_the_dependency_lands() {
+    let w = W::new();
+    w.bl(&["add", "fix", "t two"], "body\n");
+    w.steps_init("t-one\t1\t\tpending\nt-two\t2\tt-one\tpending\n");
+    let events = |w: &W| {
+        w.read(".radin/state/journal.jsonl")
+            .matches("\"event\":\"blocked\",\"id\":\"t-two\"")
+            .count()
+    };
+    w.state(&["task-next", "t-two"]);
+    w.state(&["task-next", "t-two"]);
+    assert_eq!(events(&w), 1);
+    assert!(w
+        .read(".radin/state/BACKLOG_STEPS.json")
+        .contains("\"status\":\"blocked\",\"reason\":\"dependency\""));
+    assert_eq!(w.state(&["resume"]).out, "");
+    w.write(
+        ".radin/state/completed.json",
+        "{\"id\":\"t-one\",\"commit\":\"abc123def456\"}\n",
+    );
+    assert!(w.state(&["wave"]).out.contains("t-two\t2\n"));
+    assert_eq!(events(&w), 1);
+}
+
+#[test]
+fn the_dependency_gate_reads_the_backlog_deps_set_after_steps_init() {
+    let w = W::new();
+    w.bl(&["add", "fix", "t two"], "body\n");
+    w.steps_init("t-one\t1\t\tpending\nt-two\t2\t\tpending\n");
+    assert_eq!(w.state(&["deps-check", "t-two"]).code, 0);
+    w.bl(&["set-deps", "t-two", "t-one"], "");
+    let r = w.state(&["deps-check", "t-two"]);
+    assert_eq!(
+        (r.code, r.err.as_str()),
+        (
+            1,
+            "radin-state: task 't-two' waiting on dependency 't-one', which is pending\n"
+        )
+    );
+}
+
+#[test]
+fn set_status_reason_takes_only_deferred_with_blocked_and_task_fact_journals() {
+    let w = W::new();
+    w.steps_init("t-one\t1\t\tpending\n");
+    w.state(&[
+        "set-status",
+        "t-one",
+        "blocked",
+        "--reason",
+        "deferred",
+        "which db?",
+    ]);
+    assert_eq!(
+        w.state(&["steps-waiting"]).out,
+        "t-one\tdeferred\twhich db?\n"
+    );
+    for bad in [
+        ["pending", "--reason", "deferred"],
+        ["blocked", "--reason", "fact"],
+    ] {
+        let r = w.state(&["set-status", "t-one", bad[0], bad[1], bad[2], "x"]);
+        assert_eq!(r.code, 1, "{bad:?}");
+    }
+    w.state(&["task-fact", "t-one", "STATUS: FOUND — [measured] a is 1"]);
+    assert!(w
+        .read(".radin/state/journal.jsonl")
+        .contains("\"event\":\"fact\",\"id\":\"t-one\",\"detail\":\"[measured] a is 1\""));
 }

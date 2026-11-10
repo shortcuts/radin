@@ -159,7 +159,7 @@ pub fn gate_filed(s: &S, a: &[String]) -> R {
             &s.steps,
             &format!(
                 "{}\n",
-                store::entry_json(id, next, "pending", &deps, 0, 0, "")
+                store::entry_json(id, next, "pending", "", &deps, 0, 0, "")
             ),
         );
     }

@@ -1,5 +1,5 @@
 use super::plan_cover::{norm_path, shared_paths};
-use super::store::{self, deps_csv, deps_json, entry_json, get, num, read_lines};
+use super::store::{self, deps_json, entry_json, get, num, read_lines};
 use super::{arg, die, positive, S};
 use crate::backlog::{Io, R};
 use std::collections::HashSet;
@@ -23,9 +23,9 @@ pub fn steps_init(s: &S, io: &mut Io) -> R {
             let o = if order.is_empty() { "<empty>" } else { order };
             return Err(die(format!("bad order for '{id}': {o}")));
         }
-        if !matches!(status, "pending" | "deferred") {
+        if !matches!(status, "pending" | "excluded") {
             return Err(die(format!(
-                "bad status for '{id}': {status} (pending|deferred)"
+                "bad status for '{id}': {status} (pending|excluded)"
             )));
         }
         let from_index = s.find_deps(id);
@@ -35,7 +35,7 @@ pub fn steps_init(s: &S, io: &mut Io) -> R {
             from_index.replace(' ', "")
         };
         let order: u64 = order.parse().unwrap_or(0);
-        out += &entry_json(id, order, status, &deps_json(&deps), 0, 0, "");
+        out += &entry_json(id, order, status, "", &deps_json(&deps), 0, 0, "");
         out.push('\n');
         n += 1;
     }
@@ -118,16 +118,16 @@ pub fn steps_open(s: &S, io: &mut Io) -> R {
     Ok(i32::from(!found))
 }
 
-fn waiting_note(note: &str) -> bool {
-    note.starts_with("deferred:") || note.starts_with("inconclusive:")
+fn waiting_reason(reason: &str) -> bool {
+    matches!(reason, "deferred" | "inconclusive" | "fact" | "decision")
 }
 
 pub fn steps_waiting(s: &S, io: &mut Io) -> R {
     let mut found = false;
     for l in read_lines(&s.steps) {
-        let note = get(&l, "note");
-        if get(&l, "status") == "blocked" && waiting_note(&note) {
-            let _ = writeln!(io.out, "{}\t{note}", get(&l, "id"));
+        let reason = get(&l, "reason");
+        if get(&l, "status") == "blocked" && waiting_reason(&reason) {
+            let _ = writeln!(io.out, "{}\t{reason}\t{}", get(&l, "id"), get(&l, "note"));
             found = true;
         }
     }
@@ -204,10 +204,13 @@ pub fn resume(s: &S, io: &mut Io) -> R {
     let mut moved: Vec<(String, String)> = Vec::new();
     for l in read_lines(&s.steps) {
         let status = get(&l, "status");
-        let note = get(&l, "note");
+        let reason = get(&l, "reason");
         let retryable = match status.as_str() {
             "failed" => true,
-            "blocked" => !(waiting_note(&note) || note.contains("(MAX_ATTEMPTS)")),
+            "blocked" => {
+                !(waiting_reason(&reason)
+                    || matches!(reason.as_str(), "max-attempts" | "dependency" | "unmerged"))
+            }
             _ => false,
         };
         if retryable {
@@ -220,6 +223,34 @@ pub fn resume(s: &S, io: &mut Io) -> R {
         let _ = writeln!(io.out, "{id}\t{old}");
     }
     Ok(0)
+}
+
+/// Moves a dependency- or unmerged-blocked entry back to pending once its block lifts.
+pub fn release_ready(s: &S) -> Result<(), crate::backlog::Fail> {
+    if !s.steps.is_file() {
+        return Ok(());
+    }
+    for l in read_lines(&s.steps) {
+        if get(&l, "status") != "blocked" {
+            continue;
+        }
+        let id = get(&l, "id");
+        let free = match get(&l, "reason").as_str() {
+            "dependency" => match deps_check(s, &id)?.1 {
+                Some(m) => {
+                    s.set_blocked(&id, "dependency", &m)?;
+                    false
+                }
+                None => true,
+            },
+            "unmerged" => !s.exists(&format!("unmerged/{id}")),
+            _ => false,
+        };
+        if free {
+            s.write_entry(&id, "pending", num(&l, "attempts"), "", None)?;
+        }
+    }
+    Ok(())
 }
 
 pub fn answered(s: &S, a: &[String]) -> R {
@@ -251,10 +282,15 @@ pub fn retry(s: &S, a: &[String]) -> R {
 }
 
 pub fn set_status(s: &S, a: &[String]) -> R {
-    let (id, status, note) = (arg(a, 0), arg(a, 1), arg(a, 2));
+    let (id, status) = (arg(a, 0), arg(a, 1));
+    let (reason, note) = if arg(a, 2) == "--reason" {
+        (arg(a, 3), arg(a, 4))
+    } else {
+        ("", arg(a, 2))
+    };
     if id.is_empty() || status.is_empty() {
         return Err(die(
-            "usage: set-status <id> <pending|in_progress|failed|blocked> [note]",
+            "usage: set-status <id> <pending|in_progress|failed|blocked> [--reason deferred] [note]",
         ));
     }
     if !s.steps.is_file() {
@@ -265,7 +301,16 @@ pub fn set_status(s: &S, a: &[String]) -> R {
             "status must be pending|in_progress|failed|blocked, got: {status}"
         )));
     }
-    s.set_status(id, status, note)?;
+    if arg(a, 2) == "--reason" && !(reason == "deferred" && status == "blocked") {
+        return Err(die(
+            "--reason takes only 'deferred', and only with status blocked",
+        ));
+    }
+    if reason.is_empty() {
+        s.set_status(id, status, note)?;
+    } else {
+        s.set_blocked(id, reason, note)?;
+    }
     Ok(0)
 }
 
@@ -290,7 +335,7 @@ pub fn deps_check(s: &S, id: &str) -> Result<(Vec<String>, Option<String>), crat
     let entry = s.need_entry(id)?;
     let mut rows = Vec::new();
     let mut parent: Option<String> = None;
-    for dep in deps_csv(&entry).split(',').filter(|d| !d.is_empty()) {
+    for dep in s.live_deps(id, &entry).split(',').filter(|d| !d.is_empty()) {
         if let Some(h) = s.completed_get(dep) {
             rows.push(format!("{dep}\t{h}"));
             continue;
@@ -338,6 +383,7 @@ pub fn wave(s: &S, io: &mut Io) -> R {
     if read_lines(&s.steps).is_empty() {
         return Ok(1);
     }
+    release_ready(s)?;
     let cap = s.wave_cap()?;
     let mut shown = 0;
     for l in read_lines(&s.steps) {

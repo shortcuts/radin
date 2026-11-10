@@ -81,7 +81,7 @@ pub const USAGE: &[(&str, &str)] = &[
     ),
     (
         "order",
-        r##"order <--rank-needed|--report|--steps> [--rank <csv-of-ids>] [--infer-deps <id>=<csv>]... [--defer <csv-of-ids>|--only <csv-of-ids-orders-or-titles>|--first]  # the execution order: the priority order with the topological dependency fix applied (--rank-needed: print every unset-priority id, exit 1 when there are none; --report: "<order>. <title> (id: <id>)" plus one "dependency override:" line per violated edge; --steps: "id<TAB>order<TAB>depends-on-csv<TAB>pending|deferred", which is `radin state steps-init`'s stdin format; --only defers every id outside the csv, --first every id but the one at order 1)"##,
+        r##"order <--rank-needed|--report|--steps> [--rank <csv-of-ids>] [--infer-deps <id>=<csv>]... [--defer <csv-of-ids>|--only <csv-of-ids-orders-or-titles>|--first]  # the execution order: the priority order with the topological dependency fix applied (--rank-needed: print every unset-priority id, exit 1 when there are none; --report: "<order>. <title> (id: <id>)" plus one "dependency override:" line per violated edge; --steps: "id<TAB>order<TAB>depends-on-csv<TAB>pending|excluded", which is `radin state steps-init`'s stdin format; --only defers every id outside the csv, --first every id but the one at order 1)"##,
     ),
     (
         "field",

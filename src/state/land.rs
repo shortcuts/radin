@@ -302,17 +302,16 @@ fn follow_up(s: &S, id: &str, hash: &str, io: &mut Io) -> bool {
     let Some(row) = s.find_row(id) else {
         return false;
     };
-    let note = if s.steps.is_file() {
-        s.entry(id).map(|e| get(&e, "note")).unwrap_or_default()
-    } else {
-        String::new()
+    let (note, reason) = match s.entry(id).filter(|_| s.steps.is_file()) {
+        Some(e) => (get(&e, "note"), get(&e, "reason")),
+        None => Default::default(),
     };
     let mut body = format!(
         "Task {id} stopped unfinished. Its branch landed on the base at {hash}, so no work stays on a side branch. Finish what it left. `radin state trace {id}` names its plan and facts.\n\n**Why unfinished:** {}",
         if note.is_empty() { "no reason recorded" } else { &note }
     );
-    if let Some(q) = note.strip_prefix("deferred:") {
-        body += &format!("\n**Open decision:** {}", q.strip_prefix(' ').unwrap_or(q));
+    if reason == "deferred" {
+        body += &format!("\n**Open decision:** {note}");
     }
     let (code, out, _) = s.bl(
         &["add", &row[1], &format!("Finish: {}", row[2])],

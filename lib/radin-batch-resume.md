@@ -15,15 +15,15 @@ still in the plan; completed tasks are already gone. Triage `in_progress`
 entries per Phase 0's `stuck` line.
 
 Run `RADIN_CLI state resume`. It moves each `failed` entry, and each `blocked`
-entry that is neither waiting nor at `MAX_ATTEMPTS`, back to `pending`, and
+entry whose reason is not waiting, `max-attempts`, `dependency` or `unmerged`, back to `pending`, and
 prints `id<TAB>old status` per move. Continue.
 
-Run `RADIN_CLI state steps-waiting`. It prints `id<TAB>note` for each `blocked`
-entry that holds an unanswered question. Route each one through `clarify DECISION`
+Run `RADIN_CLI state steps-waiting`. It prints `id<TAB>reason<TAB>note` for each `blocked`
+entry that holds an unanswered question. Route a `fact` reason through `clarify FACT` and every other reason through `clarify DECISION`
 (`lib/radin-batch-clarify.md`), append the answer, and run
 `RADIN_CLI state answered "<task id>"` before it returns to `pending`.
 
-`resume` leaves waiting and `MAX_ATTEMPTS` entries `blocked`. A waiting entry
+`resume` leaves waiting, `MAX_ATTEMPTS`, dependency and unmerged entries `blocked`; `task-next` frees the last two when the block lifts. A waiting entry
 needs an answer. A `MAX_ATTEMPTS` entry needs the user to look, not another retry.
 
 ## State Persistence Contract

@@ -142,12 +142,12 @@ fn steps_waiting_prints_id_note_for_each_deferred_entry_and_skips_max_attempts_b
     let w = W::new();
     w.write(
         ".radin/state/BACKLOG_STEPS.json",
-        "{\"id\":\"t-one\",\"order\":1,\"status\":\"blocked\",\"depends_on\":[],\"attempts\":1,\"debugged\":0,\"note\":\"deferred: which db?\"}\n{\"id\":\"t-two\",\"order\":2,\"status\":\"blocked\",\"depends_on\":[],\"attempts\":3,\"debugged\":0,\"note\":\"MAX_ATTEMPTS: crashed\"}\n",
+        "{\"id\":\"t-one\",\"order\":1,\"status\":\"blocked\",\"reason\":\"deferred\",\"depends_on\":[],\"attempts\":1,\"debugged\":0,\"note\":\"which db?\"}\n{\"id\":\"t-two\",\"order\":2,\"status\":\"blocked\",\"reason\":\"max-attempts\",\"depends_on\":[],\"attempts\":3,\"debugged\":0,\"note\":\"crashed\"}\n",
     );
     let r = w.state(&["steps-waiting"]);
     assert_eq!(
         (r.code, r.out.as_str()),
-        (0, "t-one\tdeferred: which db?\n")
+        (0, "t-one\tdeferred\twhich db?\n")
     );
 }
 
@@ -156,14 +156,14 @@ fn preflight_prints_one_tagged_line_per_applicable_branch_and_only_empty_on_an_e
     let w = W::new();
     w.write(
         ".radin/state/BACKLOG_STEPS.json",
-        "{\"id\":\"t-one\",\"order\":1,\"status\":\"blocked\",\"depends_on\":[],\"attempts\":1,\"debugged\":0,\"note\":\"deferred: which db?\"}\n{\"id\":\"t-two\",\"order\":2,\"status\":\"in_progress\",\"depends_on\":[],\"attempts\":2,\"debugged\":0,\"note\":\"dispatched\"}\n",
+        "{\"id\":\"t-one\",\"order\":1,\"status\":\"blocked\",\"reason\":\"deferred\",\"depends_on\":[],\"attempts\":1,\"debugged\":0,\"note\":\"which db?\"}\n{\"id\":\"t-two\",\"order\":2,\"status\":\"in_progress\",\"depends_on\":[],\"attempts\":2,\"debugged\":0,\"note\":\"dispatched\"}\n",
     );
     let r = w.state(&["preflight"]);
     assert_eq!(r.code, 0);
     for line in [
         "session\tmissing",
         "stuck\tt-two\t2\tdispatched",
-        "waiting\tt-one\tdeferred: which db?",
+        "waiting\tt-one\tdeferred\twhich db?",
         "rank\tt-one",
     ] {
         assert!(r.out.contains(line), "{line} in {}", r.out);
@@ -180,9 +180,11 @@ fn resume_moves_failed_and_retryable_blocked_entries_to_pending_and_keeps_waitin
     w.write(
         ".radin/state/BACKLOG_STEPS.json",
         "{\"id\":\"t-one\",\"order\":1,\"status\":\"failed\",\"depends_on\":[],\"attempts\":2,\"debugged\":1,\"note\":\"tests red\"}\n\
-         {\"id\":\"t-two\",\"order\":2,\"status\":\"blocked\",\"depends_on\":[],\"attempts\":1,\"debugged\":0,\"note\":\"crashed\"}\n\
-         {\"id\":\"t-three\",\"order\":3,\"status\":\"blocked\",\"depends_on\":[],\"attempts\":1,\"debugged\":0,\"note\":\"deferred: which db?\"}\n\
-         {\"id\":\"t-four\",\"order\":4,\"status\":\"blocked\",\"depends_on\":[],\"attempts\":3,\"debugged\":0,\"note\":\"dispatched 3 times without finishing (MAX_ATTEMPTS) -- needs a human look\"}\n",
+         {\"id\":\"t-two\",\"order\":2,\"status\":\"blocked\",\"reason\":\"rejected\",\"depends_on\":[],\"attempts\":1,\"debugged\":0,\"note\":\"crashed\"}\n\
+         {\"id\":\"t-three\",\"order\":3,\"status\":\"blocked\",\"reason\":\"deferred\",\"depends_on\":[],\"attempts\":1,\"debugged\":0,\"note\":\"which db?\"}\n\
+         {\"id\":\"t-four\",\"order\":4,\"status\":\"blocked\",\"reason\":\"max-attempts\",\"depends_on\":[],\"attempts\":3,\"debugged\":0,\"note\":\"dispatched 3 times without finishing (MAX_ATTEMPTS) -- needs a human look\"}\n\
+         {\"id\":\"t-five\",\"order\":5,\"status\":\"blocked\",\"reason\":\"dependency\",\"depends_on\":[],\"attempts\":0,\"debugged\":0,\"note\":\"task 't-five' waiting on dependency 't-x', which is pending\"}\n\
+         {\"id\":\"t-six\",\"order\":6,\"status\":\"blocked\",\"reason\":\"unmerged\",\"depends_on\":[],\"attempts\":1,\"debugged\":0,\"note\":\"done on radin/t-six\"}\n",
     );
     let r = w.state(&["resume"]);
     assert_eq!(
@@ -193,7 +195,9 @@ fn resume_moves_failed_and_retryable_blocked_entries_to_pending_and_keeps_waitin
     for row in [
         "t-one\t1\tpending\t2\t\n",
         "t-two\t2\tpending\t1\t\n",
-        "t-three\t3\tblocked\t1\tdeferred: which db?\n",
+        "t-three\t3\tblocked\t1\twhich db?\n",
+        "t-five\t5\tblocked\t0\t",
+        "t-six\t6\tblocked\t1\t",
         "t-four\t4\tblocked\t3\t",
     ] {
         assert!(list.contains(row), "{row:?} in {list:?}");

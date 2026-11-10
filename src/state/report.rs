@@ -202,7 +202,7 @@ pub fn report(s: &S, io: &mut Io) -> R {
         }
     }
 
-    let (mut failed, mut blocked, mut deferred) = (Vec::new(), Vec::new(), Vec::new());
+    let (mut failed, mut blocked, mut excluded) = (Vec::new(), Vec::new(), Vec::new());
     for l in read_lines(&s.steps) {
         let eid = get(&l, "id");
         let t = s.task_title(&eid);
@@ -210,7 +210,7 @@ pub fn report(s: &S, io: &mut Io) -> R {
         match get(&l, "status").as_str() {
             "failed" => failed.push(format!("- {t} — {}", get(&l, "note"))),
             "blocked" => blocked.push(format!("- {t} — {}", get(&l, "note"))),
-            "deferred" => deferred.push(format!("- {t}")),
+            "excluded" => excluded.push(format!("- {t}")),
             _ => {}
         }
     }
@@ -248,7 +248,7 @@ pub fn report(s: &S, io: &mut Io) -> R {
             "Needs your decision (left in the backlog, nothing implemented):",
             &blocked,
         ),
-        ("Deferred at your request (left in the backlog):", &deferred),
+        ("Excluded from this run (left in the backlog):", &excluded),
         ("Uncommitted changes committed this session:", &wip_block),
         (
             "Out-of-plan files (commit touched paths its plan's Changes does not list):",

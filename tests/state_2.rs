@@ -334,10 +334,10 @@ fn wave_skips_a_pending_task_that_carries_an_unmerged_marker() {
 }
 
 #[test]
-fn wave_skips_deferred_blocked_and_in_progress_tasks() {
+fn wave_skips_excluded_blocked_and_in_progress_tasks() {
     let w = W::new();
     w.steps_init(
-        "t-one\t1\t\tdeferred\nt-two\t2\t\tpending\nt-three\t3\t\tpending\nt-four\t4\t\tpending\n",
+        "t-one\t1\t\texcluded\nt-two\t2\t\tpending\nt-three\t3\t\tpending\nt-four\t4\t\tpending\n",
     );
     w.state(&["set-status", "t-two", "blocked", "waiting"]);
     w.state(&["set-status", "t-three", "in_progress"]);

@@ -81,17 +81,19 @@ pub fn deps_json(csv: &str) -> String {
     format!("[{}]", ids.join(","))
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn entry_json(
     id: &str,
     order: u64,
     status: &str,
+    reason: &str,
     deps: &str,
     attempts: u64,
     debugged: u64,
     note: &str,
 ) -> String {
     format!(
-        "{{\"id\":\"{}\",\"order\":{order},\"status\":\"{status}\",\"depends_on\":{deps},\"attempts\":{attempts},\"debugged\":{debugged},\"note\":\"{}\"}}",
+        "{{\"id\":\"{}\",\"order\":{order},\"status\":\"{status}\",\"reason\":\"{reason}\",\"depends_on\":{deps},\"attempts\":{attempts},\"debugged\":{debugged},\"note\":\"{}\"}}",
         json_escape(id),
         json_escape(note)
     )
@@ -233,11 +235,23 @@ impl S<'_> {
             .ok_or_else(|| die(format!("no entry with id: {id}")))
     }
 
-    /// Rewrites entry `id`; `debugged` None keeps the entry's own flag.
+    /// Rewrites entry `id` with an empty reason; `debugged` None keeps the entry's own flag.
     pub fn write_entry(
         &self,
         id: &str,
         status: &str,
+        attempts: u64,
+        note: &str,
+        debugged: Option<u64>,
+    ) -> Result<(), Fail> {
+        self.write_entry_as(id, status, "", attempts, note, debugged)
+    }
+
+    pub fn write_entry_as(
+        &self,
+        id: &str,
+        status: &str,
+        reason: &str,
         attempts: u64,
         note: &str,
         debugged: Option<u64>,
@@ -254,7 +268,16 @@ impl S<'_> {
                     && get(&line, "note") == note;
                 let deps = deps_inner(&line).map_or_else(|| "[]".to_string(), |d| format!("[{d}]"));
                 let dbg = debugged.unwrap_or_else(|| num(&line, "debugged"));
-                out += &entry_json(id, num(&line, "order"), status, &deps, attempts, dbg, note);
+                out += &entry_json(
+                    id,
+                    num(&line, "order"),
+                    status,
+                    reason,
+                    &deps,
+                    attempts,
+                    dbg,
+                    note,
+                );
                 found = true;
             } else {
                 out += &line;
@@ -275,6 +298,29 @@ impl S<'_> {
             self.journal_ctx(status, id, note, &x);
         }
         Ok(())
+    }
+
+    /// Blocks `id` for `reason`; writes nothing when the entry already holds that block.
+    pub fn set_blocked(&self, id: &str, reason: &str, note: &str) -> Result<bool, Fail> {
+        let entry = self.need_entry(id)?;
+        if get(&entry, "status") == "blocked"
+            && get(&entry, "reason") == reason
+            && get(&entry, "note") == note
+        {
+            return Ok(false);
+        }
+        self.write_entry_as(id, "blocked", reason, num(&entry, "attempts"), note, None)?;
+        Ok(true)
+    }
+
+    /// Dependencies of `id`: the backlog's current list, else the copy `steps-init` stored.
+    pub fn live_deps(&self, id: &str, entry: &str) -> String {
+        let live = self.find_deps(id).replace(' ', "");
+        if live.is_empty() {
+            deps_csv(entry)
+        } else {
+            live
+        }
     }
 
     pub fn set_status(&self, id: &str, status: &str, note: &str) -> Result<(), Fail> {
@@ -301,9 +347,10 @@ impl S<'_> {
         let entry = self.need_entry(id)?;
         let attempts = num(&entry, "attempts") + 1;
         if attempts > MAX_ATTEMPTS {
-            self.write_entry(
+            self.write_entry_as(
                 id,
                 "blocked",
+                "max-attempts",
                 attempts - 1,
                 &format!("dispatched {MAX_ATTEMPTS} times without a terminal status (MAX_ATTEMPTS) -- needs a human look before another retry"),
                 None,
@@ -339,8 +386,8 @@ mod tests {
     #[test]
     fn entry_json_matches_the_bash_printf_bytes() {
         assert_eq!(
-            entry_json("a", 2, "pending", "[\"b\"]", 1, 0, "n\"q"),
-            "{\"id\":\"a\",\"order\":2,\"status\":\"pending\",\"depends_on\":[\"b\"],\"attempts\":1,\"debugged\":0,\"note\":\"n\\\"q\"}"
+            entry_json("a", 2, "pending", "", "[\"b\"]", 1, 0, "n\"q"),
+            "{\"id\":\"a\",\"order\":2,\"status\":\"pending\",\"reason\":\"\",\"depends_on\":[\"b\"],\"attempts\":1,\"debugged\":0,\"note\":\"n\\\"q\"}"
         );
     }
 
@@ -350,12 +397,14 @@ mod tests {
             "t-1",
             7,
             "blocked",
+            "max-attempts",
             "[\"x\", \"y\"]",
             3,
             1,
             "say \"hi\" \\ done",
         );
         assert_eq!(get(&l, "id"), "t-1");
+        assert_eq!(get(&l, "reason"), "max-attempts");
         assert_eq!(get(&l, "note"), "say \"hi\" \\ done");
         assert_eq!(
             (num(&l, "order"), num(&l, "attempts"), num(&l, "debugged")),

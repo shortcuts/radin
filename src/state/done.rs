@@ -1,6 +1,6 @@
 use super::git::{dirty_files, g, ok, wip_commit};
 use super::plan_cover::plan_extras;
-use super::queue::deps_check;
+use super::queue::{deps_check, release_ready};
 use super::store::{self, get, json_escape, num, MAX_ATTEMPTS};
 use super::{arg, die, mkdir, positive, write, S};
 use crate::backlog::{Fail, Io, R};
@@ -15,6 +15,7 @@ pub fn task_next(s: &S, want: &str, io: &mut Io) -> R {
     if want.is_empty() && s.exists("teardown") {
         return Ok(1);
     }
+    release_ready(s)?;
     loop {
         let (pid, order) = if want.is_empty() {
             match s.next_pending() {
@@ -28,23 +29,29 @@ pub fn task_next(s: &S, want: &str, io: &mut Io) -> R {
             let _ = writeln!(io.out, "blocked\t{pid}\t{msg}");
         };
         let blocked = if s.exists(&format!("unmerged/{pid}")) {
-            Some(format!(
-                "done on radin/{pid}, merge into {} pending",
-                s.resolve_base()
+            Some((
+                "unmerged",
+                format!(
+                    "done on radin/{pid}, merge into {} pending",
+                    s.resolve_base()
+                ),
             ))
         } else if let Some(m) = deps_check(s, &pid)?.1 {
-            Some(m)
+            Some(("dependency", m))
         } else if let Err(e) = s.field(&pid, "TASK_FILE") {
             let e = first_line(&e);
-            Some(format!(
-                "backlog entry is gone: {}",
-                e.strip_prefix("radin-backlog: ").unwrap_or(e)
+            Some((
+                "entry-gone",
+                format!(
+                    "backlog entry is gone: {}",
+                    e.strip_prefix("radin-backlog: ").unwrap_or(e)
+                ),
             ))
         } else {
             None
         };
-        if let Some(msg) = blocked {
-            s.set_status(&pid, "blocked", &msg)?;
+        if let Some((reason, msg)) = blocked {
+            s.set_blocked(&pid, reason, &msg)?;
             skip(io, &msg);
             if want.is_empty() {
                 continue;
@@ -129,7 +136,8 @@ pub fn task_fact(s: &S, a: &[String], io: &mut Io) -> R {
     if id.is_empty() || line.is_empty() {
         return Err(die("usage: task-fact <id> \"<the STATUS: FOUND line>\""));
     }
-    record_status_line(s, "FOUND", "Fact", id, line)?;
+    let body = record_status_line(s, "FOUND", "Fact", id, line)?;
+    s.journal("fact", id, &body);
     let _ = writeln!(io.out, "task-fact: recorded on {id}");
     Ok(0)
 }
@@ -247,7 +255,7 @@ pub fn task_done(s: &S, id: &str, hash: &str, io: &mut Io) -> R {
         }
         let _ = std::fs::write(s.state.join(format!("unmerged/{id}")), format!("{hash}\n"));
         if s.steps.is_file() && s.entry(id).is_some() {
-            s.set_status(id, "blocked", &note)?;
+            s.set_blocked(id, "unmerged", &note)?;
         }
         let _ = writeln!(io.out, "task-done: {id} unmerged at {hash} on {prov_branch}; entry kept, blocked until the merge into {base} lands");
         return Ok(0);
@@ -414,7 +422,7 @@ pub fn recover_reject(s: &S, a: &[String], io: &mut Io) -> R {
     } else {
         format!("a dead session left commits on radin/{id} (worktree {}) that do not satisfy the task -- inspect them before retrying", dir.display())
     };
-    s.set_status(id, "blocked", &note)?;
+    s.set_blocked(id, "rejected", &note)?;
     let _ = writeln!(io.out, "blocked\t{id}\t{note}");
     Ok(0)
 }

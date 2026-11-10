@@ -248,7 +248,7 @@ pub fn compute(es: &[OEntry], o: &Opts) -> Result<(i32, String), String> {
             for (k, &i) in b.order.iter().enumerate() {
                 let e = &b.es[i];
                 let state = if b.deferred.contains(&e.id) {
-                    "deferred"
+                    "excluded"
                 } else {
                     "pending"
                 };

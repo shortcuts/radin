@@ -349,13 +349,15 @@ fn report_inner(s: &S, a: &[String], usages: &[String], io: &mut Io) -> R {
         if tag == "FACT" {
             s.dispatch_new(id, "factfind");
         }
+        s.write_entry_as(id, "blocked", &tag.to_lowercase(), attempts, &detail, None)?;
         let _ = writeln!(io.out, "next\tclarify {tag}");
         return Ok(0);
     }
     if word == "INCONCLUSIVE" {
-        s.write_entry(
+        s.write_entry_as(
             id,
             "blocked",
+            "inconclusive",
             attempts,
             &format!("inconclusive: {detail}"),
             None,

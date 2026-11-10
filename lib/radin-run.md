@@ -77,7 +77,7 @@ Every status change this skill makes goes through one command, and this is its
 only signature:
 
 ```bash
-RADIN_CLI state set-status "<task id>" <pending|in_progress|failed|blocked> "<note>"
+RADIN_CLI state set-status "<task id>" <pending|in_progress|failed|blocked> [--reason deferred] "<note>"
 ```
 
 The `note` is a single shell argument, so quote it whole however many
@@ -110,7 +110,7 @@ Empty output means no branch applies. Act on each line by its first field:
 - `stuck<TAB>id<TAB>attempts<TAB>note`: a previous run dispatched this task
   and never got a terminal status for it. Never re-dispatch one blind. Read
   `RADIN_LIB/radin-batch-recovery.md` and follow it for each id.
-- `waiting<TAB>id<TAB>note`: this entry holds an unanswered question.
+- `waiting<TAB>id<TAB>reason<TAB>note`: this entry holds an unanswered question.
   `steps-init` rewrites `BACKLOG_STEPS.json` in Phase 3, so a waiting entry
   that stays unanswered restarts without its decision. Settle every one per
   "Settling Waiting Entries" in `RADIN_LIB/radin-batch-clarify.md`.
@@ -210,7 +210,7 @@ RADIN_CLI backlog order --steps <Phase 0's flags> <Phase 2's selection flag> |
 ```
 
 Omit the selection flag when Phase 2 chose all of them. Resolving free text
-to ids is yours; the deferred set, renumbering and the `depends_on` precedence are not. Every listed
+to ids is yours; the excluded set, renumbering and the `depends_on` precedence are not. Every listed
 task keeps the `order` number the report printed.
 
 ## Phase 3.5: Settle Open Decisions
@@ -333,7 +333,7 @@ claims it again and bumps `attempts`, so the cap still ends it.
 <!-- host:agents -->
 | `debug` | This task still has its one debug pass. `RADIN_CLI prompt debug "<task id>" "<the reason from the STATUS: line>"` prints a `prompt` path, and a `model` line when the host sets one: dispatch it the same way. `STATUS: DIAGNOSED`: record it as below, then re-run the task. `STATUS: NOT DIAGNOSED`: re-run `task-report` with the same line and `--next`, which records the failure on the entry and returns `continue`. |
 <!-- /host -->
-| `clarify FACT` / `clarify DECISION` | Route per Clarifying Ambiguity. Once settled, re-run the task. |
+| `clarify FACT` / `clarify DECISION` | Route per Clarifying Ambiguity. Once settled, run `RADIN_CLI state answered "<task id>"`, then re-run the task. |
 
 ```bash
 RADIN_CLI state task-diagnosis "<task id>" "<the STATUS: DIAGNOSED line>"

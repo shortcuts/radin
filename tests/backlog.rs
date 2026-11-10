@@ -890,13 +890,13 @@ fn order_first_and_only_derive_the_deferred_set_two_selectors_are_refused() {
     };
     let l = steps(&["--first"]);
     assert_eq!(l[0], "high\t1\t\tpending");
-    assert_eq!(l[1], "mid-a\t2\t\tdeferred");
-    assert_eq!(l[3], "low\t4\t\tdeferred");
+    assert_eq!(l[1], "mid-a\t2\t\texcluded");
+    assert_eq!(l[3], "low\t4\t\texcluded");
     let l = steps(&["--only", "mid-b,low"]);
     assert_eq!(
         (l[0].as_str(), l[2].as_str(), l[3].as_str()),
         (
-            "high\t1\t\tdeferred",
+            "high\t1\t\texcluded",
             "mid-b\t3\t\tpending",
             "low\t4\t\tpending"
         )
@@ -906,7 +906,7 @@ fn order_first_and_only_derive_the_deferred_set_two_selectors_are_refused() {
     assert_eq!(
         (l[0].as_str(), l[1].as_str(), l[3].as_str()),
         (
-            "high\t1\t\tdeferred",
+            "high\t1\t\texcluded",
             "mid-a\t2\t\tpending",
             "low\t4\t\tpending"
         )
@@ -1004,7 +1004,7 @@ fn order_rank_needed_rank_and_infer_deps_report_each_error_string() {
     );
     assert_eq!(
         out,
-        "p\t1\t\tpending\nd\t2\tp\tdeferred\nu2\t3\t\tpending\nu1\t4\tu2\tpending\n"
+        "p\t1\t\tpending\nd\t2\tp\texcluded\nu2\t3\t\tpending\nu1\t4\tu2\tpending\n"
     );
     w.ok(&["set-priority", "u1", "3"], "");
     w.ok(&["set-priority", "u2", "2"], "");

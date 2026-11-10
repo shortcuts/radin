@@ -79,7 +79,7 @@ Then re-run the task (Phase 4).
 
 Deferral happens only when the user explicitly says so; silence, "not sure"
 or an unrelated reply is asked again. A deferred entry keeps its
-`failed`/`blocked` status (`set-status ... blocked` with a `note` that starts `deferred:` and holds the
+`failed`/`blocked` status (`set-status ... blocked --reason deferred` with a `note` that holds the
 question, the options and the recommendation, for an entry that has none).
 Report `⏸️ Task <order> '<title>' deferred: <question>. Continuing to next
 task.` and continue. Deferred entries surface in the Phase 5 summary, and
@@ -92,4 +92,4 @@ Phase 0 and Phase 5 of `RADIN_LIB/radin-run.md` read this section for every
 `waiting` entry. Invoke `@@skill:grilling@@` once for all of them,
 one question at a time, your recommendation first. Append each answer as
 above, then run `RADIN_CLI state answered "<task id>"`. An entry the user
-explicitly defers again keeps its `blocked` status and its `deferred:` note.
+explicitly defers again keeps its `blocked` status and its `deferred` reason.
