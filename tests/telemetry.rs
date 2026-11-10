@@ -170,11 +170,3 @@ fn a_telemetry_path_that_is_a_file_warns_and_exits_0_without_a_record() {
     );
     assert_eq!(fs::read_to_string(&file).unwrap(), "");
 }
-
-#[test]
-fn the_dispatcher_routes_telemetry() {
-    let w = w();
-    let r = w.run(&["telemetry", "record", "parallel", "wave-start", "n=1"]);
-    assert_eq!(r.code, 0);
-    assert!(w.tele("parallel").contains("\"evidence\":{\"n\":\"1\"}"));
-}

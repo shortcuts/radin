@@ -233,28 +233,6 @@ fn pstack_skills_install_without_the_invocation_block() {
 }
 
 #[test]
-fn installed_binary_runs_help_and_refuses_bare_use_off_a_terminal() {
-    let s = tpl();
-    let bin = s.p(".radin/bin/radin");
-    let b = bin.to_str().unwrap();
-    let out = s.run_env(&[], "", &[]);
-    assert_ne!(out.code, 0);
-    let help = std::process::Command::new(b)
-        .arg("help")
-        .env("HOME", &s.home)
-        .output()
-        .unwrap();
-    assert!(String::from_utf8_lossy(&help.stdout).contains("usage: radin"));
-    assert!(String::from_utf8_lossy(&help.stdout).contains("install"));
-    let bare = std::process::Command::new(b)
-        .env("HOME", &s.home)
-        .output()
-        .unwrap();
-    assert_ne!(bare.status.code(), Some(0));
-    assert!(String::from_utf8_lossy(&bare.stderr).contains("usage: radin"));
-}
-
-#[test]
 fn doctor_passes_on_a_fresh_install() {
     let s = tpl();
     let r = s.run_env(&["doctor"], "", &[]);

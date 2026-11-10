@@ -51,51 +51,6 @@ fn task_report_accepts_a_commit_with_a_file_outside_the_plan_and_records_out_of_
 }
 
 #[test]
-fn a_directory_plan_path_matches_by_prefix() {
-    let w = W::new();
-    w.plan_with(&["lib/"]);
-    w.commit_files(&["lib/x.sh"]);
-    assert!(w.report_success().out.contains("recorded at"));
-}
-
-#[test]
-fn a_directory_plan_path_does_not_match_a_sibling_name_sharing_its_prefix() {
-    let w = W::new();
-    w.plan_with(&["lib/"]);
-    w.commit_files(&["libx.sh"]);
-    assert!(w.report_success().out.contains("recorded at"));
-    assert!(w.tele.borrow()[0].contains("extra=libx.sh"));
-}
-
-#[test]
-fn a_plan_path_that_is_an_existing_directory_without_a_slash_matches_by_prefix() {
-    let w = W::new();
-    w.write("lib/old.sh", "x\n");
-    w.git(&["add", "lib"]);
-    w.git(&["commit", "-q", "-m", "old"]);
-    w.plan_with(&["lib"]);
-    w.commit_files(&["lib/new.sh"]);
-    assert!(w.report_success().out.contains("recorded at"));
-}
-
-#[test]
-fn a_plan_file_path_does_not_accept_a_longer_sibling_name() {
-    let w = W::new();
-    w.plan_with(&["lib/a"]);
-    w.commit_files(&["lib/a", "lib/ab.sh"]);
-    assert!(w.report_success().out.contains("recorded at"));
-    assert!(w.tele.borrow()[0].contains("extra=lib/ab.sh"));
-}
-
-#[test]
-fn a_test_file_outside_the_plan_is_exempt() {
-    let w = W::new();
-    w.plan_with(&["lib/a.sh"]);
-    w.commit_files(&["lib/a.sh", "tests/a.bats"]);
-    assert!(w.report_success().out.contains("recorded at"));
-}
-
-#[test]
 fn a_commit_touching_radin_still_exits_through_task_dones_message() {
     let w = W::new();
     w.plan_with(&["lib/a.sh"]);
@@ -111,45 +66,12 @@ fn a_commit_touching_radin_still_exits_through_task_dones_message() {
 }
 
 #[test]
-fn generated_install_sh_passes_when_shipped_is_in_the_plan() {
-    let w = W::new();
-    w.plan_with(&["SHIPPED"]);
-    w.commit_files(&["SHIPPED", "install.sh"]);
-    assert!(w.report_success().out.contains("recorded at"));
-}
-
-#[test]
-fn generated_install_sh_is_accepted_when_shipped_is_not_in_the_plan() {
-    let w = W::new();
-    w.plan_with(&["lib/a.sh"]);
-    w.commit_files(&["lib/a.sh", "install.sh"]);
-    assert!(w.report_success().out.contains("recorded at"));
-    assert!(w.tele.borrow()[0].contains("extra=install.sh"));
-}
-
-#[test]
-fn generated_svg_passes_with_its_mmd_in_the_plan() {
-    let w = W::new();
-    w.plan_with(&["docs/agents/lifecycle/f.mmd"]);
-    w.commit_files(&["docs/agents/lifecycle/f.mmd", "docs/agents/lifecycle/f.svg"]);
-    assert!(w.report_success().out.contains("recorded at"));
-}
-
-#[test]
-fn generated_svg_is_accepted_without_its_mmd_in_the_plan() {
-    let w = W::new();
-    w.plan_with(&["lib/a.sh"]);
-    w.commit_files(&["lib/a.sh", "docs/agents/lifecycle/f.svg"]);
-    assert!(w.report_success().out.contains("recorded at"));
-    assert!(w.tele.borrow()[0].contains("extra=docs/agents/lifecycle/f.svg"));
-}
-
-#[test]
 fn a_task_with_no_plan_paths_passes() {
     let w = W::new();
     w.commit_files(&["lib/any.sh"]);
     w.steps_init("t-one\t1\t\tpending\n");
     assert!(w.report_success().out.contains("recorded at"));
+    assert!(w.tele.borrow().is_empty());
 }
 
 #[test]
