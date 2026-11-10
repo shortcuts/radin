@@ -4,6 +4,7 @@
 //! The script logs `"$*"` to `$MOCK_LOG_DIR/<name>.log` and obeys:
 //! `MOCK_FAIL` (names that exit 1), `MOCK_NPX` (`fail`), `MOCK_CBM` (`fail-install`, `fail-after-wiring`),
 //! `MOCK_CLAUDE_LIST` (file that `claude plugin list` prints), `MOCK_CURL` (`pstack-fail`),
+//! `claude` and `codex` `mcp get` (exits 1 until `mcp add` creates `$MOCK_BIN/.mcp-<name>`),
 //! `MOCK_CURL_FAIL` (curl exits 1 when an argument contains it).
 use std::fs;
 use std::os::unix::fs::{symlink, PermissionsExt};
@@ -16,8 +17,11 @@ printf '%s\n' "$*" >>"$MOCK_LOG_DIR/$me.log"
 case " ${MOCK_FAIL:-} " in *" $me "*) exit 1 ;; esac
 tool() { ln -sf "$MOCK_BIN/.stub" "$MOCK_BIN/$1"; }
 case "$me" in
-brew) [ "$1 $2" = "install rtk" ] && tool rtk ;;
-mise) case "$*" in *rtk*) tool rtk ;; esac ;;
+brew)
+	[ "$1 $2" = "install rtk" ] && tool rtk
+	[ "$1 $2" = "install dmtrKovalenko/fff/fff-mcp" ] && tool fff-mcp
+	;;
+mise) case "$*" in *rtk*) tool rtk ;; *fff*) tool fff-mcp ;; esac ;;
 curl)
 	pstack=""
 	case "$*" in */pstack/skills/*) pstack=1 ;; esac
@@ -43,8 +47,13 @@ npx)
 		;;
 	esac
 	;;
-claude)
+claude | codex)
 	case " $* " in *" plugin list "*) [ -n "${MOCK_CLAUDE_LIST:-}" ] && cat "$MOCK_CLAUDE_LIST" ;; esac
+	case "$1 $2" in
+	"mcp get") [ -f "$MOCK_BIN/.mcp-$me" ] || exit 1 ;;
+	"mcp add") touch "$MOCK_BIN/.mcp-$me" ;;
+	"mcp remove") rm -f "$MOCK_BIN/.mcp-$me" ;;
+	esac
 	;;
 codebase-memory-mcp)
 	if [ "${MOCK_CBM:-}" = fail-after-wiring ]; then

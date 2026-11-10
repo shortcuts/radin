@@ -5,7 +5,7 @@ radin is a Claude Code plugin of skills, a CLI, and install glue.
 ## Hard rules
 
 - **Rust, one binary.** Every deterministic behavior is a `radin` subcommand in `src/`. The crate sets `rust-version = "1.88"`. `install.sh` is the only shell file: POSIX `sh`, checked by `shellcheck` and `shfmt`, because it runs before the binary exists. Add no `uname` branch. Resolve tools with `command -v` or `brew shellenv`. Branch only where a tool differs (`md5` versus `md5sum`).
-- **`~/.claude` is not ours.** `~/.radin` is. `radin install` writes `.txt` only under `~/.radin/lib` and `.md` only under `~/.radin/hosts/<host>/lib`. It copies only radin's own named files, plus the directories they need. It never deletes with a wildcard or overwrites a file radin does not ship. Ten exceptions:
+- **`~/.claude` is not ours.** `~/.radin` is. `radin install` writes `.txt` only under `~/.radin/lib` and `.md` only under `~/.radin/hosts/<host>/lib`. It copies only radin's own named files, plus the directories they need. It never deletes with a wildcard or overwrites a file radin does not ship. Eleven exceptions:
   1. The `<!-- radin:begin -->`…`<!-- radin:end -->` block in `~/.claude/CLAUDE.md`.
   2. The `radin wire` snapshot (kept in `~/.radin/backups`) and restore of `settings.json` and `~/.claude.json`.
   3. `skills/unslop/SKILL.md` and `skills/technical-writing/SKILL.md`. `radin install` fetches both from upstream and overwrites them only when `manifest.json` lists them as radin's own. It also writes the skills of `lib/companion-skills.txt` into `~/.agents/skills`, and overwrites one only when `manifest.json` lists it in `agents_skills`.
@@ -17,6 +17,7 @@ radin is a Claude Code plugin of skills, a CLI, and install glue.
   9. `--force` moves an unowned or edited radin-named path to `~/.radin/backups` with `mv`, then installs radin's file. It runs no `rm` there. Without `--force` that path stops its host or stays as the user left it ([why](docs/agents/DECISIONS.md#platform-and-install)).
 
   10. The bash-era orphans. `radin install` removes a file only when the previous `manifest.json` lists it in `lib`, the current `SHIPPED` lists it in neither `lib` nor `hostlib`, and it is a regular file under `~/.radin/lib`. It also removes `bin/radin-tui`, `bin/radin-cbm-json` and their `.sum` files when the manifest has `manifest_version`. It rewrites a `settings.json` hook only when its command runs `~/.radin/lib/radin-<name>.sh` and `<name>` has a verb ([why](docs/agents/DECISIONS.md#platform-and-install)).
+  11. The `fff` MCP server entry. `radin install` adds it through `claude mcp add -s user` and `codex mcp add`, and writes `mcp.fff` into the opencode config, only when the host has no `fff` entry. `manifest.json` records each one it added as `fff:<host>` in `companion_tools`, and `radin uninstall` removes only those ([why](docs/agents/DECISIONS.md#platform-and-install)).
 
   Call out every `install.sh` edit. It is a stub that fetches the release installer and runs `radin install`.
 - **Companion install is advisory.** A failed install prints a warning and the run continues. The installer asks one question: which package manager installs the companions (`brew`, `mise`, or `curl`). radin adds no package manager the user has not already run.
@@ -31,6 +32,7 @@ radin is a Claude Code plugin of skills, a CLI, and install glue.
 | Migration of `~/.claude/.radin` aborts before any write | `tests/install_*.rs` (foreign `~/.radin`, failed `mv`, leftover staging directory, half-migrated, symlinked `~/.claude`, old updater) | An interrupted copy on a real second device is untested. |
 | Rendered `.md` only under `~/.radin/hosts/<host>/lib` | `tests/install_*.rs` layout test, `tests/shipped.rs` (`lib` versus `hostlib` kinds) | None. |
 | One list of shipped files | `tests/shipped.rs`, run by `make check` | README row text is hand-written. |
+| The `fff` server entry is added only when absent and removed only when radin added it | `tests/install_companions.rs` (the claude fff test, the codex and opencode companion tests), `src/jsonedit.rs` (`opencode_mcp` keeps a foreign entry) | Codex `mcp get` exit codes run against a stub. |
 | Install changes only paths radin owns | `tests/install_*.rs` (the unowned, edited and `--force` tests) | A foreign file inside a radin skill directory is overlaid, not checked. |
 | A forbid hit stops one host | `tests/install_*.rs` (the claude and agents render-failure tests) | None. |
 | Companion install is advisory | `tests/install_*.rs` ("a failing companion tool...") | None. |
@@ -135,6 +137,7 @@ When a shipped tool does a job, name that tool. Never write a radin version. Nam
 | Maintainability review · commit message | `/thermo-nuclear` · `/caveman:caveman-commit` |
 | Implementation discipline | `/caveman:surgical-patch` (fix), `safe-refactor`, `lean-build` (feat) |
 | Code structure questions | codebase-memory-mcp's MCP tools |
+| File and literal search | `fff`'s MCP tools |
 | Output compression | `rtk` |
 | Agent-doc writing rules | `/mattpocock-skills:writing-for-agents` |
 

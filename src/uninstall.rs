@@ -209,6 +209,44 @@ impl U<'_, '_> {
         }
     }
 
+    /// Removes only the `fff` servers the manifest says radin registered.
+    fn fff_servers(&mut self, opencode_cfg: &Path) {
+        use crate::install::fff;
+        let owned: Vec<&str> = ["claude", "codex", "opencode"]
+            .into_iter()
+            .filter(|h| {
+                self.m
+                    .companion_tools
+                    .get(&format!("fff:{h}"))
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false)
+            })
+            .collect();
+        if owned.is_empty() {
+            return;
+        }
+        self.line("\nfff MCP server:");
+        for h in owned {
+            if self.dry {
+                self.line(&format!("  WOULD REMOVE the {h} fff server"));
+                continue;
+            }
+            let done = if h == "opencode" {
+                let cfg = opencode_cfg.display().to_string();
+                jsonedit::opencode_mcp(&cfg, fff::NAME, &[], false).0 == 0
+            } else {
+                which(self.c, h).is_some() && fff::quiet(h, &fff::cli_args(h, false, ""))
+            };
+            if done {
+                self.line(&format!("  REMOVED  the {h} fff server"));
+            } else {
+                self.line(&format!(
+                    "  SKIPPED  the {h} fff server -- remove it by hand"
+                ));
+            }
+        }
+    }
+
     fn untouched(&mut self) {
         let (home, rh) = (
             self.home.display().to_string(),
@@ -236,6 +274,16 @@ impl U<'_, '_> {
                     .display()
             ),
         };
+        let fff_rm = match pm {
+            "brew" => "brew uninstall fff-mcp".to_string(),
+            "mise" => "mise rm -g github:dmtrKovalenko/fff".to_string(),
+            _ => format!(
+                "rm {}",
+                which(self.c, "fff-mcp")
+                    .unwrap_or_else(|| self.home.join(".local/bin/fff-mcp"))
+                    .display()
+            ),
+        };
         let headroom = if pm == "mise" {
             "mise rm -g pipx:headroom-ai"
         } else {
@@ -244,6 +292,7 @@ impl U<'_, '_> {
         for (n, how) in [
             ("rtk", rtk.as_str()),
             ("codebase-memory-mcp", "codebase-memory-mcp uninstall"),
+            ("fff-mcp", fff_rm.as_str()),
             ("headroom", headroom),
             ("caveman", "claude plugin uninstall caveman@caveman"),
             ("ponytail", "claude plugin uninstall ponytail@ponytail"),
@@ -335,12 +384,17 @@ impl U<'_, '_> {
             self.line("\nopencode config:");
             self.opencode_rule();
         }
-        self.line("\nGuidance blocks:");
         let dir = |key: &str, default: PathBuf| {
             (self.c.env)(key)
                 .filter(|v| !v.is_empty())
                 .map_or(default, PathBuf::from)
         };
+        let opencode_cfg = match dir("OPENCODE_CONFIG", PathBuf::new()) {
+            f if f.is_file() => f,
+            _ => dir("XDG_CONFIG_HOME", self.home.join(".config")).join("opencode/opencode.json"),
+        };
+        self.fff_servers(&opencode_cfg);
+        self.line("\nGuidance blocks:");
         let guidance = [
             ("claude", claude.join("CLAUDE.md")),
             (

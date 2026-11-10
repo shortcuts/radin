@@ -95,6 +95,10 @@ impl Session<'_> {
             for n in ["unslop", "technical-writing"] {
                 m.insert(n.into(), self.pstack_owned.iter().any(|x| x == n).into());
             }
+            m.insert("fff-mcp".into(), self.which("fff-mcp").is_some().into());
+            for k in &self.fff_owned {
+                m.insert(k.clone(), true.into());
+            }
             m
         };
         let files = self.files_map();

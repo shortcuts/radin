@@ -81,9 +81,15 @@ fn agents_skills(s: &Sandbox) -> Vec<String> {
 
 #[test]
 fn codex_runs_the_four_companion_steps_and_prints_the_hooks_trust_step() {
-    let s = with(&["codex", "rtk", "codebase-memory-mcp"]);
+    let s = with(&["codex", "rtk", "codebase-memory-mcp", "fff-mcp"]);
     let r = run(&s, &["--only", "codex"], &[]);
     assert_eq!(r.code, 0, "{}", r.all());
+    let fff = format!(
+        "mcp add fff -- {} --no-update-check",
+        s.bin.join("fff-mcp").display()
+    );
+    assert!(has_line(&s, "codex", &fff), "{}", s.log("codex"));
+    assert_eq!(s.manifest()["companion_tools"]["fff:codex"], true);
     assert!(has_line(
         &s,
         "codex",
@@ -191,6 +197,7 @@ fn codex_dry_run_lists_write_and_run_lines_and_creates_nothing() {
     assert!(o.contains(&format!("write {}", s.p(".codex/AGENTS.md").display())));
     assert!(o.contains("run codex plugin marketplace add DietrichGebert/ponytail && codex plugin add ponytail@ponytail"));
     assert!(o.contains("run rtk init -g --codex"));
+    assert!(o.contains("run codex mcp add fff -- fff-mcp --no-update-check"));
     assert!(o.contains("--only codex --non-interactive") && o.contains("--clients=codex"));
 }
 
@@ -211,9 +218,17 @@ fn only_claude_leaves_codex_and_opencode_alone() {
 
 #[test]
 fn opencode_writes_seven_agent_files_and_runs_the_four_companion_steps() {
-    let s = with(&["opencode", "rtk", "codebase-memory-mcp"]);
+    let s = with(&["opencode", "rtk", "codebase-memory-mcp", "fff-mcp"]);
     let r = run(&s, &["--only", "opencode"], &[]);
     assert_eq!(r.code, 0, "{}", r.all());
+    let cfg: serde_json::Value =
+        serde_json::from_str(&s.read(".config/opencode/opencode.json")).unwrap();
+    let bin = s.bin.join("fff-mcp").display().to_string();
+    assert_eq!(
+        cfg["mcp"]["fff"],
+        serde_json::json!({"type": "local", "command": [bin, "--no-update-check"], "enabled": true})
+    );
+    assert_eq!(s.manifest()["companion_tools"]["fff:opencode"], true);
     for k in KINDS {
         let f = s.read(&format!(".config/opencode/agents/radin-{k}.md"));
         assert!(f.lines().any(|l| l == "mode: subagent"), "{k}");
@@ -289,7 +304,7 @@ fn a_jsonc_config_or_a_string_external_directory_stays_byte_identical_and_the_ru
         ".config/opencode/opencode.jsonc",
         "{\n  // mine\n  \"plugin\": []\n}\n",
     );
-    let r = run(&s, &["--only", "opencode"], &[]);
+    let r = run(&s, &["--only", "opencode"], &[("MOCK_FAIL", "brew")]);
     assert_eq!(r.code, 0, "{}", r.all());
     assert!(!s.p(".config/opencode/opencode.json").exists());
     assert!(
@@ -304,7 +319,7 @@ fn a_jsonc_config_or_a_string_external_directory_stays_byte_identical_and_the_ru
         ".config/opencode/opencode.json",
         "{\"permission\":{\"external_directory\":\"ask\"}}\n",
     );
-    let r = run(&s, &["--only", "opencode"], &[]);
+    let r = run(&s, &["--only", "opencode"], &[("MOCK_FAIL", "brew")]);
     assert_eq!(r.code, 0);
     assert_eq!(
         s.read(".config/opencode/opencode.json"),
@@ -527,4 +542,40 @@ fn update_refetches_an_owned_skill_keeps_one_on_a_failed_refetch_and_leaves_a_fo
         r.all().contains("lean-build skipped")
             || !agents_skills(&s).contains(&"lean-build".to_string())
     );
+}
+
+#[test]
+fn claude_fff_installs_registers_once_and_uninstall_removes_only_what_radin_added() {
+    let s = with(&[]);
+    let r = run(&s, &["--only", "claude"], &[]);
+    assert_eq!(r.code, 0, "{}", r.all());
+    assert!(has_line(&s, "brew", "install dmtrKovalenko/fff/fff-mcp"));
+    let fff = format!(
+        "mcp add -s user fff -- {} --no-update-check",
+        s.bin.join("fff-mcp").display()
+    );
+    assert!(has_line(&s, "claude", &fff), "{}", s.log("claude"));
+    assert_eq!(s.manifest()["companion_tools"]["fff:claude"], true);
+    run(&s, &["--only", "claude"], &[]);
+    assert_eq!(lines(&s, "claude").iter().filter(|l| **l == fff).count(), 1);
+    assert_eq!(s.manifest()["companion_tools"]["fff:claude"], true);
+    let u = s.run_env(&["uninstall"], "", &[]);
+    assert!(
+        u.out.contains("REMOVED  the claude fff server"),
+        "{}",
+        u.all()
+    );
+    assert!(has_line(&s, "claude", "mcp remove -s user fff"));
+
+    let foreign = with(&["fff-mcp"]);
+    fs::write(foreign.bin.join(".mcp-claude"), "").unwrap();
+    let r = run(&foreign, &["--only", "claude"], &[]);
+    assert!(r.all().contains("fff already registered for claude."));
+    assert!(!foreign.log("claude").contains("mcp add"));
+    assert!(foreign.manifest()["companion_tools"]
+        .get("fff:claude")
+        .is_none());
+    let u = foreign.run_env(&["uninstall"], "", &[]);
+    assert!(!u.out.contains("fff server"), "{}", u.all());
+    assert!(!foreign.log("claude").contains("mcp remove"));
 }

@@ -725,6 +725,46 @@ pub fn edit_ext_dir(arg: &str, add: bool, globs: &[&str]) -> Out {
     })
 }
 
+/// Adds or removes opencode's `mcp.<name>` local server. An existing entry is never rewritten.
+pub fn opencode_mcp(path: &str, name: &str, command: &[&str], add: bool) -> Out {
+    run(|out| {
+        let mut root = match root_of("radin", path)? {
+            Some(r) => r,
+            None if add => Obj::new(),
+            None => return Ok(0),
+        };
+        if root.get("mcp").is_some_and(|m| !m.is_object()) {
+            return fail(
+                3,
+                format!("radin: {path}: mcp is not an object -- nothing written\n"),
+            );
+        }
+        let servers = root
+            .entry("mcp")
+            .or_insert_with(|| Value::Object(Obj::new()))
+            .as_object_mut()
+            .unwrap();
+        if !add {
+            if servers.shift_remove(name).is_some() {
+                write(path, &root)?;
+                let _ = writeln!(out, "REMOVED  {path} (mcp.{name})");
+            }
+            return Ok(0);
+        }
+        if servers.contains_key(name) {
+            let _ = writeln!(out, "PRESENT  {path} (mcp.{name})");
+            return Ok(0);
+        }
+        servers.insert(
+            name.into(),
+            serde_json::json!({"type": "local", "command": command, "enabled": true}),
+        );
+        write(path, &root)?;
+        let _ = writeln!(out, "ADDED    {path} (mcp.{name})");
+        Ok(0)
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -976,6 +1016,36 @@ mod tests {
         let fresh = t.p("new.json");
         assert_eq!(ensure_mcp(&fresh, "cbm", "c").0, 0);
         assert!(Path::new(&fresh).exists());
+    }
+
+    #[test]
+    fn opencode_mcp_adds_keeps_a_foreign_entry_and_removes() {
+        let t = T::new();
+        let p = t.put("o.json", r#"{"z": 1}"#);
+        assert_eq!(
+            opencode_mcp(&p, "fff", &["/b/fff-mcp", "--x"], true).1,
+            format!("ADDED    {p} (mcp.fff)\n")
+        );
+        let v: Value = serde_json::from_str(&t.get("o.json")).unwrap();
+        assert_eq!(
+            v["mcp"]["fff"],
+            json!({"type": "local", "command": ["/b/fff-mcp", "--x"], "enabled": true})
+        );
+        let foreign = t.put("f.json", r#"{"mcp": {"fff": {"command": ["mine"]}}}"#);
+        assert_eq!(
+            opencode_mcp(&foreign, "fff", &["other"], true).1,
+            format!("PRESENT  {foreign} (mcp.fff)\n")
+        );
+        assert!(t.get("f.json").contains("mine"));
+        assert_eq!(
+            opencode_mcp(&p, "fff", &[], false).1,
+            format!("REMOVED  {p} (mcp.fff)\n")
+        );
+        assert!(!t.get("o.json").contains("fff"));
+        assert_eq!(opencode_mcp(&t.p("none.json"), "fff", &[], false).0, 0);
+        assert!(!Path::new(&t.p("none.json")).exists());
+        let bad = t.put("b.json", r#"{"mcp": []}"#);
+        assert_eq!(opencode_mcp(&bad, "fff", &["x"], true).0, 3);
     }
 
     #[test]

@@ -1,4 +1,4 @@
-use super::{Session, Stop};
+use super::{fff, Session, Stop};
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
@@ -169,7 +169,11 @@ impl Session<'_> {
             None if self.mise.is_some() => "mise".into(),
             None => "curl".into(),
         };
-        println!("run {}\nrun {CBM_INSTALL}", self.rtk_cmd(&mgr));
+        println!(
+            "run {}\nrun {CBM_INSTALL}\nrun {}",
+            self.rtk_cmd(&mgr),
+            self.fff_cmd(&mgr)
+        );
         if self.is_selected("claude") {
             println!("run {THERMO_INSTALL}");
             for n in ["unslop", "technical-writing"] {
@@ -178,12 +182,16 @@ impl Session<'_> {
             for p in PLUGINS {
                 println!("run claude plugin install {}", p.1);
             }
+            let fff = fff::cli_args("claude", true, fff::BIN).join(" ");
+            println!("run claude {fff}");
         }
         if self.is_selected("codex") {
             println!("write {}", self.codex_home.join("AGENTS.md").display());
             for c in [CAVEMAN_CODEX, PONYTAIL_CODEX, RTK_CODEX, CBM_CODEX] {
                 println!("run {c}");
             }
+            let fff = fff::cli_args("codex", true, fff::BIN).join(" ");
+            println!("run codex {fff}");
         }
         if self.is_selected("opencode") {
             println!("write {}", self.opencode_dir.join("AGENTS.md").display());
@@ -418,7 +426,7 @@ impl Session<'_> {
         let _ = fs::remove_file(&file);
     }
 
-    fn owned_flag(&self, tool: &str) -> bool {
+    pub(super) fn owned_flag(&self, tool: &str) -> bool {
         self.prev
             .as_ref()
             .and_then(|m| m.companion_tools.get(tool))
@@ -426,15 +434,16 @@ impl Session<'_> {
             .unwrap_or(false)
     }
 
-    /// The pstack fetches and the rtk and codebase-memory-mcp installs touch disjoint paths and wait on the network, so they run at once.
+    /// The pstack fetches and the rtk, codebase-memory-mcp and fff-mcp installs touch disjoint paths and wait on the network, so they run at once.
     fn rtk_cbm_and_pstack(&mut self) -> Result<(), Stop> {
         let claude = self.is_selected("claude");
         let tmp = std::env::temp_dir().join(format!("radin-pstack-{}", std::process::id()));
         fs::create_dir_all(&tmp)?;
         let cfg = self.cfg();
         let rtk = self.rtk_cmd(&self.pkg);
+        let fff = self.fff_cmd(&self.pkg);
         let verbose = self.o.verbose;
-        let (mut rtk_r, mut cbm_r) = (vec![], vec![]);
+        let (mut rtk_r, mut cbm_r, mut fff_r) = (vec![], vec![], vec![]);
         std::thread::scope(|sc| {
             if claude {
                 for n in ["unslop", "technical-writing"] {
@@ -446,8 +455,10 @@ impl Session<'_> {
                 let a = sc.spawn(|| install_tool_job(&cfg, "rtk", &rtk, None));
                 let b =
                     sc.spawn(|| install_tool_job(&cfg, "codebase-memory-mcp", CBM_INSTALL, None));
+                let f = sc.spawn(|| install_tool_job(&cfg, fff::BIN, &fff, None));
                 rtk_r = a.join().unwrap_or_default();
                 cbm_r = b.join().unwrap_or_default();
+                fff_r = f.join().unwrap_or_default();
             }
         });
         if claude {
@@ -464,9 +475,11 @@ impl Session<'_> {
         if verbose {
             self.install_tool("rtk", &rtk);
             self.install_tool("codebase-memory-mcp", CBM_INSTALL);
+            self.install_tool(fff::BIN, &fff);
         } else {
             self.emit(rtk_r);
             self.emit(cbm_r);
+            self.emit(fff_r);
         }
         let _ = fs::remove_dir(&tmp);
         Ok(())
@@ -650,6 +663,13 @@ impl Session<'_> {
         }
         if self.is_selected("codex") && self.which("codex").is_some() {
             self.ui.info("Codex: open /hooks and trust the new hooks once (caveman, ponytail, rtk, codebase-memory-mcp). radin cannot do this for you.");
+        }
+        for host in ["claude", "codex", "opencode"] {
+            if self.is_selected(host) {
+                self.wire_fff(host);
+            } else if self.owned_flag(&format!("fff:{host}")) {
+                self.fff_owned.push(format!("fff:{host}"));
+            }
         }
         self.wire_cbm();
         Ok(())

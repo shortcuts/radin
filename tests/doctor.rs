@@ -214,6 +214,14 @@ fn companion_tools_are_informational() {
     assert_eq!(r.code, 0);
     assert!(r.out.contains("\n  rtk                  found\n"));
     assert!(r.out.contains("\n  codebase-memory-mcp  not found\n"));
+    assert!(r.out.contains("\n  fff server (claude)  not found\n"));
+    put(&w.p(".claude.json"), "{\"mcpServers\":{\"fff\":{}}}\n");
+    let r = w.doctor();
+    assert!(
+        r.out.contains("\n  fff server (claude)  found\n"),
+        "{}",
+        r.out
+    );
 }
 
 #[test]

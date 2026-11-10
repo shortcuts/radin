@@ -360,6 +360,36 @@ impl Doctor<'_, '_> {
         }
     }
 
+    /// Reads each host's config for an `fff` server; running the host CLI would cost seconds per host.
+    fn fff_servers(&mut self) {
+        let json_has = |p: PathBuf, keys: [&str; 2]| {
+            fs::read_to_string(p)
+                .ok()
+                .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok())
+                .is_some_and(|v| v[keys[0]].get(keys[1]).is_some())
+        };
+        let claude_dir = env_dir(self.c, "CLAUDE_CONFIG_DIR", self.home.clone());
+        let codex = env_dir(self.c, "CODEX_HOME", self.home.join(".codex"));
+        let opencode = env_dir(self.c, "XDG_CONFIG_HOME", self.home.join(".config"))
+            .join("opencode/opencode.json");
+        for (h, yes) in [
+            (
+                "claude",
+                json_has(claude_dir.join(".claude.json"), ["mcpServers", "fff"]),
+            ),
+            (
+                "codex",
+                fs::read_to_string(codex.join("config.toml"))
+                    .is_ok_and(|t| t.contains("[mcp_servers.fff]")),
+            ),
+            ("opencode", json_has(opencode, ["mcp", "fff"])),
+        ] {
+            if self.host_installed(h) {
+                self.found(&format!("fff server ({h})"), yes);
+            }
+        }
+    }
+
     fn check_codex(&mut self) {
         let dir = env_dir(self.c, "CODEX_HOME", self.home.join(".codex"));
         self.line("\nCodex:");
@@ -634,9 +664,10 @@ impl Doctor<'_, '_> {
             self.check_opencode();
         }
         self.line("\nCompanion tools (optional, advisory-only):");
-        for t in ["rtk", "codebase-memory-mcp"] {
+        for t in ["rtk", "codebase-memory-mcp", "fff-mcp"] {
             self.found(t, which(self.c, t).is_some());
         }
+        self.fff_servers();
         if claude {
             self.check_plugin("caveman", "caveman@caveman");
             self.check_plugin("ponytail", "ponytail@ponytail");

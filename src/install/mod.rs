@@ -1,6 +1,7 @@
 mod assets;
 mod cbm;
 mod companions;
+pub(crate) mod fff;
 mod guidance;
 mod home;
 mod manifest_out;
@@ -155,6 +156,7 @@ pub(crate) struct Session<'a> {
     plugin_list: Option<String>,
     pstack_owned: Vec<String>,
     agents_owned: Vec<String>,
+    fff_owned: Vec<String>,
     claude_md: bool,
     codex_guidance: bool,
     opencode_guidance: bool,
@@ -213,6 +215,7 @@ impl<'a> Session<'a> {
             plugin_list: None,
             pstack_owned: vec![],
             agents_owned: vec![],
+            fff_owned: vec![],
             claude_md: false,
             codex_guidance: false,
             opencode_guidance: false,

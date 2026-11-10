@@ -136,6 +136,7 @@ configures it, and names it in the loop. It forks none of them.
 | [caveman](https://github.com/JuliusBrussee/caveman) | Terse agent prose, about 65% fewer output tokens (upstream's figure) |
 | [ponytail](https://github.com/DietrichGebert/ponytail) | Makes the agent write the smallest change that works |
 | [codebase-memory-mcp](https://github.com/DeusData/codebase-memory-mcp) | Indexes the repo into a graph, so the agent asks instead of grepping |
+| [fff](https://github.com/dmtrKovalenko/fff) | Fast file and literal search as MCP tools, in place of Grep |
 | [thermo-nuclear](https://github.com/cursor/plugins/tree/main/cursor-team-kit/skills/thermo-nuclear-code-quality-review) | Strict maintainability review |
 | [mattpocock-skills](https://github.com/mattpocock/skills) | Interviewing, research, diagnosis and design skills |
 | [unslop](https://github.com/cursor/plugins/tree/main/pstack/skills/unslop) | Strips AI-slop patterns from prose |
