@@ -1,9 +1,8 @@
 # Shared: radin-batch Final Summary
 
 `radin-batch` reads this file at Phase 5.
-`RADIN_CLI state report`
-prints the report itself: the residual-changes check (it moves files a task's plan names onto that task's branch), the commit-location
-lines with what each task built, chose and left open, the tasks that landed with a Finish follow-up, every `failed`, `blocked` and `excluded` entry with its note, the
+`RADIN_CLI state report --brief`
+prints the report itself: the residual-changes check (it moves files a task's plan names onto that task's branch), the tasks that landed with a Finish follow-up, every `failed`, `blocked` and `excluded` entry with its note, the
 wip commits this session made from uncommitted changes, the skills `task-next` dropped as
 unrunnable by a sub-agent, and the out-of-plan files per task. One thing it cannot do:
 

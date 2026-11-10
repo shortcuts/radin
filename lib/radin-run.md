@@ -415,14 +415,18 @@ each branch it kept with its reason. Exit 3: a branch conflicted, so read
 
 ## Phase 5: Final Summary
 
-Always runs after Phase 4.7, once every task branch has landed. The CLI prints the summary whole:
+Always runs after Phase 4.7, once every task branch has landed. The CLI prints every
+count and every problem; you write the short list of what was built:
 
 ```bash
-RADIN_CLI state report
+RADIN_CLI state report --brief
 ```
 
-Print its output verbatim. Read
-`RADIN_LIB/radin-batch-reporting.md` for the one thing it
+Print its output verbatim. Then write `Succeeded:` yourself: one line per task
+that has a `task-report` in your context, saying what it built in plain words, at
+most 15 words, no hashes. A task you no longer remember (after a compaction) gets
+its line from `RADIN_CLI state report`, whose `Succeeded:` list you condense. Read
+`RADIN_LIB/radin-batch-reporting.md` for the one thing the CLI
 cannot do.
 
 Then run `RADIN_CLI state steps-waiting`. Exit 1: go to Phase 6. Exit 0

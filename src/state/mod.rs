@@ -345,7 +345,7 @@ fn dispatch(c: &Ctx, args: &[String], io: &mut Io) -> R {
         "trace" => branches::trace(&s, a, io),
         "completed-show" => branches::completed_show(&s, a, io),
         "completed-list" => branches::completed_list(&s, io),
-        "report" => report::report(&s, io),
+        "report" => report::report(&s, a, io),
         "journal-tail" => report::journal_tail(&s, a, io),
         "plan-covers" => report::plan_covers(&s, a, io),
         "review-findings" => report::review_findings(&s, io),

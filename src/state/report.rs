@@ -73,7 +73,8 @@ fn unescape(s: &str) -> String {
     s.replace("\\\"", "\"").replace("\\\\", "\\")
 }
 
-pub fn report(s: &S, io: &mut Io) -> R {
+pub fn report(s: &S, a: &[String], io: &mut Io) -> R {
+    let brief = a.iter().any(|x| x == "--brief");
     let (wt_mode, br_mode) = s.session_get().unwrap_or(("no".into(), "no".into()));
     let baseline = s.read("baseline.json");
     let base_completed = num(&baseline, "completed_count") as usize;
@@ -236,7 +237,7 @@ pub fn report(s: &S, io: &mut Io) -> R {
         }
     }
     let _ = writeln!(io.out, "{residual}.");
-    if !succeeded.is_empty() {
+    if !brief && !succeeded.is_empty() {
         let _ = writeln!(io.out, "\nSucceeded:{succeeded}");
     }
     if !landed_fu.is_empty() {
