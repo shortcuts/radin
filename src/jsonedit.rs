@@ -544,11 +544,11 @@ pub fn ensure_mcp(path: &str, name: &str, command: &str) -> Out {
 
 pub fn ensure_env(path: &str, key: &str, value: &str) -> Out {
     run(|out| {
-        let Some(mut root) = root_of("radin-cbm-json", path)? else {
+        let Some(mut root) = root_of("radin", path)? else {
             return Ok(0);
         };
         if root.get("env").is_some_and(|e| !e.is_object()) {
-            return invalid("radin-cbm-json", path);
+            return invalid("radin", path);
         }
         let env = root
             .entry("env")
@@ -583,7 +583,7 @@ fn atoi(v: &Value) -> Option<i64> {
 
 pub fn ensure_hook_timeout(path: &str, name: &str, secs: i64) -> Out {
     run(|out| {
-        let Some(mut root) = root_of("radin-cbm-json", path)? else {
+        let Some(mut root) = root_of("radin", path)? else {
             return Ok(0);
         };
         let Some(Value::Object(hooks)) = root.get_mut("hooks") else {
@@ -620,8 +620,8 @@ fn resolve(arg: &str) -> String {
 pub fn edit_allow(arg: &str, add: bool, rules: &[&str]) -> Out {
     run(|out| {
         let path = &resolve(arg);
-        let bad = || invalid("radin-cbm-json", path);
-        let mut root = match root_of("radin-cbm-json", path)? {
+        let bad = || invalid("radin", path);
+        let mut root = match root_of("radin", path)? {
             Some(r) => r,
             None if add => Obj::new(),
             None => return Ok(0),
@@ -678,7 +678,7 @@ pub fn edit_allow(arg: &str, add: bool, rules: &[&str]) -> Out {
 pub fn edit_ext_dir(arg: &str, add: bool, globs: &[&str]) -> Out {
     run(|out| {
         let path = &resolve(arg);
-        let mut root = match root_of("radin-cbm-json", path)? {
+        let mut root = match root_of("radin", path)? {
             Some(r) => r,
             None if add => Obj::new(),
             None => return Ok(0),
@@ -688,7 +688,7 @@ pub fn edit_ext_dir(arg: &str, add: bool, globs: &[&str]) -> Out {
         if perms.is_some_and(|p| !p.is_object()) || ext.is_some_and(|e| !e.is_object()) {
             return fail(
                 3,
-                format!("radin-cbm-json: {path}: permission.external_directory is not an object -- nothing written\n"),
+                format!("radin: {path}: permission.external_directory is not an object -- nothing written\n"),
             );
         }
         if ext.is_none() && !add {

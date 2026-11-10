@@ -460,15 +460,9 @@ fn an_unresolved_skill_token_fails() {
 }
 
 #[test]
-fn the_token_scan_skips_a_file_named_radin_doctor_sh() {
+fn the_token_scan_flags_an_unsubstituted_token() {
     let w = w();
     w.install_all_expected();
-    put(
-        &w.p(".radin/lib/radin-doctor.sh"),
-        "RADIN_MODEL_ @@skill:\n",
-    );
-    let r = w.doctor();
-    assert_eq!(r.code, 0, "{}", r.out);
     put(&w.p(".radin/lib/other.txt"), "RADIN_EFFORT_\n");
     assert_eq!(w.doctor().code, 1);
 }

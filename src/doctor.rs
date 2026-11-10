@@ -455,13 +455,10 @@ impl Doctor<'_, '_> {
             dirs.push(self.rh.join(format!("hosts/{host}/lib")));
         }
         let tokens = ["RADIN_MODEL_", "RADIN_EFFORT_", "RADIN_CLI ", "@@skill:"];
-        let hit = files_under(&dirs)
-            .iter()
-            .filter(|f| f.file_name().is_none_or(|n| n != "radin-doctor.sh"))
-            .any(|f| {
-                let t = String::from_utf8_lossy(&fs::read(f).unwrap_or_default()).into_owned();
-                tokens.iter().any(|k| t.contains(k))
-            });
+        let hit = files_under(&dirs).iter().any(|f| {
+            let t = String::from_utf8_lossy(&fs::read(f).unwrap_or_default()).into_owned();
+            tokens.iter().any(|k| t.contains(k))
+        });
         if hit {
             self.fail("  INVALID  unsubstituted RADIN_ token -- re-run install.sh");
         } else {
