@@ -94,9 +94,11 @@ pub fn group_set(s: &S, a: &[String]) -> R {
             )));
         }
         if a.iter().any(|id| group_of(id) != first) {
-            return Err(die(
-                "group-set: those tasks are in different groups of the latest wave-partition; run one group, or a subset of it",
-            ));
+            let groups: Vec<&str> = parts.lines().collect();
+            return Err(die(format!(
+                "group-set: those tasks are in different groups of the latest wave-partition; run one group, or a subset of it. groups: {}",
+                groups.join(" | ")
+            )));
         }
     }
     let ids = a.join(",");

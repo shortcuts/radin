@@ -82,6 +82,24 @@ pub fn epic_add(cx: &Ctx, a: &[String], io: &mut Io) -> R {
     Ok(0)
 }
 
+pub fn epic_set(cx: &Ctx, a: &[String], io: &mut Io) -> R {
+    let epic = arg(a, 0);
+    if epic.is_empty() {
+        return Err(usage_die(
+            "epic-set",
+            "epic-set needs an epic id, with the new description on stdin",
+        ));
+    }
+    require_epic_id(cx, epic)?;
+    fs::write(
+        cx.ns.backlog_tasks_dir.join(epic).join("DESCRIPTION.md"),
+        cx.body(),
+    )
+    .map_err(|e| die(e.to_string()))?;
+    io.out.push_str(&format!("updated epic {epic}\n"));
+    Ok(0)
+}
+
 pub fn epic_show(cx: &Ctx, a: &[String], io: &mut Io) -> R {
     let epic = arg(a, 0);
     if epic.is_empty() {

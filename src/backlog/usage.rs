@@ -120,6 +120,10 @@ pub const USAGE: &[(&str, &str)] = &[
         r##"epic-add <epic-id>          # create the epic dir + DESCRIPTION.md (body from stdin when piped)"##,
     ),
     (
+        "epic-set",
+        r##"epic-set <epic-id>          # replace the epic's DESCRIPTION.md with stdin (the epic must exist)"##,
+    ),
+    (
         "epic-show",
         r##"epic-show <epic-id>         # print the epic's DESCRIPTION.md"##,
     ),

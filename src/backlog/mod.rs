@@ -172,6 +172,7 @@ fn dispatch(args: &[String], env: &Env, io: &mut Io) -> R {
         "plan-lint" => plan::plan_lint(&cx, a, io),
         "epics" => epic::epics(&cx, a, io),
         "epic-add" => epic::epic_add(&cx, a, io),
+        "epic-set" => epic::epic_set(&cx, a, io),
         "epic-show" => epic::epic_show(&cx, a, io),
         "epic-move" => epic::epic_move(&cx, a, io),
         _ => epic::epic_remove(&cx, a, io),

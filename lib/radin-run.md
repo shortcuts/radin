@@ -380,6 +380,9 @@ because it would claim a task outside the group.
    Any other answer keeps the group. Never merge two groups.
 5. Run the groups one after another. For one group, run
    `RADIN_CLI state group-set --wave N <id>...`, which records the dispatch and refuses ids from two groups of the latest partition.
+   A refused `group-set` records nothing: run `task-next` only after it exits
+   0, and never re-run `wave-partition` to get past it. A group of one needs no
+   veto and runs alone.
    Run `RADIN_CLI state task-next "<id>"` for each member, dispatch all of
    them in one message, and wait for every `STATUS:` line. Run `task-report`
    on each. A `debug` or `clarify` route follows the table above, then the

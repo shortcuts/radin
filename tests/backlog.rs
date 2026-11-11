@@ -562,6 +562,26 @@ fn epic_add_creates_the_directory_and_description_epics_and_epic_show_read_it() 
 }
 
 #[test]
+fn epic_set_replaces_the_description_and_rejects_a_missing_epic_and_a_non_slug() {
+    let w = W::new();
+    w.ok(&["epic-add", "auth"], "old");
+    assert_eq!(
+        w.ok(&["epic-set", "auth"], "new ctx\n"),
+        "updated epic auth\n"
+    );
+    assert_eq!(w.ok(&["epic-show", "auth"], ""), "new ctx\n");
+    assert!(w
+        .fails(&["epic-set", "nope"], "x")
+        .err
+        .contains("no such epic"));
+    assert!(w
+        .fails(&["epic-set", "Not A Slug"], "x")
+        .err
+        .contains("slug"));
+    assert!(w.fails(&["epic-set"], "x").err.contains("epic-set"));
+}
+
+#[test]
 fn epic_add_rejects_a_non_slug_id_an_existing_epic_and_a_task_id() {
     let w = W::new();
     w.ok(&["epic-add", "ok"], "d");
@@ -1578,7 +1598,7 @@ fn env_prints_quoted_namespace_variables() {
 fn help_unknown_verbs_and_missing_index() {
     let w = W::new();
     let all = w.ok(&["help"], "");
-    assert_eq!(all.lines().count(), 33);
+    assert_eq!(all.lines().count(), 34);
     assert!(all.starts_with("  help [command]"));
     for flag in ["--help", "-h"] {
         assert_eq!(w.ok(&[flag], ""), all);
@@ -1592,7 +1612,7 @@ fn help_unknown_verbs_and_missing_index() {
         .err
         .starts_with("radin-backlog: unknown command: nope\n  help [command]"));
     let r = w.fails(&["nope"], "");
-    assert_eq!(r.err.lines().count(), 34);
+    assert_eq!(r.err.lines().count(), 35);
     assert!(r.err.starts_with("radin-backlog: unknown command: nope\n"));
     assert!(w
         .fails(&[], "")

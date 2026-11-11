@@ -661,6 +661,11 @@ fn group_set_refuses_tasks_that_the_partition_put_in_different_groups() {
     let merged = w.state(&["group-set", "--wave", "1", "w-a", "w-b"]);
     assert_ne!(merged.code, 0);
     assert!(merged.err.contains("different groups"), "{}", merged.err);
+    assert!(
+        merged.err.contains("groups: w-a,w-c | w-b"),
+        "{}",
+        merged.err
+    );
     assert_eq!(w.state(&["group-set", "--wave", "1", "w-a", "w-c"]).code, 0);
     assert_eq!(w.state(&["group-set", "--wave", "1", "w-b"]).code, 0);
     assert_ne!(w.state(&["group-set", "--wave", "1", "w-zzz"]).code, 0);
