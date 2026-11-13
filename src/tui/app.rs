@@ -1,3 +1,4 @@
+use super::actions::{self, map, Key, Scope};
 use super::detail;
 use super::model::{
     DetView, InputThen, Mode, Model, Overlay, PickThen, Row, Sort, CATEGORIES, SPLIT_MIN,
@@ -7,7 +8,7 @@ use super::task::parse_list;
 use crate::paths::Namespace;
 use crate::state::Ctx;
 use crate::Out;
-use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+use crossterm::event::KeyEvent;
 use std::path::PathBuf;
 use std::time::UNIX_EPOCH;
 
@@ -34,43 +35,6 @@ pub enum Then {
     NewTask { cat: String, title: String },
     NewEpic(String),
     Page,
-}
-
-/// A key after the arrow, Enter and Ctrl mapping, so the handlers see single characters.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-enum Key {
-    Char(char),
-    Enter,
-    Tab,
-    Esc,
-    Back,
-    CtrlD,
-    CtrlU,
-    CtrlC,
-    Other,
-}
-
-fn map(k: KeyEvent) -> Option<Key> {
-    if k.kind == KeyEventKind::Release {
-        return None;
-    }
-    let ctrl = k.modifiers.contains(KeyModifiers::CONTROL);
-    Some(match k.code {
-        KeyCode::Char('c') if ctrl => Key::CtrlC,
-        KeyCode::Char('d') if ctrl => Key::CtrlD,
-        KeyCode::Char('u') if ctrl => Key::CtrlU,
-        KeyCode::Char(_) if ctrl => Key::Other,
-        KeyCode::Char(c) => Key::Char(c),
-        KeyCode::Up => Key::Char('k'),
-        KeyCode::Down => Key::Char('j'),
-        KeyCode::Left => Key::Char('h'),
-        KeyCode::Right => Key::Char('l'),
-        KeyCode::Enter => Key::Enter,
-        KeyCode::Tab => Key::Tab,
-        KeyCode::Esc => Key::Esc,
-        KeyCode::Backspace => Key::Back,
-        _ => Key::Other,
-    })
 }
 
 pub struct App<'a> {
@@ -650,7 +614,8 @@ impl<'a> App<'a> {
     }
 
     pub fn is_motion(&mut self, k: KeyEvent) -> bool {
-        matches!(self.m.overlay, Overlay::None) && map(k).is_some_and(|k| self.motion(k, false))
+        matches!(self.m.overlay, Overlay::None)
+            && map(k).is_some_and(|k| self.motion(k.vi(), false))
     }
 
     pub fn key(&mut self, ev: KeyEvent) -> Effect {
@@ -664,44 +629,123 @@ impl<'a> App<'a> {
             return Effect::Quit;
         }
         match self.m.overlay {
-            Overlay::Help => self.m.overlay = Overlay::None,
-            Overlay::Detail => self.detail_key(k),
+            Overlay::Help(_) => self.help_key(k.vi()),
+            Overlay::Palette { .. } => return self.palette_key(k),
+            Overlay::Detail => self.detail_key(k.vi()),
             Overlay::Category => self.cat_choice(k),
             Overlay::Input { .. } => return self.input_key(k),
-            Overlay::Pick { .. } => self.pick_key(k),
+            Overlay::Pick { .. } => self.pick_key(k.vi()),
             Overlay::None => return self.list_key(k),
         }
         Effect::None
     }
 
+    fn scope(&self) -> Scope {
+        match self.m.mode {
+            Mode::List => Scope::List,
+            Mode::Done => Scope::Done,
+        }
+    }
+
+    fn help_key(&mut self, k: Key) {
+        let last = actions::help().len().saturating_sub(self.list_h());
+        let Overlay::Help(top) = &mut self.m.overlay else {
+            return;
+        };
+        match k {
+            Key::Char('j') => *top = (*top + 1).min(last),
+            Key::Char('k') => *top = top.saturating_sub(1),
+            _ => self.m.overlay = Overlay::None,
+        }
+    }
+
+    /// The palette rows the overlay shows for its current filter.
+    pub fn palette_items(&self) -> Vec<&'static actions::Action> {
+        match &self.m.overlay {
+            Overlay::Palette { query, .. } => actions::matches(query, self.scope()),
+            _ => Vec::new(),
+        }
+    }
+
+    fn palette_key(&mut self, k: Key) -> Effect {
+        let items = self.palette_items();
+        let n = items.len();
+        let Overlay::Palette { query, sel } = &mut self.m.overlay else {
+            return Effect::None;
+        };
+        match k {
+            Key::Char(c) => {
+                query.push(c);
+                *sel = 0;
+            }
+            Key::Back => {
+                query.pop();
+                *sel = 0;
+            }
+            Key::Down | Key::Tab => *sel = (*sel + 1).min(n.saturating_sub(1)),
+            Key::Up => *sel = sel.saturating_sub(1),
+            Key::Esc => self.m.overlay = Overlay::None,
+            Key::Enter => {
+                let pick = items.get(*sel).map(|a| a.id);
+                self.m.overlay = Overlay::None;
+                return match pick {
+                    Some(id) => self.act(id),
+                    None => Effect::None,
+                };
+            }
+            _ => {}
+        }
+        Effect::None
+    }
+
     fn list_key(&mut self, k: Key) -> Effect {
-        if self.motion(k, true) {
+        if self.motion(k.vi(), true) {
             return Effect::None;
         }
         self.m.clear_cache();
-        if self.m.mode == Mode::Done {
-            match k {
-                Key::Tab => self.m.mode = Mode::List,
-                Key::Char('R') => {
-                    self.load_done();
-                    self.msg("reloaded");
-                }
-                Key::Char('?') => self.m.overlay = Overlay::Help,
-                Key::Char('q') => return self.quit_effect(),
-                _ => {}
-            }
-            return Effect::None;
+        match actions::by_key(k, self.scope()) {
+            Some(a) => self.act(a.id),
+            None => Effect::None,
         }
-        let task = |a: &mut Self| {
-            let ti = a.m.cur_task();
-            if ti.is_none() {
-                a.msg("epic header selected -- no task here");
+    }
+
+    /// The selected task, or a message saying the row is an epic header.
+    fn need_task(&mut self) -> Option<usize> {
+        let ti = self.m.cur_task();
+        if ti.is_none() {
+            self.msg("epic header selected -- no task here");
+        }
+        ti
+    }
+
+    /// Runs one registry action by id; a key and a palette pick land here alike.
+    fn act(&mut self, id: &str) -> Effect {
+        self.m.clear_cache();
+        let done = self.m.mode == Mode::Done;
+        match id {
+            "quit" => return self.quit_effect(),
+            "help" => self.m.overlay = Overlay::Help(0),
+            "palette" => {
+                self.m.overlay = Overlay::Palette {
+                    query: String::new(),
+                    sel: 0,
+                }
             }
-            ti
-        };
-        match k {
-            Key::Char('e') => return self.edit(),
-            Key::Enter => {
+            "reload" if done => {
+                self.load_done();
+                self.msg("reloaded");
+            }
+            "reload" => {
+                self.load();
+                self.msg("reloaded");
+            }
+            "done" if done => self.m.mode = Mode::List,
+            "done" => {
+                self.m.mode = Mode::Done;
+                self.load_done();
+            }
+            "edit" => return self.edit(),
+            "open" => {
                 if self.m.cur_task().is_none() {
                     self.m.toggle_collapse();
                 } else if !self.split_on() {
@@ -709,22 +753,18 @@ impl<'a> App<'a> {
                     self.m.overlay = Overlay::Detail;
                 }
             }
-            Key::Char('v') => return self.view_task(),
-            Key::Char('o') => return self.view_order(),
-            Key::Tab => {
-                self.m.mode = Mode::Done;
-                self.load_done();
-            }
-            Key::Char('a') => self.m.overlay = Overlay::Category,
-            Key::Char('d') => {
-                if let Some(ti) = task(self) {
+            "view" => return self.view_task(),
+            "order" => return self.view_order(),
+            "new" => self.m.overlay = Overlay::Category,
+            "delete" => {
+                if let Some(ti) = self.need_task() {
                     let t = &self.m.tasks[ti];
                     let (label, id) = (format!("delete \"{}\"? [y/N] ", t.title), t.id.clone());
                     self.input(label, InputThen::ConfirmDelete(id));
                 }
             }
-            Key::Char('c') => {
-                if let Some(ti) = task(self) {
+            "category" => {
+                if let Some(ti) = self.need_task() {
                     let t = &self.m.tasks[ti];
                     let at = CATEGORIES.iter().position(|c| *c == t.cat).unwrap_or(0);
                     let id = t.id.clone();
@@ -735,49 +775,43 @@ impl<'a> App<'a> {
                     );
                 }
             }
-            Key::Char('r') => {
-                if let Some(ti) = task(self) {
+            "retitle" => {
+                if let Some(ti) = self.need_task() {
                     let t = &self.m.tasks[ti];
                     let (label, id) = (format!("new title (was \"{}\"): ", t.title), t.id.clone());
                     self.input(label, InputThen::Retitle(id));
                 }
             }
-            Key::Char('p') => {
-                if let Some(ti) = task(self) {
+            "priority" => {
+                if let Some(ti) = self.need_task() {
                     self.set_priority(ti);
                 }
             }
-            Key::Char('D') => {
-                if let Some(ti) = task(self) {
+            "deps" => {
+                if let Some(ti) = self.need_task() {
                     self.edit_deps(ti);
                 }
             }
-            Key::Char('m') => {
-                if let Some(ti) = task(self) {
+            "epic-move" => {
+                if let Some(ti) = self.need_task() {
                     self.move_epic(ti);
                 }
             }
-            Key::Char('E') => self.input("new epic id (slug, empty cancels): ", InputThen::NewEpic),
-            Key::Char('w') => self.toggle_session(false),
-            Key::Char('b') => self.toggle_session(true),
-            Key::Char(c @ ('A' | 'P' | 'C' | 'T')) => {
-                self.m.sort = match c {
-                    'P' => Sort::Priority,
-                    'C' => Sort::Category,
-                    'T' => Sort::Title,
+            "epic-new" => self.input("new epic id (slug, empty cancels): ", InputThen::NewEpic),
+            "worktree" => self.toggle_session(false),
+            "branch" => self.toggle_session(true),
+            "sort-created" | "sort-priority" | "sort-category" | "sort-title" => {
+                self.m.sort = match id {
+                    "sort-priority" => Sort::Priority,
+                    "sort-category" => Sort::Category,
+                    "sort-title" => Sort::Title,
                     _ => Sort::Created,
                 };
                 self.m.sort_tasks();
                 self.m.build_rows();
                 self.msg(format!("sort:{}", self.m.sort.name()));
             }
-            Key::Char('/') => self.input("search: ", InputThen::Search),
-            Key::Char('R') => {
-                self.load();
-                self.msg("reloaded");
-            }
-            Key::Char('?') => self.m.overlay = Overlay::Help,
-            Key::Char('q') => return self.quit_effect(),
+            "search" => self.input("search: ", InputThen::Search),
             _ => {}
         }
         Effect::None

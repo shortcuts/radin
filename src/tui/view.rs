@@ -1,3 +1,4 @@
+use super::actions::{self, Scope};
 use super::app::App;
 use super::model::{Mode, Overlay, Row, CATEGORIES};
 use super::text::{age_cell, clean, dwidth, fit, wrap_at, MdStyle};
@@ -6,10 +7,7 @@ use ratatui::layout::Rect;
 use ratatui::style::{Modifier, Style};
 use ratatui::Frame;
 
-const HELP: &str = include_str!("help.txt");
 const ROW_MAX_LINES: usize = 3;
-const KEYS: &str =
-    "j/k move  enter open  e edit  v detail  / search  a new  Tab done  ? keys  q quit";
 
 type Span = (usize, usize, Style);
 
@@ -332,7 +330,7 @@ fn draw_done(buf: &mut Buffer, app: &mut App, list_h: usize) {
         buf,
         app,
         0,
-        &format!("radin done  {n} completed"),
+        &format!("radin done  {n} completed  (read-only)"),
         Bar::Head,
     );
     if n == 0 {
@@ -412,6 +410,66 @@ fn draw_pick(buf: &mut Buffer, app: &mut App, list_h: usize) {
     bar(buf, app, app.size.1 as usize - 1, foot, Bar::Keys);
 }
 
+/// The `:` palette as a box over the frame: the filter line, then one row per match with its key on the right.
+fn draw_palette(buf: &mut Buffer, app: &mut App) -> Option<(u16, u16)> {
+    let (sw, sh) = (app.size.0 as usize, app.size.1 as usize);
+    let Overlay::Palette { query, sel } = &app.m.overlay else {
+        return None;
+    };
+    let (query, sel) = (query.clone(), *sel);
+    let items = app.palette_items();
+    let w = sw.saturating_sub(4).min(64);
+    if w < 12 || sh < 6 {
+        return None;
+    }
+    let x = (sw - w) / 2;
+    let iw = w - 2;
+    let rows = items.len().max(1).min(sh.saturating_sub(6));
+    let top = sel.saturating_sub(rows - 1);
+    let pad = |s: String| {
+        let s = fit(&s, iw).to_string();
+        let n = dwidth(&s);
+        s + &" ".repeat(iw - n)
+    };
+    let input = clean(&format!(" : {query}"));
+    line(buf, x + 1, 2, iw, &pad(input.clone()), Style::new(), &[]);
+    if items.is_empty() {
+        line(
+            buf,
+            x + 1,
+            3,
+            iw,
+            &pad("   no matching command".into()),
+            app.pal.dim,
+            &[],
+        );
+    }
+    for (i, a) in items.iter().skip(top).take(rows).enumerate() {
+        let keys = a.keys_label();
+        let room = iw.saturating_sub(dwidth(&keys) + 4);
+        let label = fit(a.label, room);
+        let gap = iw.saturating_sub(dwidth(label) + dwidth(&keys) + 4);
+        let text = format!("   {label}{}{keys} ", " ".repeat(gap));
+        let base = if top + i == sel {
+            app.pal.sel
+        } else {
+            Style::new()
+        };
+        let k_at = dwidth(&text) - dwidth(&keys) - 1;
+        line(
+            buf,
+            x + 1,
+            3 + i,
+            iw,
+            &text,
+            base,
+            &[(k_at, dwidth(&keys), app.pal.key)],
+        );
+    }
+    boxed(buf, app, 1, x, rows + 1, w, "commands");
+    Some(((x + 1 + dwidth(&input)).min(sw - 1) as u16, 2))
+}
+
 impl App<'_> {
     /// Draws into `buf` and returns where the terminal cursor goes: the end of the input row, else nowhere.
     pub fn draw_buf(&mut self, buf: &mut Buffer, area: Rect) -> Option<(u16, u16)> {
@@ -419,9 +477,15 @@ impl App<'_> {
         let (w, h) = (area.width as usize, area.height as usize);
         let list_h = self.list_h();
         let foot = h.saturating_sub(1);
-        if matches!(self.m.overlay, Overlay::Help) {
-            for (i, l) in HELP.lines().enumerate() {
-                put(buf, 0, i, l, Style::new());
+        if let Overlay::Help(top) = self.m.overlay {
+            let pal = self.pal.clone();
+            for (i, l) in actions::help().iter().skip(top).take(h).enumerate() {
+                let st = if l.starts_with(' ') || l.is_empty() {
+                    Style::new()
+                } else {
+                    pal.title
+                };
+                put(buf, 0, i, l, st);
             }
             return None;
         }
@@ -443,11 +507,7 @@ impl App<'_> {
             footer(self, buf, "^d/^u scroll  q/esc close");
         } else if self.m.mode == Mode::Done {
             draw_done(buf, self, list_h);
-            footer(
-                self,
-                buf,
-                "j/k move  Tab back  R reload  q quit  (read-only)",
-            );
+            footer(self, buf, &actions::footer(Scope::Done));
         } else {
             let split = self.split_on();
             let lw = if split { w * 2 / 5 } else { w };
@@ -460,7 +520,10 @@ impl App<'_> {
             if split {
                 boxed(buf, self, 1, lw, list_h, w - lw, "detail");
             }
-            footer(self, buf, KEYS);
+            footer(self, buf, &actions::footer(Scope::List));
+        }
+        if matches!(self.m.overlay, Overlay::Palette { .. }) {
+            return draw_palette(buf, self);
         }
         match &self.m.overlay {
             Overlay::Category => {

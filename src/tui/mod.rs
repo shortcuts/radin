@@ -1,3 +1,4 @@
+mod actions;
 mod app;
 mod detail;
 mod frame_writer;

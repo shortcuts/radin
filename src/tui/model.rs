@@ -61,7 +61,13 @@ pub enum PickThen {
 #[derive(Clone, Debug)]
 pub enum Overlay {
     None,
-    Help,
+    /// The help overlay, scrolled to this line.
+    Help(usize),
+    /// The `:` command palette: the filter text and the highlighted match.
+    Palette {
+        query: String,
+        sel: usize,
+    },
     Detail,
     Category,
     Input {

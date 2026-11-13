@@ -1178,6 +1178,9 @@ fn help_shows_the_key_list_and_any_key_closes_it() {
         press(a, "?");
         let s = render(a, 80, 60);
         assert_eq!(s.rows[0], "radin tui keys");
+        assert!(s.has("command palette"));
+        press(a, "j");
+        assert_ne!(render(a, 80, 60).rows[0], "radin tui keys");
         press(a, "x");
         assert!(render(a, 80, 24).has("radin backlog"));
     });
@@ -1217,5 +1220,48 @@ fn a_terminal_smaller_than_the_old_clamp_still_draws() {
             render(a, w, h);
         }
         assert!(render(a, 30, 8).has("radin backlog"));
+    });
+}
+
+#[test]
+fn the_palette_filters_actions_and_enter_runs_the_highlighted_one() {
+    let fx = Fx::new();
+    fx.seed();
+    fx.with(|a| {
+        press(a, ":");
+        let s = render(a, 120, 24);
+        assert!(s.has("\u{256d}\u{2500} commands ") && s.has("set priority") && s.has("quit"));
+        press(a, "set pri");
+        let s = render(a, 120, 24);
+        assert!(s.has("set priority") && !s.has("retitle task"));
+        assert_eq!(s.cursor, Some((39, 2)));
+        press(a, "\r");
+        assert!(render(a, 120, 24).has("priority for"));
+        press(a, "\r");
+    });
+    assert!(fx.index().contains("\"priority\":21"));
+}
+
+#[test]
+fn the_palette_closes_on_escape_and_shows_no_match() {
+    let fx = Fx::new();
+    fx.with(|a| {
+        press(a, ":zzzz");
+        assert!(render(a, 80, 24).has("no matching command"));
+        assert!(press(a, "\r").is_empty());
+        press(a, ":q\u{1b}");
+        assert!(!a.quit());
+        assert!(!render(a, 80, 24).has("\u{256d}\u{2500} commands "));
+    });
+}
+
+#[test]
+fn an_arrow_key_in_a_text_prompt_types_nothing() {
+    let fx = Fx::new();
+    fx.with(|a| {
+        press(a, "/ab");
+        a.key(key(KeyCode::Up, KeyModifiers::NONE));
+        assert!(render(a, 80, 24).has("search: ab"));
+        assert!(!render(a, 80, 24).has("search: abk"));
     });
 }
