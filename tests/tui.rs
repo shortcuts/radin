@@ -1400,3 +1400,65 @@ fn a_long_unbroken_field_value_starts_on_its_label_line() {
         );
     });
 }
+
+#[test]
+fn capital_m_sets_a_free_meta_field_and_picks_an_enumerated_one() {
+    let fx = Fx::new();
+    let id = fx.add("feat", "metaful", "Body.");
+    fx.with(|a| {
+        press(a, "M");
+        assert!(render(a, 80, 24).has("acceptance  (unset)"));
+        press(a, "j\r");
+        assert!(render(a, 80, 24).has("acceptance for metaful"));
+        press(a, "it works; it is fast\r");
+        press(a, "Mjjjj\r");
+        assert!(render(a, 80, 24).has("(none) -- clear the field"));
+        press(a, "j\r");
+    });
+    let meta = fx.bl(&["meta", &id], "").1;
+    assert!(
+        meta.contains("acceptance\tit works\nacceptance\tit is fast\n"),
+        "{meta}"
+    );
+    assert!(meta.contains("complexity\thigh"), "{meta}");
+}
+
+#[test]
+fn the_palette_sets_epic_deps_and_removes_an_empty_epic_only() {
+    let fx = Fx::new();
+    fx.two_epics();
+    assert_eq!(fx.bl(&["epic-add", "ccc-epic"], "").0, 0);
+    fx.with(|a| {
+        press(a, "jj:epic-deps\r");
+        assert!(render(a, 80, 24).has("epics bbb-epic depends on"));
+        press(a, " \r");
+        press(a, "G:epic-remove\ry\r");
+        press(a, "gg:epic-remove\ry\r");
+        assert!(render(a, 80, 24).has("epic-remove failed:"));
+        press(a, "j:epic-deps\r");
+        assert!(render(a, 80, 24).has("select an epic header first"));
+    });
+    assert_eq!(
+        fx.bl(&["epics", "--deps"], "").1,
+        "aaa-epic\t\nbbb-epic\taaa-epic\n"
+    );
+}
+
+#[test]
+fn a_read_only_view_pages_cli_output_or_says_there_is_nothing() {
+    let fx = Fx::new();
+    fx.seed();
+    fx.plan("dark-mode", "plan step one");
+    fx.with(|a| {
+        assert!(press(a, ":run-status\r").is_empty());
+        assert!(render(a, 80, 24).has("run-status: nothing to show"));
+        let (prog, path, _) = run_of(press(a, ":show\r"));
+        assert_eq!(prog, "pg-test");
+        assert!(fs::read_to_string(&path).unwrap().contains("dark mode"));
+        let (_, path, _) = run_of(press(a, ":plan-lint\r"));
+        assert!(fs::read_to_string(&path).unwrap().contains("no defect"));
+        press(a, "j");
+        assert!(press(a, ":plan-lint\r").is_empty());
+        assert!(render(a, 80, 24).has("plan-lint: the task has no plan"));
+    });
+}

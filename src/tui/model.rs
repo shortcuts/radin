@@ -50,6 +50,11 @@ pub enum InputThen {
     Search,
     NewEpic,
     ConfirmDelete(String),
+    /// Task id, then the `set-meta` field the typed values go to.
+    Meta(String, String),
+    AddPlan(String),
+    ConfirmEpicRemove(String),
+    ConfirmReconcile,
 }
 
 #[derive(Clone, Debug)]
@@ -57,6 +62,9 @@ pub enum PickThen {
     Priority(String),
     Deps(String),
     Epic(String),
+    MetaField(String),
+    MetaValue(String, String),
+    EpicDeps(String),
 }
 
 #[derive(Clone, Debug)]

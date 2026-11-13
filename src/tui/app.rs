@@ -15,6 +15,17 @@ use std::time::UNIX_EPOCH;
 
 const BODY_HINT: &str = "# describe the task: what changes, why, which files, how to verify";
 const PRIORITIES: [&str; 7] = ["21", "13", "8", "5", "3", "2", "1"];
+/// `set-meta` field, then the key `backlog meta` prints it under.
+const META_FIELDS: [(&str, &str); 8] = [
+    ("skills", "skill"),
+    ("acceptance", "acceptance"),
+    ("location", "location"),
+    ("planning", "planning"),
+    ("complexity", "complexity"),
+    ("exclusive", "exclusive"),
+    ("origin", "origin"),
+    ("facts", "facts"),
+];
 
 /// What the event loop owes the terminal after a key.
 #[derive(Debug, PartialEq)]
@@ -403,6 +414,41 @@ impl<'a> App<'a> {
                 }
             }
             InputThen::NewEpic => return self.new_epic(&text),
+            InputThen::Meta(id, field) => {
+                let vals: Vec<&str> = text
+                    .split(';')
+                    .map(str::trim)
+                    .filter(|v| !v.is_empty())
+                    .collect();
+                let mut args = vec![id.as_str(), field.as_str()];
+                if vals.is_empty() {
+                    args.push("--none");
+                } else {
+                    args.extend(vals);
+                }
+                self.mutate("set-meta", &args, "");
+            }
+            InputThen::AddPlan(id) => {
+                if text.is_empty() {
+                    self.msg("add-plan cancelled");
+                } else {
+                    self.mutate("add-plan", &[&id, &text], "");
+                }
+            }
+            InputThen::ConfirmEpicRemove(epic) => {
+                if ["y", "Y", "yes"].contains(&text.as_str()) {
+                    self.mutate("epic-remove", &[&epic], "");
+                } else {
+                    self.msg("epic remove cancelled");
+                }
+            }
+            InputThen::ConfirmReconcile => {
+                if ["y", "Y", "yes"].contains(&text.as_str()) {
+                    self.mutate("reconcile", &[], "");
+                } else {
+                    self.msg("reconcile cancelled");
+                }
+            }
         }
         Effect::None
     }
@@ -490,6 +536,8 @@ impl<'a> App<'a> {
                     PickThen::Priority(_) => "priority cancelled",
                     PickThen::Deps(_) => "deps cancelled",
                     PickThen::Epic(_) => "epic move cancelled",
+                    PickThen::MetaField(_) | PickThen::MetaValue(..) => "meta cancelled",
+                    PickThen::EpicDeps(_) => "epic deps cancelled",
                 });
             }
             _ => {}
@@ -500,6 +548,18 @@ impl<'a> App<'a> {
         match then {
             PickThen::Priority(id) => self.mutate("set-priority", &[&id, &result[0]], ""),
             PickThen::Epic(id) => self.mutate("epic-move", &[&id, &result[0]], ""),
+            PickThen::MetaField(id) => self.meta_value(id, &result[0]),
+            PickThen::MetaValue(id, field) => {
+                self.mutate("set-meta", &[&id, &field, &result[0]], "")
+            }
+            PickThen::EpicDeps(epic) => {
+                let csv = result.join(",");
+                self.mutate(
+                    "epic-set-deps",
+                    &[&epic, if csv.is_empty() { "--none" } else { &csv }],
+                    "",
+                );
+            }
             PickThen::Deps(id) => {
                 let csv = result.join(",");
                 self.mutate(
@@ -878,9 +938,207 @@ impl<'a> App<'a> {
                 self.msg(format!("sort:{}", self.m.sort.name()));
             }
             "search" => self.input("search: ", InputThen::Search),
-            _ => {}
+            "meta" => {
+                if let Some(ti) = self.need_task() {
+                    self.meta_field(ti);
+                }
+            }
+            "add-plan" => {
+                if let Some(ti) = self.need_task() {
+                    let id = self.m.tasks[ti].id.clone();
+                    self.input("plan file path: ", InputThen::AddPlan(id));
+                }
+            }
+            "reconcile" => self.input(
+                "drop every entry already in completed.json? [y/N] ",
+                InputThen::ConfirmReconcile,
+            ),
+            "epic-deps" => {
+                if let Some(e) = self.need_epic() {
+                    self.epic_deps(e);
+                }
+            }
+            "epic-remove" => {
+                if let Some(e) = self.need_epic() {
+                    let label = format!("remove epic \"{e}\"? [y/N] ");
+                    self.input(label, InputThen::ConfirmEpicRemove(e));
+                }
+            }
+            "plan-lint" => return self.plan_lint(),
+            _ => return self.page_view(id),
         }
         Effect::None
+    }
+
+    /// The selected epic header, or a message saying a task row is selected.
+    fn need_epic(&mut self) -> Option<String> {
+        let e = self.m.cur_epic().map(String::from);
+        if e.is_none() {
+            self.msg("select an epic header first");
+        }
+        e
+    }
+
+    /// The CLI call a read-only view action pages; a task-scoped one needs a task row, `scope` takes an epic row too.
+    fn view_args(&mut self, id: &str) -> Option<Vec<String>> {
+        let s = |v: &[&str]| Some(v.iter().map(|x| x.to_string()).collect());
+        match id {
+            "show" => s(&["backlog", "show"]),
+            "duplicates" => s(&["backlog", "duplicates"]),
+            "run-status" => s(&["state", "steps-list"]),
+            "run-waiting" => s(&["state", "steps-waiting"]),
+            "run-open" => s(&["state", "steps-open"]),
+            "run-unlanded" => s(&["state", "unlanded"]),
+            "run-leftovers" => s(&["state", "leftovers"]),
+            "run-journal" => s(&["state", "journal-tail", "50"]),
+            "run-report" => s(&["state", "report"]),
+            "scope" => {
+                let target = match self.m.cur_epic() {
+                    Some(e) => e.to_string(),
+                    None => {
+                        let ti = self.need_task()?;
+                        self.m.tasks[ti].id.clone()
+                    }
+                };
+                s(&["backlog", "scope", &target])
+            }
+            "files" | "trace" => {
+                let ti = self.need_task()?;
+                let tid = self.m.tasks[ti].id.clone();
+                let verb = if id == "files" { "backlog" } else { "state" };
+                s(&[verb, id, &tid])
+            }
+            _ => None,
+        }
+    }
+
+    /// Pages a read-only CLI view; an empty result reads as a message instead of an empty pager.
+    fn page_view(&mut self, id: &str) -> Effect {
+        let Some(args) = self.view_args(id) else {
+            return Effect::None;
+        };
+        let refs: Vec<&str> = args.iter().map(String::as_str).collect();
+        let out = self.call(&refs, "");
+        let text = format!("{}{}", out.1, out.2);
+        if text.trim().is_empty() {
+            self.msg(format!("{id}: nothing to show"));
+            return Effect::None;
+        }
+        self.pager_run(&text)
+    }
+
+    fn plan_lint(&mut self) -> Effect {
+        let Some(ti) = self.need_task() else {
+            return Effect::None;
+        };
+        let t = &self.m.tasks[ti];
+        let plans: Vec<String> = t
+            .meta
+            .iter()
+            .filter_map(|l| l.strip_prefix("plan\t"))
+            .map(String::from)
+            .collect();
+        if plans.is_empty() {
+            self.msg("plan-lint: the task has no plan");
+            return Effect::None;
+        }
+        let mut text = String::new();
+        for p in &plans {
+            let abs = if p.starts_with('/') {
+                p.into()
+            } else {
+                self.m.ns.join(p)
+            };
+            let out = self.bl(&["plan-lint", &abs.to_string_lossy()], "");
+            let found = format!("{}{}", out.1, out.2);
+            text += &format!(
+                "## {p}\n\n{}\n",
+                if out.0 == 0 { "no defect\n" } else { &found }
+            );
+        }
+        self.pager_run(&text)
+    }
+
+    fn meta_field(&mut self, ti: usize) {
+        let t = &self.m.tasks[ti];
+        let cur = |k: &str| {
+            let v: Vec<&str> = t
+                .meta
+                .iter()
+                .filter_map(|l| l.split_once('\t').filter(|(mk, _)| *mk == k))
+                .map(|(_, v)| v)
+                .collect();
+            if v.is_empty() {
+                "(unset)".to_string()
+            } else {
+                v.join("; ")
+            }
+        };
+        let items = META_FIELDS
+            .iter()
+            .map(|(f, key)| (f.to_string(), format!("{f:<11} {}", cur(key))))
+            .collect();
+        let id = t.id.clone();
+        self.pick(
+            format!("meta field for {id}"),
+            false,
+            items,
+            vec![],
+            PickThen::MetaField(id),
+        );
+    }
+
+    /// An enumerated field picks its value; a free one asks for text, `;` between several values.
+    fn meta_value(&mut self, id: String, field: &str) {
+        let choices: &[&str] = match field {
+            "planning" => &["needed"],
+            "complexity" => &["low", "high"],
+            "exclusive" => &["yes"],
+            _ => &[],
+        };
+        if choices.is_empty() {
+            let label = format!("{field} for {id} (; separates values, empty clears): ");
+            return self.input(label, InputThen::Meta(id, field.to_string()));
+        }
+        let mut items: Vec<(String, String)> = choices
+            .iter()
+            .map(|c| (c.to_string(), c.to_string()))
+            .collect();
+        items.push(("--none".into(), "(none) -- clear the field".into()));
+        self.pick(
+            format!("{field} for {id}"),
+            false,
+            items,
+            vec![],
+            PickThen::MetaValue(id, field.to_string()),
+        );
+    }
+
+    fn epic_deps(&mut self, epic: String) {
+        let items: Vec<(String, String)> = self
+            .m
+            .epics
+            .iter()
+            .filter(|(e, _)| *e != epic)
+            .map(|(e, _)| (e.clone(), format!("epic: {e}")))
+            .collect();
+        if items.is_empty() {
+            return self.msg("no other epic to depend on");
+        }
+        let marked = self
+            .m
+            .epic_deps(&epic)
+            .split(',')
+            .filter(|s| !s.is_empty())
+            .map(String::from)
+            .collect();
+        self.pick(
+            format!("epics {epic} depends on  (space toggles)"),
+            true,
+            items,
+            marked,
+            PickThen::EpicDeps(epic),
+        );
     }
 
     fn quit_effect(&mut self) -> Effect {

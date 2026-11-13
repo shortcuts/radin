@@ -196,6 +196,21 @@ pub const ACTIONS: &[Action] = &[
     Action::new("deps", &[ch('D')], "edit depends_on", "task", List),
     Action::new("delete", &[ch('d')], "delete task", "task", List),
     Action::new(
+        "meta",
+        &[ch('M')],
+        "set a meta field (skills, acceptance, ...)",
+        "task",
+        List,
+    ),
+    Action::new("add-plan", &[], "attach a plan file", "task", List),
+    Action::new(
+        "reconcile",
+        &[],
+        "drop entries already completed",
+        "task",
+        List,
+    ),
+    Action::new(
         "epic-move",
         &[ch('m')],
         "move task into / out of an epic",
@@ -203,6 +218,43 @@ pub const ACTIONS: &[Action] = &[
         List,
     ),
     Action::new("epic-new", &[ch('E')], "new epic", "epic", List),
+    Action::new(
+        "epic-deps",
+        &[],
+        "set the epics this epic depends on",
+        "epic",
+        List,
+    ),
+    Action::new("epic-remove", &[], "remove an empty epic", "epic", List),
+    Action::new("show", &[], "page the backlog as markdown", "view", List),
+    Action::new(
+        "duplicates",
+        &[],
+        "page duplicated ids and titles",
+        "view",
+        List,
+    ),
+    Action::new(
+        "scope",
+        &[],
+        "page the row's dependency closure",
+        "view",
+        List,
+    ),
+    Action::new(
+        "files",
+        &[],
+        "page the paths the task's plans change",
+        "view",
+        List,
+    ),
+    Action::new(
+        "plan-lint",
+        &[],
+        "page the plan-template defects of the task's plans",
+        "view",
+        List,
+    ),
     Action::new("view", &[ch('v')], "page the composed detail", "view", List).hint("detail"),
     Action::new(
         "order",
@@ -245,6 +297,62 @@ pub const ACTIONS: &[Action] = &[
         "branch",
         &[ch('b')],
         "toggle the branch answer",
+        "run",
+        List,
+    ),
+    Action::new(
+        "run-status",
+        &[],
+        "page the run's steps and status",
+        "run",
+        List,
+    ),
+    Action::new(
+        "run-waiting",
+        &[],
+        "page the blocked tasks waiting on an answer",
+        "run",
+        List,
+    ),
+    Action::new(
+        "run-open",
+        &[],
+        "page the open decisions of pending tasks",
+        "run",
+        List,
+    ),
+    Action::new(
+        "run-unlanded",
+        &[],
+        "page the done tasks the base branch lacks",
+        "run",
+        List,
+    ),
+    Action::new(
+        "run-leftovers",
+        &[],
+        "page leftover radin branches, stashes, worktrees",
+        "run",
+        List,
+    ),
+    Action::new(
+        "run-journal",
+        &[],
+        "page the last 50 journal events",
+        "run",
+        List,
+    ),
+    Action::new(
+        "run-report",
+        &[],
+        "page the end-of-session report",
+        "run",
+        List,
+    ),
+    Action::new(
+        "trace",
+        &[],
+        "page where the task's work lives",
         "run",
         List,
     ),
@@ -341,6 +449,17 @@ mod tests {
                     assert!(!seen.contains(k), "{k:?} bound twice in {scope:?}");
                     seen.push(*k);
                 }
+            }
+        }
+    }
+
+    #[test]
+    fn each_help_group_is_one_contiguous_section() {
+        let mut seen: Vec<&str> = Vec::new();
+        for a in ACTIONS {
+            if seen.last() != Some(&a.group) {
+                assert!(!seen.contains(&a.group), "{} splits its group", a.id);
+                seen.push(a.group);
             }
         }
     }
