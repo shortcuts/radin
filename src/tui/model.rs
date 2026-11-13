@@ -1,5 +1,6 @@
 use super::detail::{self, DetLine};
 use super::task::Task;
+use std::collections::HashMap;
 use std::path::PathBuf;
 
 pub const CATEGORIES: [&str; 4] = ["feat", "fix", "chore", "refactor"];
@@ -86,8 +87,35 @@ pub enum Overlay {
     },
 }
 
+/// One `state steps-list` row: the task's place in the current radin-batch run.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Step {
+    pub order: String,
+    pub status: String,
+    pub attempts: String,
+    pub note: String,
+}
+
+/// One `state completed-list --long` row.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct DoneRow {
+    pub id: String,
+    pub commit: String,
+    pub ts: String,
+    pub title: String,
+}
+
+/// What the detail pane needs beyond the list load, fetched for the selected row only.
+#[derive(Clone, Debug, Default)]
+pub struct Extra {
+    /// The row it was fetched for: a task id, `epic:<name>` or `done:<id>`.
+    pub key: String,
+    /// Open decisions of a task, the description of an epic, or `completed-show` lines of a done task.
+    pub lines: Vec<String>,
+}
+
 struct DetCache {
-    sel: usize,
+    key: String,
     view: DetView,
     width: usize,
     lines: Vec<DetLine>,
@@ -107,14 +135,18 @@ pub struct Model {
     pub collapsed: Vec<String>,
     pub search: String,
     pub msg: Option<String>,
-    pub done: Vec<String>,
+    pub done: Vec<DoneRow>,
+    pub steps: HashMap<String, Step>,
+    /// Every epic, including one with no task yet, with the csv of epics it depends on.
+    pub epics: Vec<(String, String)>,
+    pub extra: Extra,
     pub done_sel: usize,
     pub done_top: usize,
     pub now: i64,
     pub ns: PathBuf,
     /// Detail documents built since start; a motion key must not raise it.
     pub det_builds: usize,
-    det_row: Option<usize>,
+    det_row: Option<String>,
     cache: Option<DetCache>,
 }
 
@@ -147,6 +179,9 @@ impl Model {
             search: String::new(),
             msg: None,
             done: Vec::new(),
+            steps: HashMap::new(),
+            epics: Vec::new(),
+            extra: Extra::default(),
             done_sel: 0,
             done_top: 0,
             now,
@@ -190,7 +225,7 @@ impl Model {
         });
     }
 
-    /// Ungrouped tasks first, then one collapsible header per epic in name order followed by its children.
+    /// Ungrouped tasks first, then one collapsible header per epic in name order followed by its children; an empty epic still gets its header.
     pub fn build_rows(&mut self) {
         let mut rows: Vec<Row> = (0..self.tasks.len())
             .filter(|&i| self.tasks[i].epic.is_empty())
@@ -201,6 +236,7 @@ impl Model {
             .iter()
             .filter(|t| !t.epic.is_empty())
             .map(|t| t.epic.as_str())
+            .chain(self.epics.iter().map(|(e, _)| e.as_str()))
             .collect();
         epics.sort_unstable();
         epics.dedup();
@@ -244,6 +280,28 @@ impl Model {
         self.tasks.iter().filter(|t| t.epic == epic).count()
     }
 
+    pub fn epic_deps(&self, epic: &str) -> &str {
+        self.epics
+            .iter()
+            .find(|(e, _)| e == epic)
+            .map_or("", |(_, d)| d.as_str())
+    }
+
+    /// The key `Extra` is fetched under for the selected row.
+    pub fn extra_key(&self) -> String {
+        if self.mode == Mode::Done {
+            return self
+                .done
+                .get(self.done_sel)
+                .map_or(String::new(), |d| format!("done:{}", d.id));
+        }
+        match self.rows.get(self.sel) {
+            Some(Row::Task(i)) => self.tasks[*i].id.clone(),
+            Some(Row::Epic(e)) => format!("epic:{e}"),
+            None => String::new(),
+        }
+    }
+
     /// Next (dir 1) or previous (dir -1) row matching the search, wrapping; a match in a collapsed epic has no row.
     pub fn search_jump(&mut self, dir: isize) {
         let n = self.rows.len() as isize;
@@ -284,23 +342,25 @@ impl Model {
 
     /// A move resets the detail scroll from the render path, so no key handler has to.
     pub fn sync_det_scroll(&mut self) {
-        if self.det_row != Some(self.sel) {
-            self.det_row = Some(self.sel);
+        let k = self.extra_key();
+        if self.det_row.as_ref() != Some(&k) {
+            self.det_row = Some(k);
             self.det_top = 0;
         }
     }
 
-    /// The detail document for the selected row, built once per (row, view, width).
+    /// The detail document for the selected row, built once per (row, view, width); `App::sync_extra` runs first.
     pub fn detail(&mut self, width: usize) -> &[DetLine] {
         let width = width.max(1);
+        let key = self.extra_key();
         let fresh = self
             .cache
             .as_ref()
-            .is_some_and(|c| c.sel == self.sel && c.view == self.det_view && c.width == width);
+            .is_some_and(|c| c.key == key && c.view == self.det_view && c.width == width);
         if !fresh {
             self.det_builds += 1;
             self.cache = Some(DetCache {
-                sel: self.sel,
+                key,
                 view: self.det_view,
                 width,
                 lines: detail::build(self, width),

@@ -105,7 +105,7 @@ pub const USAGE: &[(&str, &str)] = &[
     ),
     (
         "epics",
-        r##"epics                       # print every epic id, one per line"##,
+        r##"epics [--deps]              # print every epic id, one per line (--deps: "id<TAB>csv of the epics it depends on")"##,
     ),
     (
         "suggest",

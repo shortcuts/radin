@@ -573,10 +573,15 @@ pub fn unlanded(s: &S, io: &mut Io) -> R {
     Ok(i32::from(rows.is_empty()))
 }
 
-pub fn completed_list(s: &S, io: &mut Io) -> R {
+pub fn completed_list(s: &S, a: &[String], io: &mut Io) -> R {
+    let long = arg(a, 0) == "--long";
     let lines = read_lines(&s.completed);
     for l in &lines {
-        let _ = writeln!(io.out, "{}\t{}", get(l, "id"), get(l, "commit"));
+        let _ = write!(io.out, "{}\t{}", get(l, "id"), get(l, "commit"));
+        if long {
+            let _ = write!(io.out, "\t{}\t{}", get(l, "ts"), get(l, "title"));
+        }
+        let _ = writeln!(io.out);
     }
     Ok(i32::from(lines.is_empty()))
 }

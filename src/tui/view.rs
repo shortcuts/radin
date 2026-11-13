@@ -1,6 +1,6 @@
 use super::actions::{self, Scope};
 use super::app::App;
-use super::model::{Mode, Overlay, Row, CATEGORIES};
+use super::model::{DoneRow, Mode, Overlay, Row, CATEGORIES};
 use super::text::{age_cell, clean, dwidth, fit, wrap_at, MdStyle};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
@@ -107,23 +107,44 @@ fn boxed(buf: &mut Buffer, app: &App, top: usize, x: usize, h: usize, w: usize, 
 
 fn header(app: &App) -> String {
     let m = &app.m;
-    let mut h = format!(
-        "radin backlog  {} task(s)  sort:{}",
-        m.tasks.len(),
-        m.sort.name()
-    );
-    if !m.search.is_empty() {
-        h += &format!("  search:\"{}\"", m.search);
-    }
-    if !m.rows.is_empty() {
-        h += &format!("  [{}/{}]", m.sel + 1, m.rows.len());
-    }
     let yn = |v: Option<bool>| match v {
         None => "?",
         Some(true) => "yes",
         Some(false) => "no",
     };
-    h + &format!("  wt:{} br:{}", yn(m.session.0), yn(m.session.1))
+    let mut h = format!("radin backlog  {} task(s)", m.tasks.len());
+    if !m.rows.is_empty() {
+        h += &format!("  [{}/{}]", m.sel + 1, m.rows.len());
+    }
+    h += &format!(
+        "  wt:{} br:{}  sort:{}",
+        yn(m.session.0),
+        yn(m.session.1),
+        m.sort.name()
+    );
+    if !m.search.is_empty() {
+        h += &format!("  search:\"{}\"", m.search);
+    }
+    let mut run: Vec<(&str, usize)> = Vec::new();
+    for t in &m.tasks {
+        if let Some(st) = m.steps.get(&t.id).map(|s| s.status.as_str()) {
+            match run.iter_mut().find(|(k, _)| *k == st) {
+                Some((_, n)) => *n += 1,
+                None => run.push((st, 1)),
+            }
+        }
+    }
+    for (k, n) in run.iter().filter(|(k, _)| *k != "pending") {
+        h += &format!("  {k}:{n}");
+    }
+    let planned = m.tasks.iter().filter(|t| t.planned).count();
+    if planned > 0 {
+        h += &format!("  planned:{planned}");
+    }
+    if !m.epics.is_empty() {
+        h += &format!("  epics:{}", m.epics.len());
+    }
+    h
 }
 
 struct Prefix {
@@ -313,8 +334,14 @@ fn detail_pane(buf: &mut Buffer, app: &mut App, x: usize, width: usize, h: usize
     }
 }
 
-fn draw_done(buf: &mut Buffer, app: &mut App, list_h: usize) {
-    let w = app.size.0 as usize;
+fn done_row(r: &DoneRow) -> String {
+    let short: String = r.commit.chars().take(12).collect();
+    let day: String = r.ts.chars().take(10).collect();
+    let name = if r.title.is_empty() { &r.id } else { &r.title };
+    format!(" {short:<12} {day:<10} {name}")
+}
+
+fn draw_done(buf: &mut Buffer, app: &mut App, lw: usize, list_h: usize) {
     let m = &mut app.m;
     if m.done_sel < m.done_top {
         m.done_top = m.done_sel;
@@ -323,7 +350,7 @@ fn draw_done(buf: &mut Buffer, app: &mut App, list_h: usize) {
         m.done_top = m.done_sel + 1 - list_h;
     }
     let (top, sel) = (m.done_top, m.done_sel);
-    let rows: Vec<String> = m.done.iter().skip(top).take(list_h).cloned().collect();
+    let rows: Vec<String> = m.done.iter().skip(top).take(list_h).map(done_row).collect();
     let n = m.done.len();
     let pal = app.pal.clone();
     bar(
@@ -338,24 +365,27 @@ fn draw_done(buf: &mut Buffer, app: &mut App, list_h: usize) {
             buf,
             1,
             2,
-            w.saturating_sub(2),
+            lw.saturating_sub(2),
             "  (nothing completed yet)",
             Style::new(),
             &[],
         );
     }
     for (i, r) in rows.iter().enumerate() {
-        let at = r.rfind(' ').map_or(0, |p| dwidth(&r[..p]) + 1);
         let selected = top + i == sel;
-        let span = (
-            at,
-            dwidth(r).saturating_sub(at),
-            if selected { Style::new() } else { pal.dim },
-        );
+        let span = (1, 23, if selected { Style::new() } else { pal.dim });
         let base = if selected { pal.sel } else { Style::new() };
-        line(buf, 1, 2 + i, w.saturating_sub(2), r, base, &[span]);
+        line(
+            buf,
+            1,
+            2 + i,
+            lw.saturating_sub(2),
+            &clean(r),
+            base,
+            &[span],
+        );
     }
-    boxed(buf, app, 1, 0, list_h, w, "done");
+    boxed(buf, app, 1, 0, list_h, lw, "done");
 }
 
 fn draw_pick(buf: &mut Buffer, app: &mut App, list_h: usize) {
@@ -446,7 +476,7 @@ fn draw_palette(buf: &mut Buffer, app: &mut App) -> Option<(u16, u16)> {
     }
     for (i, a) in items.iter().skip(top).take(rows).enumerate() {
         let keys = a.keys_label();
-        let room = iw.saturating_sub(dwidth(&keys) + 4);
+        let room = iw.saturating_sub(dwidth(&keys) + 6);
         let label = fit(a.label, room);
         let gap = iw.saturating_sub(dwidth(label) + dwidth(&keys) + 4);
         let text = format!("   {label}{}{keys} ", " ".repeat(gap));
@@ -493,6 +523,7 @@ impl App<'_> {
             draw_pick(buf, self, list_h);
             return None;
         }
+        self.sync_extra();
         let msg = self.m.msg.take();
         let prompting = matches!(self.m.overlay, Overlay::Category | Overlay::Input { .. });
         let footer = |app: &App, buf: &mut Buffer, text: &str| match &msg {
@@ -506,8 +537,14 @@ impl App<'_> {
             boxed(buf, self, 1, 0, list_h, w, "detail");
             footer(self, buf, "^d/^u scroll  q/esc close");
         } else if self.m.mode == Mode::Done {
-            draw_done(buf, self, list_h);
-            footer(self, buf, &actions::footer(Scope::Done));
+            let split = self.split_on();
+            let lw = if split { w * 2 / 5 } else { w };
+            draw_done(buf, self, lw, list_h);
+            if split && !self.m.done.is_empty() {
+                detail_pane(buf, self, lw + 1, w.saturating_sub(lw + 2), list_h);
+                boxed(buf, self, 1, lw, list_h, w - lw, "detail");
+            }
+            footer(self, buf, &actions::footer(Scope::Done, w));
         } else {
             let split = self.split_on();
             let lw = if split { w * 2 / 5 } else { w };
@@ -520,7 +557,7 @@ impl App<'_> {
             if split {
                 boxed(buf, self, 1, lw, list_h, w - lw, "detail");
             }
-            footer(self, buf, &actions::footer(Scope::List));
+            footer(self, buf, &actions::footer(Scope::List, w));
         }
         if matches!(self.m.overlay, Overlay::Palette { .. }) {
             return draw_palette(buf, self);

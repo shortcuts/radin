@@ -37,6 +37,8 @@ fn require_epic_id(cx: &Ctx, id: &str) -> Result<(), super::Fail> {
 }
 
 pub fn epics(cx: &Ctx, a: &[String], io: &mut Io) -> R {
+    let deps = a.first().is_some_and(|f| f == "--deps");
+    let a = if deps { &a[1..] } else { a };
     if !a.is_empty() {
         return Err(usage_die(
             "epics",
@@ -52,9 +54,20 @@ pub fn epics(cx: &Ctx, a: &[String], io: &mut Io) -> R {
         .filter(|n| !n.starts_with('.'))
         .collect();
     names.sort();
-    names
-        .iter()
-        .for_each(|n| io.out.push_str(&format!("{n}\n")));
+    let edges = if deps {
+        epic_deps(&cx.ns.backlog_tasks_dir)
+    } else {
+        HashMap::new()
+    };
+    for n in &names {
+        match deps {
+            true => io.out.push_str(&format!(
+                "{n}\t{}\n",
+                edges.get(n).map_or(String::new(), |d| d.join(","))
+            )),
+            false => io.out.push_str(&format!("{n}\n")),
+        }
+    }
     Ok(0)
 }
 

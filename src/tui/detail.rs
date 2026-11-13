@@ -1,5 +1,5 @@
-use super::model::{DetView, Model};
-use super::text::{clean, md_line, wrap_at, MdStyle};
+use super::model::{DetView, Mode, Model};
+use super::text::{clean, fit, md_line, wrap_at, MdStyle};
 use crate::Out;
 use std::fs;
 
@@ -47,7 +47,11 @@ impl Doc {
         let mut t = text.as_str();
         let mut first = true;
         while !self.full() {
-            let cut = wrap_at(t, if first { self.width } else { avail });
+            let mut cut = wrap_at(t, if first { self.width } else { avail });
+            // A field's first break must fall after its label, or a long unbroken value leaves the label alone.
+            if first && indent_override.is_some_and(|i| i > 0) && cut <= indent {
+                cut = fit(t, self.width).len().max(1);
+            }
             let pad = if first {
                 String::new()
             } else {
@@ -102,77 +106,226 @@ fn plans(meta: &[String]) -> impl Iterator<Item = &str> {
     meta.iter().filter_map(|l| l.strip_prefix("plan\t"))
 }
 
+/// The label a `backlog meta` key reads as in the pane.
+fn meta_label(k: &str) -> &str {
+    match k {
+        "skill" | "skills" => "skill",
+        "location" => "location",
+        "complexity" => "complexity",
+        "exclusive" => "exclusive",
+        "origin" => "origin",
+        "facts" => "facts",
+        "acceptance" => "accept",
+        other => other,
+    }
+}
+
+/// `id -- title` for a task id, or the id alone when it left the backlog.
+fn titled(m: &Model, id: &str) -> String {
+    match m.tasks.iter().find(|t| t.id == id) {
+        Some(t) => format!("{id} -- {}", t.title),
+        None => format!("{id} (not in the backlog)"),
+    }
+}
+
+impl Doc {
+    /// One field per value: the label on the first line only.
+    fn fields(&mut self, label: &str, vals: impl IntoIterator<Item = String>) {
+        for (i, v) in vals.into_iter().enumerate() {
+            self.field(if i == 0 { label } else { "" }, &v);
+        }
+    }
+}
+
+fn task_doc(d: &mut Doc, m: &Model, ti: usize) {
+    let t = &m.tasks[ti];
+    let meta = |k: &str| -> Vec<String> {
+        t.meta
+            .iter()
+            .filter_map(|l| l.split_once('\t').filter(|(mk, _)| *mk == k))
+            .map(|(_, v)| v.to_string())
+            .collect()
+    };
+    d.line(&format!("# {}", t.title), None);
+    d.rule();
+    d.field("category", &t.cat);
+    d.field("id", &t.id);
+    d.field(
+        "priority",
+        if t.prio.is_empty() { "unset" } else { &t.prio },
+    );
+    let needed = meta("planning").iter().any(|v| v == "needed");
+    d.field(
+        "planned",
+        match (t.planned, needed) {
+            (true, _) => "yes",
+            (false, true) => "no -- planning needed",
+            (false, false) => "no",
+        },
+    );
+    if let Some(s) = m.steps.get(&t.id) {
+        d.field(
+            "run",
+            &format!("{}  order {}  attempts {}", s.status, s.order, s.attempts),
+        );
+        if !s.note.is_empty() {
+            d.field("note", &s.note);
+        }
+    }
+    if !t.created.is_empty() {
+        d.field("created", &t.created);
+    }
+    if !t.epic.is_empty() {
+        d.field("epic", &t.epic);
+    }
+    let deps: Vec<String> = t
+        .deps
+        .split([',', ' '])
+        .filter(|s| !s.is_empty())
+        .map(|id| titled(m, id))
+        .collect();
+    d.fields("depends", deps);
+    let blocks: Vec<String> = m
+        .tasks
+        .iter()
+        .filter(|o| o.deps.split([',', ' ']).any(|x| x == t.id))
+        .map(|o| titled(m, &o.id))
+        .collect();
+    d.fields("blocks", blocks);
+    for k in [
+        "complexity",
+        "location",
+        "skill",
+        "origin",
+        "exclusive",
+        "facts",
+        "acceptance",
+    ] {
+        d.fields(meta_label(k), meta(k));
+    }
+    let shown = [
+        "plan",
+        "planning",
+        "complexity",
+        "location",
+        "skill",
+        "origin",
+        "exclusive",
+        "facts",
+        "acceptance",
+    ];
+    for l in &t.meta {
+        let (k, v) = l.split_once('\t').unwrap_or((l, ""));
+        if !shown.contains(&k) {
+            d.field(k, v);
+        }
+    }
+    if m.extra.key == t.id {
+        d.fields("decide", m.extra.lines.iter().map(|q| format!("? {q}")));
+    }
+    let plan = m.det_view == DetView::Plan;
+    let at = d.lines.len();
+    d.line("body  plan", Some(0));
+    if let Some(l) = d.lines.get_mut(at) {
+        l.mark = Some(if plan { 6 } else { 0 });
+    }
+    d.rule();
+    d.line("", None);
+    if !plan {
+        d.file(&m.task_path(t));
+        return;
+    }
+    let mut any = false;
+    for rel in plans(&t.meta) {
+        d.line(&format!("### {rel}"), None);
+        d.line("", None);
+        if !d.file(&plan_abs(m, rel)) {
+            d.line("(plan file missing)", None);
+        }
+        d.line("", None);
+        any = true;
+    }
+    if !any {
+        d.line("(no plan yet -- run /radin-plan)", None);
+    }
+}
+
+fn epic_doc(d: &mut Doc, m: &Model, e: &str) {
+    let kids: Vec<&super::task::Task> = m.tasks.iter().filter(|t| t.epic == e).collect();
+    d.line(&format!("# epic: {e}"), None);
+    d.rule();
+    let planned = kids.iter().filter(|t| t.planned).count();
+    d.field("tasks", &format!("{} ({planned} planned)", kids.len()));
+    let deps = m.epic_deps(e);
+    if !deps.is_empty() {
+        d.field("depends", &deps.replace(',', ", "));
+    }
+    let by: Vec<&str> = m
+        .epics
+        .iter()
+        .filter(|(_, d)| d.split(',').any(|x| x == e))
+        .map(|(n, _)| n.as_str())
+        .collect();
+    if !by.is_empty() {
+        d.field("needed by", &by.join(", "));
+    }
+    d.rule();
+    d.line("", None);
+    if m.extra.key == format!("epic:{e}") && !m.extra.lines.is_empty() {
+        for l in &m.extra.lines {
+            d.line(l, None);
+        }
+        d.line("", None);
+    }
+    d.line("## tasks", None);
+    d.line("", None);
+    if kids.is_empty() {
+        d.line("(no task yet -- press m on a task to move it here)", None);
+    }
+    for t in kids {
+        let status = m
+            .steps
+            .get(&t.id)
+            .map_or(String::new(), |s| format!("  [{}]", s.status));
+        let prio = if t.prio.is_empty() { "\u{b7}" } else { &t.prio };
+        d.line(
+            &format!("{prio:>3}  {:<9} {}{status}", t.cat, t.title),
+            Some(15),
+        );
+    }
+}
+
+fn done_doc(d: &mut Doc, m: &Model) {
+    let Some(r) = m.done.get(m.done_sel) else {
+        return;
+    };
+    d.line(
+        &format!("# {}", if r.title.is_empty() { &r.id } else { &r.title }),
+        None,
+    );
+    d.rule();
+    if m.extra.key != format!("done:{}", r.id) {
+        return;
+    }
+    for l in &m.extra.lines {
+        let (k, v) = l.split_once('\t').unwrap_or((l, ""));
+        if !v.is_empty() {
+            d.field(k, v);
+        }
+    }
+}
+
 pub fn build(m: &Model, width: usize) -> Vec<DetLine> {
     let mut d = Doc {
         width,
         lines: Vec::new(),
     };
-    match m.cur_task() {
-        Some(ti) => {
-            let t = &m.tasks[ti];
-            d.line(&format!("# {}", t.title), None);
-            d.rule();
-            d.field("category", &t.cat);
-            d.field("id", &t.id);
-            d.field(
-                "priority",
-                if t.prio.is_empty() { "unset" } else { &t.prio },
-            );
-            d.field("planned", if t.planned { "yes" } else { "no" });
-            if !t.created.is_empty() {
-                d.field("created", &t.created);
-            }
-            if !t.epic.is_empty() {
-                d.field("epic", &t.epic);
-            }
-            if !t.deps.is_empty() {
-                d.field("depends", &t.deps);
-            }
-            let plan = m.det_view == DetView::Plan;
-            let at = d.lines.len();
-            d.line("body  plan", Some(0));
-            if let Some(l) = d.lines.get_mut(at) {
-                l.mark = Some(if plan { 6 } else { 0 });
-            }
-            d.rule();
-            d.line("", None);
-            if !plan {
-                let mut shown = false;
-                for l in t.meta.iter().filter(|l| !l.is_empty()) {
-                    let (k, v) = l.split_once('\t').unwrap_or((l, ""));
-                    d.field(k, v);
-                    shown = true;
-                }
-                if shown {
-                    d.line("", None);
-                }
-                d.file(&m.task_path(t));
-            } else {
-                let mut any = false;
-                for rel in plans(&t.meta) {
-                    d.line(&format!("### {rel}"), None);
-                    d.line("", None);
-                    if !d.file(&plan_abs(m, rel)) {
-                        d.line("(plan file missing)", None);
-                    }
-                    d.line("", None);
-                    any = true;
-                }
-                if !any {
-                    d.line("(no plan yet -- run /radin-plan)", None);
-                }
-            }
-        }
-        None => {
-            if let Some(e) = m.cur_epic() {
-                d.line(&format!("# epic: {e}"), None);
-                d.rule();
-                d.line("", None);
-                for t in m.tasks.iter().filter(|t| t.epic == e) {
-                    d.line(&format!("- {}", t.title), None);
-                }
-            }
-        }
+    if m.mode == Mode::Done {
+        done_doc(&mut d, m);
+    } else if let Some(ti) = m.cur_task() {
+        task_doc(&mut d, m, ti);
+    } else if let Some(e) = m.cur_epic() {
+        epic_doc(&mut d, m, e);
     }
     d.lines
 }

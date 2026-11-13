@@ -1265,3 +1265,138 @@ fn an_arrow_key_in_a_text_prompt_types_nothing() {
         assert!(!render(a, 80, 24).has("search: abk"));
     });
 }
+
+#[test]
+fn the_task_pane_shows_meta_dependency_titles_dependents_and_open_decisions() {
+    let fx = Fx::new();
+    let base = fx.add("feat", "base thing", "Base.");
+    let (code, _, err) = fx.bl(
+        &[
+            "add",
+            "feat",
+            "top thing",
+            "--acceptance",
+            "it works",
+            "--acceptance",
+            "it is fast",
+            "--location",
+            "src/a.rs:3",
+            "--planning",
+            "needed",
+            "--deps",
+            &base,
+        ],
+        "Top.\n**Open decision:** Which cache?\n",
+    );
+    assert_eq!(code, 0, "{err}");
+    fx.with(|a| {
+        let s = render(a, 140, 40);
+        assert!(s.has("blocks     top-thing -- top thing"), "{}", s.text());
+        press(a, "j");
+        let s = render(a, 140, 40);
+        assert!(s.has("depends    base-thing -- base thing"), "{}", s.text());
+        assert!(s.has("planned    no -- planning needed"));
+        assert!(s.has("accept     it works") && s.has("           it is fast"));
+        assert!(s.has("location   src/a.rs:3"));
+        assert!(s.has("decide     ? Which cache?"));
+    });
+}
+
+#[test]
+fn run_status_reads_in_the_pane_and_the_header() {
+    let fx = Fx::new();
+    fx.seed();
+    let st = |args: &[&str], stdin: &str| {
+        let v: Vec<String> = args.iter().map(|s| s.to_string()).collect();
+        radin::run_in(&v, &fx.env(), false, &fx.proj, Some(stdin))
+    };
+    let r = st(
+        &["state", "steps-init"],
+        "dark-mode\t1\t\tpending\nbroken-auth\t2\t\tpending\n",
+    );
+    assert_eq!(r.0, 0, "{}", r.2);
+    let r = st(
+        &[
+            "state",
+            "set-status",
+            "dark-mode",
+            "blocked",
+            "needs a call",
+        ],
+        "",
+    );
+    assert_eq!(r.0, 0, "{}", r.2);
+    fx.with(|a| {
+        let s = render(a, 160, 30);
+        assert!(s.has("blocked:1"), "{}", s.text());
+        assert!(
+            s.has("run        blocked  order 1  attempts 0"),
+            "{}",
+            s.text()
+        );
+        assert!(s.has("note       needs a call"));
+    });
+}
+
+#[test]
+fn the_epic_pane_shows_description_epic_deps_and_children_and_an_empty_epic_gets_a_row() {
+    let fx = Fx::new();
+    fx.two_epics();
+    assert_eq!(fx.bl(&["epic-set-deps", "bbb-epic", "aaa-epic"], "").0, 0);
+    assert_eq!(fx.bl(&["epic-add", "ccc-epic"], "").0, 0);
+    fx.with(|a| {
+        let s = render(a, 140, 30);
+        assert!(
+            s.has("aaa ctx") && s.has("needed by  bbb-epic"),
+            "{}",
+            s.text()
+        );
+        assert!(
+            s.has("tasks      1 (0 planned)") && s.has("  \u{b7}  feat      aaa child"),
+            "{}",
+            s.text()
+        );
+        assert!(s.has("- epic: ccc-epic  (0)") && s.has("epics:3"));
+        press(a, "jj");
+        assert!(render(a, 140, 30).has("depends    aaa-epic"));
+    });
+}
+
+#[test]
+fn the_done_view_shows_date_and_title_and_its_pane_the_completion_record() {
+    let fx = Fx::new();
+    fs::create_dir_all(fx.ns().join("state")).unwrap();
+    fs::write(
+        fx.ns().join("state/completed.json"),
+        "{\"id\":\"shipped-thing\",\"commit\":\"abc1234\",\"title\":\"Shipped thing\",\"branch\":\"radin/shipped-thing\",\"ts\":\"2026-11-01T10:00:00Z\"}\n",
+    )
+    .unwrap();
+    fx.with(|a| {
+        press(a, "\t");
+        let s = render(a, 140, 24);
+        assert!(
+            s.has("abc1234      2026-11-01 Shipped thing"),
+            "{}",
+            s.text()
+        );
+        assert!(s.has("branch     radin/shipped-thing"), "{}", s.text());
+        assert!(render(a, 80, 24).has("j/k move  enter open"));
+        press(a, "\r");
+        assert!(render(a, 80, 24).has("branch     radin/shipped-thing"));
+    });
+}
+
+#[test]
+fn a_long_unbroken_field_value_starts_on_its_label_line() {
+    let fx = Fx::new();
+    fx.add("feat", &"x".repeat(60), "Body.");
+    fx.with(|a| {
+        press(a, "\r");
+        let s = render(a, 40, 24);
+        assert!(
+            s.has(&format!("id         {}", "x".repeat(18))),
+            "{}",
+            s.text()
+        );
+    });
+}

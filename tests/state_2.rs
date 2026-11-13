@@ -82,6 +82,14 @@ fn a_task_done_on_a_side_branch_stays_on_the_backlog_until_its_merge_lands() {
     assert!(list.starts_with("t-one\t"), "{list}");
     let landed = list.trim_end().split('\t').nth(1).unwrap().to_string();
     assert_ne!(landed, h);
+    let long = w.state(&["completed-list", "--long"]).out;
+    let f: Vec<&str> = long.trim_end().split('\t').collect();
+    assert_eq!(
+        (f.len(), f[0], f[1]),
+        (4, "t-one", landed.as_str()),
+        "{long}"
+    );
+    assert!(!f[2].is_empty(), "{long}");
     assert!(w.git_ok(&["merge-base", "--is-ancestor", &landed, &base]));
     assert_ne!(w.bl(&["find", "t-one"], "").code, 0);
     assert_eq!(w.state(&["unlanded"]).code, 1);

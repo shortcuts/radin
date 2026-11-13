@@ -1,7 +1,8 @@
 use super::actions::{self, map, Key, Scope};
 use super::detail;
 use super::model::{
-    DetView, InputThen, Mode, Model, Overlay, PickThen, Row, Sort, CATEGORIES, SPLIT_MIN,
+    DetView, DoneRow, Extra, InputThen, Mode, Model, Overlay, PickThen, Row, Sort, Step,
+    CATEGORIES, SPLIT_MIN,
 };
 use super::palette::Palette;
 use super::task::parse_list;
@@ -133,23 +134,83 @@ impl<'a> App<'a> {
             ],
             "",
         );
+        let (code, out_steps, _) = self.call(&["state", "steps-list"], "");
+        self.m.steps = match code {
+            0 => out_steps
+                .lines()
+                .filter_map(|l| {
+                    let f: Vec<&str> = l.splitn(5, '\t').collect();
+                    let at = |i: usize| f.get(i).copied().unwrap_or("").to_string();
+                    (!f[0].is_empty()).then(|| {
+                        let step = Step {
+                            order: at(1),
+                            status: at(2),
+                            attempts: at(3),
+                            note: at(4),
+                        };
+                        (at(0), step)
+                    })
+                })
+                .collect(),
+            _ => Default::default(),
+        };
+        let (_, out_epics, _) = self.bl(&["epics", "--deps"], "");
+        self.m.epics = out_epics
+            .lines()
+            .filter(|l| !l.is_empty())
+            .map(|l| {
+                let (e, d) = l.split_once('\t').unwrap_or((l, ""));
+                (e.to_string(), d.to_string())
+            })
+            .collect();
+        self.m.extra.key.clear();
         self.m.set_tasks(parse_list(&out));
     }
 
     fn load_done(&mut self) {
-        let (code, out, _) = self.call(&["state", "completed-list"], "");
+        let (code, out, _) = self.call(&["state", "completed-list", "--long"], "");
         self.m.done = if code == 0 {
             out.lines()
                 .filter(|l| !l.is_empty())
-                .map(|l| match l.split_once('\t') {
-                    Some((id, commit)) => format!(" {id:<52} {commit}"),
-                    None => format!(" {l}"),
+                .map(|l| {
+                    let f: Vec<&str> = l.splitn(4, '\t').collect();
+                    let at = |i: usize| f.get(i).copied().unwrap_or("").to_string();
+                    DoneRow {
+                        id: at(0),
+                        commit: at(1),
+                        ts: at(2),
+                        title: at(3),
+                    }
                 })
                 .collect()
         } else {
             Vec::new()
         };
         self.m.done_sel = self.m.done_sel.min(self.m.done.len().saturating_sub(1));
+        self.m.extra.key.clear();
+    }
+
+    /// Fetches the selected row's `Extra` once per row: open decisions, an epic's description, or a completion record.
+    pub fn sync_extra(&mut self) {
+        let key = self.m.extra_key();
+        if key == self.m.extra.key {
+            return;
+        }
+        let out = if let Some(id) = key.strip_prefix("done:") {
+            self.call(&["state", "completed-show", id], "")
+        } else if let Some(e) = key.strip_prefix("epic:") {
+            self.bl(&["epic-show", e], "")
+        } else if key.is_empty() {
+            (1, String::new(), String::new())
+        } else {
+            self.bl(&["open-decisions", &key], "")
+        };
+        let lines = match out.0 {
+            0 => out.1.lines().map(String::from).collect(),
+            _ => Vec::new(),
+        };
+        self.m.extra = Extra { key, lines };
+        self.m.clear_cache();
     }
 
     /// Reloads when another shell wrote the index, keeping the selected row by identity; true when it did.
@@ -573,13 +634,12 @@ impl<'a> App<'a> {
         } else {
             self.m.rows.len()
         };
-        let narrow = done || !self.split_on();
+        let narrow = !self.split_on();
         let ok = match k {
             Key::Char('j' | 'k' | 'g' | 'G') => true,
             Key::Char('n' | 'N') => !done,
-            Key::CtrlD | Key::CtrlU | Key::Char('h' | 'l') => {
-                !narrow && (!matches!(k, Key::Char(_)) || self.m.cur_task().is_some())
-            }
+            Key::CtrlD | Key::CtrlU => !narrow,
+            Key::Char('h' | 'l') => !narrow && !done && self.m.cur_task().is_some(),
             _ => false,
         };
         if !ok || !apply {
@@ -745,6 +805,12 @@ impl<'a> App<'a> {
                 self.load_done();
             }
             "edit" => return self.edit(),
+            "open" if done => {
+                if !self.split_on() && !self.m.done.is_empty() {
+                    self.m.det_top = 0;
+                    self.m.overlay = Overlay::Detail;
+                }
+            }
             "open" => {
                 if self.m.cur_task().is_none() {
                     self.m.toggle_collapse();

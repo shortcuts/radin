@@ -923,6 +923,7 @@ fn epic_deps_order_every_child_after_the_dependency_epic_and_scope_and_show_foll
         w.ok(&["epic-set-deps", "small", "big"], ""),
         "depends_on of epic small set to big\n"
     );
+    assert_eq!(w.ok(&["epics", "--deps"], ""), "big\t\nsmall\tbig\n");
     let steps = w.ok(&["order", "--steps"], "");
     let rows: Vec<&str> = steps.lines().collect();
     assert_eq!(rows[0], "loose\t1\t\tpending");

@@ -175,9 +175,9 @@ pub const ACTIONS: &[Action] = &[
     Action::new(
         "open",
         &[Key::Enter],
-        "epic: collapse/expand; task under 100 columns: detail overlay",
+        "open: collapse an epic, or the detail when narrow",
         "move",
-        List,
+        Any,
     )
     .hint("open"),
     Action::new("search", &[ch('/')], "search id and title", "move", List).hint("search"),
@@ -286,10 +286,11 @@ pub fn matches(query: &str, scope: Scope) -> Vec<&'static Action> {
     sub
 }
 
-pub fn footer(scope: Scope) -> String {
-    ACTIONS
+/// The footer hints that fit `width`: the last three (palette, keys, quit) stay, and the others drop from the right.
+pub fn footer(scope: Scope, width: usize) -> String {
+    let mut hints: Vec<String> = ACTIONS
         .iter()
-        .filter(|a| a.hint.is_some() && (a.applies(scope) || (a.scope == Nav)))
+        .filter(|a| a.hint.is_some() && (a.applies(scope) || a.scope == Nav))
         .map(|a| {
             let k = match a.id {
                 "up" => "j/k".to_string(),
@@ -297,8 +298,11 @@ pub fn footer(scope: Scope) -> String {
             };
             format!("{k} {}", a.hint.unwrap_or(""))
         })
-        .collect::<Vec<_>>()
-        .join("  ")
+        .collect();
+    while hints.len() > 3 && hints.join("  ").chars().count() > width {
+        hints.remove(hints.len() - 4);
+    }
+    hints.join("  ")
 }
 
 const LEGEND: &str = include_str!("help.txt");
@@ -347,6 +351,16 @@ mod tests {
         assert_eq!(ids[0], "priority");
         assert!(ids.contains(&"sort-priority"));
         assert!(matches("zzz", List).is_empty());
+    }
+
+    #[test]
+    fn a_narrow_footer_keeps_palette_keys_and_quit() {
+        assert!(footer(List, 200).starts_with("j/k move  enter open"));
+        let f = footer(List, 40);
+        assert!(
+            f.chars().count() <= 40 && f.ends_with(": commands  ? keys  q quit"),
+            "{f}"
+        );
     }
 
     #[test]

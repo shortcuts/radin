@@ -31,7 +31,7 @@
   trace <id|commit|branch>     # print "task|commit|branch|worktree|plan|facts|status<TAB>value" per matching task; exit 1 no match, 2 ambiguous
   completed-show <id>          # print "id|commit|title|branch|worktree|plan|ts<TAB>value" lines, exit 1 if absent
   unlanded                     # print "id<TAB>commit<TAB>branch<TAB>pending|orphan" per task whose commit the base branch lacks: pending (done on its branch, merge waiting) or orphan (recorded done, branch still ahead of the base); exit 1 if none
-  completed-list               # print "id<TAB>commit" per completion, exit 1 if none (the TUI's Done view)
+  completed-list [--long]      # print "id<TAB>commit" per completion (--long appends "<TAB>ts<TAB>title" for the TUI's Done view), exit 1 if none
   session-commits              # print this session's commits, oldest first, one hash per line: task-done commits past the baseline, then gate fixes; exit 1 if none
   gate-map                     # print "branch<TAB>tip<TAB>worktree<TAB>oldest session commit" per branch holding a session commit, oldest work first; exit 1 if none
   reconcile                    # land every radin/* branch but an in_progress task's: wip-commit a dirty worktree, squash-merge, record the task done (an unfinished one first gets a "Finish: <title>" follow-up its dependents move to), drop worktree and branch; restore a recorded branch whose work is not in the base; print "merged<TAB>branch<TAB>tip", "removed<TAB>branch", "adopted<TAB>branch", "restored<TAB>branch<TAB>hash", "follow-up<TAB>id<TAB>new id", "conflict<TAB>branch" or "skipped<TAB>branch<TAB>reason"; exit 3 on a conflict
