@@ -175,6 +175,7 @@ fn dispatch(args: &[String], env: &Env, io: &mut Io) -> R {
         "epic-set" => epic::epic_set(&cx, a, io),
         "epic-show" => epic::epic_show(&cx, a, io),
         "epic-move" => epic::epic_move(&cx, a, io),
+        "epic-set-deps" => epic::epic_set_deps(&cx, a, io),
         _ => epic::epic_remove(&cx, a, io),
     }
 }

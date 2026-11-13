@@ -1,3 +1,4 @@
+use super::epic::{epic_deps, task_graph};
 use super::index::{Entry, Index};
 use super::{arg, die, opt_val, usage_die, Ctx, Fail, Io, R};
 use std::collections::{HashMap, HashSet};
@@ -8,6 +9,18 @@ pub struct OEntry {
     pub title: String,
     pub prio: Option<String>,
     pub deps: String,
+    /// The tasks of every epic this task's epic depends on, kept apart so `--infer-deps` still sees an index-empty `depends_on`.
+    pub implied: Vec<String>,
+}
+
+fn with_implied(deps: &str, implied: &[String]) -> String {
+    let mut v: Vec<&str> = deps.split(',').filter(|d| !d.is_empty()).collect();
+    for t in implied {
+        if !v.contains(&t.as_str()) {
+            v.push(t);
+        }
+    }
+    v.join(",")
 }
 
 #[derive(Default)]
@@ -81,8 +94,10 @@ fn build<'a>(es: &'a [OEntry], o: &Opts) -> Result<Built<'a>, String> {
             ));
         }
     }
-    let mut eff: HashMap<String, String> =
-        es.iter().map(|e| (e.id.clone(), e.deps.clone())).collect();
+    let mut eff: HashMap<String, String> = es
+        .iter()
+        .map(|e| (e.id.clone(), with_implied(&e.deps, &e.implied)))
+        .collect();
     for p in o.infer.iter().filter(|p| !p.is_empty()) {
         let Some((a, b)) = p.split_once('=') else {
             return Err(format!("--infer-deps needs <id>=<csv>, got: {p}"));
@@ -103,7 +118,7 @@ fn build<'a>(es: &'a [OEntry], o: &Opts) -> Result<Built<'a>, String> {
                 return Err(format!("--infer-deps: {a} cannot depend on itself"));
             }
         }
-        eff.insert(a.into(), b.into());
+        eff.insert(a.into(), with_implied(b, &es[ai].implied));
     }
     let mut deferred = HashSet::new();
     for d in o.defer.split(',').filter(|d| !d.is_empty()) {
@@ -275,13 +290,19 @@ pub fn ambiguous(idx: &Index, hits: &[usize], q: &str) -> Fail {
 }
 
 fn oentries(idx: &Index) -> Vec<OEntry> {
+    let edeps = epic_deps(&idx.task_path("tasks"));
     idx.entries
         .iter()
-        .map(|e: &Entry| OEntry {
-            id: e.id(),
-            title: e.title(),
-            prio: e.priority(),
-            deps: e.depends_on().join(","),
+        .zip(task_graph(idx, &edeps))
+        .map(|(e, (_, all)): (&Entry, _)| {
+            let own = e.depends_on();
+            OEntry {
+                id: e.id(),
+                title: e.title(),
+                prio: e.priority(),
+                deps: own.join(","),
+                implied: all.into_iter().filter(|d| !own.contains(d)).collect(),
+            }
         })
         .collect()
 }
@@ -454,14 +475,16 @@ pub fn scope(cx: &Ctx, a: &[String], io: &mut Io) -> R {
         hits.iter().map(|&i| idx.entries[i].id()).collect()
     };
     let ids: HashSet<String> = idx.entries.iter().map(Entry::id).collect();
+    let graph: HashMap<String, Vec<String>> =
+        task_graph(&idx, &epic_deps(&cx.ns.backlog_tasks_dir))
+            .into_iter()
+            .collect();
     let mut inc: HashSet<String> = seeds.iter().filter(|s| ids.contains(*s)).cloned().collect();
     let seed = inc.clone();
     loop {
-        let more: Vec<String> = idx
-            .entries
+        let more: Vec<String> = inc
             .iter()
-            .filter(|e| inc.contains(&e.id()))
-            .flat_map(Entry::depends_on)
+            .flat_map(|i| graph.get(i).cloned().unwrap_or_default())
             .filter(|d| ids.contains(d) && !inc.contains(d))
             .collect();
         if more.is_empty() {

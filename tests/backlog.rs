@@ -167,6 +167,12 @@ fn epic_backlog(w: &W) {
     );
 }
 
+fn epic_files(w: &W) {
+    for f in ["loose", "small/s-1", "big/b-1", "big/b-2", "big/b-3"] {
+        fs::write(w.tasks().join(format!("{f}.md")), "body\n").unwrap();
+    }
+}
+
 fn ids(list_out: &str) -> Vec<&str> {
     list_out
         .lines()
@@ -909,6 +915,94 @@ fn scope_returns_an_epics_tasks_plus_outside_dependencies_and_exits_1_on_no_matc
 }
 
 #[test]
+fn epic_deps_order_every_child_after_the_dependency_epic_and_scope_and_show_follow_them() {
+    let w = W::new();
+    epic_backlog(&w);
+    epic_files(&w);
+    assert_eq!(
+        w.ok(&["epic-set-deps", "small", "big"], ""),
+        "depends_on of epic small set to big\n"
+    );
+    let steps = w.ok(&["order", "--steps"], "");
+    let rows: Vec<&str> = steps.lines().collect();
+    assert_eq!(rows[0], "loose\t1\t\tpending");
+    assert_eq!(rows[4], "s-1\t5\tb-1,b-2,b-3\tpending");
+    assert_eq!(
+        w.ok(&["scope", "small"], ""),
+        "ids\ts-1,b-1,b-2,b-3\ndependencies\tb-1,b-2,b-3\n"
+    );
+    assert!(w
+        .ok(&["show"], "")
+        .contains("### epic: small\ndepends on epics: big\n"));
+    w.ok(&["set-deps", "s-1", "loose"], "");
+    assert!(w
+        .ok(&["order", "--steps"], "")
+        .contains("s-1\t5\tloose,b-1,b-2,b-3\tpending"));
+    w.ok(&["epic-set-deps", "small", "--none"], "");
+    assert!(w
+        .ok(&["order", "--steps"], "")
+        .contains("s-1\t2\tloose\tpending"));
+    w.ok(&["epic-set-deps", "small", "big"], "");
+    for b in ["b-1", "b-2", "b-3"] {
+        w.ok(&["epic-move", b, "--none"], "");
+    }
+    w.ok(&["epic-add", "big"], "back");
+    assert!(w
+        .ok(&["order", "--steps"], "")
+        .contains("s-1\t2\tloose\tpending"));
+}
+
+#[test]
+fn epic_set_deps_refuses_a_self_edge_a_cycle_and_a_missing_epic_and_task_edits_respect_epic_edges()
+{
+    let w = W::new();
+    epic_backlog(&w);
+    epic_files(&w);
+    let before = w.index();
+    let err = |args: &[&str]| w.fails(args, "").err;
+    assert_eq!(
+        err(&["epic-set-deps", "small", "small"]),
+        "radin-backlog: epic depends_on would create a cycle through small\n"
+    );
+    assert_eq!(
+        err(&["epic-set-deps", "small", "ghost"]),
+        "radin-backlog: no such epic: ghost\n"
+    );
+    assert!(err(&["epic-set-deps", "small"]).contains("epic-set-deps"));
+    w.ok(&["epic-set-deps", "small", "big"], "");
+    assert_eq!(
+        err(&["epic-set-deps", "big", "small"]),
+        "radin-backlog: epic depends_on would create a cycle through big\n"
+    );
+    assert_eq!(
+        err(&["set-deps", "b-1", "s-1"]),
+        "radin-backlog: depends_on would create a cycle through b-1\n"
+    );
+    w.ok(&["set-deps", "loose", "s-1"], "");
+    assert_eq!(
+        err(&["epic-move", "loose", "big"]),
+        "radin-backlog: epic-move would create a cycle through loose\n"
+    );
+    assert!(w.tasks().join("loose.md").exists());
+    w.ok(&["set-deps", "loose", "--none"], "");
+    w.ok(&["epic-set-deps", "small", "--none"], "");
+    w.ok(&["set-deps", "b-1", "s-1"], "");
+    assert_eq!(
+        err(&["epic-set-deps", "small", "big"]),
+        "radin-backlog: epic depends_on would create a cycle through small\n"
+    );
+    w.ok(&["set-deps", "b-1", "--none"], "");
+    assert_eq!(w.index(), before);
+    w.ok(&["epic-add", "gone"], "d");
+    w.ok(&["epic-set-deps", "small", "gone,big"], "");
+    w.ok(&["epic-remove", "gone"], "");
+    w.ok(&["epic-add", "gone"], "d");
+    w.ok(&["epic-move", "loose", "gone"], "");
+    let steps = w.ok(&["order", "--steps"], "");
+    assert!(steps.contains("s-1\t5\tb-1,b-2,b-3\tpending"), "{steps}");
+}
+
+#[test]
 fn order_first_and_only_derive_the_deferred_set_two_selectors_are_refused() {
     let w = W::new();
     prioritized(&w);
@@ -1598,7 +1692,7 @@ fn env_prints_quoted_namespace_variables() {
 fn help_unknown_verbs_and_missing_index() {
     let w = W::new();
     let all = w.ok(&["help"], "");
-    assert_eq!(all.lines().count(), 34);
+    assert_eq!(all.lines().count(), 35);
     assert!(all.starts_with("  help [command]"));
     for flag in ["--help", "-h"] {
         assert_eq!(w.ok(&[flag], ""), all);
@@ -1612,7 +1706,7 @@ fn help_unknown_verbs_and_missing_index() {
         .err
         .starts_with("radin-backlog: unknown command: nope\n  help [command]"));
     let r = w.fails(&["nope"], "");
-    assert_eq!(r.err.lines().count(), 35);
+    assert_eq!(r.err.lines().count(), 36);
     assert!(r.err.starts_with("radin-backlog: unknown command: nope\n"));
     assert!(w
         .fails(&[], "")

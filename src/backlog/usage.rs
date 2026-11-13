@@ -132,6 +132,10 @@ pub const USAGE: &[(&str, &str)] = &[
         r##"epic-move <id-or-title> <epic-id|--none>  # move a task into/out of an epic"##,
     ),
     (
+        "epic-set-deps",
+        r##"epic-set-deps <epic-id> <csv-of-epic-ids|--none>  # set/clear the epics this epic depends on: `order` and `scope` treat every child as depending on every task of those epics (rejects a cycle, through epics or tasks)"##,
+    ),
+    (
         "epic-remove",
         r##"epic-remove <epic-id>       # delete an epic that has no child tasks left"##,
     ),

@@ -1,4 +1,4 @@
-use super::epic::prune_empty_epic;
+use super::epic::{epic_deps, prune_empty_epic, tasks_cyclic};
 use super::index::{
     iso_utc, require_meta_value, require_no_moved_label, require_plain_title, require_priority,
     slugify, strs, Entry, Index, CATEGORIES, PRIORITY_SCALE,
@@ -6,7 +6,6 @@ use super::index::{
 use super::{arg, die, opt_val, plan, usage_die, Ctx, Fail, Io, R};
 use crate::paths::git;
 use serde_json::{Map, Value};
-use std::collections::HashSet;
 use std::fs;
 use std::io::Write as _;
 use std::path::Path;
@@ -383,22 +382,6 @@ pub fn set_priority(cx: &Ctx, a: &[String], io: &mut Io) -> R {
     Ok(0)
 }
 
-fn deps_reach(idx: &Index, target: &str, from: Vec<String>) -> bool {
-    let (mut pending, mut seen) = (from, HashSet::new());
-    while let Some(cur) = pending.pop() {
-        if cur == target {
-            return true;
-        }
-        if !seen.insert(cur.clone()) {
-            continue;
-        }
-        if let Some(e) = idx.entries.iter().find(|e| e.id() == cur) {
-            pending.extend(e.depends_on());
-        }
-    }
-    false
-}
-
 pub fn set_deps(cx: &Ctx, a: &[String], io: &mut Io) -> R {
     let (q, v) = (arg(a, 0), arg(a, 1));
     if v.is_empty() {
@@ -413,12 +396,12 @@ pub fn set_deps(cx: &Ctx, a: &[String], io: &mut Io) -> R {
     let mut value = None;
     if v != "--none" {
         let deps = resolve_deps(&idx, v)?;
-        if deps_reach(&idx, &id, deps.clone()) {
-            return Err(die(format!("depends_on would create a cycle through {id}")));
-        }
         value = (!deps.is_empty()).then(|| strs(&deps));
     }
     idx.entries[i].set("depends_on", value);
+    if tasks_cyclic(&idx, &epic_deps(&cx.ns.backlog_tasks_dir)) {
+        return Err(die(format!("depends_on would create a cycle through {id}")));
+    }
     idx.write()?;
     io.out.push_str(&format!("depends_on of {id} set to {v}\n"));
     Ok(0)

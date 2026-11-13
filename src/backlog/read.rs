@@ -1,3 +1,4 @@
+use super::epic::epic_deps;
 use super::index::{epic_of, Entry, Index, CATEGORIES};
 use super::{arg, die, usage_die, Ctx, Env, Io, R};
 use std::fmt::Write as _;
@@ -109,12 +110,16 @@ pub fn show(cx: &Ctx, a: &[String], io: &mut Io) -> R {
             continue;
         }
         section.sort_by_key(|e| e.epic());
+        let edeps = epic_deps(&cx.ns.backlog_tasks_dir);
         let _ = write!(io.out, "\n## {c}\n");
         let mut cur = String::new();
         for e in section {
             let epic = e.epic();
             if epic != cur {
                 let _ = write!(io.out, "\n### epic: {epic}\n");
+                if let Some(d) = edeps.get(&epic) {
+                    let _ = writeln!(io.out, "depends on epics: {}", d.join(", "));
+                }
                 let desc = cx.ns.backlog_tasks_dir.join(&epic).join("DESCRIPTION.md");
                 if nonempty(&desc) {
                     io.out

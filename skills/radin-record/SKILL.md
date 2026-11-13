@@ -121,6 +121,17 @@ explicit build-on? Note the other entry's exact title for Step 5's `set-deps`, a
 it comes first in the dependent entry's description. The `depends_on` field
 carries the ordering, the prose the reason.
 
+**Place each entry in the global order.** Run `RADIN_CLI backlog order --report`
+once and read where each item lands. Pick each new entry's priority from
+`1 2 3 5 8 13 21` (higher runs first), so it runs after what it builds on and
+before what builds on it. An existing entry whose slot the new entries make wrong
+gets a new priority or new deps too. Its text stays as it is.
+
+**An epic depends on an epic** when no child of it can start before the other
+epic lands. Note the pair for Step 5's `epic-set-deps`. An epic edge orders every
+child after every task of the other epic, so a single child that builds on a single
+task takes a task `set-deps` instead.
+
 An entry that relates to an existing task without ordering it gets one body line,
 `**Related:** <exact title>, <why they touch>`, so a later run sees the link.
 
@@ -217,6 +228,19 @@ dependencies, one call per dependent entry, always after all the adds:
 RADIN_CLI backlog set-deps <dependent-id-or-title> <csv-of-ids-or-titles-it-depends-on>
 ```
 
+Then record Step 4's epic dependencies and priorities, for the new entries and for
+each existing entry Step 4 moved:
+
+```bash
+RADIN_CLI backlog epic-set-deps <epic-slug> <csv-of-epic-slugs-it-depends-on>
+RADIN_CLI backlog set-priority <id-or-title> <1|2|3|5|8|13|21>
+```
+
+`epic-set-deps` replaces the epic's whole list, so pass the old epics with the new.
+Run `RADIN_CLI backlog order --report` again. A `dependency override:` line that names
+an entry you touched means a dependency has a lower priority than its dependent.
+Raise the dependency or lower the dependent, and rerun until no such line remains.
+
 Each item is an id an `add` just printed, or the title of a task that already
 existed. A title that matches several entries fails the call. Pass its id instead.
 A new entry whose dependencies all exist may pass `--deps <csv-of-ids-or-titles>`
@@ -243,7 +267,8 @@ a wrong join must lose nothing the user cared about.
 ## Step 6: Report back
 
 **Reply:** how many entries were logged and which items joined an open entry,
-with titles, categories, plan flags and epic, and the
+with titles, categories, plan flags, priority and epic; each epic dependency added;
+each existing entry whose priority or deps changed, old and new value; and the
 backlog path the CLI printed; the decisions grilling settled and the questions
 left open, per entry. When nothing in scope rose to a loggable item, say so
 plainly and write no vague entry to prove the skill ran.

@@ -15,8 +15,8 @@ rows suggest.
 
 ## A prioritization pass writes nothing
 
-No `set-priority`, no `set-deps`. A set `priority` and a set `depends_on` are
-the human's, used verbatim. The pass leaves only as `order` flags, which
+No `set-priority`, no `set-deps`. A set `priority`, a set `depends_on` and an
+epic's `depends_on` come from the human or `radin-record`, used verbatim. The pass leaves only as `order` flags, which
 validate it. An absent `depends_on` is the human's "no dependencies", not a
 gap to fill: the CLI cannot store an explicitly empty one.
 
