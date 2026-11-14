@@ -1,4 +1,4 @@
-use radin::render::{hits, Rules};
+use radin::render::{hits, render, Rules};
 use regex::Regex;
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::fs;
@@ -559,5 +559,38 @@ fn companion_skills_has_a_well_formed_row_for_every_agents_skill_name() {
             "{} missing from companion-skills.txt",
             r[0]
         );
+    }
+}
+
+#[test]
+fn agents_render_of_every_skill_follows_the_agent_skills_spec() {
+    let rules = Rules::from_dir(&repo().join("lib"), "agents").unwrap();
+    let name_ok = re(r"^[a-z0-9]+(-[a-z0-9]+)*$");
+    for f in skill_files(repo()) {
+        let dir = f.split('/').nth(1).unwrap();
+        let out = render(&read(repo(), &f).unwrap(), &f, &rules).unwrap();
+        let head = out
+            .strip_prefix("---\n")
+            .and_then(|r| r.split_once("\n---\n"));
+        let (fm, body) = head.unwrap_or_else(|| panic!("{f}: no frontmatter"));
+        let keys: Vec<&str> = fm
+            .lines()
+            .filter(|l| !l.starts_with(' '))
+            .filter_map(|l| l.split(':').next())
+            .collect();
+        assert_eq!(
+            keys,
+            ["name", "description"],
+            "{f}: fields outside the spec"
+        );
+        let name = fm.lines().next().unwrap().strip_prefix("name: ").unwrap();
+        assert!(
+            name.len() <= 64 && name_ok.is_match(name) && name == dir,
+            "{f}: name"
+        );
+        let desc = fm.split_once("description: |\n").unwrap().1;
+        let len = desc.lines().map(|l| l.trim().len() + 1).sum::<usize>() - 1;
+        assert!((1..=1024).contains(&len), "{f}: description is {len} chars");
+        assert!(body.lines().count() < 500, "{f}: 500 lines or more");
     }
 }

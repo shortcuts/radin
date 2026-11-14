@@ -5,7 +5,9 @@ description: |
   one ("add the findings"): scan the whole session. Logs bugs, follow-ups,
   ideas or feedback raised this session as backlog entries that outlive the
   conversation.
+<!-- host:claude -->
 argument-hint: "[what to log]"
+<!-- /host -->
 ---
 # Record to Backlog
 

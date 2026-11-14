@@ -117,6 +117,8 @@ Read these before you change `src/cbm/config.rs` or tell a user they are covered
 - **Cold paths live in on-demand files.** `lib/radin-batch-*.md` are read only when a trigger fires (stuck tasks, a block, the first run in a repo, a resume, the gate, a requested review). **Why:** `SKILL.md` sits in the user's context for the whole session.
 - **The leaf prompt is assembled, then dispatched by path.** The router sends `Read <path> and follow it.`, never the text. **Why:** echoing a 6KB prompt as an `Agent` argument costs output tokens on every dispatch. The prompt carries the task body inline so the leaf spends no read on it.
 
+- **A `SKILL.md` follows the [Agent Skills spec](https://agentskills.io/specification) in the agents render.** Only `name` and `description` survive there. `argument-hint` and `disable-model-invocation` sit in a `<!-- host:claude -->` block inside the frontmatter. **Why:** Claude Code needs both fields, and the spec allows neither.
+
 ### One rule, one file
 
 What an audit checks prose against:

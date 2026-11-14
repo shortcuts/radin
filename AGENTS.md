@@ -26,6 +26,7 @@ radin is a Claude Code plugin of skills, a CLI, and install glue.
 
 | Rule | Enforcer | Gap |
 | --- | --- | --- |
+| Agents-host `SKILL.md` follows the Agent Skills spec | `tests/lints.rs` (`agents_render_of_every_skill_follows_the_agent_skills_spec`: fields, name, description length, body lines) | The spec's `skills-ref validate` is not run. |
 | Rust style and lint | `make lint` and `make check` (`cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, `shellcheck` and `shfmt` on `install.sh`) | Review only for a runtime OS branch (no `uname`). |
 | `~/.claude` ownership | `tests/cbm_config.rs` and `src/cbm/config.rs` (`allow` keeps foreign rules, follows a symlink, `unallow` removes only radin's), `tests/install_*.rs` ("never overwrites a skill radin did not install", the agents companion skill cases), `SHIPPED` (install copies and uninstall removes only listed names) | Foreign content in the `CLAUDE.md` block and settings restore is untested. |
 | Migration of `~/.claude/.radin` aborts before any write | `tests/install_*.rs` (foreign `~/.radin`, failed `mv`, leftover staging directory, half-migrated, symlinked `~/.claude`, old updater) | An interrupted copy on a real second device is untested. |

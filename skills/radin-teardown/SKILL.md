@@ -3,7 +3,9 @@ name: radin-teardown
 description: |
   Use for /radin-teardown while /radin-batch or /radin-do runs. Stops the run
   from starting new tasks; the task in flight, the gate and the merge still finish.
+<!-- host:claude -->
 disable-model-invocation: true
+<!-- /host -->
 ---
 # Graceful Teardown
 

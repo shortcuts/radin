@@ -3,7 +3,9 @@ name: radin-uninstall
 description: |
   Use for /radin-uninstall. Removes what install.sh put in the Claude Code,
   Codex and opencode setups: radin's skills, lib files, guidance blocks and rules.
+<!-- host:claude -->
 disable-model-invocation: true
+<!-- /host -->
 ---
 # Uninstall
 

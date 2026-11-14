@@ -3,7 +3,9 @@ name: radin-stats
 description: |
   Use for /radin-stats. Shows the stats or gain output of every companion tool
   that ships one, side by side.
+<!-- host:claude -->
 disable-model-invocation: true
+<!-- /host -->
 ---
 # Stats Roundup
 

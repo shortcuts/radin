@@ -4,7 +4,9 @@ description: |
   Use for /radin-plan, "plan this backlog entry", "write a plan for X before
   we execute it". Writes an implementation plan for one backlog entry,
   touching no code. Scope is one task, not the whole backlog.
+<!-- host:claude -->
 argument-hint: "<task id | title | keyword>"
+<!-- /host -->
 ---
 # Plan a Backlog Entry
 

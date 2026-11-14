@@ -4,7 +4,9 @@ description: |
   Use for /radin-review, "review and log to backlog". Reviews a commit, PR,
   directory or range for the simplest native solution, maintainability and
   documented repo rubrics, then triages findings with the user.
+<!-- host:claude -->
 argument-hint: "[commit | PR number | path | A..B | staged | since <date>]"
+<!-- /host -->
 ---
 # Review
 

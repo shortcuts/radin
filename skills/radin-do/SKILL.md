@@ -3,8 +3,10 @@ name: radin-do
 description: |
   Use for /radin-do <prompt>. Records one ad-hoc prompt as a backlog entry,
   then executes just that task.
+<!-- host:claude -->
 disable-model-invocation: true
 argument-hint: "<prompt>"
+<!-- /host -->
 ---
 # Run One Prompt
 

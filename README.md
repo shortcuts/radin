@@ -102,6 +102,8 @@ Record, plan, execute, review. Each skill runs in your own conversation, so it c
 | `radin` | Full-screen backlog browser in your terminal. Press `?` for keys |
 | `radin --host agents ...` | Same command for the agents host, which spells companion skill names for Codex and opencode. The backlog is the same `.radin` |
 
+Every skill follows the [Agent Skills specification](https://agentskills.io/specification). The Codex and opencode installs carry only `name` and `description` in the frontmatter. The Claude install adds `argument-hint` and `disable-model-invocation`, which are Claude Code extensions.
+
 `install.sh --wave-cap N` sets the most tasks `/radin-batch` runs at once (default 2, kept by `radin update`). `RADIN_WAVE_CAP` overrides it for one run. Parallel work needs the worktree answer yes.
 
 A task has a category (`feat`, `fix`, `chore`, `refactor`), an optional priority and
