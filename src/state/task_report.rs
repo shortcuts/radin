@@ -1,10 +1,11 @@
-use super::done::task_done;
-use super::git::{dirty_files, wip_commit};
+use super::done::{record_done, task_done};
+use super::git::{dirty_files, ok, wip_commit};
 use super::plan_cover::plan_extras;
 use super::store::{get, json_escape, num, MAX_ATTEMPTS};
 use super::{arg, die, S};
 use crate::backlog::{Fail, Io, R};
 use std::fmt::Write;
+use std::path::Path;
 
 fn order_title(s: &S, id: &str) -> (u64, String) {
     let order = s.entry(id).map_or(0, |e| num(&e, "order"));
@@ -134,6 +135,30 @@ fn first_hash(text: &str) -> Option<String> {
             return Some(text[i..i + n.min(40)].to_string());
         }
         i += n.max(1);
+    }
+    None
+}
+
+/// Paths of a `no commit, gitignored: <path>[, <path>]` first clause: work on ignored files has no commit to name.
+fn ignored_paths(detail: &str) -> Option<Vec<String>> {
+    let rest = detail.strip_prefix("no commit, gitignored:")?;
+    let list = rest.split_once(';').map_or(rest, |x| x.0);
+    Some(list.split(',').map(|p| p.trim().to_string()).collect())
+}
+
+/// Why `paths` fail as ignored work in the main checkout, or `None` when each exists and git ignores it.
+fn ignored_gap(s: &S, paths: &[String]) -> Option<String> {
+    for p in paths {
+        let rel = Path::new(p).strip_prefix(&s.root).unwrap_or(Path::new(p));
+        if p.is_empty() || rel.starts_with(".radin") {
+            return Some(format!("'{p}' is not a path radin lets a task own"));
+        }
+        if !s.root.join(p).exists() {
+            return Some(format!("{p} does not exist in {}", s.root.display()));
+        }
+        if !ok(&s.root, &["check-ignore", "-q", "--", p]) {
+            return Some(format!("git does not ignore {p}"));
+        }
     }
     None
 }
@@ -386,52 +411,69 @@ fn report_inner(s: &S, a: &[String], usages: &[String], io: &mut Io) -> R {
         return next_continue(io);
     }
     if word == "SUCCESS" {
-        match first_hash(&detail) {
-            Some(hash) => {
-                let unproven = unproven_criteria(s, id);
-                let plan = s.plan_files(id);
-                let extras = plan_extras(&s.task_dir(id), &hash, &plan);
-                if !extras.is_empty() {
-                    let csv = plan.join(",");
-                    s.telemetry(
-                        "out-of-bounds",
-                        &[
-                            format!("task={id}"),
-                            format!("commit={hash}"),
-                            format!("plan={csv}"),
-                            format!("extra={extras}"),
-                        ],
-                    );
+        let hash = match ignored_paths(&detail) {
+            Some(paths) => match ignored_gap(s, &paths) {
+                Some(why) => {
+                    detail = format!("reported SUCCESS with no commit, but {why}");
+                    None
                 }
-                let mut d = Io::default();
-                let r = task_done(s, id, &hash, &mut d);
-                let done_out = format!(
-                    "{}{}",
-                    d.out,
-                    d.err + &r.as_ref().err().map_or(String::new(), |e| e.msg.clone())
-                );
-                if matches!(r, Ok(0)) {
-                    io.out.push_str(&done_out);
-                    let body = detail
-                        .rsplit_once("; checks:")
-                        .map_or(detail.as_str(), |x| x.0);
-                    if let Some((_, sum)) = body.split_once(';') {
-                        let sum = sum.trim_start_matches(' ');
-                        if !sum.is_empty() {
-                            s.journal("summary", id, sum);
-                        }
-                    }
-                    for c in &unproven {
-                        s.journal("unproven", id, c);
-                    }
-                    return next_continue(io);
+                None => Some(String::new()),
+            },
+            None => {
+                let h = first_hash(&detail);
+                if h.is_none() {
+                    detail = "reported SUCCESS with no commit hash in the line".into();
                 }
-                detail = format!(
-                    "reported SUCCESS at {hash}, which does not validate: {}",
-                    done_out.trim_end_matches('\n')
+                h
+            }
+        };
+        if let Some(hash) = hash {
+            let unproven = unproven_criteria(s, id);
+            let plan = s.plan_files(id);
+            let extras = plan_extras(&s.task_dir(id), &hash, &plan);
+            if !extras.is_empty() {
+                let csv = plan.join(",");
+                s.telemetry(
+                    "out-of-bounds",
+                    &[
+                        format!("task={id}"),
+                        format!("commit={hash}"),
+                        format!("plan={csv}"),
+                        format!("extra={extras}"),
+                    ],
                 );
             }
-            None => detail = "reported SUCCESS with no commit hash in the line".into(),
+            let mut d = Io::default();
+            let r = if hash.is_empty() {
+                record_done(s, id, "", &mut d)
+            } else {
+                task_done(s, id, &hash, &mut d)
+            };
+            let done_out = format!(
+                "{}{}",
+                d.out,
+                d.err + &r.as_ref().err().map_or(String::new(), |e| e.msg.clone())
+            );
+            if matches!(r, Ok(0)) {
+                io.out.push_str(&done_out);
+                let body = detail
+                    .rsplit_once("; checks:")
+                    .map_or(detail.as_str(), |x| x.0);
+                if let Some((_, sum)) = body.split_once(';') {
+                    let sum = sum.trim_start_matches(' ');
+                    if !sum.is_empty() {
+                        s.journal("summary", id, sum);
+                    }
+                }
+                for c in &unproven {
+                    s.journal("unproven", id, c);
+                }
+                return next_continue(io);
+            }
+            detail = format!(
+                "reported SUCCESS at {hash}, which does not validate: {}",
+                done_out.trim_end_matches('\n')
+            );
         }
     }
     match task_fail(s, id, &detail)? {

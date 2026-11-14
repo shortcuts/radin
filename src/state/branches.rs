@@ -194,6 +194,7 @@ pub fn session_commits(s: &S) -> Option<String> {
     let mut out: Vec<String> = completed_after_baseline(s)
         .iter()
         .map(|l| get(l, "commit"))
+        .filter(|h| !h.is_empty())
         .collect();
     for (_, p) in s.files_in("unmerged") {
         out.push(
@@ -236,7 +237,7 @@ pub fn gate_map(s: &S, io: &mut Io) -> R {
     let mut map: Vec<(String, String)> = Vec::new();
     for l in completed_after_baseline(s) {
         let p = s.read(&format!("prepared/{}.json", get(&l, "id")));
-        if !p.is_empty() {
+        if !p.is_empty() && !get(&l, "commit").is_empty() {
             map.push((get(&l, "commit"), get(&p, "branch")));
         }
     }

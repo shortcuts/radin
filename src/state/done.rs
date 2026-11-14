@@ -208,7 +208,6 @@ pub fn task_done(s: &S, id: &str, hash: &str, io: &mut Io) -> R {
         return Ok(3);
     }
     let prov_branch = s.prepared_field(id, "branch");
-    let prov_worktree = s.prepared_field(id, "worktree");
     let r#ref = if !prov_branch.is_empty() && rev(&prov_branch) {
         prov_branch.as_str()
     } else {
@@ -260,6 +259,14 @@ pub fn task_done(s: &S, id: &str, hash: &str, io: &mut Io) -> R {
         let _ = writeln!(io.out, "task-done: {id} unmerged at {hash} on {prov_branch}; entry kept, blocked until the merge into {base} lands");
         return Ok(0);
     }
+    record_done(s, id, hash, io)
+}
+
+/// Writes the completed line and drops the backlog and steps entries; an empty `hash` means the work is gitignored.
+pub fn record_done(s: &S, id: &str, hash: &str, io: &mut Io) -> R {
+    let dir = s.task_dir(id);
+    let prov_branch = s.prepared_field(id, "branch");
+    let prov_worktree = s.prepared_field(id, "worktree");
     let title = s.task_title(id);
     let plans = s.task_plans(id);
     let created = s

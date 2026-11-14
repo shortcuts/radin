@@ -17,6 +17,8 @@ fn w() -> W {
     let proj = t.path().canonicalize().unwrap().join("proj");
     fs::create_dir(&proj).unwrap();
     cli::git(&proj, &["init", "-q", "."]);
+    // A global excludes file that ignores .radin would hide the .gitignore write under test.
+    cli::git(&proj, &["config", "core.excludesFile", "/dev/null"]);
     W { _t: t, proj }
 }
 

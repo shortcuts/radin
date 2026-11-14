@@ -29,7 +29,7 @@ pub fn plan_covers_file(tree: &Path, file: &str, plan: &[String]) -> bool {
 
 /// Comma-joined files commit `hash` changes outside the plan; tests, `.radin/` and generated output of a listed input are exempt.
 pub fn plan_extras(dir: &Path, hash: &str, plan: &[String]) -> String {
-    if plan.is_empty() {
+    if plan.is_empty() || hash.is_empty() {
         return String::new();
     }
     let files = g(

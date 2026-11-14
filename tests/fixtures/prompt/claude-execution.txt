@@ -1,8 +1,8 @@
 Execute the task below.
 
 Your final message is exactly one of these lines, and nothing else:
-`STATUS: SUCCESS — <commit hash(es), or "no new commit, already satisfied by <existing
-hash>">; built: <what now works, one clause>; chose: <each judgment call you
+`STATUS: SUCCESS — <commit hash(es), "no new commit, already satisfied by <existing
+hash>", or "no commit, gitignored: <path>[, <path>]" when every change is in a gitignored path>; built: <what now works, one clause>; chose: <each judgment call you
 made and why, or "none">; open: <what you skipped, did not check, or a risk the user must know, or "none">; checks:
 test=<pass|na>, lint=<pass|na>, review=pass`
 `STATUS: FAILED — <reason>`

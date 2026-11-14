@@ -791,3 +791,41 @@ fn set_status_reason_takes_only_deferred_with_blocked_and_task_fact_journals() {
         .read(".radin/state/journal.jsonl")
         .contains("\"event\":\"fact\",\"id\":\"t-one\",\"detail\":\"[measured] a is 1\""));
 }
+
+#[test]
+fn task_report_success_on_gitignored_paths_records_done_with_no_commit() {
+    let w = W::new();
+    w.write(".gitignore", ".radin/\nlocal/\n");
+    w.commit_files(&["lib/tracked.sh"]);
+    w.steps_init("t-one\t1\t\tpending\n");
+    w.write("local/tool.py", "x\n");
+    let line = |paths: &str| {
+        format!("STATUS: SUCCESS — no commit, gitignored: {paths}; built: b; chose: none; open: none; checks: test=pass, lint=pass, review=pass")
+    };
+    for bad in [
+        "lib/tracked.sh",
+        "local/missing.py",
+        ".radin/x",
+        "local/tool.py, lib/tracked.sh",
+    ] {
+        let r = w.state(&["task-report", "t-one", &line(bad)]);
+        assert!(
+            r.out
+                .contains("failed: reported SUCCESS with no commit, but"),
+            "{bad}: {}",
+            r.out
+        );
+        w.steps_init("t-one\t1\t\tpending\n");
+    }
+    let r = w.state(&["task-report", "t-one", &line("local/tool.py")]);
+    assert!(r.out.ends_with("next\tcontinue\n"), "{}", r.out);
+    assert_ne!(w.bl(&["find", "t-one"], "").code, 0);
+    let done = w.read(".radin/state/completed.json");
+    assert!(done.contains("\"id\":\"t-one\",\"commit\":\"\""), "{done}");
+    assert_eq!(w.state(&["session-commits"]).code, 1);
+    let rep = w.state(&["report"]).out;
+    assert!(
+        rep.contains("\n- t one — no commit, gitignored work\n"),
+        "{rep}"
+    );
+}

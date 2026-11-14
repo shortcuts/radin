@@ -159,7 +159,10 @@ pub fn report(s: &S, a: &[String], io: &mut Io) -> R {
     let mut landed_fu = String::new();
     let (mut n_ok, mut n_fu) = (0, 0);
     for l in completed.iter().skip(base_completed) {
-        let (cid, chash) = (get(l, "id"), get(l, "commit"));
+        let (cid, mut chash) = (get(l, "id"), get(l, "commit"));
+        if chash.is_empty() {
+            chash = "no commit, gitignored work".into();
+        }
         let ctitle = match get(l, "title") {
             t if t.is_empty() => cid.clone(),
             t => t,
