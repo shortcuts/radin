@@ -1,5 +1,24 @@
 # Changelog
 
+## [3.3.0](https://github.com/shortcuts/radin/compare/v3.2.0...v3.3.0) (2026-11-14)
+
+
+### Features
+
+* **backlog:** epic dependencies and record-time ordering ([422b916](https://github.com/shortcuts/radin/commit/422b9167d65e89e86ff3db5a95b3ee0604c4a22f))
+* epic edit ([5d64616](https://github.com/shortcuts/radin/commit/5d6461657e722e8597b177bddd9a0fa816a89ad7))
+* **skills:** follow the Agent Skills spec in the agents render ([fcc06b9](https://github.com/shortcuts/radin/commit/fcc06b9978457ca7a89276af3b4cd2eb00e5c888))
+* **tui:** action registry with command palette and generated help ([fb454cd](https://github.com/shortcuts/radin/commit/fb454cd945e81ec77ed4ecd450f9469f3faa1043))
+* **tui:** reach every backlog verb and the run-state reads ([180fa7c](https://github.com/shortcuts/radin/commit/180fa7c78592670c790089a9e51fba60543979f4))
+* **tui:** render run status, meta, deps and epics in full ([19cccba](https://github.com/shortcuts/radin/commit/19cccbad4a35080d46fc1c5f8933c1bdc1fa4288))
+
+
+### Bug Fixes
+
+* prevent exhaustive summary ([c515e61](https://github.com/shortcuts/radin/commit/c515e615b80da19fb62313a1782f70a4fc28fb59))
+* **state:** refuse a group-set that merges wave-partition groups ([d2d6d82](https://github.com/shortcuts/radin/commit/d2d6d824b9cd314457810b2ea81a8a76b24462b6))
+* test ([eada66e](https://github.com/shortcuts/radin/commit/eada66e82db214d2b3a6438f5f734f7054bb16c0))
+
 ## [3.2.0](https://github.com/shortcuts/radin/compare/v3.1.0...v3.2.0) (2026-11-10)
 
 
