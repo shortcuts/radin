@@ -172,7 +172,7 @@ fn missing_checks(line: &str, required: &[(&'static str, bool)]) -> Vec<&'static
     let got: Vec<(&str, &str)> = clause
         .split(',')
         .filter_map(|i| i.split_once('='))
-        .map(|(k, v)| (k.trim(), v.trim()))
+        .map(|(k, v)| (k.trim(), v.split_whitespace().next().unwrap_or("")))
         .collect();
     required
         .iter()
@@ -543,5 +543,9 @@ mod tests {
             ["plan-review"]
         );
         assert!(missing_checks("x; checks: plan-review=pass", &PLAN_CHECKS).is_empty());
+        let noted = "x; checks: plan-review=pass (self-reviewed; no device run, ok)";
+        assert!(missing_checks(noted, &PLAN_CHECKS).is_empty());
+        let noted_fail = "x; checks: plan-review=fail (was pass before)";
+        assert_eq!(missing_checks(noted_fail, &PLAN_CHECKS), ["plan-review"]);
     }
 }
