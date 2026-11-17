@@ -117,7 +117,7 @@ impl Session<'_> {
             installed_at: crate::telemetry::now_utc(),
             package_manager: self.pkg.clone(),
             install_root: self.rh.display().to_string(),
-            wave_cap: self.wave_cap,
+            lane_cap: self.lane_cap,
             model_planning: self.major.clone(),
             model_execution: self.major.clone(),
             model_review: self.major.clone(),

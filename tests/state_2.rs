@@ -106,8 +106,6 @@ fn a_claimed_stash_is_applied_in_the_tasks_tree_and_kept_a_conflicting_one_leave
     let mut f = fs::read_to_string(&task).unwrap();
     f.push_str("touch a.txt\n");
     fs::write(&task, f).unwrap();
-    w.state(&["session-set", "yes", "no"]);
-    w.state(&["group-set", "t-one", "t-two"]);
     w.write("a.txt", "draft\n");
     w.write("b.txt", "new\n");
     w.git(&[
@@ -154,14 +152,15 @@ fn a_claimed_stash_is_applied_in_the_tasks_tree_and_kept_a_conflicting_one_leave
     ]);
     let h2 = w.git(&["rev-parse", "stash@{0}"]);
     w.state(&["stash-claim", &h2, "t-two"]);
-    let wt2 = w.work.join("proj-t-two");
+    w.lane_mode("lanes");
+    let wt2 = w.work.join("proj-maintenance");
     w.git(&[
         "worktree",
         "add",
         "-q",
         wt2.to_str().unwrap(),
         "-b",
-        "radin/t-two",
+        "radin/maintenance",
         &base,
     ]);
     fs::write(wt2.join("a.txt"), "clash\n").unwrap();
@@ -280,29 +279,29 @@ fn wave_prints_at_most_2_ready_tasks_by_default_the_first_by_order() {
     let r = w.state(&["wave"]);
     assert_eq!(r.code, 0);
     assert_eq!(r.out, "t-1\t1\nt-2\t2\n");
-    assert_eq!(w.state(&["wave-cap"]).out, "2\n");
+    assert_eq!(w.state(&["lane-cap"]).out, "2\n");
 }
 
 #[test]
-fn the_wave_cap_comes_from_radin_wave_cap_else_the_install_manifest_and_must_be_positive() {
+fn the_lane_cap_comes_from_radin_lane_cap_else_the_install_manifest_and_must_be_positive() {
     let w = W::new();
     w.cap.set(None);
     six(&w);
     fs::create_dir_all(w.home.join(".radin")).unwrap();
     fs::write(
         w.home.join(".radin/manifest.json"),
-        "{\n  \"wave_cap\": 3,\n  \"version\": \"x\"\n}\n",
+        "{\n  \"lane_cap\": 3,\n  \"version\": \"x\"\n}\n",
     )
     .unwrap();
     assert_eq!(w.state(&["wave"]).out.lines().count(), 3);
-    assert_eq!(w.state(&["wave-cap"]).out, "3\n");
+    assert_eq!(w.state(&["lane-cap"]).out, "3\n");
     assert_eq!(w.state_cap(&["wave"], "", Some("4")).out.lines().count(), 4);
     assert_ne!(w.state_cap(&["wave"], "", Some("0")).code, 0);
-    let r = w.state_cap(&["wave-cap"], "", Some("0"));
+    let r = w.state_cap(&["lane-cap"], "", Some("0"));
     assert_ne!(r.code, 0);
     assert_eq!(
         r.err,
-        "radin-state: wave cap needs a positive integer, got: 0\n"
+        "radin-state: lane cap needs a positive integer, got: 0\n"
     );
 }
 
@@ -362,141 +361,53 @@ fn wave_prints_nothing_and_exits_1_when_every_pending_task_waits_on_an_unresolve
 }
 
 #[test]
-fn prepare_starts_a_dependent_on_its_unmerged_dependencys_branch_and_records_the_stack() {
-    let w = W::new();
-    w.stack_setup();
-    let r = w.state(&["prepare", "t-two"]);
-    assert_eq!(r.code, 0, "{}", r.all());
-    let dir = r.out.lines().last().unwrap();
-    assert_eq!(
-        w.git_at(std::path::Path::new(dir), &["show", "HEAD:shared.txt"]),
-        "one\nfrom-one"
-    );
-    let tip = w.git(&["rev-parse", "--short=12", "radin/t-one"]);
-    assert_eq!(
-        w.read(".radin/state/stacked/t-two").trim(),
-        format!("t-one {tip}")
-    );
-}
-
-#[test]
-fn prepare_moves_an_existing_dependent_branch_with_no_commit_of_its_own_onto_the_dependency() {
-    let w = W::new();
-    w.stack_setup();
-    w.git(&["branch", "radin/t-two"]);
-    let r = w.state(&["prepare", "t-two"]);
-    assert_eq!(r.code, 0, "{}", r.all());
-    let dir = r.out.lines().last().unwrap();
-    assert_eq!(
-        w.git_at(std::path::Path::new(dir), &["show", "HEAD:shared.txt"]),
-        "one\nfrom-one"
-    );
-    let tip = w.git(&["rev-parse", "--short=12", "radin/t-one"]);
-    assert_eq!(
-        w.read(".radin/state/stacked/t-two").trim(),
-        format!("t-one {tip}")
-    );
-}
-
-#[test]
-fn prepare_leaves_an_existing_dependent_branch_that_holds_its_own_commit() {
-    let w = W::new();
-    let base = w.stack_setup();
-    w.git(&["checkout", "-q", "-b", "radin/t-two"]);
-    w.write("own.txt", "own\n");
-    w.git(&["add", "own.txt"]);
-    w.git(&["commit", "-q", "-m", "feat: t-two"]);
-    w.git(&["checkout", "-q", &base]);
-    let own = w.git(&["rev-parse", "radin/t-two"]);
-    let r = w.state(&["prepare", "t-two"]);
-    assert_eq!(r.code, 0, "{}", r.all());
-    assert_eq!(w.git(&["rev-parse", "radin/t-two"]), own);
-    assert!(r
-        .err
-        .contains("prepare: radin/t-two does not contain radin/t-one"));
-    assert!(!w.exists(".radin/state/stacked/t-two"));
-    assert!(w
-        .read(".radin/state/journal.jsonl")
-        .contains("stack-missed"));
-}
-
-#[test]
-fn prepare_records_the_stack_of_an_existing_dependent_branch_that_contains_the_dependency() {
-    let w = W::new();
-    w.stack_setup();
-    w.git(&["branch", "radin/t-two", "radin/t-one"]);
-    let r = w.state(&["prepare", "t-two"]);
-    assert_eq!(r.code, 0, "{}", r.all());
-    let tip = w.git(&["rev-parse", "--short=12", "radin/t-one"]);
-    assert_eq!(w.git(&["rev-parse", "--short=12", "radin/t-two"]), tip);
-    assert_eq!(
-        w.read(".radin/state/stacked/t-two").trim(),
-        format!("t-one {tip}")
-    );
-}
-
-#[test]
-fn prepare_gives_a_solo_task_its_own_worktree_and_the_main_checkout_keeps_its_branch() {
+fn prepare_gives_a_lane_task_the_epic_worktree_and_the_main_checkout_keeps_its_branch() {
     let w = W::new();
     let base = w.base();
-    w.state(&["session-set", "yes", "yes"]);
-    let wt = format!("{}-t-one", w.p.display());
+    w.lane_mode("lanes");
+    let wt = format!("{}-maintenance", w.p.display());
     assert_eq!(w.prep_dir("t-one"), wt);
     assert_eq!(
         w.git_at(std::path::Path::new(&wt), &["branch", "--show-current"]),
-        "radin/t-one"
+        "radin/maintenance"
     );
     assert_eq!(w.base(), base);
     assert_eq!(w.git(&["worktree", "list"]).lines().count(), 2);
 }
 
 #[test]
-fn prepare_commits_to_the_base_when_worktree_and_branch_are_no() {
+fn prepare_works_on_the_base_in_main_mode() {
     let w = W::new();
     let before = w.base();
-    w.state(&["session-set", "no", "no"]);
+    w.lane_mode("main");
     assert_eq!(w.prep_dir("t-one"), w.p.to_string_lossy());
     assert_eq!(w.base(), before);
-    assert!(w.git(&["branch", "--list", "radin/t-one"]).is_empty());
+    assert!(w.git(&["branch", "--list", "radin/*"]).is_empty());
 }
 
 #[test]
-fn prepare_makes_a_worktree_for_each_member_of_a_recorded_group() {
-    let w = W::new();
-    w.state(&["session-set", "yes", "no"]);
-    w.state(&["group-set", "t-one", "t-two"]);
-    let wt = format!("{}-t-one", w.p.display());
-    assert_eq!(w.prep_dir("t-one"), wt);
-    assert_eq!(
-        w.git_at(std::path::Path::new(&wt), &["branch", "--show-current"]),
-        "radin/t-one"
-    );
-}
-
-#[test]
-fn prepare_makes_no_worktree_for_a_group_when_the_worktree_answer_is_no() {
-    let w = W::new();
-    w.state(&["session-set", "no", "yes"]);
-    w.state(&["group-set", "t-one", "t-two"]);
-    assert_eq!(w.prep_dir("t-one"), w.p.to_string_lossy());
-    assert_eq!(w.git(&["worktree", "list"]).lines().count(), 1);
-}
-
-#[test]
-fn prepare_reuses_the_worktree_a_dead_attempt_left_for_a_task_that_runs_alone() {
+fn prepare_reuses_the_worktree_a_dead_attempt_left_for_the_lane() {
     let w = W::new();
     let base = w.base();
-    let wt = format!("{}-t-one", w.p.display());
-    w.git(&["worktree", "add", "-q", &wt, "-b", "radin/t-one", &base]);
-    w.state(&["session-set", "yes", "yes"]);
+    let wt = format!("{}-maintenance", w.p.display());
+    w.git(&[
+        "worktree",
+        "add",
+        "-q",
+        &wt,
+        "-b",
+        "radin/maintenance",
+        &base,
+    ]);
+    w.lane_mode("lanes");
     assert_eq!(w.prep_dir("t-one"), wt);
 }
 
 #[test]
 fn prepare_fails_on_a_leftover_directory_at_the_worktree_path_and_keeps_it() {
     let w = W::new();
-    w.state(&["session-set", "yes", "yes"]);
-    let wt = format!("{}-t-one", w.p.display());
+    w.lane_mode("lanes");
+    let wt = format!("{}-maintenance", w.p.display());
     fs::create_dir_all(format!("{wt}/.gradle")).unwrap();
     let r = w.state(&["prepare", "t-one"]);
     assert_ne!(r.code, 0, "{}", r.all());

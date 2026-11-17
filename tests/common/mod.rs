@@ -107,7 +107,7 @@ impl W {
         let cap = cap.map(String::from);
         let env = move |k: &str| match k {
             "HOME" => Some(home.clone()),
-            "RADIN_WAVE_CAP" => cap.clone(),
+            "RADIN_LANE_CAP" => cap.clone(),
             _ => None,
         };
         let cli = |d: &Path, a: &[&str], input: &str| -> radin::Out {
@@ -300,9 +300,44 @@ impl W {
         let tip = self.git(&["rev-parse", "--short=12", "radin/t-one"]);
         self.write(".radin/state/unmerged/t-one", &format!("{tip}\n"));
         self.steps_init("t-one\t1\t\tpending\nt-two\t2\tt-one\tpending\n");
-        assert_eq!(self.state(&["session-set", "yes", "no"]).code, 0);
         assert_eq!(self.state(&["group-set", "t-one", "t-two"]).code, 0);
         base
+    }
+
+    /// The legacy stacked layout of t-two: its worktree on radin/t-two cut from radin/t-one, with the markers `prepare` once wrote.
+    pub fn stack_two(&self) -> String {
+        let wt = format!("{}-t-two", self.p.display());
+        self.git(&[
+            "worktree",
+            "add",
+            "-q",
+            &wt,
+            "-b",
+            "radin/t-two",
+            "radin/t-one",
+        ]);
+        let tip = self.git(&["rev-parse", "--short=12", "radin/t-one"]);
+        self.write(".radin/state/stacked/t-two", &format!("t-one {tip}\n"));
+        self.write(
+            ".radin/state/prepared/t-two.json",
+            &format!("{{\"branch\":\"radin/t-two\",\"worktree\":\"{wt}\"}}\n"),
+        );
+        wt
+    }
+
+    /// The per-task worktree on `radin/<id>` with the marker `prepare` once wrote, which leftover routing still reads.
+    pub fn task_tree(&self, id: &str) -> String {
+        let wt = format!("{}-{id}", self.p.display());
+        self.git(&["worktree", "add", "-q", &wt, "-b", &format!("radin/{id}")]);
+        self.write(
+            &format!(".radin/state/prepared/{id}.json"),
+            &format!("{{\"branch\":\"radin/{id}\",\"worktree\":\"{wt}\"}}\n"),
+        );
+        wt
+    }
+
+    pub fn lane_mode(&self, mode: &str) {
+        self.write(".radin/state/lane-mode", &format!("{mode}\n"));
     }
 
     /// The last line `prepare` printed.

@@ -6,7 +6,7 @@ fn reconcile_lands_a_stack_in_dependency_order_one_squash_per_task_even_when_bot
 ) {
     let w = W::new();
     let base = w.stack_setup();
-    let dir = w.prep_dir("t-two");
+    let dir = w.stack_two();
     let dir = std::path::Path::new(&dir);
     std::fs::write(dir.join("shared.txt"), "one\nfrom-two\n").unwrap();
     w.git_at(dir, &["commit", "-qam", "feat: t-two"]);
@@ -41,7 +41,7 @@ fn reconcile_lands_a_stack_in_dependency_order_one_squash_per_task_even_when_bot
 fn reconcile_leaves_a_dependent_waiting_while_its_parent_branch_conflicts() {
     let w = W::new();
     w.stack_setup();
-    let dir = w.prep_dir("t-two");
+    let dir = w.stack_two();
     let dir = std::path::Path::new(&dir);
     std::fs::write(dir.join("two.txt"), "two\n").unwrap();
     w.git_at(dir, &["add", "two.txt"]);
@@ -66,7 +66,6 @@ fn reconcile_leaves_a_dependent_waiting_while_its_parent_branch_conflicts() {
 fn prepare_wip_commits_a_dirty_tree_while_the_default_gitignore_hides_radin() {
     let w = W::new();
     w.write("a.txt", "draft\n");
-    assert_eq!(w.state(&["session-set", "no", "no"]).code, 0);
     let r = w.state(&["prepare", "t-one"]);
     assert_eq!(r.code, 0, "{}", r.all());
     assert_eq!(
@@ -293,7 +292,7 @@ fn wave_leaves_a_task_with_an_unmet_dependency_out_of_the_partition() {
 }
 
 #[test]
-fn wave_partition_reads_radin_wave_cap_cap_beats_it_and_each_cap_split_task_records_a_cap_event() {
+fn wave_partition_reads_radin_lane_cap_cap_beats_it_and_each_cap_split_task_records_a_cap_event() {
     let w = W::new();
     for n in 1..=6 {
         w.planned(&format!("w {n}"), &[&format!("lib/{n}.sh")]);
@@ -517,8 +516,7 @@ fn leftover_setup(w: &W) -> std::path::PathBuf {
     w.git(&["add", ".gitignore"]);
     w.git(&["commit", "-q", "-m", "ignore"]);
     w.steps_init("t-one\t1\t\tpending\n");
-    assert_eq!(w.state(&["session-set", "yes", "yes"]).code, 0);
-    std::path::PathBuf::from(w.prep_dir("t-one"))
+    std::path::PathBuf::from(w.task_tree("t-one"))
 }
 
 #[test]

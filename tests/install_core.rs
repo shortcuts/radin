@@ -74,7 +74,7 @@ fn fresh_install_writes_layout_manifest_and_matching_digests() {
     assert_eq!(m["manifest_version"], 2);
     assert_eq!(strs(&m, "hosts"), ["claude"]);
     assert!(strs(&m, "agents_clis").is_empty());
-    assert_eq!(m["wave_cap"], 2);
+    assert_eq!(m["lane_cap"], 2);
     assert_eq!(m["effort_planning"], "");
     assert_eq!(m["install_root"], s.home.join(".radin").to_str().unwrap());
     assert_eq!(m["cli_on_path"], true);
@@ -324,9 +324,9 @@ fn bad_flags_exit_2_with_usage_before_any_write() {
         &["--nope"][..],
         &["--only", "vim"],
         &["--only"],
-        &["--wave-cap", "0"],
-        &["--wave-cap"],
-        &["--wave-cap", "x"],
+        &["--lane-cap", "0"],
+        &["--lane-cap"],
+        &["--lane-cap", "x"],
     ] {
         let r = s.install(args);
         assert_eq!(r.code, 2, "{args:?}");
@@ -336,14 +336,14 @@ fn bad_flags_exit_2_with_usage_before_any_write() {
 }
 
 #[test]
-fn wave_cap_is_stored_defaults_to_two_and_survives_update() {
+fn lane_cap_is_stored_defaults_to_two_and_survives_update() {
     let s = Sandbox::new();
-    assert_eq!(s.install(&["--yes", "--wave-cap", "3"]).code, 0);
-    assert_eq!(s.manifest()["wave_cap"], 3);
+    assert_eq!(s.install(&["--yes", "--lane-cap", "3"]).code, 0);
+    assert_eq!(s.manifest()["lane_cap"], 3);
     assert_eq!(s.install(&["--yes", "--update"]).code, 0);
-    assert_eq!(s.manifest()["wave_cap"], 3);
-    assert_eq!(s.install(&["--yes", "--wave-cap=5"]).code, 0);
-    assert_eq!(s.manifest()["wave_cap"], 5);
+    assert_eq!(s.manifest()["lane_cap"], 3);
+    assert_eq!(s.install(&["--yes", "--lane-cap=5"]).code, 0);
+    assert_eq!(s.manifest()["lane_cap"], 5);
 }
 
 #[test]

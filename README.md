@@ -104,7 +104,7 @@ Record, plan, execute, review. Each skill runs in your own conversation, so it c
 
 Every skill follows the [Agent Skills specification](https://agentskills.io/specification). The Codex and opencode installs carry only `name` and `description` in the frontmatter. The Claude install adds `argument-hint` and `disable-model-invocation`, which are Claude Code extensions.
 
-`install.sh --wave-cap N` sets the most tasks `/radin-batch` runs at once (default 2, kept by `radin update`). `RADIN_WAVE_CAP` overrides it for one run. Parallel work needs the worktree answer yes.
+`install.sh --lane-cap N` sets the most lanes `/radin-batch` runs at once (default 2, kept by `radin update`). `RADIN_LANE_CAP` overrides it for one run. Parallel lanes need the parallel switch on (the TUI `w` key).
 
 A task has a category (`feat`, `fix`, `chore`, `refactor`), an optional priority and
 dependencies, and can sit under an epic. Every field and key: [docs/reference.md](docs/reference.md).

@@ -26,7 +26,7 @@ use ui::Ui;
 
 const STEP_TOTAL: usize = 6;
 
-const USAGE: &str = "usage: radin install [--yes] [--verbose] [--details] [--update] [--refresh] [--list] [--dry-run] [--force] [--wave-cap N] [--only ID[,ID...]]\nhosts: claude codex opencode\n";
+const USAGE: &str = "usage: radin install [--yes] [--verbose] [--details] [--update] [--refresh] [--list] [--dry-run] [--force] [--lane-cap N] [--only ID[,ID...]]\nhosts: claude codex opencode\n";
 
 /// Why a run stopped. `Done` and `Abort` are quiet; `Fail` and `Err` leave a partial install behind.
 pub(crate) enum Stop {
@@ -59,7 +59,7 @@ struct Opts {
     dry: bool,
     force: bool,
     only: Option<Vec<&'static str>>,
-    wave_cap: Option<u32>,
+    lane_cap: Option<u32>,
 }
 
 fn parse(args: &[String], update: bool, details: bool) -> Result<Opts, ()> {
@@ -82,7 +82,7 @@ fn parse(args: &[String], update: bool, details: bool) -> Result<Opts, ()> {
             "--list" => o.list = true,
             "--dry-run" => o.dry = true,
             "--force" => o.force = true,
-            "--only" | "--wave-cap" => {
+            "--only" | "--lane-cap" => {
                 i += 1;
                 let v = args.get(i).ok_or(())?.clone();
                 if a == "--only" {
@@ -91,7 +91,7 @@ fn parse(args: &[String], update: bool, details: bool) -> Result<Opts, ()> {
                     cap = Some(v);
                 }
             }
-            _ => match (a.strip_prefix("--only="), a.strip_prefix("--wave-cap=")) {
+            _ => match (a.strip_prefix("--only="), a.strip_prefix("--lane-cap=")) {
                 (Some(v), _) => only = Some(v.into()),
                 (_, Some(v)) => cap = Some(v.into()),
                 _ => return Err(()),
@@ -117,7 +117,7 @@ fn parse(args: &[String], update: bool, details: bool) -> Result<Opts, ()> {
         if c.is_empty() || c.starts_with('0') || !c.bytes().all(|b| b.is_ascii_digit()) {
             return Err(());
         }
-        o.wave_cap = Some(c.parse().map_err(|_| ())?);
+        o.lane_cap = Some(c.parse().map_err(|_| ())?);
     }
     Ok(o)
 }
@@ -145,7 +145,7 @@ pub(crate) struct Session<'a> {
     minor: String,
     models_picked: bool,
     pkg: String,
-    wave_cap: u32,
+    lane_cap: u32,
     migrated: bool,
     legacy_left: bool,
     plan: Vec<plan::Row>,
@@ -204,7 +204,7 @@ impl<'a> Session<'a> {
             minor: "haiku".into(),
             models_picked: false,
             pkg: "curl".into(),
-            wave_cap: 2,
+            lane_cap: 2,
             migrated: false,
             legacy_left: false,
             plan: vec![],
@@ -287,8 +287,8 @@ impl<'a> Session<'a> {
     fn go(&mut self) -> Result<(), Stop> {
         if self.o.update {
             if let Some(m) = self.prev.as_ref() {
-                if self.o.wave_cap.is_none() {
-                    self.wave_cap = m.wave_cap;
+                if self.o.lane_cap.is_none() {
+                    self.lane_cap = m.lane_cap;
                 }
                 let pick = |v: &str, d: &str| {
                     if v.is_empty() {
@@ -302,8 +302,8 @@ impl<'a> Session<'a> {
                 self.pkg = pick(&m.package_manager, "curl");
             }
         }
-        if let Some(w) = self.o.wave_cap {
-            self.wave_cap = w;
+        if let Some(w) = self.o.lane_cap {
+            self.lane_cap = w;
         }
         self.ui.banner();
         self.select_hosts();

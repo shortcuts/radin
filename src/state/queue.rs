@@ -168,9 +168,6 @@ pub fn preflight(s: &S, io: &mut Io) -> R {
         io.out.push_str("empty\n");
         return Ok(0);
     }
-    if s.session_get().is_none() {
-        io.out.push_str("session\tmissing\n");
-    }
     if s.steps.is_file() {
         for r in stuck_lines(s) {
             let _ = writeln!(io.out, "stuck\t{r}");
@@ -315,8 +312,8 @@ pub fn set_status(s: &S, a: &[String]) -> R {
     Ok(0)
 }
 
-pub fn wave_cap(s: &S, io: &mut Io) -> R {
-    let _ = writeln!(io.out, "{}", s.wave_cap()?);
+pub fn lane_cap(s: &S, io: &mut Io) -> R {
+    let _ = writeln!(io.out, "{}", s.lane_cap()?);
     Ok(0)
 }
 
@@ -385,7 +382,7 @@ pub fn wave(s: &S, io: &mut Io) -> R {
         return Ok(1);
     }
     release_ready(s)?;
-    let cap = s.wave_cap()?;
+    let cap = s.lane_cap()?;
     let mut shown = 0;
     for l in read_lines(&s.steps) {
         if get(&l, "status") != "pending" {
@@ -405,7 +402,7 @@ pub fn wave(s: &S, io: &mut Io) -> R {
 }
 
 pub fn wave_partition(s: &S, a: &[String], io: &mut Io) -> R {
-    let mut cap = s.wave_cap()?;
+    let mut cap = s.lane_cap()?;
     let mut wave = String::new();
     let mut i = 0;
     while i < a.len() {

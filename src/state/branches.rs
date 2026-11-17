@@ -26,35 +26,32 @@ pub fn dirty_check(s: &S, io: &mut Io) -> R {
 }
 
 pub fn session_set(s: &S, a: &[String]) -> R {
-    let (w, b) = (arg(a, 0), arg(a, 1));
-    if w.is_empty() || b.is_empty() {
-        return Err(die("usage: session-set <yes|no> <yes|no>"));
+    let v = arg(a, 0);
+    if v.is_empty() || a.len() > 1 {
+        return Err(die("usage: session-set <yes|no>"));
     }
     if !s.state.is_dir() {
         return Err(die(format!("no state dir: {}", s.state.display())));
     }
-    for m in [w, b] {
-        if !matches!(m, "yes" | "no") {
-            return Err(die(format!("modes must be yes|no, got: {m}")));
-        }
+    if !matches!(v, "yes" | "no") {
+        return Err(die(format!("mode must be yes|no, got: {v}")));
     }
     write(
         s,
         "session.json",
-        &format!("{{\"worktree\":\"{w}\",\"branch\":\"{b}\"}}\n"),
+        &format!("{{\"parallel\":{}}}\n", v == "yes"),
     );
-    s.journal("session", "", &format!("worktree={w} branch={b}"));
+    s.journal("session", "", &format!("parallel={v}"));
     Ok(0)
 }
 
 pub fn session_get(s: &S, io: &mut Io) -> R {
-    match s.session_get() {
-        Some((w, b)) => {
-            let _ = writeln!(io.out, "worktree\t{w}\nbranch\t{b}");
-            Ok(0)
-        }
-        None => Ok(1),
-    }
+    let _ = writeln!(
+        io.out,
+        "parallel\t{}",
+        if s.session_parallel() { "yes" } else { "no" }
+    );
+    Ok(0)
 }
 
 pub fn group_set(s: &S, a: &[String]) -> R {

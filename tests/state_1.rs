@@ -161,13 +161,13 @@ fn preflight_prints_one_tagged_line_per_applicable_branch_and_only_empty_on_an_e
     let r = w.state(&["preflight"]);
     assert_eq!(r.code, 0);
     for line in [
-        "session\tmissing",
         "stuck\tt-two\t2\tdispatched",
         "waiting\tt-one\tdeferred\twhich db?",
         "rank\tt-one",
     ] {
         assert!(r.out.contains(line), "{line} in {}", r.out);
     }
+    assert!(!r.out.contains("session\t"), "{}", r.out);
     w.bl(&["remove", "t-one"], "");
     let r = w.state(&["preflight"]);
     assert_eq!((r.code, r.out.as_str()), (0, "empty\n"));

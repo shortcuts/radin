@@ -1153,7 +1153,7 @@ fn a_refresh_keeps_the_selected_task_selected_when_a_row_above_it_goes() {
 }
 
 #[test]
-fn w_and_b_persist_the_worktree_and_branch_answers() {
+fn w_toggles_the_parallel_switch_and_persists_it() {
     let fx = Fx::new();
     fx.seed();
     let session = || {
@@ -1163,15 +1163,16 @@ fn w_and_b_persist_the_worktree_and_branch_answers() {
             .to_string()
     };
     fx.with(|a| {
+        assert!(render(a, 80, 24).has("par:yes"));
         press(a, "w");
-        assert!(render(a, 80, 24).has("worktree: yes"));
+        assert!(render(a, 80, 24).has("parallel: no"));
     });
-    assert_eq!(session(), r#"{"worktree":"yes","branch":"no"}"#);
+    assert_eq!(session(), r#"{"parallel":false}"#);
     fx.with(|a| {
-        assert!(render(a, 80, 24).has("wt:yes br:no"));
-        press(a, "bw");
+        assert!(render(a, 80, 24).has("par:no"));
+        press(a, "w");
     });
-    assert_eq!(session(), r#"{"worktree":"no","branch":"yes"}"#);
+    assert_eq!(session(), r#"{"parallel":true}"#);
 }
 
 #[test]

@@ -244,7 +244,12 @@ pub fn task_done(s: &S, id: &str, hash: &str, io: &mut Io) -> R {
         let _ = writeln!(io.err, "task-done: {hash} changes a file under .radin/");
         return Ok(3);
     }
-    if prov_branch.starts_with("radin/") && !base.is_empty() && !in_base && !s.exists(&merged_mark)
+    let lane = s.prepared_field(id, "lane");
+    if lane.is_empty()
+        && prov_branch.starts_with("radin/")
+        && !base.is_empty()
+        && !in_base
+        && !s.exists(&merged_mark)
     {
         let note = format!("done at {hash} on {prov_branch}; merge into {base} pending");
         if !s.exists(&format!("unmerged/{id}")) {

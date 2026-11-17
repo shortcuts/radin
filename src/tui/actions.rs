@@ -286,20 +286,7 @@ pub const ACTIONS: &[Action] = &[
     ),
     Action::new("sort-title", &[ch('T')], "sort by title", "view", List),
     Action::new("done", &[Key::Tab], "toggle the Done view", "view", Any).hint("done"),
-    Action::new(
-        "worktree",
-        &[ch('w')],
-        "toggle the worktree answer",
-        "run",
-        List,
-    ),
-    Action::new(
-        "branch",
-        &[ch('b')],
-        "toggle the branch answer",
-        "run",
-        List,
-    ),
+    Action::new("parallel", &[ch('w')], "toggle parallel lanes", "run", List),
     Action::new(
         "run-status",
         &[],

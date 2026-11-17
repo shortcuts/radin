@@ -208,9 +208,9 @@ pub fn task_report(s: &S, a: &[String], io: &mut Io) -> R {
             _ => rest.push(x.clone()),
         }
     }
-    if fuse && s.session_get().is_some_and(|(w, _)| w == "yes") {
+    if fuse && s.lane_mode() == "lanes" {
         return Err(die(
-            "--next is refused in wave mode (session worktree is yes): drop --next, a wave never claims a task outside its group",
+            "--next is refused in lane mode (lane-mode is lanes): drop --next, a lane never claims a task outside its epic",
         ));
     }
     if !fuse {

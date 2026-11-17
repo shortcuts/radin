@@ -6,8 +6,8 @@ legend
   reverse video only.
   A * in the left margin marks a row matching the active / search.
   Creation order is the default sort every start returns to.
-  wt and br in the header are the worktree and branch answers radin-batch
-  reads at its start (? = not answered).
+  par in the header is the parallel switch radin-batch reads at its start
+  (? = unreadable).
   At 100 columns or more the detail is the right-hand 60% of the screen;
   under that, enter opens it full-screen.
   : opens the command palette: type to filter, up/down to pick, enter runs.

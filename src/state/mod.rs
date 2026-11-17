@@ -2,6 +2,7 @@ mod branches;
 mod done;
 mod git;
 mod land;
+mod lanes;
 mod leftover;
 mod plan_cover;
 mod queue;
@@ -35,7 +36,7 @@ pub struct S<'a> {
 
 const HELP: &str = include_str!("help.txt");
 
-const VERBS: &str = "teardown|steps-init|steps-list|wave|wave-partition|plan-discard|steps-open|steps-waiting|answered|retry|task-next|task-report|task-fact|task-diagnosis|task-done|base-failing|set-status|stuck|preflight|resume|recover|recover-reject|report|session-set|session-get|group-set|prepare|dirty-check|trace|completed-show|completed-list|unlanded|session-commits|gate-map|leftovers|stash-triage|stash-claim|reconcile|gate-fix|gate-filed|gate-done|deps-check|task-dir|journal-tail|plan-covers|review-findings|finding-classes";
+const VERBS: &str = "teardown|steps-init|steps-list|wave|wave-partition|plan-discard|steps-open|steps-waiting|answered|retry|task-next|task-report|task-fact|task-diagnosis|task-done|base-failing|set-status|stuck|preflight|resume|recover|recover-reject|report|session-set|session-get|group-set|prepare|dirty-check|trace|completed-show|completed-list|unlanded|session-commits|gate-map|leftovers|stash-triage|stash-claim|reconcile|gate-fix|gate-filed|gate-done|deps-check|task-dir|journal-tail|plan-covers|review-findings|finding-classes|lane-cap|lanes-init|lane-next|lane-done|lanes-show";
 
 const ID_VERBS: &[&str] = &[
     "task-next",
@@ -185,19 +186,19 @@ impl<'a> S<'a> {
         (self.c.cli)(&self.root, &v, "");
     }
 
-    pub fn wave_cap(&self) -> Result<u64, Fail> {
-        let cap = (self.c.env)("RADIN_WAVE_CAP")
+    pub fn lane_cap(&self) -> Result<u64, Fail> {
+        let cap = (self.c.env)("RADIN_LANE_CAP")
             .filter(|v| !v.is_empty())
             .or_else(|| {
                 Manifest::read(&self.c.home.join(".radin/manifest.json"))
                     .ok()
                     .flatten()
-                    .map(|m| m.wave_cap.to_string())
+                    .map(|m| m.lane_cap.to_string())
             })
             .unwrap_or_else(|| "2".into());
         if !positive(&cap) {
             return Err(die(format!(
-                "wave cap needs a positive integer, got: {cap}"
+                "lane cap needs a positive integer, got: {cap}"
             )));
         }
         Ok(cap.parse().unwrap_or(2))
@@ -210,9 +211,16 @@ impl<'a> S<'a> {
         }
     }
 
-    pub fn session_get(&self) -> Option<(String, String)> {
-        let t = std::fs::read_to_string(self.state.join("session.json")).ok()?;
-        (!t.is_empty()).then(|| (store::get(&t, "worktree"), store::get(&t, "branch")))
+    /// The switch defaults on: only an explicit `"parallel":false` turns it off.
+    pub fn session_parallel(&self) -> bool {
+        !self.read("session.json").contains("\"parallel\":false")
+    }
+
+    pub fn lane_mode(&self) -> String {
+        match self.read("lane-mode").trim() {
+            "lanes" => "lanes".into(),
+            _ => "main".into(),
+        }
     }
 
     pub fn rm(&self, rel: &str) {
@@ -285,7 +293,7 @@ fn dispatch(c: &Ctx, args: &[String], io: &mut Io) -> R {
         io.out.push_str(HELP);
         return Ok(0);
     }
-    if verb != "wave-cap" && !VERBS.split('|').any(|v| v == verb) {
+    if !VERBS.split('|').any(|v| v == verb) {
         return Err(die(format!(
             "unknown command: {} ({VERBS})",
             if verb.is_empty() { "<none>" } else { verb }
@@ -312,7 +320,11 @@ fn dispatch(c: &Ctx, args: &[String], io: &mut Io) -> R {
         "answered" => queue::answered(&s, a),
         "retry" => queue::retry(&s, a),
         "set-status" => queue::set_status(&s, a),
-        "wave-cap" => queue::wave_cap(&s, io),
+        "lane-cap" => queue::lane_cap(&s, io),
+        "lanes-init" => lanes::lanes_init(&s, io),
+        "lane-next" => lanes::lane_next(&s, a, io),
+        "lane-done" => lanes::lane_done(&s, a),
+        "lanes-show" => lanes::lanes_show(&s, io),
         "wave" => queue::wave(&s, io),
         "wave-partition" => queue::wave_partition(&s, a, io),
         "deps-check" => queue::deps_check_verb(&s, a, io),

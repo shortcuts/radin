@@ -175,7 +175,7 @@ impl Session<'_> {
         }
         rows.push(row(
             "Concurrency",
-            &format!("{} tasks at once", self.wave_cap),
+            &format!("{} lanes at once", self.lane_cap),
         ));
         rows.push(row("Package manager", &self.pkg));
         let into = self.rh.strip_prefix(&self.home).unwrap_or(&self.rh);

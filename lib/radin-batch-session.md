@@ -20,5 +20,5 @@ the same ask as Phase 2's task selection, so one call
 covers all three questions. Then persist them:
 
 ```bash
-RADIN_CLI state session-set "<worktree yes|no>" "<branch yes|no>"
+RADIN_CLI state session-set "<yes|no>"
 ```

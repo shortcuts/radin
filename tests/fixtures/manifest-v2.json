@@ -4,7 +4,7 @@
   "installed_at": "2026-11-09T08:00:00Z",
   "package_manager": "brew",
   "install_root": "/home/u/src/radin",
-  "wave_cap": 2,
+  "wave_cap": 3,
   "model_planning": "sonnet",
   "model_execution": "sonnet",
   "model_review": "sonnet",

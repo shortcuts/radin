@@ -75,7 +75,6 @@ fn unescape(s: &str) -> String {
 
 pub fn report(s: &S, a: &[String], io: &mut Io) -> R {
     let brief = a.iter().any(|x| x == "--brief");
-    let (wt_mode, br_mode) = s.session_get().unwrap_or(("no".into(), "no".into()));
     let baseline = s.read("baseline.json");
     let base_completed = num(&baseline, "completed_count") as usize;
     let base_backlog = (!baseline.is_empty()).then(|| num(&baseline, "backlog_count") as i64);
@@ -189,7 +188,7 @@ pub fn report(s: &S, a: &[String], io: &mut Io) -> R {
             continue;
         }
         n_ok += 1;
-        if (wt_mode == "yes" || br_mode == "yes") && s.branch_exists(&format!("radin/{cid}")) {
+        if s.branch_exists(&format!("radin/{cid}")) {
             let wtd = s.root.as_os_str().to_string_lossy().into_owned() + "-" + &cid;
             let wh = if std::path::Path::new(&wtd).is_dir() {
                 format!(" in {wtd}")

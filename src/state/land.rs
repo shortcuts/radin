@@ -129,121 +129,49 @@ fn apply_claim(s: &S, dir: &Path, id: &str, io: &mut Io) {
     }
 }
 
-fn restack(s: &S, id: &str, parent: &str, io: &mut Io) -> Result<(), Fail> {
-    let (branch, start) = (format!("radin/{id}"), format!("radin/{parent}"));
-    let is_ancestor = |a: &str, b: &str| s.git_ok(&["merge-base", "--is-ancestor", a, b]);
-    if !is_ancestor(&start, &branch) {
-        if !is_ancestor(&branch, &start) {
-            let _ = writeln!(io.err, "prepare: {branch} does not contain {start}");
-            s.journal(
-                "stack-missed",
-                id,
-                &format!("{branch} does not contain {start}"),
-            );
-            return Ok(());
-        }
-        must(gx(&s.root, &["branch", "-f", &branch, &start], io))?;
-    }
-    if s.read(&format!("stacked/{id}")).is_empty() {
-        let tip = s.gt(&["rev-parse", "--short=12", &start]);
-        s.set_marker(id, &format!("stacked/{id}"), &format!("{parent} {tip}\n"));
-    }
-    Ok(())
-}
-
 pub fn prepare(s: &S, a: &[String], io: &mut Io) -> R {
     let id = arg(a, 0);
     if id.is_empty() {
         return Err(die("usage: prepare <id>"));
     }
-    let Some((worktree, branch_mode)) = s.session_get() else {
-        return Err(die(format!("no recorded worktree/branch preference in {}/state/session.json -- run session-set first", s.ns.display())));
-    };
-    let branch = format!("radin/{id}");
-    let wt = s.task_dir_path(id);
-    let parent = s.stack_parent(id);
-    let start = if parent.is_empty() {
-        String::new()
-    } else {
-        format!("radin/{parent}")
-    };
-    let mut made = false;
-    let mut wt_record = String::new();
-    let wts = wt.to_string_lossy().into_owned();
-    let res: Result<(), Fail> = (|| {
-        let reuses = if worktree == "yes" {
-            !wt.is_dir()
-        } else {
-            branch_mode == "yes"
-        };
-        if reuses && !parent.is_empty() && s.branch_exists(&branch) {
-            restack(s, id, &parent, io)?;
-        }
-        if worktree == "yes" {
-            if wt.is_dir() {
-                if !s.is_registered_worktree(&wt) {
-                    return Err(die(format!(
-                        "{wts} exists but is not a registered worktree of this repo"
-                    )));
-                }
-                prepare_commit(s, &wt, id, io)?;
-            } else if s.branch_exists(&branch) {
-                must(gx(&s.root, &["worktree", "add", &wts, &branch], io))?;
-            } else {
-                let mut args = vec!["worktree", "add", &wts, "-b", &branch];
-                if !start.is_empty() {
-                    args.push(&start);
-                }
-                must(gx(&s.root, &args, io))?;
-                made = true;
+    let (dir, lane) = if s.lane_mode() == "lanes" {
+        let lane = super::lanes::task_epic(s, id)?;
+        let (branch, wt) = (format!("radin/{lane}"), s.lane_dir_path(&lane));
+        let wts = wt.to_string_lossy().into_owned();
+        if wt.is_dir() {
+            if !s.is_registered_worktree(&wt) {
+                return Err(die(format!(
+                    "{wts} exists but is not a registered worktree of this repo"
+                )));
             }
-            s.journal("prepare", id, &format!("worktree={wts} branch={branch}"));
-            wt_record = wts.clone();
+            prepare_commit(s, &wt, id, io)?;
+        } else if s.branch_exists(&branch) {
+            must(gx(&s.root, &["worktree", "add", &wts, &branch], io))?;
         } else {
-            prepare_commit(s, &s.root, id, io)?;
-            if branch_mode == "yes" {
-                if s.branch_exists(&branch) {
-                    must(gx(&s.root, &["checkout", &branch], io))?;
-                } else {
-                    let mut args = vec!["checkout", "-b", &branch];
-                    if !start.is_empty() {
-                        args.push(&start);
-                    }
-                    must(gx(&s.root, &args, io))?;
-                    made = true;
-                }
-                s.journal("prepare", id, &format!("branch={branch}"));
-            } else {
-                s.journal("prepare", id, "current checkout, current branch");
-            }
+            must(gx(&s.root, &["worktree", "add", &wts, "-b", &branch], io))?;
         }
-        Ok(())
-    })();
-    res?;
-    let dir = if wt_record.is_empty() {
-        s.root.clone()
+        s.journal("prepare", id, &format!("worktree={wts} branch={branch}"));
+        (wt, lane)
     } else {
-        wt.clone()
+        prepare_commit(s, &s.root, id, io)?;
+        s.journal("prepare", id, "current checkout, current branch");
+        (s.root.clone(), String::new())
     };
-    if made {
-        s.clear_marker(id, &format!("stacked/{id}"));
-        if !parent.is_empty() {
-            s.set_marker(
-                id,
-                &format!("stacked/{id}"),
-                &format!("{parent} {}\n", s.gt(&["rev-parse", "--short=12", &start])),
-            );
-        }
-    }
     apply_claim(s, &dir, id, io);
     let real = gt(&dir, &["rev-parse", "--abbrev-ref", "HEAD"]);
+    let wt_record = if lane.is_empty() {
+        String::new()
+    } else {
+        dir.to_string_lossy().into_owned()
+    };
     s.set_marker(
         id,
         &format!("prepared/{id}.json"),
         &format!(
-            "{{\"branch\":\"{}\",\"worktree\":\"{}\"}}\n",
+            "{{\"branch\":\"{}\",\"worktree\":\"{}\",\"lane\":\"{}\"}}\n",
             json_escape(&real),
-            json_escape(&wt_record)
+            json_escape(&wt_record),
+            json_escape(&lane)
         ),
     );
     let _ = writeln!(io.out, "{}", dir.display());
@@ -251,9 +179,9 @@ pub fn prepare(s: &S, a: &[String], io: &mut Io) -> R {
 }
 
 impl S<'_> {
-    fn task_dir_path(&self, id: &str) -> std::path::PathBuf {
+    fn lane_dir_path(&self, lane: &str) -> std::path::PathBuf {
         let mut p = self.root.as_os_str().to_owned();
-        p.push(format!("-{id}"));
+        p.push(format!("-{lane}"));
         p.into()
     }
 

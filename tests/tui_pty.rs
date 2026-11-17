@@ -352,7 +352,7 @@ fn no_color_drops_the_priority_colours_and_colour_keeps_them() {
 }
 
 #[test]
-fn w_and_b_persist_the_worktree_and_branch_answers() {
+fn w_toggles_the_parallel_switch_and_persists_it() {
     let fx = Fx::new();
     fx.seed();
     let session = || {
@@ -364,12 +364,12 @@ fn w_and_b_persist_the_worktree_and_branch_answers() {
     t.keys("w");
     t.keys("q");
     drop(t);
-    assert_eq!(session(), r#"{"worktree":"yes","branch":"no"}"#);
+    assert_eq!(session(), r#"{"parallel":false}"#);
     let mut t = fx.tui(&[]);
-    t.keys("bw");
+    t.keys("w");
     t.keys("q");
     assert_eq!(t.exit_code(), 0);
-    assert_eq!(session(), r#"{"worktree":"no","branch":"yes"}"#);
+    assert_eq!(session(), r#"{"parallel":true}"#);
 }
 
 /// Writes the raw byte stream of the README demo to `$RADIN_SCREENSHOT_RAW`; `make screenshot` renders it.

@@ -266,7 +266,7 @@ fn state_skips_a_socket_stdin_that_never_closes() {
     let (_keep, theirs) = std::os::unix::net::UnixStream::pair().unwrap();
     let home = tempfile::tempdir().unwrap();
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_radin"));
-    cmd.args(["state", "wave-cap"])
+    cmd.args(["state", "lane-cap"])
         .current_dir(home.path())
         .stdin(std::os::fd::OwnedFd::from(theirs))
         .stdout(std::process::Stdio::null())

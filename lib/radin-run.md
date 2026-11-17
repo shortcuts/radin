@@ -55,7 +55,7 @@ you.
   call `RADIN_CLI state prepare`, whatever Phase 0 recorded. Several
   fact-finding or debugging dispatches due at once go out in messages of at
   most the wave cap.
-- **The wave cap limits sub-agents running at once.** Run `RADIN_CLI state wave-cap`
+- **The wave cap limits sub-agents running at once.** Run `RADIN_CLI state lane-cap`
   once per session. Every message you send holds at most that many dispatches,
   and you start no dispatch while that many run. **Why:** 99 ready tasks
   planned in one message stalled a run before its first commit.
@@ -349,7 +349,7 @@ whatever the sub-agent's prose said. A commit still on a side branch counts as d
 
 ### Wave mode (worktree yes)
 
-A wave is at most `state wave-cap` (default 2) of the pending tasks whose
+A wave is at most `state lane-cap` (default 2) of the pending tasks whose
 dependencies are all done, lowest `order` first. Count waves from 1
 in this session, and call the current number `N`. Dispatch, report, heartbeat
 and `--usage` work as in the loop above. Wave mode never passes `--next`,

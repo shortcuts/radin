@@ -12,21 +12,25 @@
   resume                       # move each failed entry and each retryable blocked entry to pending, attempts and debugged kept; print "id<TAB>old status" per move; blocked entries with a dependency, unmerged, max-attempts or waiting reason stay
   stuck                        # print "id<TAB>attempts<TAB>note" per in_progress entry, exit 1 if none
   steps-waiting                # print "id<TAB>reason<TAB>note" per blocked entry whose reason (deferred, inconclusive, fact, decision) holds an unanswered question, exit 1 if none
-  preflight                    # run the startup checks, print "empty" | "session<TAB>missing" | "stuck<TAB>id<TAB>attempts<TAB>note" | "waiting<TAB>id<TAB>reason<TAB>note" | "rank<TAB>csv" | "leftovers", exit 0
+  preflight                    # run the startup checks, print "empty" | "stuck<TAB>id<TAB>attempts<TAB>note" | "waiting<TAB>id<TAB>reason<TAB>note" | "rank<TAB>csv" | "leftovers", exit 0
   steps-open                   # print "id<TAB>question" per open decision of a pending entry, exit 1 if none
   steps-list                   # print "id<TAB>order<TAB>status<TAB>attempts<TAB>note" per entry, exit 1 if none
   wave-partition [--wave N] [--cap N]  # read ids on stdin, print "group<TAB>n<TAB>csv", "apart<TAB>a<TAB>b<TAB>shared paths" and "unplanned<TAB>id"; exit 1 on empty input; claims nothing; the cap comes from `wave-cap`; --wave also records a parallel serialized telemetry event per apart pair, unplanned id and cap-split id
   plan-discard <id> <wave> <paths-csv>  # drop a pending task's plan, flag planning needed; journal and record a parallel plan-discarded telemetry event with the planning tokens; exit 1 and write nothing unless the task is pending with a plan
-  wave-cap                     # print the most tasks one wave runs at once: $RADIN_WAVE_CAP, else the install manifest's wave_cap, else 2
-  wave                         # print "id<TAB>order" for the first `wave-cap` pending tasks whose dependencies are all resolved, exit 1 if none; claims nothing
+  lane-cap                     # print the most lanes one run holds at once: $RADIN_LANE_CAP, else the install manifest's lane_cap, else 2
+  lanes-init                   # after steps-init: pick the lane mode, reset the lane markers, print "mode<TAB>lanes|main", "cap<TAB>n" and "lane<TAB>epic<TAB>waiting<TAB>tasks" per epic in start order; exit 1 on an empty run
+  lane-next [--cleared <csv>]  # claim one lane: print "start<TAB>epic" (exit 0); "judge<TAB>epic<TAB>running csv" per candidate when a lane runs and none is cleared (exit 2); nothing at the cap or with no candidate (exit 1)
+  lane-done <epic>             # mark a running lane done, a dependent epic may then start; exit 1 when the lane is not running
+  lanes-show                   # print "mode<TAB>m", "cap<TAB>n" and "lane<TAB>epic<TAB>waiting|running|done<TAB>tasks" per epic
+  wave                         # print "id<TAB>order" for the first `lane-cap` pending tasks whose dependencies are all resolved, exit 1 if none; claims nothing
   recover <id>                 # recover a task a dead session left in_progress; exit 3 prints commits only the model can judge
   recover-reject <id>          # those commits do not satisfy the task: block the entry naming them
   report                       # print the finished end-of-session report
-  session-set <yes|no> <yes|no>  # persist the worktree and branch answers
+  session-set <yes|no>         # persist the parallel switch
   teardown                     # request a graceful stop: task-next picks nothing new until the next preflight; the gate and merge still run
-  session-get                  # print "worktree<TAB>yes" / "branch<TAB>no", exit 1 if unanswered
+  session-get                  # print "parallel<TAB>yes" or "parallel<TAB>no"; yes when unset
   group-set [--wave N] <id>... # record these ids as one parallel group and a parallel dispatched telemetry event; exit 1 when the ids sit in two groups of the latest wave-partition
-  prepare <id>                 # commit a dirty tree, create/reuse the task's tree and branch per session.json, print the dir to work in
+  prepare <id>                 # commit a dirty tree, create/reuse the lane's worktree and branch per lane-mode, print the dir to work in
   dirty-check                  # git status --porcelain of the current directory, excluding .radin
   trace <id|commit|branch>     # print "task|commit|branch|worktree|plan|facts|status<TAB>value" per matching task; exit 1 no match, 2 ambiguous
   completed-show <id>          # print "id|commit|title|branch|worktree|plan|ts<TAB>value" lines, exit 1 if absent

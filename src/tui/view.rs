@@ -116,12 +116,7 @@ fn header(app: &App) -> String {
     if !m.rows.is_empty() {
         h += &format!("  [{}/{}]", m.sel + 1, m.rows.len());
     }
-    h += &format!(
-        "  wt:{} br:{}  sort:{}",
-        yn(m.session.0),
-        yn(m.session.1),
-        m.sort.name()
-    );
+    h += &format!("  par:{}  sort:{}", yn(m.session), m.sort.name());
     if !m.search.is_empty() {
         h += &format!("  search:\"{}\"", m.search);
     }

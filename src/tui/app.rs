@@ -126,14 +126,7 @@ impl<'a> App<'a> {
     fn load(&mut self) {
         self.stamp = self.index_stamp();
         let (code, out, _) = self.call(&["state", "session-get"], "");
-        self.m.session = if code == 0 {
-            (
-                Some(out.contains("worktree\tyes")),
-                Some(out.contains("branch\tyes")),
-            )
-        } else {
-            (None, None)
-        };
+        self.m.session = (code == 0).then(|| out.contains("parallel\tyes"));
         let (_, out, _) = self.bl(
             &[
                 "list",
@@ -267,26 +260,13 @@ impl<'a> App<'a> {
         }
     }
 
-    fn toggle_session(&mut self, branch: bool) {
-        let (mut wt, mut br) = (
-            self.m.session.0 == Some(true),
-            self.m.session.1 == Some(true),
-        );
-        if branch {
-            br = !br;
-        } else {
-            wt = !wt;
-        }
-        let yn = |b: bool| if b { "yes" } else { "no" };
-        let out = self.call(&["state", "session-set", yn(wt), yn(br)], "");
+    fn toggle_parallel(&mut self) {
+        let on = self.m.session != Some(false);
+        let v = if on { "no" } else { "yes" };
+        let out = self.call(&["state", "session-set", v], "");
         if out.0 == 0 {
-            self.m.session = (Some(wt), Some(br));
-            let (name, v) = if branch {
-                ("branch", br)
-            } else {
-                ("worktree", wt)
-            };
-            self.msg(format!("{name}: {}", yn(v)));
+            self.m.session = Some(!on);
+            self.msg(format!("parallel: {v}"));
         } else {
             self.msg(Self::text(&out));
         }
@@ -924,8 +904,7 @@ impl<'a> App<'a> {
                 }
             }
             "epic-new" => self.input("new epic id (slug, empty cancels): ", InputThen::NewEpic),
-            "worktree" => self.toggle_session(false),
-            "branch" => self.toggle_session(true),
+            "parallel" => self.toggle_parallel(),
             "sort-created" | "sort-priority" | "sort-category" | "sort-title" => {
                 self.m.sort = match id {
                     "sort-priority" => Sort::Priority,

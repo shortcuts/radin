@@ -291,15 +291,15 @@ fn task_report_commits_a_dirty_tree_as_wip_whatever_the_leaf_claimed() {
 }
 
 #[test]
-fn task_report_refuses_next_in_wave_mode_and_records_nothing() {
+fn task_report_refuses_next_in_lane_mode_and_records_nothing() {
     let w = W::new();
     w.clean();
     w.steps_init("t-one\t1\t\tpending\n");
-    w.state(&["session-set", "yes", "yes"]);
+    w.lane_mode("lanes");
     let r = w.state(&["task-report", "t-one", "STATUS: FAILED — boom", "--next"]);
     assert_eq!(r.code, 1, "{}", r.out);
     assert!(
-        r.err.contains("--next is refused in wave mode"),
+        r.err.contains("--next is refused in lane mode"),
         "{}",
         r.err
     );
@@ -542,7 +542,6 @@ fn recover_sends_a_clean_task_back_to_pending_and_wip_commits_a_dirty_one() {
 #[test]
 fn an_id_verb_prints_its_usage_for_help_and_rejects_a_flag_as_its_id_without_a_branch() {
     let w = W::new();
-    w.state(&["session-set", "no", "yes"]);
     let help = w.state(&["prepare", "--help"]);
     assert_eq!(help.code, 0, "{}", help.all());
     assert!(help.out.contains("prepare <id>"), "{}", help.all());

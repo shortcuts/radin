@@ -4,7 +4,7 @@ use std::fs;
 use std::io;
 use std::path::Path;
 
-fn wave_cap() -> u32 {
+fn lane_cap() -> u32 {
     2
 }
 
@@ -16,8 +16,8 @@ pub struct Manifest {
     pub installed_at: String,
     pub package_manager: String,
     pub install_root: String,
-    #[serde(default = "wave_cap")]
-    pub wave_cap: u32,
+    #[serde(default = "lane_cap", alias = "wave_cap")]
+    pub lane_cap: u32,
     pub model_planning: String,
     pub model_execution: String,
     pub model_review: String,
@@ -81,7 +81,7 @@ impl Manifest {
         o += &s("installed_at", &self.installed_at);
         o += &s("package_manager", &self.package_manager);
         o += &s("install_root", &self.install_root);
-        o += &format!("  \"wave_cap\": {},\n", self.wave_cap);
+        o += &format!("  \"lane_cap\": {},\n", self.lane_cap);
         for (k, v) in [
             ("model_planning", &self.model_planning),
             ("model_execution", &self.model_execution),
@@ -128,7 +128,7 @@ mod tests {
     const FIXTURE: &str = include_str!("../tests/fixtures/manifest-v2.json");
 
     #[test]
-    fn v2_round_trips_byte_for_byte() {
+    fn v2_round_trips_byte_for_byte_and_an_old_wave_cap_reads_as_lane_cap() {
         let d = tempfile::tempdir().unwrap();
         let (a, b) = (d.path().join("a.json"), d.path().join("b.json"));
         fs::write(&a, FIXTURE).unwrap();
@@ -136,8 +136,12 @@ mod tests {
         assert_eq!(m.hosts, ["claude", "agents"]);
         assert_eq!(m.agents_clis, Vec::<String>::new());
         assert_eq!(m.files.len(), 1);
+        assert_eq!(m.lane_cap, 3);
         m.write(&b).unwrap();
-        assert_eq!(fs::read_to_string(&b).unwrap(), FIXTURE);
+        assert_eq!(
+            fs::read_to_string(&b).unwrap(),
+            FIXTURE.replace("wave_cap", "lane_cap")
+        );
     }
 
     #[test]
@@ -167,7 +171,7 @@ mod tests {
         assert_eq!(m.manifest_version, 1);
         assert_eq!(m.version, "2.0.0");
         assert_eq!(m.skills, ["a"]);
-        assert_eq!(m.wave_cap, 2);
+        assert_eq!(m.lane_cap, 2);
         assert!(m.hosts.is_empty() && m.files.is_empty() && m.backups.is_empty());
         assert!(!m.claude_md_guidance);
     }
