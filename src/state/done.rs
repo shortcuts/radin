@@ -369,15 +369,17 @@ pub fn recover(s: &S, a: &[String], io: &mut Io) -> R {
     }
     let dir = s.task_dir(id);
     let branch = s.prepared_field(id, "branch");
+    let lane_task = s.lane_mode() == "lanes" && !s.prepared_field(id, "lane").is_empty();
     if !branch.is_empty() && s.git_ok(&["rev-parse", "--verify", "--quiet", &branch]) {
-        let log = s.gt(&[
-            "log",
-            "--oneline",
-            "--no-decorate",
-            &branch,
-            "--not",
-            "HEAD",
-        ]);
+        let from = s.read(&format!("lane-base/{id}")).trim().to_string();
+        let range = if lane_task && !from.is_empty() {
+            vec![format!("{from}..{branch}")]
+        } else {
+            vec![branch.clone(), "--not".into(), "HEAD".into()]
+        };
+        let mut args = vec!["log", "--oneline", "--no-decorate"];
+        args.extend(range.iter().map(String::as_str));
+        let log = s.gt(&args);
         let commits: Vec<&str> = log.lines().take(20).collect();
         if !commits.is_empty() {
             if dir == s.root {
@@ -390,6 +392,17 @@ pub fn recover(s: &S, a: &[String], io: &mut Io) -> R {
                 let _ = writeln!(io.out, "branch_commit\t{c}");
             }
             return Ok(3);
+        }
+    }
+    if lane_task {
+        if let Some(line) = super::park::park(s, id, "session died")? {
+            s.set_status(id, "pending", "")?;
+            io.out.push_str(&line);
+            let _ = writeln!(
+                io.out,
+                "recovered\t{id}\tparked on radin/wip/{id}, back to pending"
+            );
+            return Ok(0);
         }
     }
     if dirty_files(&dir).is_empty() {
@@ -430,12 +443,16 @@ pub fn recover_reject(s: &S, a: &[String], io: &mut Io) -> R {
         return Err(die("usage: recover-reject <id>"));
     }
     let dir = s.task_dir(id);
-    let note = if dir == s.root {
+    let parked = super::park::park(s, id, "rejected after a crash")?;
+    let note = if parked.is_some() {
+        format!("a dead session left commits that do not satisfy the task; they sit on radin/wip/{id} -- inspect them before retrying")
+    } else if dir == s.root {
         format!("a dead session left commits on radin/{id} that do not satisfy the task -- inspect them before retrying")
     } else {
         format!("a dead session left commits on radin/{id} (worktree {}) that do not satisfy the task -- inspect them before retrying", dir.display())
     };
     s.set_blocked(id, "rejected", &note)?;
+    io.out.push_str(&parked.unwrap_or_default());
     let _ = writeln!(io.out, "blocked\t{id}\t{note}");
     Ok(0)
 }

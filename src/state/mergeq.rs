@@ -13,16 +13,16 @@ fn parse(text: &str) -> Vec<(String, String)> {
         .collect()
 }
 
-fn read(s: &S) -> Vec<(String, String)> {
+pub(super) fn read(s: &S) -> Vec<(String, String)> {
     parse(&s.read("merge-queue"))
 }
 
-fn save(s: &S, q: &[(String, String)]) {
+pub(super) fn save(s: &S, q: &[(String, String)]) {
     let text: String = q.iter().map(|(e, st)| format!("{e}\t{st}\n")).collect();
     write(s, "merge-queue", &text);
 }
 
-fn set(s: &S, epic: &str, status: &str) {
+pub(super) fn set(s: &S, epic: &str, status: &str) {
     let q: Vec<_> = read(s)
         .into_iter()
         .map(|(e, st)| {

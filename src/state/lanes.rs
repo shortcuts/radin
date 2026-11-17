@@ -5,7 +5,7 @@ use crate::backlog::{Fail, Io, R};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fmt::Write;
 
-const FALLBACK_EPIC: &str = "maintenance";
+pub(super) const FALLBACK_EPIC: &str = "maintenance";
 
 pub struct Task {
     pub id: String,
@@ -266,6 +266,19 @@ pub fn epic_map(s: &S) -> Result<HashMap<String, String>, Fail> {
         map.insert(id.clone(), format!("hotfix-{id}"));
     }
     Ok(map)
+}
+
+/// Epic names on the backlog.
+pub(super) fn lane_names(s: &S) -> Result<Vec<String>, Fail> {
+    Ok(backlog(s, &["epics"])?.lines().map(String::from).collect())
+}
+
+/// True when `radin/<name>` is a lane branch rather than a legacy task branch.
+pub(super) fn is_lane(s: &S, names: &[String], name: &str) -> bool {
+    name.starts_with("hotfix-")
+        || name == FALLBACK_EPIC
+        || names.iter().any(|n| n == name)
+        || s.exists(&format!("lanes/{name}"))
 }
 
 pub fn task_epic(s: &S, id: &str) -> Result<String, Fail> {

@@ -211,6 +211,7 @@ pub fn prepare(s: &S, a: &[String], io: &mut Io) -> R {
         (wt, lane)
     } else {
         prepare_commit(s, &s.root, id, io)?;
+        resume_wip(s, &s.root, id, io)?;
         s.journal("prepare", id, "current checkout, current branch");
         (s.root.clone(), String::new())
     };
@@ -460,6 +461,7 @@ pub fn reconcile(s: &S, io: &mut Io) -> R {
     }
     settle_checkout(s, &base, io)?;
     let worktrees = s.gt(&["worktree", "list", "--porcelain"]);
+    let lanes = super::lanes::lane_names(s)?;
     let mut order: Vec<(usize, String)> = s
         .radin_branches()
         .into_iter()
@@ -469,7 +471,7 @@ pub fn reconcile(s: &S, io: &mut Io) -> R {
     let (mut merged, mut conflicts): (Vec<String>, Vec<String>) = (Vec::new(), Vec::new());
     for (_, rb) in order {
         let rid = rb.trim_start_matches("radin/").to_string();
-        if s.lane_mode() == "lanes" && s.exists(&format!("lanes/{rid}")) {
+        if super::lanes::is_lane(s, &lanes, &rid) {
             let _ = writeln!(io.out, "skipped\t{rb}\tlane");
             continue;
         }

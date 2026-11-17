@@ -804,3 +804,259 @@ fn lanes_init_clears_gate_and_hotfix_files_and_rejects_a_hotfix_epic_while_main_
         (1, "radin-state: epic hotfix-z is reserved\n")
     );
 }
+
+fn wait_a_second() {
+    std::thread::sleep(std::time::Duration::from_millis(1100));
+}
+
+#[test]
+fn lanes_recover_parks_unverified_work_and_queues_the_lane() {
+    let w = W::new();
+    epics(&w);
+    w.lane_mode("lanes");
+    clean_root(&w);
+    let wt = finish_lane_task(&w, "a-one", "a1.txt");
+    let marker = w.git_at(&wt, &["rev-parse", "HEAD"]);
+    w.prep_dir("a-two");
+    std::fs::write(wt.join("w.txt"), "partial\n").unwrap();
+    w.lane_mode("main");
+    let r = w.state(&["lanes-recover"]);
+    assert_eq!(r.code, 0, "{}", r.all());
+    assert!(
+        r.out.contains("parked\ta-two\tradin/wip/a-two\t"),
+        "{}",
+        r.out
+    );
+    assert!(r.out.ends_with("queued\tea\t1\n"), "{}", r.out);
+    assert_eq!(w.read(".radin/state/lane-mode"), "lanes\n");
+    assert_eq!(w.git_at(&wt, &["rev-parse", "HEAD"]), marker);
+    assert_eq!(w.git_at(&wt, &["status", "--porcelain"]), "");
+    assert_eq!(w.git(&["show", "radin/wip/a-two:w.txt"]), "partial");
+    assert_eq!(w.read(".radin/state/lanes/ea"), "running\n");
+    let r = w.state(&["lane-merge"]);
+    assert!(r.out.starts_with("merged\tea\t"), "{}", r.all());
+    assert!(!w.p.join("w.txt").exists());
+    assert!(w.p.join("a1.txt").exists());
+}
+
+#[test]
+fn lanes_recover_queue_orders_oldest_tip_first_and_drops_stale_rows_and_empty_lanes() {
+    let w = W::new();
+    epics(&w);
+    assert_eq!(w.bl(&["epic-add", "ec"], "").code, 0);
+    w.lane_mode("lanes");
+    clean_root(&w);
+    finish_lane_task(&w, "b-one", "b1.txt");
+    wait_a_second();
+    finish_lane_task(&w, "a-one", "a1.txt");
+    w.git(&["branch", "radin/ec"]);
+    w.write(".radin/state/merge-queue", "eb\theld\nzz\tqueued\n");
+    let r = w.state(&["lanes-recover"]);
+    assert_eq!(r.code, 0, "{}", r.all());
+    assert_eq!(r.out, "dropped\tradin/ec\nqueued\teb\t1\nqueued\tea\t2\n");
+    assert_eq!(
+        w.read(".radin/state/merge-queue"),
+        "eb\tqueued\nea\tqueued\n"
+    );
+    assert!(!w.git_ok(&["rev-parse", "--verify", "-q", "radin/ec"]));
+    assert_eq!(w.read(".radin/state/lanes/eb"), "running\n");
+    assert!(!w.exists(".radin/state/lanes/zz"));
+}
+
+#[test]
+fn lanes_recover_routes_a_merged_row_and_repairs_its_missing_merge_record() {
+    let w = W::new();
+    epics(&w);
+    w.lane_mode("lanes");
+    clean_root(&w);
+    merged(&w, "ea");
+    let r = w.state(&["lanes-recover"]);
+    assert_eq!(
+        (r.code, r.out.as_str()),
+        (0, "merged\tea\t-\n"),
+        "{}",
+        r.all()
+    );
+    assert_eq!(w.state(&["lane-done", "ea"]).code, 0);
+
+    let w = W::new();
+    epics(&w);
+    w.lane_mode("lanes");
+    clean_root(&w);
+    run_lane(&w, "ea");
+    finish_lane_task(&w, "a-one", "a1.txt");
+    finish_lane_task(&w, "a-two", "a2.txt");
+    w.state(&["lane-queue", "ea"]);
+    w.state(&["lane-merge"]);
+    let record = w.read(".radin/state/gate/ea");
+    assert!(record.starts_with("merge\t"), "{record}");
+    w.write(".radin/state/gate/ea", "");
+    let r = w.state(&["lanes-recover"]);
+    assert_eq!(r.out, "merged\tea\t-\n", "{}", r.all());
+    assert_eq!(w.read(".radin/state/gate/ea"), record);
+
+    let w = W::new();
+    epics(&w);
+    w.lane_mode("lanes");
+    clean_root(&w);
+    run_lane(&w, "ea");
+    finish_lane_task(&w, "a-one", "a1.txt");
+    w.write(".radin/state/merge-queue", "ea\tmerged\n");
+    let r = w.state(&["lanes-recover"]);
+    assert_eq!(r.out, "queued\tea\t1\n", "{}", r.all());
+    assert_eq!(w.read(".radin/state/merge-queue"), "ea\tqueued\n");
+}
+
+#[test]
+fn lanes_recover_keeps_a_dirty_lane_and_lists_wip_tasks_and_closes_an_orphan_hotfix() {
+    let w = W::new();
+    let r = w.state(&["lanes-recover"]);
+    assert_eq!((r.code, r.out.as_str()), (1, ""), "{}", r.all());
+    epics(&w);
+    w.lane_mode("lanes");
+    clean_root(&w);
+    let wt = lane_tree(&w, "a-one");
+    std::fs::remove_file(w.p.join(".radin/state/lane-base/a-one")).unwrap();
+    std::fs::write(wt.join("d.txt"), "dirty\n").unwrap();
+    w.git(&["branch", "radin/wip/b-one"]);
+    w.git(&["branch", "radin/wip/gone"]);
+    w.write(".radin/state/hotfix/xx", "open\n");
+    let r = w.state(&["lanes-recover"]);
+    assert_eq!(r.code, 0, "{}", r.all());
+    assert!(
+        r.out.contains(&format!(
+            "kept\tradin/ea\tuncommitted changes in {}\n",
+            wt.display()
+        )),
+        "{}",
+        r.out
+    );
+    assert!(
+        r.out.contains("resume\tb-one\tradin/wip/b-one\n"),
+        "{}",
+        r.out
+    );
+    assert!(
+        r.out
+            .contains("kept\tradin/wip/gone\ttask is not on the backlog\n"),
+        "{}",
+        r.out
+    );
+    assert!(!r.out.contains("queued"), "{}", r.out);
+    assert_eq!(w.read(".radin/state/hotfix/xx"), "closed\n");
+    assert!(wt.join("d.txt").exists());
+    let rep = w.state(&["report"]);
+    assert!(
+        rep.out
+            .contains("Lane branches kept (not merged, retried next batch):\n- ea — radin/ea at "),
+        "{}",
+        rep.all()
+    );
+}
+
+#[test]
+fn lanes_recover_aborts_a_merge_left_in_a_lane_tree() {
+    let w = W::new();
+    epics(&w);
+    w.lane_mode("lanes");
+    clean_root(&w);
+    w.state(&["lane-sync", "a-one"]);
+    let wt = std::path::PathBuf::from(format!("{}-ea", w.p.display()));
+    commit_in(&w, &wt, "c.txt", "lane\n");
+    commit_in(&w, &w.p, "c.txt", "main\n");
+    assert_eq!(w.state(&["lane-sync", "a-one"]).code, 3);
+    let r = w.state(&["lanes-recover"]);
+    assert_eq!(r.out, "queued\tea\t1\n", "{}", r.all());
+    assert!(
+        !common::git_in(&wt, &["rev-parse", "-q", "--verify", "MERGE_HEAD"])
+            .status
+            .success()
+    );
+    assert_eq!(w.git_at(&wt, &["status", "--porcelain"]), "");
+}
+
+#[test]
+fn recover_parks_a_lane_task_and_lists_only_its_own_commits() {
+    let w = W::new();
+    epics(&w);
+    w.lane_mode("lanes");
+    clean_root(&w);
+    let wt = finish_lane_task(&w, "a-one", "a1.txt");
+    w.prep_dir("a-two");
+    commit_in(&w, &wt, "a2.txt", "two\n");
+    let r = w.state(&["recover", "a-two"]);
+    assert_eq!(r.code, 3, "{}", r.all());
+    assert_eq!(r.out.matches("branch_commit\t").count(), 1, "{}", r.out);
+    let r = w.state(&["recover-reject", "a-two"]);
+    assert_eq!(r.code, 0, "{}", r.all());
+    assert!(
+        r.out.starts_with("parked\ta-two\tradin/wip/a-two\t"),
+        "{}",
+        r.out
+    );
+    assert!(r.out.contains("they sit on radin/wip/a-two"), "{}", r.out);
+    assert_eq!(w.git_at(&wt, &["status", "--porcelain"]), "");
+    assert!(!wt.join("a2.txt").exists());
+
+    let eb = lane_tree(&w, "b-one");
+    std::fs::write(eb.join("d.txt"), "dirty\n").unwrap();
+    let r = w.state(&["recover", "b-one"]);
+    assert_eq!(r.code, 0, "{}", r.all());
+    assert!(
+        r.out.starts_with("parked\tb-one\tradin/wip/b-one\t"),
+        "{}",
+        r.out
+    );
+    assert!(
+        r.out
+            .contains("recovered\tb-one\tparked on radin/wip/b-one"),
+        "{}",
+        r.out
+    );
+    assert_eq!(w.git_at(&eb, &["status", "--porcelain"]), "");
+}
+
+#[test]
+fn prepare_resumes_a_parked_task_in_main_mode() {
+    let w = W::new();
+    epics(&w);
+    w.lane_mode("lanes");
+    clean_root(&w);
+    let wt = lane_tree(&w, "a-one");
+    commit_in(&w, &wt, "w.txt", "wip\n");
+    w.state(&["set-status", "a-one", "blocked", "q"]);
+    assert!(w.git_ok(&["rev-parse", "--verify", "-q", "radin/wip/a-one"]));
+    w.lane_mode("main");
+    let r = w.state(&["prepare", "a-one"]);
+    assert_eq!(r.code, 0, "{}", r.all());
+    assert_eq!(std::fs::read_to_string(w.p.join("w.txt")).unwrap(), "wip\n");
+    assert!(!w.git_ok(&["rev-parse", "--verify", "-q", "radin/wip/a-one"]));
+}
+
+#[test]
+fn reconcile_skips_a_lane_branch_with_no_marker_and_no_lane_mode_file() {
+    let w = W::new();
+    epics(&w);
+    w.lane_mode("lanes");
+    clean_root(&w);
+    finish_lane_task(&w, "a-one", "a1.txt");
+    std::fs::remove_file(w.p.join(".radin/state/lane-mode")).unwrap();
+    let r = w.state(&["reconcile"]);
+    assert!(r.out.contains("skipped\tradin/ea\tlane\n"), "{}", r.all());
+    assert!(w.git_ok(&["rev-parse", "--verify", "-q", "radin/ea"]));
+}
+
+#[test]
+fn preflight_reports_leftovers_for_a_lone_wip_branch_a_queue_row_or_a_lane_base() {
+    let w = W::new();
+    epics(&w);
+    assert!(!w.state(&["preflight"]).out.contains("leftovers"));
+    w.git(&["branch", "radin/wip/a-one"]);
+    assert!(w.state(&["preflight"]).out.contains("leftovers\n"));
+    w.git(&["branch", "-D", "radin/wip/a-one"]);
+    w.write(".radin/state/merge-queue", "ea\tqueued\n");
+    assert!(w.state(&["preflight"]).out.contains("leftovers\n"));
+    w.write(".radin/state/merge-queue", "");
+    w.write(".radin/state/lane-base/a-one", "abc\n");
+    assert!(w.state(&["preflight"]).out.contains("leftovers\n"));
+}

@@ -5,8 +5,9 @@ flowchart TD
   p0 -. waiting line .-> note3[settle questions]
   p0 -. loose line .-> note7[epic triage table: one approval, epic-move each]
   p0 -. rank line .-> note4[rank unset ids]
-  p0 -. leftovers line .-> note5[state reconcile: land every task branch]
+  p0 -. leftovers line .-> note5[state lanes-recover: park, queue lanes, drain the merge queue;<br/>then state reconcile for legacy branches]
   note5 -- conflict, exit 3 --> leafM
+  p0 -. queued lane .-> lq
   p0 -. candidate line .-> note6[state stash-triage: factfind per candidate, stash-claim]
   p1 --> p2[Phase 2<br/>user picks tasks, print order]
   p2 --> p3[Phase 3<br/>persist BACKLOG_STEPS.json]

@@ -137,8 +137,10 @@ Empty output means no branch applies. Act on each line by its first field:
   call this session; carry nothing else. No `rank` line: every entry carries
   a priority, so read no task body, run no criteria pass, infer no
   dependency.
-- `leftovers`: a task branch from an earlier session, finished or not, is
-  still outside the base. Land it now as Phase 4.7 does.
+- `leftovers`: a branch or parked task from an earlier session is still
+  outside the base. Run `RADIN_CLI state lanes-recover` first and follow the
+  Recovery section of `RADIN_LIB/radin-batch-lanes.md` when it prints anything.
+  Then land each remaining legacy task branch as Phase 4.7 does.
 
 Then run `RADIN_CLI state stash-triage`. Each `candidate<TAB>hash<TAB>id` line
 becomes one `RADIN_CLI prompt factfind "<id>" "Does the uncommitted work in git

@@ -57,3 +57,9 @@ Route the first field of each `lane-gate` line.
 <!-- host:agents -->
 - `ask`: ask the user per `RADIN_LIB/radin-ask-rule.md`: `Re-run the gate` or `Stop the run`. Re-run: `RADIN_CLI state lane-gate "<epic>" --reset`, then route the result. Stop: `RADIN_CLI state teardown`.
 <!-- /host -->
+
+## Recovery
+
+Run `RADIN_CLI state lanes-recover` in Phase 0. No output (exit 1) means nothing is left over. Print each `parked`, `kept`, `dropped` and `resume` line verbatim.
+
+Route each `merged` line as in Gate. Then loop `RADIN_CLI state lane-merge` as in Merge queue. A `queued` line waits for that loop. A `kept` lane stays on its branch and the end-of-batch report names it.

@@ -111,6 +111,26 @@ pub fn report(s: &S, a: &[String], io: &mut Io) -> R {
             format!("- {title} — {b} at {tip}: {reason}")
         })
         .collect();
+    let kept_block: Vec<String> = s
+        .radin_branches()
+        .iter()
+        .filter_map(|b| {
+            let epic = b.trim_start_matches("radin/");
+            let noted = journal
+                .iter()
+                .rev()
+                .filter_map(|l| event(l, "lane-kept", true))
+                .find(|(i, _)| i == epic)
+                .map(|(_, d)| unescape(&d));
+            let reason = if super::mergeq::status(s, epic) == "held" {
+                noted.unwrap_or_else(|| "merge held after the merge agent failed".into())
+            } else {
+                noted?
+            };
+            let tip = s.gt(&["rev-parse", "--short=12", b]);
+            Some(format!("- {epic} — {b} at {tip}: {reason}"))
+        })
+        .collect();
     let dropped_block = dedupe(
         pick("skill-dropped", true)
             .iter()
@@ -274,6 +294,10 @@ pub fn report(s: &S, a: &[String], io: &mut Io) -> R {
         (
             "Kept on a wip branch (resumes on the next batch):",
             &parked_block,
+        ),
+        (
+            "Lane branches kept (not merged, retried next batch):",
+            &kept_block,
         ),
         ("Excluded from this run (left in the backlog):", &excluded),
         ("Uncommitted changes committed this session:", &wip_block),

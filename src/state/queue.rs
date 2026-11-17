@@ -190,6 +190,9 @@ pub fn preflight(s: &S, io: &mut Io) -> R {
         );
     }
     let leftovers = !s.radin_branches().is_empty()
+        || !s.wip_branches().is_empty()
+        || !s.read("merge-queue").is_empty()
+        || !s.files_in("lane-base").is_empty()
         || ["unmerged", "landing", "conflict"]
             .iter()
             .any(|d| !s.files_in(d).is_empty());
