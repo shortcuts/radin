@@ -295,8 +295,15 @@ fn edit(c: &Ctx, add: bool, rules: &[String]) -> Out {
     jsonedit::edit_allow(&Dirs::new(c).settings, add, &refs)
 }
 
+/// Any home's radin `Read` rule: a shared settings file holds one per machine, and each must appear once.
+fn is_radin_rule(rule: &str) -> bool {
+    rule.starts_with("Read(/") && rule.ends_with("/.radin/**)")
+}
+
 pub fn allow(c: &Ctx) -> Out {
-    edit(c, true, &allow_rules(c))
+    let rules = allow_rules(c);
+    let refs: Vec<&str> = rules.iter().map(String::as_str).collect();
+    jsonedit::edit_allow_once(&Dirs::new(c).settings, true, &refs, &is_radin_rule)
 }
 
 pub fn unallow(c: &Ctx) -> Out {
@@ -369,6 +376,22 @@ mod tests {
             let t = fs::read_to_string(settings(h)).unwrap();
             assert_eq!(t.matches(&rule).count(), 1, "{t}");
             assert!(t.contains("Bash(ls)"));
+        });
+    }
+
+    #[test]
+    fn allow_keeps_another_homes_rule_once() {
+        with_home(|c, h| {
+            let other = "Read(//Users/other/.radin/**)";
+            fs::write(
+                settings(h),
+                format!(r#"{{"permissions": {{"allow": ["{other}", "Bash(ls)", "{other}", "Bash(ls)"]}}}}"#),
+            )
+            .unwrap();
+            assert_eq!(allow(c).0, 0);
+            let t = fs::read_to_string(settings(h)).unwrap();
+            assert_eq!(t.matches(other).count(), 1, "{t}");
+            assert_eq!(t.matches("Bash(ls)").count(), 2, "{t}");
         });
     }
 

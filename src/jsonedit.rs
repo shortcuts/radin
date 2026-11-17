@@ -581,6 +581,54 @@ fn atoi(v: &Value) -> Option<i64> {
     Some(digits.parse().unwrap_or(0))
 }
 
+/// Points every cbm hook command at `bin`, then keeps one copy of each cbm entry.
+/// **Why:** a settings.json shared between machines holds the other home's absolute path, and upstream's installer leaves an entry that already names it.
+pub fn retarget_cbm(path: &str, name: &str, bin: &str) -> Out {
+    run(|out| {
+        let Some(mut root) = root_of("radin", path)? else {
+            return Ok(0);
+        };
+        let Some(Value::Object(hooks)) = root.get_mut("hooks") else {
+            return Ok(0);
+        };
+        let suffix = format!("/{name}");
+        let mut changed = false;
+        for (key, entries) in hook_lists(hooks) {
+            for h in entries
+                .iter_mut()
+                .filter_map(|e| e.get_mut("hooks")?.as_array_mut())
+                .flatten()
+                .filter(|h| h.is_object())
+            {
+                let old = command_str(h).filter(|c| c.ends_with(&suffix) && *c != bin);
+                if let Some(old) = old.map(str::to_string) {
+                    let _ = writeln!(out, "RETARGET {path} (hooks.{key}: {old} -> {bin})");
+                    h["command"] = Value::String(bin.to_string());
+                    changed = true;
+                }
+            }
+            let mut seen = Vec::new();
+            let before = entries.len();
+            entries.retain(|e| {
+                !is_cbm_entry(e, name) || {
+                    let c = canon(Some(e));
+                    let fresh = !seen.contains(&c);
+                    seen.push(c);
+                    fresh
+                }
+            });
+            if entries.len() != before {
+                let _ = writeln!(out, "DEDUPED  {path} (hooks.{key}: duplicate {name} entry)");
+                changed = true;
+            }
+        }
+        if changed {
+            write(path, &root)?;
+        }
+        Ok(0)
+    })
+}
+
 pub fn ensure_hook_timeout(path: &str, name: &str, secs: i64) -> Out {
     run(|out| {
         let Some(mut root) = root_of("radin", path)? else {
@@ -618,6 +666,11 @@ fn resolve(arg: &str) -> String {
 }
 
 pub fn edit_allow(arg: &str, add: bool, rules: &[&str]) -> Out {
+    edit_allow_once(arg, add, rules, &|_| false)
+}
+
+/// On add, also keeps one copy of every string rule that `ours` flags, such as another home's radin rule in a shared file.
+pub fn edit_allow_once(arg: &str, add: bool, rules: &[&str], ours: &dyn Fn(&str) -> bool) -> Out {
     run(|out| {
         let path = &resolve(arg);
         let bad = || invalid("radin", path);
@@ -650,6 +703,21 @@ pub fn edit_allow(arg: &str, add: bool, rules: &[&str]) -> Out {
             .or_insert_with(|| Value::Array(vec![]));
         let allow = allow.as_array_mut().unwrap();
         let mut changed = false;
+        if add {
+            let mut seen: Vec<String> = Vec::new();
+            allow.retain(|v| match v.as_str() {
+                Some(r) if ours(r) && seen.iter().any(|x| x == r) => {
+                    let _ = writeln!(out, "DEDUPED  {path} (permissions.allow {r})");
+                    changed = true;
+                    false
+                }
+                Some(r) => {
+                    seen.push(r.to_string());
+                    true
+                }
+                None => true,
+            });
+        }
         for rule in rules {
             let at = allow.iter().rposition(|v| v.as_str() == Some(rule));
             match (add, at) {
@@ -1097,6 +1165,30 @@ mod tests {
         assert_eq!(v["env"], json!({"A": "1", "K": "8000"}));
         let p = t.put("bad.json", r#"{"env": []}"#);
         assert_eq!(ensure_env(&p, "K", "v").0, 1);
+    }
+
+    #[test]
+    fn retarget_cbm_points_hooks_at_this_binary_and_keeps_one_copy() {
+        let t = T::new();
+        let (old, bin) = (
+            "/Users/gone/.local/bin/codebase-memory-mcp",
+            "/Users/me/.local/bin/codebase-memory-mcp",
+        );
+        let cbm = |c: &str| json!({"matcher": "Grep", "hooks": [{"type": "command", "command": c, "args": ["hook-augment"]}]});
+        let body = json!({"hooks": {
+            "Pre": [hook("rtk hook claude"), cbm(old), cbm(bin)],
+            "Start": [cbm(old)],
+        }});
+        let p = t.put("s.json", &body.to_string());
+        let (code, out, _) = retarget_cbm(&p, "codebase-memory-mcp", bin);
+        assert_eq!(code, 0, "{out}");
+        let v: Value = serde_json::from_str(&t.get("s.json")).unwrap();
+        assert_eq!(
+            v["hooks"]["Pre"],
+            json!([hook("rtk hook claude"), cbm(bin)])
+        );
+        assert_eq!(v["hooks"]["Start"], json!([cbm(bin)]));
+        assert_eq!(retarget_cbm(&p, "codebase-memory-mcp", bin).1, "");
     }
 
     #[test]

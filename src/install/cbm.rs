@@ -61,6 +61,11 @@ impl Session<'_> {
             .join(".claude.json")
             .to_string_lossy()
             .into_owned();
+        // Runs before the stamp check: a wiring that names another home's binary still counts as wired.
+        let (_, out, _) = jsonedit::retarget_cbm(&settings, cbm::NAME, &bin.to_string_lossy());
+        if ui.loud {
+            print!("{out}");
+        }
         let current = !self.o.refresh
             && !ver.is_empty()
             && fs::read_to_string(&stamp).is_ok_and(|s| s == ver)
