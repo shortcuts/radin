@@ -236,7 +236,7 @@ pub fn prepare(s: &S, a: &[String], io: &mut Io) -> R {
 }
 
 impl S<'_> {
-    fn lane_dir_path(&self, lane: &str) -> std::path::PathBuf {
+    pub(super) fn lane_dir_path(&self, lane: &str) -> std::path::PathBuf {
         let mut p = self.root.as_os_str().to_owned();
         p.push(format!("-{lane}"));
         p.into()
@@ -252,7 +252,7 @@ impl S<'_> {
     }
 }
 
-fn drop_branch(s: &S, id: &str, branch: &str, wt: &str, io: &mut Io) {
+pub(super) fn drop_branch(s: &S, id: &str, branch: &str, wt: &str, io: &mut Io) {
     if !wt.is_empty() && Path::new(wt).is_dir() && !gx(&s.root, &["worktree", "remove", wt], io) {
         let _ = writeln!(
             io.err,
@@ -393,6 +393,27 @@ fn squash_merge_one(s: &S, id: &str, branch: &str, wt: &str, tip: &str, io: &mut
     true
 }
 
+/// Commits a dirty root checkout and checks out the base, so a merge into it starts clean.
+pub(super) fn settle_checkout(s: &S, base: &str, io: &mut Io) -> Result<(), Fail> {
+    let routed = leftover::route(
+        s,
+        "radin committed these so the landing is not blocked. Amend or split as needed.",
+    )?;
+    for (id, n) in &routed.to_tasks {
+        let _ = writeln!(io.out, "committed\t{id}\t{n} files moved to radin/{id}");
+    }
+    if let Some(r) = routed.main_hash {
+        let _ = writeln!(
+            io.out,
+            "committed\t-\tbase checkout was dirty, saved as {r}"
+        );
+    }
+    if !gx(&s.root, &["checkout", "-q", base], io) {
+        return Err(die(format!("cannot check out {base}")));
+    }
+    Ok(())
+}
+
 pub fn reconcile(s: &S, io: &mut Io) -> R {
     let base = s.resolve_base();
     if base.is_empty() {
@@ -437,22 +458,7 @@ pub fn reconcile(s: &S, io: &mut Io) -> R {
     if s.radin_branches().is_empty() {
         return Ok(0);
     }
-    let routed = leftover::route(
-        s,
-        "radin committed these so the landing is not blocked. Amend or split as needed.",
-    )?;
-    for (id, n) in &routed.to_tasks {
-        let _ = writeln!(io.out, "committed\t{id}\t{n} files moved to radin/{id}");
-    }
-    if let Some(r) = routed.main_hash {
-        let _ = writeln!(
-            io.out,
-            "committed\t-\tbase checkout was dirty, saved as {r}"
-        );
-    }
-    if !gx(&s.root, &["checkout", "-q", &base], io) {
-        return Err(die(format!("cannot check out {base}")));
-    }
+    settle_checkout(s, &base, io)?;
     let worktrees = s.gt(&["worktree", "list", "--porcelain"]);
     let mut order: Vec<(usize, String)> = s
         .radin_branches()
@@ -463,6 +469,10 @@ pub fn reconcile(s: &S, io: &mut Io) -> R {
     let (mut merged, mut conflicts): (Vec<String>, Vec<String>) = (Vec::new(), Vec::new());
     for (_, rb) in order {
         let rid = rb.trim_start_matches("radin/").to_string();
+        if s.lane_mode() == "lanes" && s.exists(&format!("lanes/{rid}")) {
+            let _ = writeln!(io.out, "skipped\t{rb}\tlane");
+            continue;
+        }
         if s.steps.is_file()
             && s.entry(&rid)
                 .is_some_and(|e| get(&e, "status") == "in_progress")

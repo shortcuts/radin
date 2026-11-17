@@ -55,7 +55,8 @@ radin is a Claude Code plugin of skills, a CLI, and install glue.
 | A selected host with no CLI still installs | `tests/install_*.rs` ("every selected host installs its files when no host CLI exists") | None. |
 | `radin update` keeps a failed host in the manifest | `tests/install_*.rs` ("--update leaves a host whose render fails untouched...") | None. |
 | An overlap graph gap exits 2, skips the symbol tier and records a `setup-issue` telemetry line | `tests/overlap.rs` (`every_graph_gap_exits_2_and_records_telemetry`) | The real graph CLI runs against a stub; its JSON shape is measured on 0.12.1 only. |
-| Lane mode is derived once per run; `main` mode makes no worktree and no branch | `tests/state_lanes.rs` | The router's overlap clearance and the merge that calls `lane-done` are the run-loop and merge-queue tasks. |
+| Lane mode is derived once per run; `main` mode makes no worktree and no branch | `tests/state_lanes.rs` | The router's overlap clearance is the run-loop task. |
+| A lane merges only through the queue, with `--no-ff`, one at a time | `tests/state_lanes.rs` queue and merge tests, `tests/prompt.rs` (`prompt_sync_lane_renders_the_epic_dir_and_answer`) | The gate between merges and the router's loop over `lane-merge` are separate tasks. |
 | A parked lane task keeps its work on `radin/wip/<id>` | `tests/state_lanes.rs` park tests | A crash between the branch and the reset, and the `claim` MAX_ATTEMPTS path, are untested. |
 | Same checks locally and in CI | `make check` and `make test` in `.github/workflows/ci.yml` | Linux run unverified. |
 | Deterministic work lives in the CLI | `tests/lints.rs` raw `git` lint over `lib/radin-run.md` and `lib/radin-batch-*.md` | Other deterministic steps in prose, and a raw `git` outside those files; review only. |

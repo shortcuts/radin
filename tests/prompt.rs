@@ -342,6 +342,30 @@ fn prompt_sync_renders_the_lane_and_base() {
 }
 
 #[test]
+fn prompt_sync_lane_renders_the_epic_dir_and_answer() {
+    let e = env(Host::Claude);
+    let out = e.go(&["sync", "--lane", "ea", "/tmp/x"]);
+    assert_eq!(out.0, 0, "{}", out.2);
+    let text = e.prompt_of(&out);
+    assert!(
+        text.contains("Work only in /tmp/x, the worktree of lane ea"),
+        "{text}"
+    );
+    assert!(text.contains("completed-show"), "{text}");
+    assert!(!text.contains("The user settled"), "{text}");
+    let out = e.go(&["sync", "--lane", "ea", "/tmp/x", "keep the lane"]);
+    let text = e.prompt_of(&out);
+    assert!(
+        text.contains("The user settled this conflict: keep the lane"),
+        "{text}"
+    );
+    for token in ["ANSWER", "SYNC_ANSWER", "SYNC_DIR", "SYNC_LANE"] {
+        assert!(!text.contains(token), "{token} left in {text}");
+    }
+    assert_eq!(e.go(&["sync", "--lane", "ea"]).0, 1);
+}
+
+#[test]
 fn bad_input_exits_1_with_a_reason() {
     let e = env(Host::Claude);
     let err = |args: &[&str]| {

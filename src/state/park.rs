@@ -36,40 +36,45 @@ pub fn lane_sync(s: &S, a: &[String], io: &mut Io) -> R {
         }
         return Ok(0);
     }
-    if mid {
-        if conflicted(&dir) {
+    sync_lane(s, &dir, &lane, id, io)
+}
+
+/// The sync step of `lane-sync` and of the merge queue; `id` tags the journal.
+pub(super) fn sync_lane(s: &S, dir: &Path, lane: &str, id: &str, io: &mut Io) -> R {
+    if merge_in_progress(dir) {
+        if conflicted(dir) {
             let _ = writeln!(io.out, "conflict\t{lane}\t{}", dir.display());
             return Ok(3);
         }
-        if !gx(&dir, &["commit", "--no-verify", "--no-edit"], io) {
+        if !gx(dir, &["commit", "--no-verify", "--no-edit"], io) {
             return Err(die(format!("cannot finish the merge in {}", dir.display())));
         }
-        return synced(s, &dir, id, &lane, io);
+        return synced(s, dir, id, lane, io);
     }
     let base = s.resolve_base();
     if base.is_empty() {
         let _ = writeln!(io.out, "skipped\t{lane}\tno base branch");
         return Ok(0);
     }
-    if ok(&dir, &["merge-base", "--is-ancestor", &base, "HEAD"]) {
+    if ok(dir, &["merge-base", "--is-ancestor", &base, "HEAD"]) {
         let _ = writeln!(io.out, "current\t{lane}");
         return Ok(0);
     }
-    prepare_commit(s, &dir, id, io)?;
+    prepare_commit(s, dir, id, io)?;
     let msg = format!("merge {base} into radin/{lane}");
     if gx(
-        &dir,
+        dir,
         &["merge", "--no-verify", "--no-edit", "-m", &msg, &base],
         io,
     ) {
-        return synced(s, &dir, id, &lane, io);
+        return synced(s, dir, id, lane, io);
     }
-    if merge_in_progress(&dir) && conflicted(&dir) {
+    if merge_in_progress(dir) && conflicted(dir) {
         s.journal("lane-sync-conflict", id, &format!("{base} into {lane}"));
         let _ = writeln!(io.out, "conflict\t{lane}\t{}", dir.display());
         return Ok(3);
     }
-    g(&dir, &["merge", "--abort"]);
+    g(dir, &["merge", "--abort"]);
     Err(die(format!("cannot merge {base} into radin/{lane}")))
 }
 

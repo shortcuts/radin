@@ -1,3 +1,4 @@
+use super::land::drop_branch;
 use super::store::{deps_csv, get, num, read_lines};
 use super::{arg, die, mkdir, write, S};
 use crate::backlog::{Fail, Io, R};
@@ -292,6 +293,7 @@ pub fn lanes_init(s: &S, io: &mut Io) -> R {
     for (_, p) in s.files_in("lane-base") {
         let _ = std::fs::remove_file(p);
     }
+    s.rm("merge-queue");
     mkdir(s, "lanes");
     write(s, "lane-mode", &format!("{m}\n"));
     let order = ordered(&r.tasks, &r.done());
@@ -334,13 +336,39 @@ pub fn lane_next(s: &S, a: &[String], io: &mut Io) -> R {
     }
 }
 
-pub fn lane_done(s: &S, a: &[String]) -> R {
+/// Why a running lane cannot enter the merge queue yet, or `None`.
+pub(super) fn queue_blocker(s: &S, epic: &str) -> Result<Option<String>, Fail> {
+    let r = Run::load(s)?;
+    if r.lane_state(epic) != "running" {
+        return Ok(Some(format!("lane {epic} is not running")));
+    }
+    if r.tasks
+        .iter()
+        .any(|t| t.epic == epic && t.status == "in_progress")
+    {
+        return Ok(Some(format!("lane {epic} has a task in progress")));
+    }
+    let ready = first_ready(epic, &r.tasks, &r.done()).is_some();
+    Ok(ready.then(|| format!("lane {epic} has a ready task")))
+}
+
+pub fn lane_done(s: &S, a: &[String], io: &mut Io) -> R {
     let e = arg(a, 0);
     if e.is_empty() {
         return Err(die("usage: lane-done <epic>"));
     }
     if s.read(&format!("lanes/{e}")).trim() != "running" {
         return Err(die(format!("lane {e} is not running")));
+    }
+    if s.lane_mode() == "lanes" {
+        if super::mergeq::status(s, e) != "merged" {
+            return Err(die(format!("lane {e} has not merged")));
+        }
+        super::mergeq::remove(s, e);
+        let (branch, wt) = (format!("radin/{e}"), s.lane_dir_path(e));
+        if wt.is_dir() || s.branch_exists(&branch) {
+            drop_branch(s, "", &branch, &wt.to_string_lossy(), io);
+        }
     }
     write(s, &format!("lanes/{e}"), "done\n");
     s.journal("lane-done", "", e);

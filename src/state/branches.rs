@@ -596,7 +596,16 @@ pub fn completed_show(s: &S, a: &[String], io: &mut Io) -> R {
         return Ok(1);
     };
     for k in [
-        "id", "commit", "title", "branch", "worktree", "plan", "ts", "created",
+        "id",
+        "commit",
+        "title",
+        "branch",
+        "worktree",
+        "plan",
+        "ts",
+        "created",
+        "acceptance",
+        "epic",
     ] {
         let _ = writeln!(io.out, "{k}\t{}", get(&l, k));
     }

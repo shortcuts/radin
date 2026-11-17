@@ -4,6 +4,7 @@ mod git;
 mod land;
 mod lanes;
 mod leftover;
+mod mergeq;
 mod park;
 mod plan_cover;
 mod queue;
@@ -37,7 +38,7 @@ pub struct S<'a> {
 
 const HELP: &str = include_str!("help.txt");
 
-const VERBS: &str = "teardown|steps-init|steps-list|wave|wave-partition|plan-discard|steps-open|steps-waiting|answered|retry|task-next|task-report|task-fact|task-diagnosis|task-done|base-failing|set-status|stuck|preflight|resume|recover|recover-reject|report|session-set|session-get|group-set|prepare|dirty-check|trace|completed-show|completed-list|unlanded|session-commits|gate-map|leftovers|stash-triage|stash-claim|reconcile|gate-fix|gate-filed|gate-done|deps-check|task-dir|journal-tail|plan-covers|review-findings|finding-classes|lane-cap|lanes-init|lane-next|lane-done|lanes-show|lane-sync";
+const VERBS: &str = "teardown|steps-init|steps-list|wave|wave-partition|plan-discard|steps-open|steps-waiting|answered|retry|task-next|task-report|task-fact|task-diagnosis|task-done|base-failing|set-status|stuck|preflight|resume|recover|recover-reject|report|session-set|session-get|group-set|prepare|dirty-check|trace|completed-show|completed-list|unlanded|session-commits|gate-map|leftovers|stash-triage|stash-claim|reconcile|gate-fix|gate-filed|gate-done|deps-check|task-dir|journal-tail|plan-covers|review-findings|finding-classes|lane-cap|lanes-init|lane-next|lane-done|lanes-show|lane-sync|lane-queue|lane-merge";
 
 const ID_VERBS: &[&str] = &[
     "task-next",
@@ -325,7 +326,9 @@ fn dispatch(c: &Ctx, args: &[String], io: &mut Io) -> R {
         "lane-cap" => queue::lane_cap(&s, io),
         "lanes-init" => lanes::lanes_init(&s, io),
         "lane-next" => lanes::lane_next(&s, a, io),
-        "lane-done" => lanes::lane_done(&s, a),
+        "lane-done" => lanes::lane_done(&s, a, io),
+        "lane-queue" => mergeq::lane_queue(&s, a, io),
+        "lane-merge" => mergeq::lane_merge(&s, a, io),
         "lanes-show" => lanes::lanes_show(&s, io),
         "lane-sync" => park::lane_sync(&s, a, io),
         "wave" => queue::wave(&s, io),

@@ -22,6 +22,10 @@ flowchart TD
   veto --> group[state group-set --wave N<br/>one group, up to the cap]
   group --> leafE
   next -. lanes mode: state lane-sync before each lane task .-> leafE
+  next -. lanes mode: lane has no ready task .-> lq[state lane-queue, then lane-merge<br/>first queued lane, git merge --no-ff]
+  lq -- conflict --> sync[radin-sync leaf merges the base into the lane]
+  sync --> lq
+  lq -- merged --> ld[state lane-done]
   next -- exit 1, nothing left or teardown requested --> p45[Phase 4.5<br/>session gate: tests, lint, format, review]
   p45 -- findings filed, once --> next
   next -- exit 0 --> kind{kind}

@@ -17,8 +17,14 @@ List the conflicted files with `git diff --name-only --diff-filter=U`.
 
 Read the context of both sides. For each commit of `git log SYNC_BASE..HEAD`
 and of `git log HEAD..SYNC_BASE`, run `RADIN_CLI state trace <commit>` to get its
-task, then read the task with `RADIN_CLI backlog field <id> TASK_BODY` and
-`RADIN_CLI backlog field <id> ACCEPTANCE`.
+task, its plan file and its facts file. Read the task with `RADIN_CLI state
+completed-show <id>` for its title and acceptance. A task that is still open
+exits 1 there: read it with `RADIN_CLI backlog field <id> TASK_BODY` and
+`RADIN_CLI backlog field <id> ACCEPTANCE`. Read the plan and facts files.
+<!-- if:ANSWER -->
+
+The user settled this conflict: SYNC_ANSWER
+<!-- end -->
 
 Resolve each conflict so both sides keep their intent. Run the repo's checks the
 conflicting files reach. Stage the resolution and run `git commit --no-edit`.

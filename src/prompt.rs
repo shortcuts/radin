@@ -146,7 +146,7 @@ fn build(c: &Ctx, args: &[String]) -> R<Out> {
     let a = |i: usize| args.get(i).map_or("", String::as_str);
     let (kind, id, extra) = (a(0), a(1), a(2));
     if kind.is_empty() || (id.is_empty() && kind != "gate" && kind != "merge") {
-        return die("usage: radin prompt <planning|execution|debug|factfind> <id> [<failure|question>] | planning <id> [<earlier-id>...] | gate | merge [<branch>...] | sync <id>");
+        return die("usage: radin prompt <planning|execution|debug|factfind> <id> [<failure|question>] | planning <id> [<earlier-id>...] | gate | merge [<branch>...] | sync <id> | sync --lane <epic> <dir> [<answer>]");
     }
     if ![
         "planning",
@@ -215,7 +215,15 @@ fn build(c: &Ctx, args: &[String]) -> R<Out> {
         return Ok(d.print("radin-gate", &out));
     }
     if kind == "sync" {
-        let dir = c.nested(&root, &["state", "task-dir", id]);
+        let by_epic = id == "--lane";
+        if by_epic && (a(2).is_empty() || a(3).is_empty()) {
+            return die("usage: sync --lane <epic> <dir> [<answer>]");
+        }
+        let dir = if by_epic {
+            (0, format!("{}\n", a(3)), String::new())
+        } else {
+            c.nested(&root, &["state", "task-dir", id])
+        };
         let base = fs::read_to_string(ns.join("state/baseline.json"))
             .map(|t| json_field(&t, "base_branch"))
             .unwrap_or_default();
@@ -231,19 +239,30 @@ fn build(c: &Ctx, args: &[String]) -> R<Out> {
             return die("no base branch");
         }
         let list = c.nested(&root, &["backlog", "list", "--order", "created"]);
-        let lane = list
-            .1
-            .lines()
-            .map(|l| l.split('\x1f').collect::<Vec<_>>())
-            .find(|f| f[0] == id)
-            .and_then(|f| f.get(3).map(|e| crate::backlog::epic_of(e)))
-            .filter(|e| !e.is_empty())
-            .unwrap_or_else(|| "maintenance".into());
+        let lane = if by_epic {
+            a(2).to_string()
+        } else {
+            list.1
+                .lines()
+                .map(|l| l.split('\x1f').collect::<Vec<_>>())
+                .find(|f| f[0] == id)
+                .and_then(|f| f.get(3).map(|e| crate::backlog::epic_of(e)))
+                .filter(|e| !e.is_empty())
+                .unwrap_or_else(|| "maintenance".into())
+        };
+        let answer = if by_epic { a(4) } else { "" };
+        body = strip_guards(&body, if answer.is_empty() { " " } else { " ANSWER " });
+        sub(&mut body, "SYNC_ANSWER", answer);
         sub(&mut body, "LEAF_CONTRACT", &leaf);
         sub(&mut body, "SYNC_DIR", chomp(&dir.1));
         sub(&mut body, "SYNC_BASE", &base);
         sub(&mut body, "SYNC_LANE", &lane);
-        let out = write_prompt(&ns, &format!("session-sync-{id}.md"), &body)?;
+        let name = if by_epic {
+            format!("lane-{lane}")
+        } else {
+            id.to_string()
+        };
+        let out = write_prompt(&ns, &format!("session-sync-{name}.md"), &body)?;
         return Ok(d.print("radin-sync", &out));
     }
     if kind == "merge" {

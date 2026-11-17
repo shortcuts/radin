@@ -21,6 +21,10 @@ fn epics(w: &W) {
     w.steps_init("a-one\t1\t\tpending\na-two\t2\ta-one\tpending\nb-one\t3\t\tpending\n");
 }
 
+fn merged(w: &W, epic: &str) {
+    w.write(".radin/state/merge-queue", &format!("{epic}\tmerged\n"));
+}
+
 #[test]
 fn lanes_init_picks_the_mode_and_resets_lane_markers() {
     let w = W::new();
@@ -64,6 +68,7 @@ fn lane_next_fills_slots_waits_for_merges_and_asks_for_clearance() {
     assert_eq!((r.code, r.out.as_str()), (0, "start\teb\n"));
     let r = w.state(&["lane-next"]);
     assert_eq!((r.code, r.out.as_str()), (1, ""));
+    merged(&w, "ea");
     assert_eq!(w.state(&["lane-done", "ea"]).code, 0);
     assert_eq!(w.state(&["lane-next"]).code, 1);
     assert_eq!(w.state(&["lane-next", "--bogus"]).code, 1);
@@ -77,6 +82,7 @@ fn a_dependent_epic_starts_only_after_its_dependency_lane_is_done() {
     w.state(&["lanes-init"]);
     assert_eq!(w.state(&["lane-next"]).out, "start\tea\n");
     assert_eq!(w.state(&["lane-next"]).code, 1);
+    merged(&w, "ea");
     assert_eq!(w.state(&["lane-done", "ea"]).code, 0);
     assert_eq!(w.state(&["lane-next"]).out, "start\teb\n");
 }
@@ -95,6 +101,12 @@ fn lane_done_needs_a_running_lane_and_lanes_show_lists_states() {
         w.state(&["lanes-show"]).out,
         "mode\tlanes\ncap\t2\nlane\tea\trunning\t2\nlane\teb\twaiting\t1\n"
     );
+    let r = w.state(&["lane-done", "ea"]);
+    assert_eq!(
+        (r.code, r.err.as_str()),
+        (1, "radin-state: lane ea has not merged\n")
+    );
+    merged(&w, "ea");
     w.state(&["lane-done", "ea"]);
     assert_eq!(
         w.state(&["lanes-show"]).out.lines().nth(2),
@@ -340,4 +352,186 @@ fn park_keeps_the_marker_across_a_retry() {
     commit_in(&w, &wt, "x.txt", "x\n");
     lane_tree(&w, "a-one");
     assert_eq!(w.read(".radin/state/lane-base/a-one"), first);
+}
+
+fn finish_lane_task(w: &W, id: &str, file: &str) -> std::path::PathBuf {
+    let wt = lane_tree(w, id);
+    let hash = commit_in(w, &wt, file, "x\n");
+    assert_eq!(w.state(&["task-done", id, &hash[..12]]).code, 0);
+    wt
+}
+
+fn clean_root(w: &W) {
+    w.git(&["add", "-A"]);
+    w.git(&["commit", "-qm", "track the ignore file"]);
+}
+
+fn run_lane(w: &W, epic: &str) {
+    w.write(&format!(".radin/state/lanes/{epic}"), "running\n");
+}
+
+#[test]
+fn lane_queue_waits_for_the_last_task_then_queues_in_order() {
+    let w = W::new();
+    epics(&w);
+    w.lane_mode("lanes");
+    clean_root(&w);
+    run_lane(&w, "ea");
+    run_lane(&w, "eb");
+    let r = w.state(&["lane-queue", "ea"]);
+    assert_eq!(
+        (r.code, r.err.as_str()),
+        (1, "radin-state: lane ea has a ready task\n")
+    );
+    assert_eq!(w.state(&["lane-queue"]).code, 1);
+    finish_lane_task(&w, "a-one", "a1.txt");
+    finish_lane_task(&w, "a-two", "a2.txt");
+    let r = w.state(&["lane-queue", "ea"]);
+    assert_eq!((r.code, r.out.as_str()), (0, "queued\tea\t1\n"));
+    assert_eq!(w.state(&["lane-queue", "ea"]).out, "queued\tea\t1\n");
+    finish_lane_task(&w, "b-one", "b1.txt");
+    assert_eq!(w.state(&["lane-queue", "eb"]).out, "queued\teb\t2\n");
+    assert_eq!(
+        w.read(".radin/state/merge-queue"),
+        "ea\tqueued\neb\tqueued\n"
+    );
+    let r = w.state(&["lane-queue", "zz"]);
+    assert_eq!(
+        (r.code, r.err.as_str()),
+        (1, "radin-state: lane zz is not running\n")
+    );
+}
+
+#[test]
+fn lane_queue_marks_a_lane_with_no_commit_merged_and_main_mode_prints_nothing() {
+    let w = W::new();
+    epics(&w);
+    w.lane_mode("main");
+    let r = w.state(&["lane-queue", "ea"]);
+    assert_eq!((r.code, r.out.as_str()), (0, ""));
+    assert_eq!(w.state(&["lane-merge"]).code, 1);
+    w.lane_mode("lanes");
+    run_lane(&w, "eb");
+    w.state(&["set-status", "b-one", "failed", "boom"]);
+    let r = w.state(&["lane-queue", "eb"]);
+    assert_eq!((r.code, r.out.as_str()), (0, "empty\teb\n"), "{}", r.all());
+    assert_eq!(w.read(".radin/state/merge-queue"), "eb\tmerged\n");
+}
+
+#[test]
+fn lane_merge_merges_no_ff_one_lane_at_a_time_and_lane_done_frees_the_queue() {
+    let w = W::new();
+    epics(&w);
+    w.lane_mode("lanes");
+    clean_root(&w);
+    run_lane(&w, "ea");
+    run_lane(&w, "eb");
+    let ea = finish_lane_task(&w, "a-one", "a1.txt");
+    finish_lane_task(&w, "a-two", "a2.txt");
+    let a2 = w.git_at(&ea, &["rev-parse", "HEAD"]);
+    finish_lane_task(&w, "b-one", "b1.txt");
+    w.state(&["lane-queue", "ea"]);
+    w.state(&["lane-queue", "eb"]);
+    let before = w.git(&["rev-parse", "HEAD"]);
+    let r = w.state(&["lane-merge"]);
+    assert_eq!(r.code, 0, "{}", r.all());
+    assert!(r.out.starts_with("merged\tea\t"), "{}", r.out);
+    assert_eq!(
+        w.git(&["rev-list", "--parents", "-n1", "HEAD"])
+            .split(' ')
+            .count(),
+        3
+    );
+    assert_eq!(w.git(&["rev-parse", "HEAD^1"]), before);
+    assert!(w.git_ok(&["merge-base", "--is-ancestor", &a2, "HEAD"]));
+    let r = w.state(&["lane-merge"]);
+    assert_eq!((r.code, r.out.as_str()), (2, "waiting\tea\n"));
+    assert!(!w.git_ok(&["merge-base", "--is-ancestor", "radin/eb", "HEAD"]));
+    let r = w.state(&["lane-done", "ea"]);
+    assert_eq!(r.code, 0, "{}", r.all());
+    assert!(!ea.exists());
+    assert!(!w.git_ok(&["rev-parse", "--verify", "-q", "radin/ea"]));
+    assert_eq!(w.read(".radin/state/merge-queue"), "eb\tqueued\n");
+    let r = w.state(&["lane-merge"]);
+    assert!(r.out.starts_with("merged\teb\t"), "{}", r.all());
+    assert!(w.git_ok(&["merge-base", "--is-ancestor", "radin/eb", "HEAD"]));
+    assert_eq!(w.state(&["lane-done", "eb"]).code, 0);
+    assert_eq!(w.state(&["lane-merge"]).code, 1);
+}
+
+#[test]
+fn lane_merge_hands_a_conflict_to_the_sync_agent_and_a_held_lane_yields_the_queue() {
+    let w = W::new();
+    epics(&w);
+    w.lane_mode("lanes");
+    clean_root(&w);
+    run_lane(&w, "ea");
+    run_lane(&w, "eb");
+    let ea = finish_lane_task(&w, "a-one", "c.txt");
+    finish_lane_task(&w, "a-two", "a2.txt");
+    finish_lane_task(&w, "b-one", "b1.txt");
+    commit_in(&w, &w.p, "c.txt", "main\n");
+    w.state(&["lane-queue", "ea"]);
+    w.state(&["lane-queue", "eb"]);
+    let r = w.state(&["lane-merge"]);
+    assert_eq!(r.code, 3, "{}", r.all());
+    assert_eq!(r.out, format!("conflict\tea\t{}\n", ea.display()));
+    assert_eq!(w.state(&["lane-merge"]).code, 3);
+    assert!(!w.git_ok(&["merge-base", "--is-ancestor", "radin/ea", "HEAD"]));
+    let r = w.state(&["lane-merge", "--abort"]);
+    assert_eq!((r.code, r.out.as_str()), (0, "held\tea\n"));
+    assert_eq!(w.git_at(&ea, &["status", "--porcelain"]), "");
+    assert_eq!(w.read(".radin/state/merge-queue"), "ea\theld\neb\tqueued\n");
+    let r = w.state(&["lane-merge"]);
+    assert!(r.out.starts_with("merged\teb\t"), "{}", r.all());
+}
+
+#[test]
+fn a_resolved_conflict_merges_on_the_next_call() {
+    let w = W::new();
+    epics(&w);
+    w.lane_mode("lanes");
+    clean_root(&w);
+    run_lane(&w, "ea");
+    let ea = finish_lane_task(&w, "a-one", "c.txt");
+    finish_lane_task(&w, "a-two", "a2.txt");
+    commit_in(&w, &w.p, "c.txt", "main\n");
+    w.state(&["lane-queue", "ea"]);
+    assert_eq!(w.state(&["lane-merge"]).code, 3);
+    std::fs::write(ea.join("c.txt"), "both\n").unwrap();
+    w.git_at(&ea, &["add", "c.txt"]);
+    let r = w.state(&["lane-merge"]);
+    assert_eq!(r.code, 0, "{}", r.all());
+    assert!(r.out.starts_with("merged\tea\t"), "{}", r.out);
+    assert_eq!(
+        std::fs::read_to_string(w.p.join("c.txt")).unwrap(),
+        "both\n"
+    );
+}
+
+#[test]
+fn reconcile_leaves_a_running_lane_branch_alone_and_lanes_init_drops_the_queue() {
+    let w = W::new();
+    epics(&w);
+    w.lane_mode("lanes");
+    clean_root(&w);
+    run_lane(&w, "ea");
+    finish_lane_task(&w, "a-one", "a1.txt");
+    let r = w.state(&["reconcile"]);
+    assert!(r.out.contains("skipped\tradin/ea\tlane\n"), "{}", r.all());
+    assert!(w.git_ok(&["rev-parse", "--verify", "-q", "radin/ea"]));
+    merged(&w, "ea");
+    w.state(&["lanes-init"]);
+    assert!(!w.exists(".radin/state/merge-queue"));
+}
+
+#[test]
+fn completed_show_prints_the_acceptance_and_epic() {
+    let w = W::new();
+    epics(&w);
+    w.lane_mode("lanes");
+    finish_lane_task(&w, "a-one", "a1.txt");
+    let out = w.state(&["completed-show", "a-one"]).out;
+    assert!(out.contains("\nepic\tea\n"), "{out}");
+    assert!(out.contains("\nacceptance\t"), "{out}");
 }
