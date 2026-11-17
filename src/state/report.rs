@@ -91,6 +91,26 @@ pub fn report(s: &S, a: &[String], io: &mut Io) -> R {
         .iter()
         .map(|(_, d)| format!("- {d}"))
         .collect();
+    let parked_block: Vec<String> = s
+        .wip_branches()
+        .iter()
+        .map(|b| {
+            let id = b.trim_start_matches("radin/wip/");
+            let reason = journal
+                .iter()
+                .rev()
+                .filter_map(|l| event(l, "park", true))
+                .find(|(i, _)| i == id)
+                .and_then(|(_, d)| d.split_once(" reason=").map(|x| unescape(x.1)))
+                .unwrap_or_else(|| "no reason recorded".into());
+            let title = match s.task_title(id) {
+                t if t.is_empty() => id.to_string(),
+                t => t,
+            };
+            let tip = s.gt(&["rev-parse", "--short=12", b]);
+            format!("- {title} — {b} at {tip}: {reason}")
+        })
+        .collect();
     let dropped_block = dedupe(
         pick("skill-dropped", true)
             .iter()
@@ -250,6 +270,10 @@ pub fn report(s: &S, a: &[String], io: &mut Io) -> R {
         (
             "Needs your decision (left in the backlog, nothing implemented):",
             &blocked,
+        ),
+        (
+            "Kept on a wip branch (resumes on the next batch):",
+            &parked_block,
         ),
         ("Excluded from this run (left in the backlog):", &excluded),
         ("Uncommitted changes committed this session:", &wip_block),

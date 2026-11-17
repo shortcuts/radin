@@ -123,6 +123,11 @@ impl E {
                 ("state", "leftovers") => {
                     (0, "base\tmain\nbranch\tradin/t-one\n".into(), String::new())
                 }
+                ("backlog", "list") => (
+                    0,
+                    "t-one\x1ffix\x1ft\x1ftasks/ea/t-one.md\n".into(),
+                    String::new(),
+                ),
                 ("state", "task-dir") => (0, format!("{}\n", self.proj.display()), String::new()),
                 _ => (1, String::new(), format!("unexpected {a:?}\n")),
             }
@@ -313,6 +318,27 @@ fn a_claude_template_without_a_model_line_fails() {
         out.2,
         format!("radin-prompt: no model line in {}\n", t.display())
     );
+}
+
+#[test]
+fn prompt_sync_renders_the_lane_and_base() {
+    let e = env(Host::Claude);
+    let out = e.go(&["sync", "t-one"]);
+    assert_eq!(
+        out.1.lines().find_map(|l| l.strip_prefix("name\t")),
+        Some("radin-sync")
+    );
+    let text = e.prompt_of(&out);
+    assert!(
+        text.contains(&format!("Work only in {}", e.proj.display())),
+        "{text}"
+    );
+    assert!(text.contains("lane ea"), "{text}");
+    assert!(text.contains("merge of main into"), "{text}");
+    for token in ["SYNC_DIR", "SYNC_BASE", "SYNC_LANE", "LEAF_CONTRACT"] {
+        assert!(!text.contains(token), "{token} left in {text}");
+    }
+    assert_eq!(e.go(&["sync"]).0, 1);
 }
 
 #[test]

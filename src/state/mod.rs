@@ -4,6 +4,7 @@ mod git;
 mod land;
 mod lanes;
 mod leftover;
+mod park;
 mod plan_cover;
 mod queue;
 mod report;
@@ -36,7 +37,7 @@ pub struct S<'a> {
 
 const HELP: &str = include_str!("help.txt");
 
-const VERBS: &str = "teardown|steps-init|steps-list|wave|wave-partition|plan-discard|steps-open|steps-waiting|answered|retry|task-next|task-report|task-fact|task-diagnosis|task-done|base-failing|set-status|stuck|preflight|resume|recover|recover-reject|report|session-set|session-get|group-set|prepare|dirty-check|trace|completed-show|completed-list|unlanded|session-commits|gate-map|leftovers|stash-triage|stash-claim|reconcile|gate-fix|gate-filed|gate-done|deps-check|task-dir|journal-tail|plan-covers|review-findings|finding-classes|lane-cap|lanes-init|lane-next|lane-done|lanes-show";
+const VERBS: &str = "teardown|steps-init|steps-list|wave|wave-partition|plan-discard|steps-open|steps-waiting|answered|retry|task-next|task-report|task-fact|task-diagnosis|task-done|base-failing|set-status|stuck|preflight|resume|recover|recover-reject|report|session-set|session-get|group-set|prepare|dirty-check|trace|completed-show|completed-list|unlanded|session-commits|gate-map|leftovers|stash-triage|stash-claim|reconcile|gate-fix|gate-filed|gate-done|deps-check|task-dir|journal-tail|plan-covers|review-findings|finding-classes|lane-cap|lanes-init|lane-next|lane-done|lanes-show|lane-sync";
 
 const ID_VERBS: &[&str] = &[
     "task-next",
@@ -56,6 +57,7 @@ const ID_VERBS: &[&str] = &[
     "deps-check",
     "task-dir",
     "gate-filed",
+    "lane-sync",
 ];
 
 fn verb_usage(verb: &str) -> String {
@@ -325,6 +327,7 @@ fn dispatch(c: &Ctx, args: &[String], io: &mut Io) -> R {
         "lane-next" => lanes::lane_next(&s, a, io),
         "lane-done" => lanes::lane_done(&s, a),
         "lanes-show" => lanes::lanes_show(&s, io),
+        "lane-sync" => park::lane_sync(&s, a, io),
         "wave" => queue::wave(&s, io),
         "wave-partition" => queue::wave_partition(&s, a, io),
         "deps-check" => queue::deps_check_verb(&s, a, io),

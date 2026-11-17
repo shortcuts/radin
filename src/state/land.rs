@@ -68,7 +68,7 @@ fn must(ok: bool) -> Result<(), Fail> {
     }
 }
 
-fn prepare_commit(s: &S, dir: &Path, id: &str, io: &mut Io) -> Result<(), Fail> {
+pub(super) fn prepare_commit(s: &S, dir: &Path, id: &str, io: &mut Io) -> Result<(), Fail> {
     if dirty_files(dir).is_empty() {
         return Ok(());
     }
@@ -129,6 +129,64 @@ fn apply_claim(s: &S, dir: &Path, id: &str, io: &mut Io) {
     }
 }
 
+/// The lane's worktree on `radin/<lane>`, created or verified as registered.
+pub(super) fn ensure_lane_tree(s: &S, lane: &str, io: &mut Io) -> Result<std::path::PathBuf, Fail> {
+    let (branch, wt) = (format!("radin/{lane}"), s.lane_dir_path(lane));
+    let wts = wt.to_string_lossy().into_owned();
+    if wt.is_dir() {
+        if !s.is_registered_worktree(&wt) {
+            return Err(die(format!(
+                "{wts} exists but is not a registered worktree of this repo"
+            )));
+        }
+    } else if s.branch_exists(&branch) {
+        must(gx(&s.root, &["worktree", "add", &wts, &branch], io))?;
+    } else {
+        must(gx(&s.root, &["worktree", "add", &wts, "-b", &branch], io))?;
+    }
+    Ok(wt)
+}
+
+/// Records the lane HEAD before a task's first attempt; a retry keeps the original.
+fn record_lane_base(s: &S, dir: &Path, id: &str) {
+    let rel = format!("lane-base/{id}");
+    let old = s.read(&rel);
+    let old = old.trim();
+    if old.is_empty() || !ok(dir, &["merge-base", "--is-ancestor", old, "HEAD"]) {
+        s.set_marker(id, &rel, &format!("{}\n", gt(dir, &["rev-parse", "HEAD"])));
+    }
+}
+
+/// Merges a parked task's `radin/wip/<id>` back into its lane tree.
+fn resume_wip(s: &S, dir: &Path, id: &str, io: &mut Io) -> Result<(), Fail> {
+    let wip = format!("radin/wip/{id}");
+    if !s.branch_exists(&wip) {
+        return Ok(());
+    }
+    let msg = format!("resume {id} from {wip}");
+    if !gx(
+        dir,
+        &[
+            "merge",
+            "--no-ff",
+            "--no-verify",
+            "--no-edit",
+            "-m",
+            &msg,
+            &wip,
+        ],
+        io,
+    ) {
+        g(dir, &["merge", "--abort"]);
+        return Err(die(format!(
+            "resume of {id} from {wip} conflicts with the lane"
+        )));
+    }
+    g(&s.root, &["branch", "-D", &wip]);
+    s.journal("resume", id, &wip);
+    Ok(())
+}
+
 pub fn prepare(s: &S, a: &[String], io: &mut Io) -> R {
     let id = arg(a, 0);
     if id.is_empty() {
@@ -136,21 +194,20 @@ pub fn prepare(s: &S, a: &[String], io: &mut Io) -> R {
     }
     let (dir, lane) = if s.lane_mode() == "lanes" {
         let lane = super::lanes::task_epic(s, id)?;
-        let (branch, wt) = (format!("radin/{lane}"), s.lane_dir_path(&lane));
-        let wts = wt.to_string_lossy().into_owned();
-        if wt.is_dir() {
-            if !s.is_registered_worktree(&wt) {
-                return Err(die(format!(
-                    "{wts} exists but is not a registered worktree of this repo"
-                )));
-            }
-            prepare_commit(s, &wt, id, io)?;
-        } else if s.branch_exists(&branch) {
-            must(gx(&s.root, &["worktree", "add", &wts, &branch], io))?;
-        } else {
-            must(gx(&s.root, &["worktree", "add", &wts, "-b", &branch], io))?;
+        let wt = ensure_lane_tree(s, &lane, io)?;
+        if super::park::merge_in_progress(&wt) {
+            return Err(die(format!(
+                "lane {lane} has a merge in progress; run state lane-sync {id}"
+            )));
         }
-        s.journal("prepare", id, &format!("worktree={wts} branch={branch}"));
+        prepare_commit(s, &wt, id, io)?;
+        record_lane_base(s, &wt, id);
+        resume_wip(s, &wt, id, io)?;
+        s.journal(
+            "prepare",
+            id,
+            &format!("worktree={} branch=radin/{lane}", wt.display()),
+        );
         (wt, lane)
     } else {
         prepare_commit(s, &s.root, id, io)?;

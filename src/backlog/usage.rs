@@ -121,7 +121,7 @@ pub const USAGE: &[(&str, &str)] = &[
     ),
     (
         "epic-add",
-        r##"epic-add <epic-id>          # create the epic dir + DESCRIPTION.md (body from stdin when piped)"##,
+        r##"epic-add <epic-id>          # create the epic dir + DESCRIPTION.md (body from stdin when piped); wip is reserved"##,
     ),
     (
         "epic-set",

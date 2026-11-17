@@ -313,6 +313,10 @@ pub fn set_status(s: &S, a: &[String]) -> R {
     } else {
         s.set_blocked(id, reason, note)?;
     }
+    if matches!(status, "failed" | "blocked") {
+        let why = if note.is_empty() { status } else { note };
+        super::park::park(s, id, why)?;
+    }
     Ok(0)
 }
 

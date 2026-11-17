@@ -281,9 +281,15 @@ pub fn lanes_init(s: &S, io: &mut Io) -> R {
     if r.tasks.is_empty() {
         return Err(die("no tasks in the run"));
     }
+    if r.tasks.iter().any(|t| t.epic == "wip") {
+        return Err(die("epic wip is reserved"));
+    }
     let cap = s.lane_cap()?;
     let m = mode(s.session_parallel(), cap, &r.tasks, &r.deps);
     for (_, p) in s.files_in("lanes") {
+        let _ = std::fs::remove_file(p);
+    }
+    for (_, p) in s.files_in("lane-base") {
         let _ = std::fs::remove_file(p);
     }
     mkdir(s, "lanes");

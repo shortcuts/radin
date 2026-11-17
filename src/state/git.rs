@@ -133,7 +133,7 @@ impl S<'_> {
         ])
     }
 
-    pub fn radin_branches(&self) -> Vec<String> {
+    fn radin_refs(&self) -> Vec<String> {
         self.gt(&[
             "for-each-ref",
             "--format=%(refname:short)",
@@ -142,6 +142,19 @@ impl S<'_> {
         .lines()
         .map(String::from)
         .collect()
+    }
+
+    /// Parked work stays on its `radin/wip/<id>` branch, so landing never sees it.
+    pub fn radin_branches(&self) -> Vec<String> {
+        let mut v = self.radin_refs();
+        v.retain(|b| !b.starts_with("radin/wip/"));
+        v
+    }
+
+    pub fn wip_branches(&self) -> Vec<String> {
+        let mut v = self.radin_refs();
+        v.retain(|b| b.starts_with("radin/wip/"));
+        v
     }
 
     /// Base branch: baseline.json's, else the checkout's own unless detached or a radin/* branch.

@@ -331,6 +331,7 @@ pub fn record_done(s: &S, id: &str, hash: &str, io: &mut Io) -> R {
         }
     }
     s.rm(&format!("base-failing/{id}.txt"));
+    s.rm(&format!("lane-base/{id}"));
     if s.steps.is_file() {
         let key = format!("\"id\":\"{id}\"");
         let kept: String = store::read_lines(&s.steps)

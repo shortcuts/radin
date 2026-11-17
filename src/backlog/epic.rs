@@ -102,6 +102,9 @@ pub fn epic_add(cx: &Ctx, a: &[String], io: &mut Io) -> R {
             "epic id must be a slug (lowercase, dashes), got: {epic}"
         )));
     }
+    if epic == "wip" {
+        return Err(die("epic id is reserved: wip"));
+    }
     let dir = cx.ns.backlog_tasks_dir.join(epic);
     if dir.is_dir() {
         return Err(die(format!("epic already exists: {epic}")));

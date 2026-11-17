@@ -56,6 +56,7 @@ radin is a Claude Code plugin of skills, a CLI, and install glue.
 | `radin update` keeps a failed host in the manifest | `tests/install_*.rs` ("--update leaves a host whose render fails untouched...") | None. |
 | An overlap graph gap exits 2, skips the symbol tier and records a `setup-issue` telemetry line | `tests/overlap.rs` (`every_graph_gap_exits_2_and_records_telemetry`) | The real graph CLI runs against a stub; its JSON shape is measured on 0.12.1 only. |
 | Lane mode is derived once per run; `main` mode makes no worktree and no branch | `tests/state_lanes.rs` | The router's overlap clearance and the merge that calls `lane-done` are the run-loop and merge-queue tasks. |
+| A parked lane task keeps its work on `radin/wip/<id>` | `tests/state_lanes.rs` park tests | A crash between the branch and the reset, and the `claim` MAX_ATTEMPTS path, are untested. |
 | Same checks locally and in CI | `make check` and `make test` in `.github/workflows/ci.yml` | Linux run unverified. |
 | Deterministic work lives in the CLI | `tests/lints.rs` raw `git` lint over `lib/radin-run.md` and `lib/radin-batch-*.md` | Other deterministic steps in prose, and a raw `git` outside those files; review only. |
 | No namespaced companion name outside the table | `tests/lints.rs` name lint (`.sh` literals, tokens missing from a table) and its skill-name tests | A bare name written without a slash; review only. |

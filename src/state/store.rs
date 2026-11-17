@@ -359,6 +359,11 @@ impl S<'_> {
                 id,
                 &format!("dispatched {MAX_ATTEMPTS} times without finishing. Any work is committed as wip on its branch."),
             );
+            super::park::park(
+                self,
+                id,
+                "dispatched too many times without a terminal status",
+            )?;
             return Ok(false);
         }
         self.rm(&format!("wave-of/{id}"));

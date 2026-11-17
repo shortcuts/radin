@@ -159,3 +159,185 @@ fn a_lane_task_is_done_at_its_lane_commit_and_next_is_refused_in_lane_mode() {
         r.err
     );
 }
+
+fn commit_in(w: &W, dir: &Path, file: &str, text: &str) -> String {
+    std::fs::write(dir.join(file), text).unwrap();
+    w.git_at(dir, &["add", file]);
+    w.git_at(dir, &["commit", "-qm", &format!("edit {file}")]);
+    w.git_at(dir, &["rev-parse", "HEAD"])
+}
+
+fn lane_tree(w: &W, id: &str) -> std::path::PathBuf {
+    std::path::PathBuf::from(w.prep_dir(id))
+}
+
+#[test]
+fn lane_sync_merges_main_into_the_lane_only_when_main_moved() {
+    let w = W::new();
+    epics(&w);
+    w.lane_mode("main");
+    let r = w.state(&["lane-sync", "a-one"]);
+    assert_eq!((r.code, r.out.as_str()), (0, ""));
+    w.lane_mode("lanes");
+    assert_eq!(w.state(&["lane-sync", "a-one"]).out, "current\tea\n");
+    commit_in(&w, &w.p, "m.txt", "main\n");
+    let r = w.state(&["lane-sync", "a-one"]);
+    assert_eq!(r.code, 0, "{}", r.all());
+    assert!(r.out.starts_with("synced\tea\t"), "{}", r.out);
+    let wt = std::path::PathBuf::from(format!("{}-ea", w.p.display()));
+    assert_eq!(std::fs::read_to_string(wt.join("m.txt")).unwrap(), "main\n");
+    assert_eq!(w.state(&["lane-sync", "a-one"]).out, "current\tea\n");
+}
+
+#[test]
+fn lane_sync_hands_a_conflict_to_the_merge_agent_and_finishes_or_aborts() {
+    let w = W::new();
+    epics(&w);
+    w.lane_mode("lanes");
+    w.state(&["lane-sync", "a-one"]);
+    let wt = std::path::PathBuf::from(format!("{}-ea", w.p.display()));
+    commit_in(&w, &wt, "c.txt", "lane\n");
+    commit_in(&w, &w.p, "c.txt", "main\n");
+    let r = w.state(&["lane-sync", "a-one"]);
+    assert_eq!(r.code, 3, "{}", r.all());
+    assert_eq!(r.out, format!("conflict\tea\t{}\n", wt.display()));
+    assert!(
+        w.git_at(&wt, &["rev-parse", "-q", "--verify", "MERGE_HEAD"])
+            .len()
+            > 7
+    );
+    let r = w.state(&["prepare", "a-one"]);
+    assert_eq!(r.code, 1);
+    assert!(r.err.contains("has a merge in progress"), "{}", r.err);
+    assert_eq!(w.state(&["lane-sync", "a-one"]).code, 3);
+    std::fs::write(wt.join("c.txt"), "both\n").unwrap();
+    w.git_at(&wt, &["add", "c.txt"]);
+    let r = w.state(&["lane-sync", "a-one"]);
+    assert!(r.out.starts_with("synced\tea\t"), "{}", r.all());
+    commit_in(&w, &wt, "c.txt", "lane2\n");
+    commit_in(&w, &w.p, "c.txt", "main2\n");
+    assert_eq!(w.state(&["lane-sync", "a-one"]).code, 3);
+    assert_eq!(
+        w.state(&["lane-sync", "a-one", "--abort"]).out,
+        "aborted\tea\n"
+    );
+    assert_eq!(w.git_at(&wt, &["status", "--porcelain"]), "");
+    assert_eq!(
+        w.state(&["lane-sync", "a-one", "--abort"]).out,
+        "current\tea\n"
+    );
+}
+
+#[test]
+fn an_unrecovered_lane_task_is_parked_and_the_lane_resets() {
+    let w = W::new();
+    epics(&w);
+    w.lane_mode("lanes");
+    let wt = lane_tree(&w, "a-one");
+    let before = w.git_at(&wt, &["rev-parse", "HEAD"]);
+    assert_eq!(
+        w.read(".radin/state/lane-base/a-one"),
+        format!("{before}\n")
+    );
+    let work = commit_in(&w, &wt, "w.txt", "partial\n");
+    let line = "STATUS: FAILED — boom";
+    assert_eq!(w.state(&["task-report", "a-one", line]).code, 0);
+    let r = w.state(&["task-report", "a-one", line]);
+    assert_eq!(r.code, 0, "{}", r.all());
+    assert!(
+        r.out.contains("parked\ta-one\tradin/wip/a-one\t"),
+        "{}",
+        r.out
+    );
+    assert_eq!(w.git(&["rev-parse", "radin/wip/a-one~1"]), work);
+    assert_eq!(
+        w.git(&["log", "-1", "--format=%s", "radin/wip/a-one"]),
+        "wip(a-one): parked, boom"
+    );
+    assert_eq!(w.git_at(&wt, &["rev-parse", "HEAD"]), before);
+    assert_eq!(w.git_at(&wt, &["status", "--porcelain"]), "");
+    assert!(!w.exists(".radin/state/lane-base/a-one"));
+    let rep = w.state(&["report"]);
+    assert!(
+        rep.out.contains(
+            "Kept on a wip branch (resumes on the next batch):\n- a one — radin/wip/a-one at "
+        ) && rep.out.contains(": boom"),
+        "{}",
+        rep.all()
+    );
+    assert!(!w.state(&["leftovers"]).out.contains("wip"));
+}
+
+#[test]
+fn park_fires_on_inconclusive_and_set_status_but_not_on_blocked_clarify() {
+    let w = W::new();
+    epics(&w);
+    w.lane_mode("lanes");
+    let wt = lane_tree(&w, "a-one");
+    commit_in(&w, &wt, "one.txt", "1\n");
+    let r = w.state(&["set-status", "a-one", "blocked", "need a human"]);
+    assert_eq!(r.code, 0, "{}", r.all());
+    assert!(w.git_ok(&["rev-parse", "--verify", "-q", "radin/wip/a-one"]));
+    assert!(!wt.join("one.txt").exists());
+    lane_tree(&w, "a-two");
+    commit_in(&w, &wt, "two.txt", "2\n");
+    let r = w.state(&["task-report", "a-two", "STATUS: INCONCLUSIVE — no device"]);
+    assert!(
+        r.out.contains("parked\ta-two\tradin/wip/a-two\t"),
+        "{}",
+        r.all()
+    );
+    assert!(!wt.join("two.txt").exists());
+    lane_tree(&w, "b-one");
+    let eb = std::path::PathBuf::from(format!("{}-eb", w.p.display()));
+    commit_in(&w, &eb, "b.txt", "b\n");
+    w.state(&[
+        "task-report",
+        "b-one",
+        "STATUS: BLOCKED (FACT) — which api?",
+    ]);
+    assert!(eb.join("b.txt").exists());
+    assert!(!w.git_ok(&["rev-parse", "--verify", "-q", "radin/wip/b-one"]));
+}
+
+#[test]
+fn prepare_resumes_a_parked_task_from_its_wip_branch() {
+    let w = W::new();
+    epics(&w);
+    w.lane_mode("lanes");
+    let wt = lane_tree(&w, "a-one");
+    commit_in(&w, &wt, "w.txt", "wip\n");
+    w.state(&["set-status", "a-one", "blocked", "q"]);
+    let other = commit_in(&w, &wt, "w.txt", "other\n");
+    let r = w.state(&["prepare", "a-one"]);
+    assert_eq!(r.code, 1);
+    assert!(
+        r.err
+            .contains("resume of a-one from radin/wip/a-one conflicts with the lane"),
+        "{}",
+        r.err
+    );
+    assert!(w.git_ok(&["rev-parse", "--verify", "-q", "radin/wip/a-one"]));
+    assert_eq!(w.git_at(&wt, &["status", "--porcelain"]), "");
+    w.git_at(&wt, &["reset", "-q", "--hard", &format!("{other}~1")]);
+    let r = w.state(&["prepare", "a-one"]);
+    assert_eq!(r.code, 0, "{}", r.all());
+    assert_eq!(std::fs::read_to_string(wt.join("w.txt")).unwrap(), "wip\n");
+    assert!(!w.git_ok(&["rev-parse", "--verify", "-q", "radin/wip/a-one"]));
+    assert!(w
+        .state(&["journal-tail", "20"])
+        .out
+        .contains("\"event\":\"resume\""));
+}
+
+#[test]
+fn park_keeps_the_marker_across_a_retry() {
+    let w = W::new();
+    epics(&w);
+    w.lane_mode("lanes");
+    let wt = lane_tree(&w, "a-one");
+    let first = w.read(".radin/state/lane-base/a-one");
+    commit_in(&w, &wt, "x.txt", "x\n");
+    lane_tree(&w, "a-one");
+    assert_eq!(w.read(".radin/state/lane-base/a-one"), first);
+}

@@ -476,6 +476,7 @@ mod tests {
         for f in [
             "lib/radin-run.md",
             "lib/radin-batch-merge.md",
+            "lib/radin-batch-lanes.md",
             "skills/radin-review/SKILL.md",
             "skills/radin-record/SKILL.md",
             "skills/radin-do/SKILL.md",

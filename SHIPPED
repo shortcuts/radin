@@ -16,6 +16,7 @@ hostlib radin-prompt-debug.md
 hostlib radin-prompt-factfind.md
 hostlib radin-prompt-gate.md
 hostlib radin-prompt-merge.md
+hostlib radin-prompt-sync.md
 hostlib radin-leaf-contract.md
 hostlib radin-comment-rule.md
 hostlib radin-explore-rule.md
@@ -28,6 +29,7 @@ hostlib radin-batch-recovery.md
 hostlib radin-batch-reporting.md
 hostlib radin-batch-gate.md
 hostlib radin-batch-merge.md
+hostlib radin-batch-lanes.md
 hostlib radin-batch-clarify.md
 hostlib radin-batch-session.md
 hostlib radin-batch-resume.md

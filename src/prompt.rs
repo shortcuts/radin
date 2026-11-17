@@ -27,6 +27,13 @@ fn die<T>(m: impl AsRef<str>) -> R<T> {
     Err((1, String::new(), format!("radin-prompt: {}\n", m.as_ref())))
 }
 
+fn json_field(text: &str, key: &str) -> String {
+    let head = format!("\"{key}\":\"");
+    text.split_once(&head)
+        .and_then(|(_, r)| r.split_once('"'))
+        .map_or_else(String::new, |(v, _)| v.to_string())
+}
+
 fn chomp(s: &str) -> &str {
     s.trim_end_matches('\n')
 }
@@ -139,7 +146,7 @@ fn build(c: &Ctx, args: &[String]) -> R<Out> {
     let a = |i: usize| args.get(i).map_or("", String::as_str);
     let (kind, id, extra) = (a(0), a(1), a(2));
     if kind.is_empty() || (id.is_empty() && kind != "gate" && kind != "merge") {
-        return die("usage: radin prompt <planning|execution|debug|factfind> <id> [<failure|question>] | planning <id> [<earlier-id>...] | gate | merge [<branch>...]");
+        return die("usage: radin prompt <planning|execution|debug|factfind> <id> [<failure|question>] | planning <id> [<earlier-id>...] | gate | merge [<branch>...] | sync <id>");
     }
     if ![
         "planning",
@@ -148,6 +155,7 @@ fn build(c: &Ctx, args: &[String]) -> R<Out> {
         "factfind",
         "gate",
         "merge",
+        "sync",
     ]
     .contains(&kind)
     {
@@ -205,6 +213,38 @@ fn build(c: &Ctx, args: &[String]) -> R<Out> {
         sub(&mut body, "GATE_MAP", chomp(&map.1));
         let out = write_prompt(&ns, "session-gate.md", &body)?;
         return Ok(d.print("radin-gate", &out));
+    }
+    if kind == "sync" {
+        let dir = c.nested(&root, &["state", "task-dir", id]);
+        let base = fs::read_to_string(ns.join("state/baseline.json"))
+            .map(|t| json_field(&t, "base_branch"))
+            .unwrap_or_default();
+        let base = if base.is_empty() {
+            git(&root, &["rev-parse", "--abbrev-ref", "HEAD"])
+                .map(|b| chomp(&b).to_string())
+                .filter(|b| b != "HEAD" && !b.starts_with("radin/"))
+                .unwrap_or_default()
+        } else {
+            base
+        };
+        if base.is_empty() {
+            return die("no base branch");
+        }
+        let list = c.nested(&root, &["backlog", "list", "--order", "created"]);
+        let lane = list
+            .1
+            .lines()
+            .map(|l| l.split('\x1f').collect::<Vec<_>>())
+            .find(|f| f[0] == id)
+            .and_then(|f| f.get(3).map(|e| crate::backlog::epic_of(e)))
+            .filter(|e| !e.is_empty())
+            .unwrap_or_else(|| "maintenance".into());
+        sub(&mut body, "LEAF_CONTRACT", &leaf);
+        sub(&mut body, "SYNC_DIR", chomp(&dir.1));
+        sub(&mut body, "SYNC_BASE", &base);
+        sub(&mut body, "SYNC_LANE", &lane);
+        let out = write_prompt(&ns, &format!("session-sync-{id}.md"), &body)?;
+        return Ok(d.print("radin-sync", &out));
     }
     if kind == "merge" {
         if args.len() < 2 {

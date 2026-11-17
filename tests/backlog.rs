@@ -1877,3 +1877,10 @@ fn epic_move_onto_a_task_id_maintenance_dies_with_the_collision() {
         r.err
     );
 }
+
+#[test]
+fn epic_add_rejects_the_reserved_wip_slug() {
+    let w = W::new();
+    let r = w.fails(&["epic-add", "wip"], "d");
+    assert!(r.err.contains("epic id is reserved: wip"), "{}", r.err);
+}

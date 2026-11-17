@@ -60,8 +60,9 @@ fn task_fail(s: &S, id: &str, reason: &str) -> Result<Option<String>, Fail> {
     };
     s.write_entry(id, "failed", num(&entry, "attempts"), &note, None)?;
     s.entry_note(id, &format!("failed after its debug pass: {note}"));
+    let parked = super::park::park(s, id, reason)?.unwrap_or_default();
     Ok(Some(format!(
-        "❌ Task {order} '{title}' failed: {reason}. Kept on the backlog with a note, moving on.\n"
+        "❌ Task {order} '{title}' failed: {reason}. Kept on the backlog with a note, moving on.\n{parked}"
     )))
 }
 
@@ -407,7 +408,9 @@ fn report_inner(s: &S, a: &[String], usages: &[String], io: &mut Io) -> R {
         )?;
         let (order, title) = order_title(s, id);
         s.entry_note(id, &format!("inconclusive: {detail}"));
+        let parked = super::park::park(s, id, &format!("inconclusive: {detail}"))?;
         let _ = writeln!(io.out, "⚠️ Task {order} '{title}' inconclusive: {detail}. Not counted as a pass. Kept on the backlog with a note, moving on.");
+        io.out.push_str(&parked.unwrap_or_default());
         return next_continue(io);
     }
     if word == "SUCCESS" {
