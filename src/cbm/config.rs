@@ -357,6 +357,22 @@ mod tests {
     }
 
     #[test]
+    fn allow_collapses_an_existing_duplicate_of_its_rule() {
+        with_home(|c, h| {
+            let rule = format!("Read(/{}/.radin/**)", h.display());
+            fs::write(
+                settings(h),
+                format!(r#"{{"permissions": {{"allow": ["{rule}", "Bash(ls)", "{rule}"]}}}}"#),
+            )
+            .unwrap();
+            assert_eq!(allow(c).0, 0);
+            let t = fs::read_to_string(settings(h)).unwrap();
+            assert_eq!(t.matches(&rule).count(), 1, "{t}");
+            assert!(t.contains("Bash(ls)"));
+        });
+    }
+
+    #[test]
     fn allow_writes_a_rule_per_spelling_of_a_symlinked_radin_home() {
         with_home(|c, h| {
             fs::create_dir_all(h.join("rcfg")).unwrap();

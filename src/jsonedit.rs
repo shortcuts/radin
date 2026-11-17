@@ -665,6 +665,17 @@ pub fn edit_allow(arg: &str, add: bool, rules: &[&str]) -> Out {
                     }
                     changed = true;
                 }
+                (true, Some(_)) => {
+                    let before = allow.len();
+                    let mut seen = false;
+                    allow.retain(|v| {
+                        v.as_str() != Some(rule) || !std::mem::replace(&mut seen, true)
+                    });
+                    if allow.len() != before {
+                        let _ = writeln!(out, "DEDUPED  {path} (permissions.allow {rule})");
+                        changed = true;
+                    }
+                }
                 _ => {}
             }
         }
