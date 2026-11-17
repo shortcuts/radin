@@ -246,7 +246,7 @@ fn add_creates_an_index_line_and_a_task_file() {
         assert!(line.contains(k), "{line}");
     }
     assert_eq!(
-        fs::read_to_string(w.tasks().join("broken-auth.md")).unwrap(),
+        fs::read_to_string(w.tasks().join("maintenance/broken-auth.md")).unwrap(),
         "Auth times out after 5s.\n"
     );
 }
@@ -256,8 +256,8 @@ fn add_dedupes_ids_from_identical_titles() {
     let w = W::new();
     w.ok(&["add", "fix", "dup title"], "body 1");
     w.ok(&["add", "chore", "dup title"], "body 2");
-    assert!(w.tasks().join("dup-title.md").is_file());
-    assert!(w.tasks().join("dup-title-2.md").is_file());
+    assert!(w.tasks().join("maintenance/dup-title.md").is_file());
+    assert!(w.tasks().join("maintenance/dup-title-2.md").is_file());
 }
 
 #[test]
@@ -403,7 +403,7 @@ fn add_plan_puts_the_pointer_on_the_tasks_own_entry_only_never_in_a_body() {
         .contains(r#""plan":[".radin/plans/planned-thing.md"]"#));
     assert!(!w.line("next-thing").contains("\"plan\""));
     assert_eq!(
-        fs::read_to_string(w.tasks().join("planned-thing.md")).unwrap(),
+        fs::read_to_string(w.tasks().join("maintenance/planned-thing.md")).unwrap(),
         "the body\n"
     );
 }
@@ -463,8 +463,8 @@ fn remove_deletes_the_task_file_and_its_index_line() {
         w.ok(&["remove", "drop me"], ""),
         "removed \"drop me\" (id: drop-me)\n"
     );
-    assert!(!w.tasks().join("drop-me.md").exists());
-    assert!(w.tasks().join("keep-me.md").exists());
+    assert!(!w.tasks().join("maintenance/drop-me.md").exists());
+    assert!(w.tasks().join("maintenance/keep-me.md").exists());
     assert!(!w.index().contains("drop-me"));
     assert!(w.index().contains("keep-me"));
 }
@@ -502,7 +502,7 @@ fn nest_task(w: &W) {
     w.ok(&["add", "feat", "nested thing"], "body");
     fs::create_dir_all(w.tasks().join("epic-a")).unwrap();
     fs::rename(
-        w.tasks().join("nested-thing.md"),
+        w.tasks().join("maintenance/nested-thing.md"),
         w.tasks().join("epic-a/nested-thing.md"),
     )
     .unwrap();
@@ -538,11 +538,11 @@ fn retitle_changes_the_title_but_never_the_id_or_file() {
     for k in [
         r#""id":"old-name""#,
         r#""title":"new name""#,
-        r#""file":"tasks/old-name.md""#,
+        r#""file":"tasks/maintenance/old-name.md""#,
     ] {
         assert!(idx.contains(k), "{idx}");
     }
-    assert!(w.tasks().join("old-name.md").is_file());
+    assert!(w.tasks().join("maintenance/old-name.md").is_file());
     assert!(w
         .fails(&["retitle", "old-name", "a\tb"], "")
         .err
@@ -585,6 +585,52 @@ fn epic_set_replaces_the_description_and_rejects_a_missing_epic_and_a_non_slug()
         .err
         .contains("slug"));
     assert!(w.fails(&["epic-set"], "x").err.contains("epic-set"));
+}
+
+#[test]
+fn add_without_epic_files_the_task_under_a_created_maintenance_epic() {
+    let w = W::new();
+    w.ok(&["add", "fix", "first"], "b");
+    let desc = w.tasks().join("maintenance/DESCRIPTION.md");
+    let stock = "Orphan fixes and follow-ups that fit no feature epic: bug fixes, review and gate findings, tooling and doc chores.\n";
+    assert_eq!(std::fs::read_to_string(&desc).unwrap(), stock);
+    assert!(w.tasks().join("maintenance/first.md").is_file());
+    assert!(w.index().contains(r#""file":"tasks/maintenance/first.md""#));
+    std::fs::write(&desc, "edited\n").unwrap();
+    w.ok(&["add", "fix", "second"], "b");
+    assert_eq!(std::fs::read_to_string(&desc).unwrap(), "edited\n");
+    assert!(w.ok(&["epics"], "").contains("maintenance"));
+}
+
+#[test]
+fn add_with_epic_files_under_that_epic_and_rejects_an_unknown_one() {
+    let w = W::new();
+    w.ok(&["epic-add", "auth"], "ctx");
+    w.ok(&["add", "feat", "login", "--epic", "auth"], "b");
+    assert!(w.tasks().join("auth/login.md").is_file());
+    let before = w.index();
+    assert!(w
+        .fails(&["add", "feat", "x", "--epic", "ghost"], "b")
+        .err
+        .contains("no such epic: ghost"));
+    assert_eq!(w.index(), before);
+    assert!(!w.tasks().join("maintenance").exists());
+}
+
+#[test]
+fn add_default_epic_fails_when_a_task_uses_the_id_maintenance() {
+    let w = W::new();
+    w.set_index(
+        r#"{"id":"maintenance","category":"fix","title":"maintenance","file":"tasks/maintenance.md"}
+"#,
+    );
+    let before = w.index();
+    assert!(w
+        .fails(&["add", "fix", "x"], "b")
+        .err
+        .contains("a task already uses that id: maintenance"));
+    assert_eq!(w.index(), before);
+    assert!(!w.tasks().join("maintenance").exists());
 }
 
 #[test]
@@ -743,7 +789,7 @@ fn set_deps_and_add_deps_resolve_titles_and_refuse_no_match_or_several() {
     assert!(r.err.contains("matches 2 entries"), "{}", r.err);
     assert!(
         r.err
-            .contains("broken-auth-2\tfix\tBroken Auth\ttasks/broken-auth-2.md"),
+            .contains("broken-auth-2\tfix\tBroken Auth\ttasks/maintenance/broken-auth-2.md"),
         "{}",
         r.err
     );
@@ -760,7 +806,7 @@ fn remove_prunes_the_removed_id_from_other_entries_depends_on() {
     assert!(!w.index().contains("depends_on"));
     assert_eq!(
         w.ok(&["find", "keeper"], ""),
-        "keeper\tfeat\tkeeper\ttasks/keeper.md\t\t\n"
+        "keeper\tfeat\tkeeper\ttasks/maintenance/keeper.md\t\t\n"
     );
 }
 
@@ -803,7 +849,7 @@ fn a_failed_index_rewrite_leaves_no_tmp_behind_and_keeps_the_index_intact() {
     assert_ne!(r.code, 0);
     assert!(!dir.join("index.jsonl.tmp").exists());
     assert_eq!(w.index(), before);
-    assert!(w.tasks().join("doomed.md").is_file());
+    assert!(w.tasks().join("maintenance/doomed.md").is_file());
 }
 
 #[test]
@@ -849,7 +895,7 @@ fn a_title_carrying_a_json_looking_key_and_a_backslash_round_trips() {
     w.ok(&["add", "feat", "innocent"], "b");
     let list = w.ok(&["list"], "");
     assert!(list.contains(evil));
-    assert!(list.contains("tasks/evil-file-tasks-hack-md-and-back-slash.md"));
+    assert!(list.contains("tasks/maintenance/evil-file-tasks-hack-md-and-back-slash.md"));
     assert!(w.ok(&["find", evil], "").contains(evil));
     let f = w.ok(&["find", r"back\slash"], "");
     assert!(f.contains(evil) && !f.contains("innocent"));
@@ -1176,7 +1222,10 @@ fn field_and_find_in_a_linked_worktree_with_an_empty_backlog_read_the_main_check
     w.git(&w.proj, &["worktree", "add", "-q", wt.to_str().unwrap()]);
     let r = w.run_in(&wt, &["field", "base", "TASK_FILE"], "", &[]);
     assert_eq!(r.code, 0, "{}", r.err);
-    assert_eq!(r.out, format!("{}\n", w.tasks().join("base.md").display()));
+    assert_eq!(
+        r.out,
+        format!("{}\n", w.tasks().join("maintenance/base.md").display())
+    );
     assert_eq!(w.run_in(&wt, &["find", "base"], "", &[]).code, 0);
 }
 
@@ -1260,7 +1309,7 @@ fn plan_target_reports_each_route_by_exit_code() {
     w.ok(&["add", "feat", "solo"], "b");
     let r = w.cli(&["plan-target", "solo"], "");
     let (tasks, plans) = (
-        w.tasks().join("solo.md"),
+        w.tasks().join("maintenance/solo.md"),
         w.proj.join(".radin/plans/solo.md"),
     );
     assert_eq!(r.code, 0);
@@ -1377,7 +1426,7 @@ fn fact_appends_the_line_and_long_sets_facts() {
         ],
         "",
     );
-    let body = fs::read_to_string(w.tasks().join("fx.md")).unwrap();
+    let body = fs::read_to_string(w.tasks().join("maintenance/fx.md")).unwrap();
     assert_eq!(
         body,
         "body\n\n**Fact:** [measured] ran it\n\n**Fact:** [guess] maybe\n"
@@ -1407,6 +1456,7 @@ fn fact_appends_the_line_and_long_sets_facts() {
 fn field_prints_each_placeholder_and_exits_1_with_nothing_when_empty() {
     let w = W::new();
     w.ok(&["add", "feat", "flat"], "flat body");
+    w.ok(&["epic-move", "flat", "--none"], "");
     w.ok(
         &[
             "add",
@@ -1637,6 +1687,8 @@ fn show_prints_categories_and_an_epic_section() {
     w.ok(&["add", "feat", "flat one"], "flat body");
     w.ok(&["add", "feat", "kid one"], "kid body");
     w.ok(&["add", "fix", "a fix"], "fix body");
+    w.ok(&["epic-move", "flat one", "--none"], "");
+    w.ok(&["epic-move", "a fix", "--none"], "");
     w.ok(&["set-meta", "flat one", "acceptance", "crit"], "");
     w.ok(&["epic-move", "kid one", "grp"], "");
     assert_eq!(

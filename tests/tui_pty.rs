@@ -35,7 +35,10 @@ impl Fx {
     fn add(&self, cat: &str, title: &str) -> String {
         let (code, out, err) = self.bl(&["add", cat, title], "body\n");
         assert_eq!(code, 0, "{err}");
-        out.trim().to_string()
+        let id = out.trim().to_string();
+        let (code, _, err) = self.bl(&["epic-move", &id, "--none"], "");
+        assert_eq!(code, 0, "{err}");
+        id
     }
 
     fn seed(&self) {
@@ -141,13 +144,13 @@ fn a_creates_a_task_from_the_category_key_title_and_editor_body() {
     let mut t = fx.tui(&[("EDITOR", &fx.typist())]);
     t.keys("ax");
     t.keys("from tui\r");
-    t.wait_for("[1/1]");
+    t.wait_for("[1/2]");
     t.keys("q");
     assert!(
         fx.index().contains("\"id\":\"from-tui\"") && fx.index().contains("\"category\":\"fix\"")
     );
     assert_eq!(
-        read(&fx.ns().join("backlog/tasks/from-tui.md")).trim_end(),
+        read(&fx.ns().join("backlog/tasks/maintenance/from-tui.md")).trim_end(),
         "typed body"
     );
     assert_eq!(t.exit_code(), 0);

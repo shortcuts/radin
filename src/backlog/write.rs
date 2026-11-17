@@ -1,4 +1,4 @@
-use super::epic::{epic_deps, prune_empty_epic, tasks_cyclic};
+use super::epic::{epic_deps, prune_empty_epic, require_epic_id, tasks_cyclic};
 use super::index::{
     iso_utc, require_meta_value, require_no_moved_label, require_plain_title, require_priority,
     slugify, strs, Entry, Index, CATEGORIES, PRIORITY_SCALE,
@@ -44,6 +44,22 @@ fn resolve_deps(idx: &Index, csv: &str) -> Result<Vec<String>, Fail> {
     Ok(ids)
 }
 
+const MAINTENANCE: &str = "maintenance";
+const MAINTENANCE_DESCRIPTION: &str = "Orphan fixes and follow-ups that fit no feature epic: bug fixes, review and gate findings, tooling and doc chores.\n";
+
+fn ensure_maintenance(cx: &Ctx, idx: &Index) -> Result<(), super::Fail> {
+    let dir = cx.ns.backlog_tasks_dir.join(MAINTENANCE);
+    if dir.is_dir() {
+        return Ok(());
+    }
+    if idx.has_id(MAINTENANCE) {
+        return Err(die(format!("a task already uses that id: {MAINTENANCE}")));
+    }
+    fs::create_dir_all(&dir)
+        .and_then(|()| fs::write(dir.join("DESCRIPTION.md"), MAINTENANCE_DESCRIPTION))
+        .map_err(|e| die(e.to_string()))
+}
+
 pub fn add(cx: &Ctx, a: &[String], io: &mut Io) -> R {
     let (category, title) = (arg(a, 0), arg(a, 1));
     if title.is_empty() {
@@ -60,6 +76,7 @@ pub fn add(cx: &Ctx, a: &[String], io: &mut Io) -> R {
     }
     let (mut skills, mut accept) = (vec![], vec![]);
     let (mut planning, mut complexity, mut location, mut origin, mut deps) = ("", "", "", "", "");
+    let mut epic = "";
     let mut i = 2;
     while i < a.len() {
         let o = a[i].as_str();
@@ -71,6 +88,7 @@ pub fn add(cx: &Ctx, a: &[String], io: &mut Io) -> R {
             "--location" => "--location needs a path:line",
             "--origin" => "--origin needs a task id",
             "--deps" => "--deps needs a csv of ids or titles",
+            "--epic" => "--epic needs an epic id",
             _ => return Err(usage_die("add", &format!("unknown add option: {o}"))),
         };
         let v = opt_val(a, i, "add", need)?;
@@ -81,6 +99,7 @@ pub fn add(cx: &Ctx, a: &[String], io: &mut Io) -> R {
             "--complexity" => complexity = v,
             "--location" => location = v,
             "--origin" => origin = v,
+            "--epic" => epic = v,
             _ => deps = v,
         }
         i += 2;
@@ -112,7 +131,14 @@ pub fn add(cx: &Ctx, a: &[String], io: &mut Io) -> R {
         id = format!("{base}-{n}");
         n += 1;
     }
-    let rel = format!("tasks/{id}.md");
+    let epic = if epic.is_empty() {
+        ensure_maintenance(cx, &idx)?;
+        MAINTENANCE
+    } else {
+        require_epic_id(cx, epic)?;
+        epic
+    };
+    let rel = format!("tasks/{epic}/{id}.md");
     fs::write(idx.task_path(&rel), format!("{body}\n")).map_err(|e| die(e.to_string()))?;
     let mut obj = Map::new();
     for (k, v) in [

@@ -139,7 +139,10 @@ impl Fx {
     fn add(&self, cat: &str, title: &str, body: &str) -> String {
         let (code, out, err) = self.bl(&["add", cat, title], &format!("{body}\n"));
         assert_eq!(code, 0, "{err}");
-        out.trim().to_string()
+        let id = out.trim().to_string();
+        let (code, _, err) = self.bl(&["epic-move", &id, "--none"], "");
+        assert_eq!(code, 0, "{err}");
+        id
     }
 
     fn seed(&self) {
@@ -273,7 +276,7 @@ fn a_creates_a_task_from_category_title_and_editor_body() {
             .starts_with("tui-body."));
         assert!(!path.exists());
         assert!(fx.entry("from-tui").contains("\"category\":\"fix\""));
-        assert_eq!(fx.read("from-tui.md").trim_end(), "typed body");
+        assert_eq!(fx.read("maintenance/from-tui.md").trim_end(), "typed body");
     });
 }
 
@@ -1289,6 +1292,7 @@ fn the_task_pane_shows_meta_dependency_titles_dependents_and_open_decisions() {
         "Top.\n**Open decision:** Which cache?\n",
     );
     assert_eq!(code, 0, "{err}");
+    fx.bl(&["epic-move", "top-thing", "--none"], "");
     fx.with(|a| {
         let s = render(a, 140, 40);
         assert!(s.has("blocks     top-thing -- top thing"), "{}", s.text());

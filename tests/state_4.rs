@@ -136,10 +136,10 @@ fn task_report_success_journals_the_summary_and_each_unproven_criterion() {
     );
     w.steps_init("t-two\t1\t\tpending\n");
     w.write(
-        ".radin/backlog/tasks/t-two.md",
+        ".radin/backlog/tasks/maintenance/t-two.md",
         &format!(
             "{}**Fact:** [measured] crit one: ran\n",
-            w.read(".radin/backlog/tasks/t-two.md")
+            w.read(".radin/backlog/tasks/maintenance/t-two.md")
         ),
     );
     w.commit_files(&["lib/p.sh"]);
@@ -695,7 +695,7 @@ fn journal_completed_and_telemetry_carry_the_run_dispatch_and_wave() {
     let tail = format!("\"run\":\"{run}\",\"attempts\":1,\"debugged\":1,\"claimed\":\"20");
     assert!(line.contains(&tail), "{line}");
     assert!(
-        line.ends_with("\",\"category\":\"fix\",\"priority\":\"\",\"epic\":\"\",\"complexity\":\"low\",\"acceptance\":\"crit a\"}\n"),
+        line.ends_with("\",\"category\":\"fix\",\"priority\":\"\",\"epic\":\"maintenance\",\"complexity\":\"low\",\"acceptance\":\"crit a\"}\n"),
         "{line}"
     );
 }

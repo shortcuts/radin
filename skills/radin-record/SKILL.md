@@ -146,7 +146,9 @@ Classify into exactly one category (conventional-commit vocabulary):
 
 Then group. Two or more items in the batch that serve one feature, goal or
 raised thing form an **epic**. Run `RADIN_CLI backlog epics` first. When an existing
-epic already covers the goal, reuse it. A lone item gets no epic.
+epic's description covers the goal (read it with `RADIN_CLI backlog epic-show <id>`),
+reuse it. Else, when the item has kin in this batch, create a new epic. Else omit
+`--epic`, and the CLI files the item under `maintenance`.
 
 **The test:** would each body repeat the same background, the same `**Raised as:**`
 quote or the same constraint? Then it belongs in the epic.
@@ -191,7 +193,7 @@ EOF
 For each approved item:
 
 ```bash
-RADIN_CLI backlog add <category> "<short title>" [--skill <skill-name>] [--acceptance "<criterion>"] [--planning needed] [--complexity low|high] <<'EOF'
+RADIN_CLI backlog add <category> "<short title>" [--skill <skill-name>] [--acceptance "<criterion>"] [--planning needed] [--complexity low|high] [--epic <epic-slug>] <<'EOF'
 <the description: what was being worked on, the item close to how the user
 stated it, why it matters>
 
@@ -217,11 +219,7 @@ with no bullet and no checkbox. Never ask for criteria, never synthesise one.
 Pass `--planning needed` on each approved entry whose verdict is "needed", and
 `--complexity <low|high>` on every other entry.
 
-Once every `add` has printed its id, file each child under its epic, one call per child:
-
-```bash
-RADIN_CLI backlog epic-move <id> <epic-slug>
-```
+Pass `--epic <epic-slug>` on each item that belongs to an epic.
 
 Then record Step 4's
 dependencies, one call per dependent entry, always after all the adds:

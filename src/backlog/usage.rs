@@ -25,7 +25,7 @@ pub const USAGE: &[(&str, &str)] = &[
     ),
     (
         "add",
-        r##"add <category> <title> [--skill <name>]... [--acceptance <criterion>]... [--planning needed] [--complexity low|high] [--location <path:line>] [--origin <task-id>] [--deps <csv-of-ids-or-titles>]  # create task, body read from stdin, prints its bare id on stdout (the human sentence goes to stderr)"##,
+        r##"add <category> <title> [--skill <name>]... [--acceptance <criterion>]... [--planning needed] [--complexity low|high] [--location <path:line>] [--origin <task-id>] [--deps <csv-of-ids-or-titles>] [--epic <epic-id>]  # create task (default epic: maintenance, created on first use), body read from stdin, prints its bare id on stdout (the human sentence goes to stderr)"##,
     ),
     (
         "add-plan",
