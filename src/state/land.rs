@@ -1,61 +1,10 @@
 use super::git::{branch_worktree, commit_dirty, dirty_files, g, gt, gx, ok, wip_commit};
 use super::leftover;
-use super::store::{self, get, json_escape};
+use super::store::get;
 use super::{arg, die, S};
 use crate::backlog::{Fail, Io, R};
 use std::fmt::Write;
 use std::path::Path;
-
-impl S<'_> {
-    /// The unmerged dependency of `id` whose branch holds every other unmerged dependency's tip.
-    pub fn stack_parent(&self, id: &str) -> String {
-        let deps = self
-            .entry(id)
-            .map(|e| store::deps_csv(&e))
-            .unwrap_or_default();
-        let cands: Vec<&str> = deps
-            .split(',')
-            .filter(|d| {
-                !d.is_empty()
-                    && self.completed_get(d).is_none()
-                    && self.exists(&format!("unmerged/{d}"))
-                    && self.branch_exists(&format!("radin/{d}"))
-            })
-            .collect();
-        cands
-            .iter()
-            .find(|c| {
-                cands.iter().all(|o| {
-                    self.git_ok(&[
-                        "merge-base",
-                        "--is-ancestor",
-                        &format!("radin/{o}"),
-                        &format!("radin/{c}"),
-                    ])
-                })
-            })
-            .map_or_else(String::new, |c| c.to_string())
-    }
-
-    fn stack_depth(&self, id: &str) -> usize {
-        let (mut d, mut id) = (0, id.to_string());
-        while d < 1000 {
-            let p = self
-                .read(&format!("stacked/{id}"))
-                .split(' ')
-                .next()
-                .unwrap_or("")
-                .trim()
-                .to_string();
-            if p.is_empty() || !self.branch_exists(&format!("radin/{p}")) {
-                break;
-            }
-            d += 1;
-            id = p;
-        }
-        d
-    }
-}
 
 fn must(ok: bool) -> Result<(), Fail> {
     if ok {
@@ -192,7 +141,7 @@ pub fn prepare(s: &S, a: &[String], io: &mut Io) -> R {
     if id.is_empty() {
         return Err(die("usage: prepare <id>"));
     }
-    let (dir, lane) = if s.lane_mode() == "lanes" {
+    let dir = if s.lane_mode() == "lanes" {
         let lane = super::lanes::task_epic(s, id)?;
         let wt = ensure_lane_tree(s, &lane, io)?;
         if super::park::merge_in_progress(&wt) {
@@ -208,30 +157,14 @@ pub fn prepare(s: &S, a: &[String], io: &mut Io) -> R {
             id,
             &format!("worktree={} branch=radin/{lane}", wt.display()),
         );
-        (wt, lane)
+        wt
     } else {
         prepare_commit(s, &s.root, id, io)?;
         resume_wip(s, &s.root, id, io)?;
         s.journal("prepare", id, "current checkout, current branch");
-        (s.root.clone(), String::new())
+        s.root.clone()
     };
     apply_claim(s, &dir, id, io);
-    let real = gt(&dir, &["rev-parse", "--abbrev-ref", "HEAD"]);
-    let wt_record = if lane.is_empty() {
-        String::new()
-    } else {
-        dir.to_string_lossy().into_owned()
-    };
-    s.set_marker(
-        id,
-        &format!("prepared/{id}.json"),
-        &format!(
-            "{{\"branch\":\"{}\",\"worktree\":\"{}\",\"lane\":\"{}\"}}\n",
-            json_escape(&real),
-            json_escape(&wt_record),
-            json_escape(&lane)
-        ),
-    );
     let _ = writeln!(io.out, "{}", dir.display());
     Ok(0)
 }
@@ -331,11 +264,24 @@ fn follow_up(s: &S, id: &str, hash: &str, io: &mut Io) -> bool {
     true
 }
 
+fn finished_on_branch(s: &S, id: &str) -> bool {
+    super::branches::last_event(s, id, &["done-unmerged", "in_progress", "done"]).as_deref()
+        == Some("done-unmerged")
+}
+
 fn record_landed(s: &S, id: &str, hash: &str, io: &mut Io) -> bool {
-    if !s.exists(&format!("unmerged/{id}")) {
+    let clear = |s: &S| {
+        for rel in [
+            format!("landing/{id}"),
+            format!("landing/{id}.follow-up"),
+            format!("conflict/{id}"),
+        ] {
+            s.clear_marker(id, &rel);
+        }
+    };
+    if !finished_on_branch(s, id) {
         if s.find_row(id).is_none() {
-            s.clear_marker(id, &format!("landing/{id}"));
-            s.clear_marker(id, &format!("conflict/{id}"));
+            clear(s);
             return true;
         }
         if !follow_up(s, id, hash, io) {
@@ -346,21 +292,12 @@ fn record_landed(s: &S, id: &str, hash: &str, io: &mut Io) -> bool {
             return false;
         }
     }
-    s.set_marker(id, &format!("prepared/{id}.merged"), "");
     let mut d = Io::default();
-    let r = super::done::task_done(s, id, hash, &mut d);
+    let r = super::done::record_done(s, id, hash, &mut d);
     io.err.push_str(&d.out);
     io.err.push_str(&d.err);
     if matches!(r, Ok(0)) {
-        for rel in [
-            format!("unmerged/{id}"),
-            format!("landing/{id}"),
-            format!("landing/{id}.follow-up"),
-            format!("conflict/{id}"),
-            format!("stacked/{id}"),
-        ] {
-            s.clear_marker(id, &rel);
-        }
+        clear(s);
         true
     } else {
         if let Err(e) = r {
@@ -420,7 +357,7 @@ pub fn reconcile(s: &S, io: &mut Io) -> R {
     if base.is_empty() {
         return Ok(0);
     }
-    for dir in ["unmerged", "landing", "conflict"] {
+    for dir in ["landing", "conflict"] {
         for (uid, path) in s.files_in(dir) {
             if uid.ends_with(".follow-up") || !path.is_file() {
                 continue;
@@ -462,14 +399,8 @@ pub fn reconcile(s: &S, io: &mut Io) -> R {
     settle_checkout(s, &base, io)?;
     let worktrees = s.gt(&["worktree", "list", "--porcelain"]);
     let lanes = super::lanes::lane_names(s)?;
-    let mut order: Vec<(usize, String)> = s
-        .radin_branches()
-        .into_iter()
-        .map(|b| (s.stack_depth(b.trim_start_matches("radin/")), b))
-        .collect();
-    order.sort_by_key(|(d, _)| *d);
     let (mut merged, mut conflicts): (Vec<String>, Vec<String>) = (Vec::new(), Vec::new());
-    for (_, rb) in order {
+    for rb in s.radin_branches() {
         let rid = rb.trim_start_matches("radin/").to_string();
         if super::lanes::is_lane(s, &lanes, &rid) {
             let _ = writeln!(io.out, "skipped\t{rb}\tlane");
@@ -495,53 +426,20 @@ pub fn reconcile(s: &S, io: &mut Io) -> R {
                 );
             }
         }
-        let stacked = format!("stacked/{rid}");
-        if s.state.join(&stacked).is_file() {
-            let mark = s.read(&stacked);
-            let mut f = mark.split_whitespace();
-            let (sparent, sbase) = (f.next().unwrap_or(""), f.next().unwrap_or(""));
-            if s.branch_exists(&format!("radin/{sparent}")) {
-                let _ = writeln!(io.out, "skipped\t{rb}\twaiting on radin/{sparent}");
-                s.journal(
-                    "reconcile-skipped",
-                    &rid,
-                    &format!("waiting on radin/{sparent}"),
-                );
-                continue;
-            }
-            let rdir = wt_dir.clone().unwrap_or_else(|| s.root.clone());
-            if gx(&rdir, &["rebase", "--onto", &base, sbase, &rb], io) {
-                s.clear_marker(&rid, &stacked);
-                gx(&s.root, &["checkout", "-q", &base], io);
-            } else {
-                gx(&rdir, &["rebase", "--abort"], io);
-                gx(&s.root, &["checkout", "-q", &base], io);
-                s.set_marker(
-                    &rid,
-                    &format!("conflict/{rid}"),
-                    &format!("{}\n", s.gt(&["rev-parse", "--short=12", &rb])),
-                );
-                let _ = writeln!(io.out, "conflict\t{rb}");
-                conflicts.push(rb);
-                continue;
-            }
-        }
         let tip = s.gt(&["rev-parse", "--short=12", &rb]);
         if s.landed(&tip, &base) {
             let ahead: u64 = s
                 .gt(&["rev-list", "--count", &format!("{base}..{rb}")])
                 .parse()
                 .unwrap_or(0);
-            if s.exists(&format!("unmerged/{rid}")) || ahead > 0 {
+            if finished_on_branch(s, &rid) || ahead > 0 {
                 record_landed(s, &rid, &tip, io);
             }
             drop_branch(s, &rid, &rb, &wt, io);
             let _ = writeln!(io.out, "removed\t{rb}");
             continue;
         }
-        if !s.exists(&format!("unmerged/{rid}")) {
-            s.set_marker(&rid, &format!("landing/{rid}"), &format!("{tip}\n"));
-        }
+        s.set_marker(&rid, &format!("landing/{rid}"), &format!("{tip}\n"));
         if squash_merge_one(s, &rid, &rb, &wt, &tip, io) {
             merged.push(rb);
         } else {

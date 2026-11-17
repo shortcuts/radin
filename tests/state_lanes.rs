@@ -124,12 +124,13 @@ fn prepare_works_on_main_in_main_mode_and_in_the_lane_worktree_in_lanes_mode() {
     assert_eq!(w.prep_dir("a-one"), w.p.to_string_lossy());
     assert!(w.git(&["branch", "--list", "radin/*"]).is_empty());
     assert_eq!(
-        w.read(".radin/state/prepared/a-one.json"),
-        format!("{{\"branch\":\"{base}\",\"worktree\":\"\",\"lane\":\"\"}}\n")
+        w.state(&["task-dir", "a-one"]).out,
+        format!("{}\n", w.p.display())
     );
     w.lane_mode("lanes");
     let wt = format!("{}-ea", w.p.display());
     assert_eq!(w.prep_dir("a-one"), wt);
+    assert_eq!(w.state(&["task-dir", "a-one"]).out, format!("{wt}\n"));
     assert_eq!(
         w.git_at(Path::new(&wt), &["branch", "--show-current"]),
         "radin/ea"
@@ -163,7 +164,10 @@ fn a_lane_task_is_done_at_its_lane_commit_and_next_is_refused_in_lane_mode() {
     assert_eq!(r.code, 0, "{}", r.all());
     assert!(!r.all().contains("unmerged"), "{}", r.all());
     assert_eq!(w.state(&["completed-show", "a-one"]).code, 0);
-    assert!(w.state(&["completed-show", "a-one"]).out.contains(&hash));
+    let shown = w.state(&["completed-show", "a-one"]).out;
+    assert!(shown.contains(&hash), "{shown}");
+    assert!(shown.contains("branch\tradin/ea\n"), "{shown}");
+    assert!(shown.contains(&format!("worktree\t{wt}\n")), "{shown}");
     let r = w.state(&["task-report", "a-two", "STATUS: FAILED — boom", "--next"]);
     assert_eq!(r.code, 1);
     assert!(

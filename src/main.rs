@@ -10,7 +10,7 @@ fn main() {
     let reads_stdin = match first {
         Some("scope" | "install" | "update") => true,
         Some("state") => match words.next().map(String::as_str) {
-            Some("steps-init" | "wave-partition" | "review-findings") => true,
+            Some("steps-init" | "review-findings") => true,
             Some("base-failing") => args.iter().any(|a| a == "--set"),
             _ => false,
         },

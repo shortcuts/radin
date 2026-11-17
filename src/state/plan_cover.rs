@@ -67,39 +67,6 @@ pub fn plan_extras(dir: &Path, hash: &str, plan: &[String]) -> String {
     extras.join(",")
 }
 
-pub fn norm_path(root: &Path, p: &str) -> String {
-    let p = p.strip_prefix("./").unwrap_or(p);
-    if !p.ends_with('/') && root.join(p).is_dir() {
-        format!("{p}/")
-    } else {
-        p.to_string()
-    }
-}
-
-fn path_overlap(a: &str, b: &str) -> Option<String> {
-    if a == b || (a.ends_with('/') && b.starts_with(a)) {
-        Some(b.to_string())
-    } else if b.ends_with('/') && a.starts_with(b) {
-        Some(a.to_string())
-    } else {
-        None
-    }
-}
-
-pub fn shared_paths(a: &[String], b: &[String]) -> String {
-    let mut out: Vec<String> = Vec::new();
-    for x in a.iter().filter(|x| !x.is_empty()) {
-        for y in b.iter().filter(|y| !y.is_empty()) {
-            if let Some(hit) = path_overlap(x, y) {
-                if !out.contains(&hit) {
-                    out.push(hit);
-                }
-            }
-        }
-    }
-    out.join(",")
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -147,15 +114,5 @@ mod tests {
         let d = tempfile::tempdir().unwrap();
         std::fs::create_dir(d.path().join("lib")).unwrap();
         assert!(plan_covers_file(d.path(), "lib/new.sh", &v(&["lib"])));
-        assert_eq!(norm_path(d.path(), "./lib"), "lib/");
-        assert_eq!(norm_path(d.path(), "lib/a.sh"), "lib/a.sh");
-    }
-
-    #[test]
-    fn overlap_keeps_the_longer_path_and_ignores_name_prefixes() {
-        assert_eq!(shared_paths(&v(&["lib/x.sh"]), &v(&["lib/"])), "lib/x.sh");
-        assert_eq!(shared_paths(&v(&["lib/"]), &v(&["lib/x.sh"])), "lib/x.sh");
-        assert_eq!(shared_paths(&v(&["lib/a/"]), &v(&["lib/ab.sh"])), "");
-        assert_eq!(shared_paths(&v(&["a", "b"]), &v(&["b", "a"])), "a,b");
     }
 }

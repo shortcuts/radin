@@ -339,7 +339,7 @@ fn a_task_key_on_an_epic_header_reports_no_task() {
     fx.two_epics();
     let before = fx.index();
     fx.with(|a| {
-        assert!(press(a, "dcrpDm").is_empty());
+        assert!(press(a, "dcrDm").is_empty());
         assert!(render(a, 80, 24).has("epic header selected -- no task here"));
     });
     assert_eq!(fx.index(), before);
@@ -764,15 +764,15 @@ fn p_picks_a_priority_and_then_clears_it() {
     let fx = Fx::new();
     fx.seed();
     fx.with(|a| {
-        press(a, "p\r");
+        press(a, ":priority\r\r");
     });
     assert!(fx.entry("dark-mode").contains("\"priority\":21"));
     fx.with(|a| {
-        press(a, "pj\r");
+        press(a, ":priority\rj\r");
     });
     assert!(fx.entry("dark-mode").contains("\"priority\":13"));
     fx.with(|a| {
-        press(a, "pG\r");
+        press(a, ":priority\rG\r");
     });
     assert!(!fx.entry("dark-mode").contains("\"priority\""));
 }
@@ -784,14 +784,14 @@ fn the_picker_cancels_on_q_and_escape() {
     let before = fx.index();
     fx.with(|a| {
         let s = {
-            press(a, "p");
+            press(a, ":priority\r");
             render(a, 80, 24)
         };
         assert!(s.has("priority for dark-mode (higher wins)") && s.has("enter select  q cancel"));
         assert!(s.has("(none) -- clear the priority"));
         press(a, "q");
         assert!(render(a, 80, 24).has("priority cancelled"));
-        press(a, "p\u{1b}");
+        press(a, ":priority\r\u{1b}");
         assert!(render(a, 80, 24).has("priority cancelled"));
         press(a, "m");
         assert!(render(a, 80, 24).has("no epics yet -- press E to create one"));
@@ -1046,7 +1046,7 @@ fn a_mutation_leaves_the_row_where_it_was_and_a_creates_at_the_bottom() {
             .collect::<Vec<_>>()
     };
     fx.with(|a| {
-        press(a, "jp\r");
+        press(a, "j:priority\r\r");
         assert_eq!(a.m.sel, 1);
         press(a, "q");
     });
@@ -1153,7 +1153,7 @@ fn a_refresh_keeps_the_selected_task_selected_when_a_row_above_it_goes() {
 }
 
 #[test]
-fn w_toggles_the_parallel_switch_and_persists_it() {
+fn p_toggles_the_parallel_switch_and_persists_it() {
     let fx = Fx::new();
     fx.seed();
     let session = || {
@@ -1164,13 +1164,13 @@ fn w_toggles_the_parallel_switch_and_persists_it() {
     };
     fx.with(|a| {
         assert!(render(a, 80, 24).has("par:yes"));
-        press(a, "w");
+        press(a, "p");
         assert!(render(a, 80, 24).has("parallel: no"));
     });
     assert_eq!(session(), r#"{"parallel":false}"#);
     fx.with(|a| {
         assert!(render(a, 80, 24).has("par:no"));
-        press(a, "w");
+        press(a, "p");
     });
     assert_eq!(session(), r#"{"parallel":true}"#);
 }

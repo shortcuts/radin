@@ -291,10 +291,6 @@ impl S<'_> {
         if !unchanged {
             let mut x = vec![("from", from)];
             x.extend(self.dispatch_extras(id, None));
-            x.push((
-                "wave",
-                self.read(&format!("wave-of/{id}")).trim().to_string(),
-            ));
             self.journal_ctx(status, id, note, &x);
         }
         Ok(())
@@ -379,7 +375,6 @@ impl S<'_> {
             )?;
             return Ok(false);
         }
-        self.rm(&format!("wave-of/{id}"));
         self.dispatch_new(
             id,
             if status == "pending" {

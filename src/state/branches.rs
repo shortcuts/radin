@@ -1,6 +1,6 @@
 use super::git::{branch_worktree, dirty_files, g};
 use super::store::{self, get, json_escape, num, read_lines};
-use super::{arg, die, mkdir, positive, write, S};
+use super::{arg, die, mkdir, write, S};
 use crate::backlog::{Io, R};
 use std::fmt::Write;
 use std::path::Path;
@@ -51,68 +51,6 @@ pub fn session_get(s: &S, io: &mut Io) -> R {
         "parallel\t{}",
         if s.session_parallel() { "yes" } else { "no" }
     );
-    Ok(0)
-}
-
-pub fn group_set(s: &S, a: &[String]) -> R {
-    let mut a = a;
-    let mut wave = String::new();
-    if arg(a, 0) == "--wave" {
-        wave = arg(a, 1).to_string();
-        if !positive(&wave) {
-            return Err(die(format!(
-                "group-set: --wave needs a positive integer, got: {wave}"
-            )));
-        }
-        a = &a[2.min(a.len())..];
-    }
-    let usage = || die("usage: group-set [--wave N] <id>...");
-    if a.is_empty() {
-        return Err(usage());
-    }
-    if !s.state.is_dir() {
-        return Err(die(format!("no state dir: {}", s.state.display())));
-    }
-    if a.iter().any(|g| {
-        g.is_empty()
-            || !g
-                .bytes()
-                .all(|c| c.is_ascii_alphanumeric() || matches!(c, b'.' | b'_' | b'-'))
-    }) {
-        return Err(usage());
-    }
-    if let Ok(parts) = std::fs::read_to_string(s.state.join("partition")) {
-        // Only the latest partition may start a run; merging its groups is what it exists to stop.
-        let group_of = |id: &str| parts.lines().position(|l| l.split(',').any(|m| m == id));
-        let first = group_of(&a[0]);
-        if let Some(bad) = a.iter().find(|id| group_of(id).is_none()) {
-            return Err(die(format!(
-                "group-set: '{bad}' is in no group of the latest wave-partition"
-            )));
-        }
-        if a.iter().any(|id| group_of(id) != first) {
-            let groups: Vec<&str> = parts.lines().collect();
-            return Err(die(format!(
-                "group-set: those tasks are in different groups of the latest wave-partition; run one group, or a subset of it. groups: {}",
-                groups.join(" | ")
-            )));
-        }
-    }
-    let ids = a.join(",");
-    let mut detail = format!("ids={ids}");
-    if !wave.is_empty() {
-        mkdir(s, "wave-of");
-        for id in a {
-            write(s, &format!("wave-of/{id}"), &wave);
-        }
-        detail += &format!("; wave={wave}");
-    }
-    s.journal_ctx("group", "", &detail, &[("wave", wave.clone())]);
-    let mut kv = vec![format!("ids={ids}"), format!("size={}", a.len())];
-    if !wave.is_empty() {
-        kv.push(format!("wave={wave}"));
-    }
-    s.telemetry("dispatched", &kv);
     Ok(0)
 }
 
@@ -193,14 +131,6 @@ pub fn session_commits(s: &S) -> Option<String> {
         .map(|l| get(l, "commit"))
         .filter(|h| !h.is_empty())
         .collect();
-    for (_, p) in s.files_in("unmerged") {
-        out.push(
-            std::fs::read_to_string(p)
-                .unwrap_or_default()
-                .trim_end_matches('\n')
-                .to_string(),
-        );
-    }
     let fixes = s.read("gate-fixes");
     if !fixes.is_empty() {
         out.push(fixes.trim_end_matches('\n').to_string());
@@ -233,21 +163,8 @@ pub fn gate_map(s: &S, io: &mut Io) -> R {
     };
     let mut map: Vec<(String, String)> = Vec::new();
     for l in completed_after_baseline(s) {
-        let p = s.read(&format!("prepared/{}.json", get(&l, "id")));
-        if !p.is_empty() && !get(&l, "commit").is_empty() {
-            map.push((get(&l, "commit"), get(&p, "branch")));
-        }
-    }
-    for (name, path) in s.files_in("unmerged") {
-        let p = s.read(&format!("prepared/{name}.json"));
-        if !p.is_empty() {
-            map.push((
-                std::fs::read_to_string(path)
-                    .unwrap_or_default()
-                    .trim_end()
-                    .to_string(),
-                get(&p, "branch"),
-            ));
+        if !get(&l, "branch").is_empty() && !get(&l, "commit").is_empty() {
+            map.push((get(&l, "commit"), get(&l, "branch")));
         }
     }
     let worktrees = s.gt(&["worktree", "list", "--porcelain"]);
@@ -288,7 +205,7 @@ pub fn gate_map(s: &S, io: &mut Io) -> R {
     Ok(0)
 }
 
-fn last_event(s: &S, id: &str, events: &[&str]) -> Option<String> {
+pub(super) fn last_event(s: &S, id: &str, events: &[&str]) -> Option<String> {
     let key = format!("\"id\":\"{}\"", json_escape(id));
     s.journal_lines()
         .iter()
@@ -543,13 +460,6 @@ pub fn unlanded(s: &S, io: &mut Io) -> R {
         return Ok(1);
     }
     let mut rows: Vec<String> = Vec::new();
-    for (name, p) in s.files_in("unmerged") {
-        let h = std::fs::read_to_string(p)
-            .unwrap_or_default()
-            .trim_end_matches('\n')
-            .to_string();
-        rows.push(format!("{name}\t{h}\tradin/{name}\tpending"));
-    }
     for l in read_lines(&s.completed) {
         let b = get(&l, "branch");
         if b.starts_with("radin/")
@@ -650,9 +560,9 @@ pub fn trace(s: &S, a: &[String], io: &mut Io) -> R {
     let mut id_read = String::new();
     if let Some(l) = completed.iter().find(|l| get(l, "id") == arg0) {
         id_read = done_block(l, &get(l, "commit"), &get(l, "branch"));
-    } else if !s.read(&format!("prepared/{arg0}.json")).is_empty()
-        || s.read("journal.jsonl")
-            .contains(&format!("\"id\":\"{}\"", json_escape(arg0)))
+    } else if s
+        .read("journal.jsonl")
+        .contains(&format!("\"id\":\"{}\"", json_escape(arg0)))
     {
         let status = last_event(s, arg0, &["pending", "in_progress", "failed", "blocked"])
             .unwrap_or_default();
@@ -660,8 +570,8 @@ pub fn trace(s: &S, a: &[String], io: &mut Io) -> R {
             s,
             arg0,
             "",
-            &s.prepared_field(arg0, "branch"),
-            &s.prepared_field(arg0, "worktree"),
+            &s.task_branch(arg0),
+            &s.task_worktree(arg0),
             &s.task_plans(arg0),
             &status,
         );
@@ -676,32 +586,8 @@ pub fn trace(s: &S, a: &[String], io: &mut Io) -> R {
         }
     }
     let mut branch_read = String::new();
-    let mut seen: Vec<String> = Vec::new();
     for l in completed.iter().filter(|l| get(l, "branch") == arg0) {
-        seen.push(get(l, "id"));
         branch_read += &done_block(l, &get(l, "commit"), arg0);
-    }
-    let mut prepared: Vec<String> = s
-        .files_in("prepared")
-        .into_iter()
-        .filter_map(|(n, _)| n.strip_suffix(".json").map(String::from))
-        .collect();
-    prepared.sort();
-    for id in prepared.iter().filter(|id| !seen.contains(id)) {
-        if s.prepared_field(id, "branch") != arg0 {
-            continue;
-        }
-        let status =
-            last_event(s, id, &["pending", "in_progress", "failed", "blocked"]).unwrap_or_default();
-        branch_read += &trace_block(
-            s,
-            id,
-            "",
-            arg0,
-            &s.prepared_field(id, "worktree"),
-            &s.task_plans(id),
-            &status,
-        );
     }
     let reads = [id_read, commit_read, branch_read];
     let found: Vec<&String> = reads.iter().filter(|r| !r.is_empty()).collect();

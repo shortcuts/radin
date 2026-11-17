@@ -14,7 +14,8 @@ fn a_done_task_whose_branch_is_gone_is_recorded_done_once_its_work_is_on_the_bas
         w.git(&["add", &format!("{t}.txt")]);
         w.git(&["commit", "-q", "-m", &format!("feat: {t}")]);
         let h = w.git(&["rev-parse", "--short=12", "HEAD"]);
-        w.write(&format!(".radin/state/unmerged/{t}"), &format!("{h}\n"));
+        w.write(&format!(".radin/state/landing/{t}"), &format!("{h}\n"));
+        w.mark_finished(t);
         w.git(&["checkout", "-q", &base]);
         w.git(&["branch", "-q", "-D", &format!("radin/{t}")]);
     }
@@ -34,64 +35,6 @@ fn a_done_task_whose_branch_is_gone_is_recorded_done_once_its_work_is_on_the_bas
         .collect();
     ids.sort();
     assert_eq!(ids.join(","), "t-one,t-two");
-    assert_eq!(w.state(&["unlanded"]).code, 1);
-}
-
-#[test]
-fn a_task_done_on_a_side_branch_stays_on_the_backlog_until_its_merge_lands() {
-    let w = W::new();
-    let base = w.base();
-    w.steps_init("t-one\t1\t\tpending\n");
-    w.git(&["checkout", "-q", "-b", "radin/t-one"]);
-    w.write("x.txt", "x\n");
-    w.git(&["add", "x.txt"]);
-    let o = std::process::Command::new("git")
-        .args([
-            "-c",
-            "user.name=t",
-            "-c",
-            "user.email=t@t",
-            "commit",
-            "-q",
-            "-m",
-            "feat: x",
-        ])
-        .env("GIT_AUTHOR_DATE", "2020-01-01T00:00:00")
-        .env("GIT_COMMITTER_DATE", "2020-01-01T00:00:00")
-        .current_dir(&w.p)
-        .output()
-        .unwrap();
-    assert!(o.status.success());
-    let h = w.git(&["rev-parse", "--short=12", "HEAD"]);
-    w.git(&["checkout", "-q", &base]);
-    w.write(
-        ".radin/state/prepared/t-one.json",
-        "{\"branch\":\"radin/t-one\",\"worktree\":\"\"}\n",
-    );
-    let r = w.state(&["task-done", "t-one", &h]);
-    assert_eq!(r.code, 0);
-    assert!(r.out.contains("unmerged"), "{}", r.out);
-    assert_eq!(w.bl(&["find", "t-one"], "").code, 0);
-    assert_ne!(w.state(&["completed-list"]).code, 0);
-    assert!(w
-        .state(&["unlanded"])
-        .out
-        .contains(&format!("t-one\t{h}\tradin/t-one\tpending")));
-    assert_eq!(w.state(&["reconcile"]).code, 0);
-    let list = w.state(&["completed-list"]).out;
-    assert!(list.starts_with("t-one\t"), "{list}");
-    let landed = list.trim_end().split('\t').nth(1).unwrap().to_string();
-    assert_ne!(landed, h);
-    let long = w.state(&["completed-list", "--long"]).out;
-    let f: Vec<&str> = long.trim_end().split('\t').collect();
-    assert_eq!(
-        (f.len(), f[0], f[1]),
-        (4, "t-one", landed.as_str()),
-        "{long}"
-    );
-    assert!(!f[2].is_empty(), "{long}");
-    assert!(w.git_ok(&["merge-base", "--is-ancestor", &landed, &base]));
-    assert_ne!(w.bl(&["find", "t-one"], "").code, 0);
     assert_eq!(w.state(&["unlanded"]).code, 1);
 }
 
@@ -216,87 +159,18 @@ fn steps_init_clears_gate_done_so_the_next_session_prints_the_unverified_line_ag
 }
 
 #[test]
-fn deps_check_resolves_an_unmerged_dependency_to_its_branch_tip_two_unmerged_siblings_still_block()
-{
-    let w = W::new();
-    let base = w.stack_setup();
-    let r = w.state(&["deps-check", "t-two"]);
-    assert_eq!(r.code, 0, "{}", r.all());
-    assert_eq!(
-        r.out,
-        format!(
-            "t-one\t{}\n",
-            w.git(&["rev-parse", "--short=12", "radin/t-one"])
-        )
-    );
-    w.bl(&["add", "fix", "t three"], "body\n");
-    w.bl(
-        &["add", "fix", "t four", "--deps", "t-one,t-three"],
-        "body\n",
-    );
-    w.git(&["checkout", "-q", "-b", "radin/t-three", &base]);
-    w.git(&["commit", "-q", "--allow-empty", "-m", "feat: t-three"]);
-    w.git(&["checkout", "-q", &base]);
-    w.write(".radin/state/unmerged/t-three", "");
-    w.steps_init("t-one\t1\t\tpending\nt-three\t2\t\tpending\nt-four\t3\tt-one,t-three\tpending\n");
-    let r = w.state(&["deps-check", "t-four"]);
-    assert_ne!(r.code, 0);
-    assert!(r.all().contains("waiting on dependency"), "{}", r.all());
-}
-
-#[test]
-fn wave_prints_only_the_pending_task_whose_dependencies_are_all_resolved_exit_0() {
-    let w = W::new();
-    w.steps_init("t-one\t1\t\tpending\nt-two\t2\tt-one\tpending\n");
-    let r = w.state(&["wave"]);
-    assert_eq!((r.code, r.out.as_str()), (0, "t-one\t1\n"));
-}
-
-#[test]
-fn wave_prints_every_independent_pending_task_in_order_and_reading_it_twice_changes_nothing() {
-    let w = W::new();
-    w.steps_init("t-one\t1\t\tpending\nt-two\t2\t\tpending\nt-three\t3\t\tpending\n");
-    let before = w.state(&["steps-list"]).out;
-    let first = w.state(&["wave"]).out;
-    let second = w.state(&["wave"]).out;
-    assert_eq!(second, "t-one\t1\nt-two\t2\nt-three\t3\n");
-    assert_eq!(first, second);
-    assert_eq!(w.state(&["steps-list"]).out, before);
-}
-
-fn six(w: &W) {
-    let rows: String = (1..=6)
-        .map(|i| format!("t-{i}\t{i}\t\tpending\n"))
-        .collect();
-    w.steps_init(&rows);
-}
-
-#[test]
-fn wave_prints_at_most_2_ready_tasks_by_default_the_first_by_order() {
-    let w = W::new();
-    w.cap.set(None);
-    six(&w);
-    let r = w.state(&["wave"]);
-    assert_eq!(r.code, 0);
-    assert_eq!(r.out, "t-1\t1\nt-2\t2\n");
-    assert_eq!(w.state(&["lane-cap"]).out, "2\n");
-}
-
-#[test]
 fn the_lane_cap_comes_from_radin_lane_cap_else_the_install_manifest_and_must_be_positive() {
     let w = W::new();
     w.cap.set(None);
-    six(&w);
+    assert_eq!(w.state(&["lane-cap"]).out, "2\n");
     fs::create_dir_all(w.home.join(".radin")).unwrap();
     fs::write(
         w.home.join(".radin/manifest.json"),
         "{\n  \"lane_cap\": 3,\n  \"version\": \"x\"\n}\n",
     )
     .unwrap();
-    assert_eq!(w.state(&["wave"]).out.lines().count(), 3);
     assert_eq!(w.state(&["lane-cap"]).out, "3\n");
-    assert_eq!(w.state_cap(&["wave"], "", Some("4")).out.lines().count(), 4);
-    assert_ne!(w.state_cap(&["wave"], "", Some("0")).code, 0);
+    assert_eq!(w.state_cap(&["lane-cap"], "", Some("4")).out, "4\n");
     let r = w.state_cap(&["lane-cap"], "", Some("0"));
     assert_ne!(r.code, 0);
     assert_eq!(
@@ -306,58 +180,32 @@ fn the_lane_cap_comes_from_radin_lane_cap_else_the_install_manifest_and_must_be_
 }
 
 #[test]
-fn wave_reads_hundreds_of_completed_tasks_and_prints_every_ready_one() {
+fn reconcile_records_a_branch_whose_last_event_is_done_unmerged_without_a_follow_up() {
     let w = W::new();
-    let done: String = (1..=400)
-        .map(|i| format!("{{\"id\":\"done-{i}\",\"commit\":\"abc{i}\"}}\n"))
+    let base = w.base();
+    w.bl(&["add", "fix", "t two"], "body\n");
+    for t in ["t-one", "t-two"] {
+        w.git(&["checkout", "-q", "-b", &format!("radin/{t}"), &base]);
+        w.write(&format!("{t}.txt"), &format!("{t}\n"));
+        w.git(&["add", &format!("{t}.txt")]);
+        w.git(&["commit", "-q", "-m", &format!("feat: {t}")]);
+        w.git(&["checkout", "-q", &base]);
+    }
+    w.mark_finished("t-one");
+    let r = w.state(&["reconcile"]);
+    assert_eq!(r.code, 0, "{}", r.all());
+    assert!(!r.out.contains("follow-up\tt-one"), "{}", r.out);
+    assert!(r.out.contains("follow-up\tt-two\t"), "{}", r.out);
+    let list = w.bl(&["list", "--order", "created"], "").out;
+    assert!(list.contains("Finish: t two"), "{list}");
+    assert!(!list.contains("Finish: t one"), "{list}");
+    let done: Vec<String> = w
+        .state(&["completed-list"])
+        .out
+        .lines()
+        .map(|l| l.split('\t').next().unwrap().to_string())
         .collect();
-    w.write(".radin/state/completed.json", &done);
-    let rows: String = (1..=30)
-        .map(|i| format!("t-{i}\t{i}\tdone-{},done-{}\tpending\n", i * 10, i * 12))
-        .collect();
-    w.steps_init(&rows);
-    let r = w.state_cap(&["wave"], "", Some("30"));
-    assert_eq!(r.out.lines().count(), 30);
-}
-
-#[test]
-fn wave_counts_a_done_dependency_as_resolved() {
-    let w = W::new();
-    w.write(
-        ".radin/state/completed.json",
-        "{\"id\":\"t-one\",\"commit\":\"abc123def456\"}\n",
-    );
-    w.steps_init("t-two\t2\tt-one\tpending\n");
-    let r = w.state(&["wave"]);
-    assert_eq!((r.code, r.out.as_str()), (0, "t-two\t2\n"));
-}
-
-#[test]
-fn wave_skips_a_pending_task_that_carries_an_unmerged_marker() {
-    let w = W::new();
-    w.stack_setup();
-    let r = w.state(&["wave"]);
-    assert_eq!((r.code, r.out.as_str()), (0, "t-two\t2\n"));
-}
-
-#[test]
-fn wave_skips_excluded_blocked_and_in_progress_tasks() {
-    let w = W::new();
-    w.steps_init(
-        "t-one\t1\t\texcluded\nt-two\t2\t\tpending\nt-three\t3\t\tpending\nt-four\t4\t\tpending\n",
-    );
-    w.state(&["set-status", "t-two", "blocked", "waiting"]);
-    w.state(&["set-status", "t-three", "in_progress"]);
-    let r = w.state(&["wave"]);
-    assert_eq!((r.code, r.out.as_str()), (0, "t-four\t4\n"));
-}
-
-#[test]
-fn wave_prints_nothing_and_exits_1_when_every_pending_task_waits_on_an_unresolved_dependency() {
-    let w = W::new();
-    w.steps_init("t-one\t1\tt-zero\tpending\nt-two\t2\tt-one\tpending\n");
-    let r = w.state(&["wave"]);
-    assert_eq!((r.code, r.out.as_str()), (1, ""));
+    assert_eq!(done.len(), 2, "{done:?}");
 }
 
 #[test]
@@ -414,11 +262,4 @@ fn prepare_fails_on_a_leftover_directory_at_the_worktree_path_and_keeps_it() {
     assert!(r.all().contains(&wt), "{}", r.all());
     assert!(r.all().contains("not a registered worktree"), "{}", r.all());
     assert!(std::path::Path::new(&format!("{wt}/.gradle")).is_dir());
-}
-
-#[test]
-fn group_set_rejects_no_id_and_a_path_character() {
-    let w = W::new();
-    assert_ne!(w.state(&["group-set"]).code, 0);
-    assert_ne!(w.state(&["group-set", "../x"]).code, 0);
 }

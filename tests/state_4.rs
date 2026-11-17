@@ -428,10 +428,6 @@ fn trace_answers_one_reading_and_names_an_ambiguous_one() {
         none.err
     );
     w.write(
-        ".radin/state/prepared/t-one.json",
-        "{\"branch\":\"t-onebr\",\"worktree\":\"\"}\n",
-    );
-    w.write(
         ".radin/state/completed.json",
         &format!(
             "{}{{\"id\":\"other\",\"commit\":\"{h}aaaa\",\"branch\":\"t-one\"}}\n",
@@ -641,7 +637,7 @@ fn task_report_planned_needs_plan_review_unless_no_plan_was_written() {
 }
 
 #[test]
-fn journal_completed_and_telemetry_carry_the_run_dispatch_and_wave() {
+fn journal_completed_and_telemetry_carry_the_run_and_dispatch() {
     let w = W::new();
     w.bl(&["set-meta", "t-one", "complexity", "low"], "");
     w.bl(&["set-meta", "t-one", "acceptance", "crit a"], "");
@@ -656,11 +652,6 @@ fn journal_completed_and_telemetry_carry_the_run_dispatch_and_wave() {
         "{j}"
     );
     w.state(&["task-next"]);
-    w.state(&["group-set", "--wave", "2", "t-one"]);
-    assert_eq!(
-        *w.tele.borrow().last().unwrap(),
-        format!("dispatched ids=t-one size=1 wave=2 run={run}")
-    );
     w.state(&["task-report", "t-one", "STATUS: FAILED — boom"]);
     w.state(&[
         "task-report",
@@ -672,7 +663,6 @@ fn journal_completed_and_telemetry_carry_the_run_dispatch_and_wave() {
     let j = w.read(".radin/state/journal.jsonl");
     let has = |s: &str| j.contains(s);
     assert!(has(&format!("\"run\":\"{run}\",\"from\":\"pending\",\"dispatch\":1,\"kind\":\"execution\",\"event\":\"in_progress\",\"id\":\"t-one\"")), "{j}");
-    assert!(has(&format!("\"run\":\"{run}\",\"wave\":\"2\",\"event\":\"group\",\"id\":\"\",\"detail\":\"ids=t-one; wave=2\"")), "{j}");
     assert!(
         has(&format!(
             "\"run\":\"{run}\",\"dispatch\":2,\"kind\":\"debug\",\"event\":\"debug\""
@@ -680,7 +670,7 @@ fn journal_completed_and_telemetry_carry_the_run_dispatch_and_wave() {
         "{j}"
     );
     assert!(has(&format!("\"run\":\"{run}\",\"dispatch\":2,\"kind\":\"debug\",\"event\":\"usage\",\"id\":\"t-one\",\"detail\":\"debug 7 1 1\"")), "{j}");
-    assert!(has(&format!("\"run\":\"{run}\",\"from\":\"in_progress\",\"dispatch\":2,\"kind\":\"debug\",\"wave\":\"2\",\"event\":\"failed\"")), "{j}");
+    assert!(has(&format!("\"run\":\"{run}\",\"from\":\"in_progress\",\"dispatch\":2,\"kind\":\"debug\",\"event\":\"failed\"")), "{j}");
     assert_eq!(j.matches("\"event\":\"in_progress\"").count(), 1, "{j}");
     w.state(&["answered", "t-one"]);
     w.state(&["task-next"]);
@@ -741,7 +731,7 @@ fn a_dependency_block_logs_one_event_and_lifts_when_the_dependency_lands() {
         ".radin/state/completed.json",
         "{\"id\":\"t-one\",\"commit\":\"abc123def456\"}\n",
     );
-    assert!(w.state(&["wave"]).out.contains("t-two\t2\n"));
+    assert_eq!(w.state(&["task-next", "t-two"]).code, 0);
     assert_eq!(events(&w), 1);
 }
 

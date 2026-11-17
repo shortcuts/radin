@@ -56,7 +56,7 @@ pub fn lanes_recover(s: &S, io: &mut Io) -> R {
             Ok(Some(line)) => io.out.push_str(&line),
             Ok(None) => {}
             Err(e) => {
-                let lane = s.prepared_field(id, "lane");
+                let lane = s.task_lane(id);
                 keep(
                     s,
                     io,

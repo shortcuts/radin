@@ -267,73 +267,18 @@ impl W {
     }
 
     /// Adds a task whose plan lists `paths` under ## Changes.
-    pub fn planned(&self, title: &str, paths: &[&str]) {
-        assert_eq!(self.bl(&["add", "fix", title], "body\n").code, 0);
-        if paths.is_empty() {
-            return;
-        }
-        let items: String = paths.iter().map(|p| format!("- `{p}` — edit\n")).collect();
-        let f = self.work.join(format!("{}.md", title.replace(' ', "-")));
-        fs::write(&f, format!("## Changes\n\n{items}")).unwrap();
-        assert_eq!(
-            self.bl(&["set-meta", title, "plan", f.to_str().unwrap()], "")
-                .code,
-            0
-        );
-    }
-
-    /// t-one done on radin/t-one (unmerged); t-two depends on it. Both write shared.txt.
-    pub fn stack_setup(&self) -> String {
-        let base = self.base();
-        assert_eq!(
-            self.bl(&["add", "fix", "t two", "--deps", "t-one"], "body\n")
-                .code,
-            0
-        );
-        self.write("shared.txt", "one\n");
-        self.git(&["add", "shared.txt"]);
-        self.git(&["commit", "-q", "-m", "add shared"]);
-        self.git(&["checkout", "-q", "-b", "radin/t-one"]);
-        self.write("shared.txt", "one\nfrom-one\n");
-        self.git(&["commit", "-qam", "feat: t-one"]);
-        self.git(&["checkout", "-q", &base]);
-        let tip = self.git(&["rev-parse", "--short=12", "radin/t-one"]);
-        self.write(".radin/state/unmerged/t-one", &format!("{tip}\n"));
-        self.steps_init("t-one\t1\t\tpending\nt-two\t2\tt-one\tpending\n");
-        assert_eq!(self.state(&["group-set", "t-one", "t-two"]).code, 0);
-        base
-    }
-
-    /// The legacy stacked layout of t-two: its worktree on radin/t-two cut from radin/t-one, with the markers `prepare` once wrote.
-    pub fn stack_two(&self) -> String {
-        let wt = format!("{}-t-two", self.p.display());
-        self.git(&[
-            "worktree",
-            "add",
-            "-q",
-            &wt,
-            "-b",
-            "radin/t-two",
-            "radin/t-one",
-        ]);
-        let tip = self.git(&["rev-parse", "--short=12", "radin/t-one"]);
-        self.write(".radin/state/stacked/t-two", &format!("t-one {tip}\n"));
-        self.write(
-            ".radin/state/prepared/t-two.json",
-            &format!("{{\"branch\":\"radin/t-two\",\"worktree\":\"{wt}\"}}\n"),
-        );
-        wt
-    }
-
-    /// The per-task worktree on `radin/<id>` with the marker `prepare` once wrote, which leftover routing still reads.
+    /// The legacy per-task worktree on `radin/<id>`, which leftover routing still reads.
     pub fn task_tree(&self, id: &str) -> String {
         let wt = format!("{}-{id}", self.p.display());
         self.git(&["worktree", "add", "-q", &wt, "-b", &format!("radin/{id}")]);
-        self.write(
-            &format!(".radin/state/prepared/{id}.json"),
-            &format!("{{\"branch\":\"radin/{id}\",\"worktree\":\"{wt}\"}}\n"),
-        );
         wt
+    }
+
+    /// The journal line `task-done` once wrote when a task finished on its own branch.
+    pub fn mark_finished(&self, id: &str) {
+        let rel = ".radin/state/journal.jsonl";
+        let line = format!("{{\"event\":\"done-unmerged\",\"id\":\"{id}\",\"detail\":\"x\"}}\n");
+        self.write(rel, &(self.read(rel) + &line));
     }
 
     pub fn lane_mode(&self, mode: &str) {
@@ -348,12 +293,5 @@ impl W {
             .last()
             .unwrap_or("")
             .to_string()
-    }
-
-    pub fn wave_wp(&self, extra: &[&str]) -> Run {
-        let wave = self.state(&["wave"]);
-        let mut a = vec!["wave-partition"];
-        a.extend(extra);
-        self.state_in(&a, &wave.out)
     }
 }

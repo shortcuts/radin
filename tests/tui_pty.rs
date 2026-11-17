@@ -318,7 +318,7 @@ fn escape_cancels_an_overlay() {
     let fx = Fx::new();
     fx.seed();
     let mut t = fx.tui(&[]);
-    t.keys("p");
+    t.keys(":priority\r");
     assert!(t.screen().contains("priority for dark-mode"));
     t.keys("\x1b");
     t.wait_for("priority cancelled");
@@ -352,7 +352,7 @@ fn no_color_drops_the_priority_colours_and_colour_keeps_them() {
 }
 
 #[test]
-fn w_toggles_the_parallel_switch_and_persists_it() {
+fn p_toggles_the_parallel_switch_and_persists_it() {
     let fx = Fx::new();
     fx.seed();
     let session = || {
@@ -361,12 +361,12 @@ fn w_toggles_the_parallel_switch_and_persists_it() {
             .to_string()
     };
     let mut t = fx.tui(&[]);
-    t.keys("w");
+    t.keys("p");
     t.keys("q");
     drop(t);
     assert_eq!(session(), r#"{"parallel":false}"#);
     let mut t = fx.tui(&[]);
-    t.keys("w");
+    t.keys("p");
     t.keys("q");
     assert_eq!(t.exit_code(), 0);
     assert_eq!(session(), r#"{"parallel":true}"#);

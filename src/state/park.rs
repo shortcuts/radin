@@ -87,7 +87,7 @@ fn synced(s: &S, dir: &Path, id: &str, lane: &str, io: &mut Io) -> R {
 
 /// Moves an unrecovered lane task's partial work to `radin/wip/<id>` and resets the lane to its pre-task commit.
 pub fn park(s: &S, id: &str, reason: &str) -> Result<Option<String>, Fail> {
-    if s.lane_mode() != "lanes" || s.prepared_field(id, "lane").is_empty() {
+    if s.task_lane(id).is_empty() {
         return Ok(None);
     }
     let base = s.read(&format!("lane-base/{id}")).trim().to_string();

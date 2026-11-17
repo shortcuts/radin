@@ -2,10 +2,9 @@ use super::git::{dirty_files, g, ok, wip_commit};
 use super::plan_cover::plan_extras;
 use super::queue::{deps_check, release_ready};
 use super::store::{self, get, json_escape, num, MAX_ATTEMPTS};
-use super::{arg, die, mkdir, positive, write, S};
+use super::{arg, die, mkdir, write, S};
 use crate::backlog::{Fail, Io, R};
 use std::fmt::Write;
-use std::path::Component;
 
 fn first_line(s: &str) -> &str {
     s.lines().next().unwrap_or("")
@@ -41,15 +40,7 @@ pub fn task_next(s: &S, want: &str, lane: Option<&str>, io: &mut Io) -> R {
         let skip = |io: &mut Io, msg: &str| {
             let _ = writeln!(io.out, "blocked\t{pid}\t{msg}");
         };
-        let blocked = if s.exists(&format!("unmerged/{pid}")) {
-            Some((
-                "unmerged",
-                format!(
-                    "done on radin/{pid}, merge into {} pending",
-                    s.resolve_base()
-                ),
-            ))
-        } else if let Some(m) = deps_check(s, &pid)?.1 {
+        let blocked = if let Some(m) = deps_check(s, &pid)?.1 {
             Some(("dependency", m))
         } else if let Err(e) = s.field(&pid, "TASK_FILE") {
             let e = first_line(&e);
@@ -220,19 +211,15 @@ pub fn task_done(s: &S, id: &str, hash: &str, io: &mut Io) -> R {
         );
         return Ok(3);
     }
-    let prov_branch = s.prepared_field(id, "branch");
+    let prov_branch = s.task_branch(id);
     let r#ref = if !prov_branch.is_empty() && rev(&prov_branch) {
         prov_branch.as_str()
     } else {
         "HEAD"
     };
     let base = s.resolve_base();
-    let merged_mark = format!("prepared/{id}.merged");
     let in_base = !base.is_empty() && ok(&dir, &["merge-base", "--is-ancestor", hash, &base]);
-    if !s.exists(&merged_mark)
-        && !in_base
-        && !ok(&dir, &["merge-base", "--is-ancestor", hash, r#ref])
-    {
+    if !in_base && !ok(&dir, &["merge-base", "--is-ancestor", hash, r#ref]) {
         let _ = writeln!(
             io.err,
             "task-done: {hash} is not reachable from {} in {}",
@@ -257,34 +244,14 @@ pub fn task_done(s: &S, id: &str, hash: &str, io: &mut Io) -> R {
         let _ = writeln!(io.err, "task-done: {hash} changes a file under .radin/");
         return Ok(3);
     }
-    let lane = s.prepared_field(id, "lane");
-    if lane.is_empty()
-        && prov_branch.starts_with("radin/")
-        && !base.is_empty()
-        && !in_base
-        && !s.exists(&merged_mark)
-    {
-        let note = format!("done at {hash} on {prov_branch}; merge into {base} pending");
-        if !s.exists(&format!("unmerged/{id}")) {
-            let _ = std::fs::create_dir_all(s.state.join("unmerged"));
-            s.entry_note(id, &note);
-            s.journal("done-unmerged", id, hash);
-        }
-        let _ = std::fs::write(s.state.join(format!("unmerged/{id}")), format!("{hash}\n"));
-        if s.steps.is_file() && s.entry(id).is_some() {
-            s.set_blocked(id, "unmerged", &note)?;
-        }
-        let _ = writeln!(io.out, "task-done: {id} unmerged at {hash} on {prov_branch}; entry kept, blocked until the merge into {base} lands");
-        return Ok(0);
-    }
     record_done(s, id, hash, io)
 }
 
 /// Writes the completed line and drops the backlog and steps entries; an empty `hash` means the work is gitignored.
 pub fn record_done(s: &S, id: &str, hash: &str, io: &mut Io) -> R {
     let dir = s.task_dir(id);
-    let prov_branch = s.prepared_field(id, "branch");
-    let prov_worktree = s.prepared_field(id, "worktree");
+    let prov_branch = s.task_branch(id);
+    let prov_worktree = s.task_worktree(id);
     let title = s.task_title(id);
     let plans = s.task_plans(id);
     let created = s
@@ -381,8 +348,8 @@ pub fn recover(s: &S, a: &[String], io: &mut Io) -> R {
         return Ok(0);
     }
     let dir = s.task_dir(id);
-    let branch = s.prepared_field(id, "branch");
-    let lane_task = s.lane_mode() == "lanes" && !s.prepared_field(id, "lane").is_empty();
+    let branch = s.task_branch(id);
+    let lane_task = !s.task_lane(id).is_empty();
     if !branch.is_empty() && s.git_ok(&["rev-parse", "--verify", "--quiet", &branch]) {
         let from = s.read(&format!("lane-base/{id}")).trim().to_string();
         let range = if lane_task && !from.is_empty() {
@@ -467,90 +434,5 @@ pub fn recover_reject(s: &S, a: &[String], io: &mut Io) -> R {
     s.set_blocked(id, "rejected", &note)?;
     io.out.push_str(&parked.unwrap_or_default());
     let _ = writeln!(io.out, "blocked\t{id}\t{note}");
-    Ok(0)
-}
-
-pub fn plan_discard(s: &S, a: &[String], io: &mut Io) -> R {
-    let (id, wave, paths) = (arg(a, 0), arg(a, 1), arg(a, 2));
-    if id.is_empty() {
-        return Err(die("usage: plan-discard <id> <wave> <paths-csv>"));
-    }
-    if !positive(wave) {
-        return Err(die(format!(
-            "plan-discard: wave must be a positive integer, got: {wave}"
-        )));
-    }
-    if paths.is_empty() {
-        return Err(die("plan-discard: needs a non-empty paths-csv"));
-    }
-    if !s.steps.is_file() {
-        return Err(die(format!("no state file: {}", s.steps.display())));
-    }
-    let entry = s.need_entry(id)?;
-    if get(&entry, "status") != "pending" {
-        return Err(die(format!("plan-discard: {id} is not pending")));
-    }
-    if s.task_plans(id).is_empty() {
-        return Err(die(format!("plan-discard: {id} has no plan")));
-    }
-    let mut tokens: Option<u64> = None;
-    for l in s.journal_lines().iter().filter(|l| get(l, "id") == id) {
-        match get(l, "event").as_str() {
-            "plan-discard" => tokens = None,
-            "usage" => {
-                let d = get(l, "detail");
-                if let Some(t) = d
-                    .strip_prefix("planning ")
-                    .filter(|t| t.starts_with(|c: char| c.is_ascii_digit()))
-                {
-                    let n: u64 = t
-                        .split(' ')
-                        .next()
-                        .and_then(|n| n.parse().ok())
-                        .unwrap_or(0);
-                    tokens = Some(tokens.unwrap_or(0) + n);
-                }
-            }
-            _ => {}
-        }
-    }
-    let tokens = tokens.map_or_else(|| "unknown".to_string(), |t| t.to_string());
-    let plans_dir = s.ns.join("plans");
-    let meta = s.bl_ok(&["meta", id]).unwrap_or_default();
-    for plan in meta.lines().filter_map(|l| l.strip_prefix("plan\t")) {
-        let file = s.root.join(plan);
-        if !file.starts_with(&plans_dir) || file.components().any(|c| c == Component::ParentDir) {
-            continue;
-        }
-        match std::fs::remove_file(&file) {
-            Ok(()) => {}
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
-            Err(e) => {
-                return Err(die(format!(
-                    "plan-discard: cannot remove {}: {e}",
-                    file.display()
-                )))
-            }
-        }
-    }
-    s.bl_must(&["set-meta", id, "plan", "--none"], "")?;
-    s.bl_must(&["set-meta", id, "planning", "needed"], "")?;
-    s.write_entry(id, "pending", 0, "", None)?;
-    s.journal_ctx(
-        "plan-discard",
-        id,
-        &format!("wave {wave}; paths {paths}"),
-        &[("wave", wave.to_string())],
-    );
-    s.telemetry(
-        "plan-discarded",
-        &[
-            format!("task={id}"),
-            format!("wave={wave}"),
-            format!("paths={paths}"),
-            format!("tokens={tokens}"),
-        ],
-    );
-    let _ = writeln!(io.out, "plan-discarded\t{id}\t{wave}\t{tokens}");
     Ok(0)
 }

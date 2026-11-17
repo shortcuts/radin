@@ -9,14 +9,12 @@
   set-status <id> <pending|in_progress|failed|blocked> [--reason deferred] [note]   # --reason deferred (only with blocked) marks a postponed decision; the note holds the question, options and recommendation; in lanes mode failed or blocked parks the partial work on radin/wip/<id>
   answered <id>                # the user answered a waiting task: back to pending, attempts 0, debugged kept
   retry <id>                   # a human looked at a MAX_ATTEMPTS-blocked task: back to pending, attempts 0, debugged cleared
-  resume                       # move each failed entry and each retryable blocked entry to pending, attempts and debugged kept; print "id<TAB>old status" per move; blocked entries with a dependency, unmerged, max-attempts or waiting reason stay
+  resume                       # move each failed entry and each retryable blocked entry to pending, attempts and debugged kept; print "id<TAB>old status" per move; blocked entries with a dependency, max-attempts or waiting reason stay
   stuck                        # print "id<TAB>attempts<TAB>note" per in_progress entry, exit 1 if none
   steps-waiting                # print "id<TAB>reason<TAB>note" per blocked entry whose reason (deferred, inconclusive, fact, decision) holds an unanswered question, exit 1 if none
   preflight                    # run the startup checks, print "empty" | "stuck<TAB>id<TAB>attempts<TAB>note" | "waiting<TAB>id<TAB>reason<TAB>note" | "loose<TAB>csv" | "rank<TAB>csv" | "leftovers", exit 0
   steps-open                   # print "id<TAB>question" per open decision of a pending entry, exit 1 if none
   steps-list                   # print "id<TAB>order<TAB>status<TAB>attempts<TAB>note" per entry, exit 1 if none
-  wave-partition [--wave N] [--cap N]  # read ids on stdin, print "group<TAB>n<TAB>csv", "apart<TAB>a<TAB>b<TAB>shared paths" and "unplanned<TAB>id"; exit 1 on empty input; claims nothing; the cap comes from `wave-cap`; --wave also records a parallel serialized telemetry event per apart pair, unplanned id and cap-split id
-  plan-discard <id> <wave> <paths-csv>  # drop a pending task's plan, flag planning needed; journal and record a parallel plan-discarded telemetry event with the planning tokens; exit 1 and write nothing unless the task is pending with a plan
   lane-cap                     # print the most lanes one run holds at once: $RADIN_LANE_CAP, else the install manifest's lane_cap, else 2
   lanes-init                   # after steps-init: pick the lane mode, reset the lane markers, print "mode<TAB>lanes|main", "cap<TAB>n" and "lane<TAB>epic<TAB>waiting<TAB>tasks" per epic in start order; exit 1 on an empty run
   lane-next [--cleared <csv>]  # claim one lane: print "start<TAB>epic" (exit 0); "judge<TAB>epic<TAB>running csv" per candidate when a lane runs and none is cleared (exit 2); nothing at the cap or with no candidate (exit 1)
@@ -28,23 +26,21 @@
   lanes-recover                # after a dead session: park unverified lane work, rebuild the merge queue from leftover lane branches; print "parked", "queued<TAB>epic<TAB>pos", "merged<TAB>epic<TAB>-", "dropped", "kept<TAB>branch<TAB>reason" and "resume<TAB>id<TAB>branch" lines; exit 1 with no output when nothing is left over
   lanes-show                   # print "mode<TAB>m", "cap<TAB>n" and "lane<TAB>epic<TAB>waiting|running|done<TAB>tasks" per epic
   lane-sync <id> [--abort]     # lanes mode: merge the base branch into the task's lane when the lane lacks it; print "current<TAB>lane", "synced<TAB>lane<TAB>hash" or "skipped<TAB>lane<TAB>reason" (exit 0), or "conflict<TAB>lane<TAB>dir" (exit 3, merge left in progress); --abort runs git merge --abort and prints "aborted<TAB>lane"; main mode prints nothing
-  wave                         # print "id<TAB>order" for the first `lane-cap` pending tasks whose dependencies are all resolved, exit 1 if none; claims nothing
   recover <id>                 # recover a task a dead session left in_progress; a lane task is parked on radin/wip/<id>; exit 3 prints commits only the model can judge
   recover-reject <id>          # those commits do not satisfy the task: block the entry naming them
   report                       # print the finished end-of-session report
   session-set <yes|no>         # persist the parallel switch
   teardown                     # request a graceful stop: task-next picks nothing new until the next preflight; the gate and merge still run
   session-get                  # print "parallel<TAB>yes" or "parallel<TAB>no"; yes when unset
-  group-set [--wave N] <id>... # record these ids as one parallel group and a parallel dispatched telemetry event; exit 1 when the ids sit in two groups of the latest wave-partition
   prepare <id>                 # commit a dirty tree, create/reuse the lane's worktree and branch per lane-mode, print the dir to work in; merges radin/wip/<id> back when it exists, in either mode
   dirty-check                  # git status --porcelain of the current directory, excluding .radin
   trace <id|commit|branch>     # print "task|commit|branch|worktree|plan|facts|status<TAB>value" per matching task; exit 1 no match, 2 ambiguous
   completed-show <id>          # print "id|commit|title|branch|worktree|plan|ts<TAB>value" lines, exit 1 if absent
-  unlanded                     # print "id<TAB>commit<TAB>branch<TAB>pending|orphan" per task whose commit the base branch lacks: pending (done on its branch, merge waiting) or orphan (recorded done, branch still ahead of the base); exit 1 if none
+  unlanded                     # print "id<TAB>commit<TAB>branch<TAB>orphan" per task recorded done whose branch is still ahead of the base; exit 1 if none
   completed-list [--long]      # print "id<TAB>commit" per completion (--long appends "<TAB>ts<TAB>title" for the TUI's Done view), exit 1 if none
   session-commits              # print this session's commits, oldest first, one hash per line: task-done commits past the baseline, then gate fixes; exit 1 if none
   gate-map                     # print "branch<TAB>tip<TAB>worktree<TAB>oldest session commit" per branch holding a session commit, oldest work first; exit 1 if none
-  reconcile                    # land every radin/* branch but an in_progress task's: wip-commit a dirty worktree, squash-merge, record the task done (an unfinished one first gets a "Finish: <title>" follow-up its dependents move to), drop worktree and branch; restore a recorded branch whose work is not in the base; print "merged<TAB>branch<TAB>tip", "removed<TAB>branch", "adopted<TAB>branch", "restored<TAB>branch<TAB>hash", "follow-up<TAB>id<TAB>new id", "conflict<TAB>branch" or "skipped<TAB>branch<TAB>reason"; exit 3 on a conflict
+  reconcile                    # land every radin/* branch but an in_progress task's: wip-commit a dirty worktree, squash-merge, record the task done (a task whose last journal event is done-unmerged is finished; any other first gets a "Finish: <title>" follow-up its dependents move to), drop worktree and branch; restore a recorded branch whose work is not in the base; print "merged<TAB>branch<TAB>tip", "removed<TAB>branch", "adopted<TAB>branch", "restored<TAB>branch<TAB>hash", "follow-up<TAB>id<TAB>new id", "conflict<TAB>branch" or "skipped<TAB>branch<TAB>reason"; exit 3 on a conflict
   leftovers                    # print "base<TAB>branch", then a "branch", "stash" or "foreign" TAB line per unmerged radin/* branch, radin-batch stash or non-radin worktree in the repo, whatever session made it; exit 1 if none
   stash-triage                 # print "candidate<TAB>hash<TAB>id" per untriaged radin-batch stash and open task the stash's paths appear in, then "left<TAB>n" (stashes not claimed by a task); nothing when no radin-batch stash exists
   stash-claim <hash> <id|->    # record the router's verdict for a stash: a task id makes prepare apply the stash in that task's tree, "-" leaves it; exit 1 when the stash was triaged already
@@ -53,7 +49,7 @@
   gate-done                    # the gate returned SUCCESS or filed entries: mark the session reviewed for report
   deps-check <id>             # print "dep<TAB>hash" per dependency, exit 1 naming the first unresolved one (radin-prompt.sh)
   task-dir <id>                # print the task's worktree if it exists, else the repo root (radin-prompt.sh)
-  journal-tail [n]             # last n journal events (default 20); each line holds run, and a status line also holds from, dispatch, kind and wave
+  journal-tail [n]             # last n journal events (default 20); each line holds run, and a status line also holds from, dispatch and kind
   plan-covers <plan-csv> <path>  # print in (a listed plan's Changes names the path), test (a test path, exempt) or out
   review-findings              # stdin "<task><TAB><plan|executor|none><TAB><plan path>[<TAB><section>]" per logged review finding (section: plan only, a plan-template label): journal one review-finding event each, print the per-class and per-task rollup
   finding-classes [--since <ts>] [--min <n>]  # print the plan-template sections plan findings land in, by distinct task, and the sections at >= n tasks (default 3); exit 1 when no finding passes

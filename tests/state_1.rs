@@ -195,7 +195,7 @@ fn resume_moves_failed_and_retryable_blocked_entries_to_pending_and_keeps_waitin
     let r = w.state(&["resume"]);
     assert_eq!(
         (r.code, r.out.as_str()),
-        (0, "t-one\tfailed\nt-two\tblocked\n")
+        (0, "t-one\tfailed\nt-two\tblocked\nt-six\tblocked\n")
     );
     let list = w.state(&["steps-list"]).out;
     for row in [
@@ -203,7 +203,7 @@ fn resume_moves_failed_and_retryable_blocked_entries_to_pending_and_keeps_waitin
         "t-two\t2\tpending\t1\t\n",
         "t-three\t3\tblocked\t1\twhich db?\n",
         "t-five\t5\tblocked\t0\t",
-        "t-six\t6\tblocked\t1\t",
+        "t-six\t6\tpending\t1\t",
         "t-four\t4\tblocked\t3\t",
     ] {
         assert!(list.contains(row), "{row:?} in {list:?}");
@@ -229,7 +229,6 @@ fn an_unknown_state_command_lists_every_subcommand_in_its_usage_line_steps_open_
     for name in [
         "steps-open",
         "steps-list",
-        "wave",
         "steps-waiting",
         "answered",
         "retry",
@@ -237,6 +236,34 @@ fn an_unknown_state_command_lists_every_subcommand_in_its_usage_line_steps_open_
         assert!(r.err.contains(name), "{name}");
     }
     assert!(w.state(&[]).err.contains("unknown command: <none> ("));
+    let r = w.state(&["wave"]);
+    assert_ne!(r.code, 0);
+    assert!(r.err.contains("unknown command: wave ("), "{}", r.err);
+    assert!(!r.err.contains("wave-partition"), "{}", r.err);
+}
+
+#[test]
+fn steps_init_removes_the_legacy_state_dirs_and_keeps_lane_markers() {
+    let w = W::new();
+    let legacy = [
+        "unmerged/x",
+        "stacked/x",
+        "prepared/x.json",
+        "wave-of/x",
+        "groups/x",
+        "partition",
+    ];
+    let kept = ["lane-base/x", "lanes/e"];
+    for f in legacy.iter().chain(&kept) {
+        w.write(&format!(".radin/state/{f}"), "x\n");
+    }
+    w.steps_init("t-one\t1\t\tpending\n");
+    for f in legacy {
+        assert!(!w.exists(&format!(".radin/state/{f}")), "{f}");
+    }
+    for f in kept {
+        assert!(w.exists(&format!(".radin/state/{f}")), "{f}");
+    }
 }
 
 #[test]

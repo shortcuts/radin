@@ -182,11 +182,11 @@ impl S<'_> {
         merged.lines().next().unwrap_or("") == tree
     }
 
-    /// The prepared lane worktree, else the legacy `<root>-<id>` tree, else the root.
+    /// The lane worktree, else the legacy `<root>-<id>` tree, else the root.
     pub fn task_dir(&self, id: &str) -> std::path::PathBuf {
-        let lane = std::path::PathBuf::from(self.prepared_field(id, "worktree"));
-        if !lane.as_os_str().is_empty() && lane.is_dir() {
-            return lane;
+        let lane = self.task_worktree(id);
+        if !lane.is_empty() {
+            return lane.into();
         }
         let mut wt = self.root.as_os_str().to_owned();
         wt.push(format!("-{id}"));

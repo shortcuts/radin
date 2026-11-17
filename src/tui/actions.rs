@@ -192,7 +192,7 @@ pub const ACTIONS: &[Action] = &[
     .hint("edit"),
     Action::new("retitle", &[ch('r')], "retitle task", "task", List),
     Action::new("category", &[ch('c')], "next category", "task", List),
-    Action::new("priority", &[ch('p')], "set priority", "task", List),
+    Action::new("priority", &[], "set priority", "task", List),
     Action::new("deps", &[ch('D')], "edit depends_on", "task", List),
     Action::new("delete", &[ch('d')], "delete task", "task", List),
     Action::new(
@@ -286,7 +286,7 @@ pub const ACTIONS: &[Action] = &[
     ),
     Action::new("sort-title", &[ch('T')], "sort by title", "view", List),
     Action::new("done", &[Key::Tab], "toggle the Done view", "view", Any).hint("done"),
-    Action::new("parallel", &[ch('w')], "toggle parallel lanes", "run", List),
+    Action::new("parallel", &[ch('p')], "toggle parallel lanes", "run", List),
     Action::new(
         "run-status",
         &[],
@@ -467,6 +467,15 @@ mod tests {
             f.chars().count() <= 40 && f.ends_with(": commands  ? keys  q quit"),
             "{f}"
         );
+    }
+
+    #[test]
+    fn p_toggles_parallel_and_priority_has_no_key() {
+        assert_eq!(by_key(ch('p'), List).map(|a| a.id), Some("parallel"));
+        assert!(ACTIONS
+            .iter()
+            .any(|a| a.id == "priority" && a.keys.is_empty()));
+        assert_eq!(matches("priority", List)[0].id, "priority");
     }
 
     #[test]

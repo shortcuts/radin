@@ -40,7 +40,7 @@ pub struct S<'a> {
 
 const HELP: &str = include_str!("help.txt");
 
-const VERBS: &str = "teardown|steps-init|steps-list|wave|wave-partition|plan-discard|steps-open|steps-waiting|answered|retry|task-next|task-report|task-fact|task-diagnosis|task-done|base-failing|set-status|stuck|preflight|resume|recover|recover-reject|report|session-set|session-get|group-set|prepare|dirty-check|trace|completed-show|completed-list|unlanded|session-commits|gate-map|leftovers|stash-triage|stash-claim|reconcile|gate-fix|gate-filed|gate-done|deps-check|task-dir|journal-tail|plan-covers|review-findings|finding-classes|lane-cap|lanes-init|lane-next|lane-done|lane-judge|lanes-show|lane-sync|lane-queue|lane-merge|lane-gate|lanes-recover";
+const VERBS: &str = "teardown|steps-init|steps-list|steps-open|steps-waiting|answered|retry|task-next|task-report|task-fact|task-diagnosis|task-done|base-failing|set-status|stuck|preflight|resume|recover|recover-reject|report|session-set|session-get|prepare|dirty-check|trace|completed-show|completed-list|unlanded|session-commits|gate-map|leftovers|stash-triage|stash-claim|reconcile|gate-fix|gate-filed|gate-done|deps-check|task-dir|journal-tail|plan-covers|review-findings|finding-classes|lane-cap|lanes-init|lane-next|lane-done|lane-judge|lanes-show|lane-sync|lane-queue|lane-merge|lane-gate|lanes-recover";
 
 const ID_VERBS: &[&str] = &[
     "task-next",
@@ -53,7 +53,6 @@ const ID_VERBS: &[&str] = &[
     "retry",
     "recover",
     "recover-reject",
-    "plan-discard",
     "prepare",
     "trace",
     "completed-show",
@@ -209,10 +208,34 @@ impl<'a> S<'a> {
         Ok(cap.parse().unwrap_or(2))
     }
 
-    pub fn prepared_field(&self, id: &str, key: &str) -> String {
-        match std::fs::read_to_string(self.state.join(format!("prepared/{id}.json"))) {
-            Ok(t) if !t.is_empty() => store::get(&t, key),
-            _ => String::new(),
+    pub fn task_lane(&self, id: &str) -> String {
+        if self.lane_mode() == "lanes" {
+            lanes::task_epic(self, id).unwrap_or_default()
+        } else {
+            String::new()
+        }
+    }
+
+    /// `radin/<lane>`, else a leftover `radin/<id>` branch, else empty (callers use `HEAD`).
+    pub fn task_branch(&self, id: &str) -> String {
+        let lane = self.task_lane(id);
+        let legacy = format!("radin/{id}");
+        if !lane.is_empty() {
+            format!("radin/{lane}")
+        } else if self.branch_exists(&legacy) {
+            legacy
+        } else {
+            String::new()
+        }
+    }
+
+    pub fn task_worktree(&self, id: &str) -> String {
+        let lane = self.task_lane(id);
+        let dir = self.lane_dir_path(&lane);
+        if !lane.is_empty() && dir.is_dir() {
+            dir.to_string_lossy().into_owned()
+        } else {
+            String::new()
         }
     }
 
@@ -337,8 +360,6 @@ fn dispatch(c: &Ctx, args: &[String], io: &mut Io) -> R {
         "lanes-recover" => lanes_recover::lanes_recover(&s, io),
         "lanes-show" => lanes::lanes_show(&s, io),
         "lane-sync" => park::lane_sync(&s, a, io),
-        "wave" => queue::wave(&s, io),
-        "wave-partition" => queue::wave_partition(&s, a, io),
         "deps-check" => queue::deps_check_verb(&s, a, io),
         "teardown" => queue::teardown(&s),
         "task-next" if lane_flag => match a {
@@ -353,7 +374,6 @@ fn dispatch(c: &Ctx, args: &[String], io: &mut Io) -> R {
         "base-failing" => done::base_failing(&s, a, io),
         "recover" => done::recover(&s, a, io),
         "recover-reject" => done::recover_reject(&s, a, io),
-        "plan-discard" => done::plan_discard(&s, a, io),
         "prepare" => land::prepare(&s, a, io),
         "reconcile" => land::reconcile(&s, io),
         "leftovers" => branches::leftovers(&s, io),
@@ -367,7 +387,6 @@ fn dispatch(c: &Ctx, args: &[String], io: &mut Io) -> R {
         "session-commits" => branches::session_commits_verb(&s, io),
         "session-set" => branches::session_set(&s, a),
         "session-get" => branches::session_get(&s, io),
-        "group-set" => branches::group_set(&s, a),
         "task-dir" => branches::task_dir_verb(&s, a, io),
         "dirty-check" => branches::dirty_check(&s, io),
         "trace" => branches::trace(&s, a, io),
