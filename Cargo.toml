@@ -5,7 +5,6 @@ edition = "2021"
 description = "Cost-optimized agent harness: a repo-local backlog worked by cheap sub-agents."
 license = "MIT"
 repository = "https://github.com/shortcuts/radin"
-homepage = "https://github.com/shortcuts/radin"
 readme = "README.md"
 keywords = ["agents", "backlog", "claude", "cli"]
 categories = ["command-line-utilities"]
