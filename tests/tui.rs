@@ -1467,3 +1467,32 @@ fn a_read_only_view_pages_cli_output_or_says_there_is_nothing() {
         assert!(render(a, 80, 24).has("plan-lint: the task has no plan"));
     });
 }
+
+#[test]
+fn run_lanes_pages_the_running_lanes_or_says_there_is_nothing() {
+    let fx = Fx::new();
+    fx.seed();
+    let st = |args: &[&str], stdin: &str| {
+        let v: Vec<String> = args.iter().map(|s| s.to_string()).collect();
+        radin::run_in(&v, &fx.env(), false, &fx.proj, Some(stdin))
+    };
+    let r = st(
+        &["state", "steps-init"],
+        "dark-mode\t1\t\tpending\nbroken-auth\t2\t\tpending\n",
+    );
+    assert_eq!(r.0, 0, "{}", r.2);
+    fx.with(|a| {
+        assert!(press(a, ":run-lanes\r").is_empty());
+        assert!(render(a, 80, 24).has("run-lanes: nothing to show"));
+    });
+    fs::create_dir_all(fx.ns().join("state/lanes")).unwrap();
+    fs::write(fx.ns().join("state/lane-mode"), "lanes\n").unwrap();
+    fs::write(fx.ns().join("state/lanes/maintenance"), "running\n").unwrap();
+    fx.with(|a| {
+        let (_, path, _) = run_of(press(a, ":run-lanes\r"));
+        assert_eq!(
+            fs::read_to_string(&path).unwrap(),
+            "lane\tmaintenance\t-\tnone\t-\n"
+        );
+    });
+}

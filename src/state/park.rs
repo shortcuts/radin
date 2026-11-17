@@ -10,7 +10,7 @@ pub fn merge_in_progress(dir: &Path) -> bool {
     !p.is_empty() && dir.join(p).exists()
 }
 
-fn conflicted(dir: &Path) -> bool {
+pub(super) fn conflicted(dir: &Path) -> bool {
     !gt(dir, &["diff", "--name-only", "--diff-filter=U"]).is_empty()
 }
 

@@ -1115,3 +1115,54 @@ fn lane_judge_records_one_judged_line_per_decision() {
     assert_eq!(w.tele.borrow().len(), 4);
     assert_eq!(w.state(&["lane-judge", "ea", "eb"]).code, 1);
 }
+
+#[test]
+fn lanes_view_lists_running_lanes_with_task_sync_and_queue() {
+    let w = W::new();
+    epics(&w);
+    assert_eq!(w.state(&["lanes-view"]).out, "");
+    w.state(&["lanes-init"]);
+    w.state(&["lane-next"]);
+    assert_eq!(w.state(&["lanes-view"]).out, "lane\tea\t-\tnone\t-\n");
+    w.state(&["set-status", "a-one", "in_progress"]);
+    assert_eq!(w.state(&["lanes-view"]).out, "lane\tea\ta-one\tnone\t-\n");
+    w.state(&["lane-next", "--cleared", "eb"]);
+    w.write(".radin/state/merge-queue", "ea\tqueued\neb\tqueued\n");
+    assert_eq!(
+        w.state(&["lanes-view"]).out,
+        "lane\tea\ta-one\tnone\t1\nlane\teb\t-\tnone\t2\n"
+    );
+    w.write(".radin/state/merge-queue", "ea\tmerged\n");
+    assert_eq!(
+        w.state(&["lanes-view"]).out.lines().next(),
+        Some("lane\tea\ta-one\tnone\tmerged")
+    );
+}
+
+#[test]
+fn lanes_view_derives_sync_from_the_lane_worktree() {
+    let w = W::new();
+    epics(&w);
+    w.lane_mode("lanes");
+    w.write(".radin/state/lanes/ea", "running\n");
+    let sync = || {
+        w.state(&["lanes-view"])
+            .out
+            .split('\t')
+            .nth(3)
+            .unwrap()
+            .to_string()
+    };
+    w.state(&["lane-sync", "a-one"]);
+    assert_eq!(sync(), "current");
+    commit_in(&w, &w.p, "m.txt", "main\n");
+    assert_eq!(sync(), "behind");
+    let wt = std::path::PathBuf::from(format!("{}-ea", w.p.display()));
+    commit_in(&w, &wt, "c.txt", "lane\n");
+    commit_in(&w, &w.p, "c.txt", "main\n");
+    assert_eq!(w.state(&["lane-sync", "a-one"]).code, 3);
+    assert_eq!(sync(), "conflict");
+    std::fs::write(wt.join("c.txt"), "both\n").unwrap();
+    w.git_at(&wt, &["add", "c.txt"]);
+    assert_eq!(sync(), "merging");
+}

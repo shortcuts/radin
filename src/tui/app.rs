@@ -965,6 +965,7 @@ impl<'a> App<'a> {
             "show" => s(&["backlog", "show"]),
             "duplicates" => s(&["backlog", "duplicates"]),
             "run-status" => s(&["state", "steps-list"]),
+            "run-lanes" => s(&["state", "lanes-view"]),
             "run-waiting" => s(&["state", "steps-waiting"]),
             "run-open" => s(&["state", "steps-open"]),
             "run-unlanded" => s(&["state", "unlanded"]),

@@ -295,6 +295,13 @@ pub const ACTIONS: &[Action] = &[
         List,
     ),
     Action::new(
+        "run-lanes",
+        &[],
+        "page the running lanes with task, sync and queue",
+        "run",
+        List,
+    ),
+    Action::new(
         "run-waiting",
         &[],
         "page the blocked tasks waiting on an answer",

@@ -1,4 +1,6 @@
+use super::git::ok;
 use super::land::drop_branch;
+use super::park::{conflicted, merge_in_progress};
 use super::store::{deps_csv, get, num, read_lines};
 use super::{arg, die, mkdir, write, S};
 use crate::backlog::{Fail, Io, R};
@@ -476,6 +478,50 @@ pub fn lanes_show(s: &S, io: &mut Io) -> R {
         io,
         &started.into_iter().chain(waiting).collect::<Vec<_>>(),
     );
+    Ok(0)
+}
+
+fn sync_state(s: &S, epic: &str) -> &'static str {
+    let dir = s.lane_dir_path(epic);
+    let base = s.resolve_base();
+    if !dir.is_dir() {
+        "none"
+    } else if base.is_empty() {
+        "unknown"
+    } else if merge_in_progress(&dir) {
+        if conflicted(&dir) {
+            "conflict"
+        } else {
+            "merging"
+        }
+    } else if ok(&dir, &["merge-base", "--is-ancestor", &base, "HEAD"]) {
+        "current"
+    } else {
+        "behind"
+    }
+}
+
+/// One line per running lane: `lane<TAB>epic<TAB>task<TAB>sync<TAB>queue`; nothing in `main` mode.
+pub fn lanes_view(s: &S, io: &mut Io) -> R {
+    if s.lane_mode() != "lanes" {
+        return Ok(0);
+    }
+    let r = Run::load(s)?;
+    let queue = super::mergeq::read(s);
+    for e in r.running() {
+        let task = r
+            .tasks
+            .iter()
+            .filter(|t| t.epic == e && t.status == "in_progress")
+            .min_by_key(|t| t.order)
+            .map_or("-", |t| t.id.as_str());
+        let pos = match queue.iter().position(|(q, _)| *q == e) {
+            Some(i) if queue[i].1 == "queued" => (i + 1).to_string(),
+            Some(i) if queue[i].1 == "merged" => "merged".into(),
+            _ => "-".into(),
+        };
+        let _ = writeln!(io.out, "lane\t{e}\t{task}\t{}\t{pos}", sync_state(s, &e));
+    }
     Ok(0)
 }
 
