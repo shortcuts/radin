@@ -186,6 +186,7 @@ What an audit checks prose against:
 
 ## The run loop
 
+- **Phase 0 shows one epic triage table for loose tasks, applied on one approval.** `state preflight` prints `loose<TAB>csv`; the router proposes an existing epic, a new epic or `maintenance` per task; `Stop` writes nothing. **Why:** a legacy backlog holds loose tasks (about 20 on one repo), and the lane scheduler needs every task in an epic. The check runs every session, so a hand-added task is caught, and one approval keeps a large backlog from stalling the run.
 - **Each dispatch prints its agent `name`, at most 64 characters.** The router passes it to the Agent tool as is. **Why:** the Agent tool rejects a longer name, and the router shortened them ad hoc.
 - **The router makes one startup call, `state preflight`, and reads a side file only for a line it prints.** **Why:** six startup verbs each routed on an exit code. One call prints a tagged line per applicable branch, so the router loads recovery, session and prioritization text only when needed.
 - **Phase 2 asks for the selection first, then prints the order of the selected tasks only.** `order --report --only` keeps each task's global order number. **Why:** the full report of a 35-entry backlog put about 9.6k characters into the router's context for a run of 6 tasks.

@@ -115,6 +115,20 @@ Empty output means no branch applies. Act on each line by its first field:
   `steps-init` rewrites `BACKLOG_STEPS.json` in Phase 3, so a waiting entry
   that stays unanswered restarts without its decision. Settle every one per
   "Settling Waiting Entries" in `RADIN_LIB/radin-batch-clarify.md`.
+- `loose<TAB>csv`: these ids sit outside every epic. Run this triage before
+  Phase 1, scoped or not. Read each title from `RADIN_CLI backlog loose` and
+  the epics from `RADIN_CLI backlog epics`, and read a task body only when its
+  title fits no epic. Propose for each id an existing epic, a new epic when two
+  or more loose tasks share a goal no epic covers, or `maintenance`. Print one
+  table with the columns `Task id`, `Title`, `Proposed epic`, `New`, and one
+  line per new epic with its slug and description. Ask per
+  `RADIN_LIB/radin-ask-rule.md` with the options `Apply this table`
+  (recommended) and `Stop, I will move them`. Treat a free-text answer as a
+  table edit: re-show the table and ask again. `Apply`: run
+  `RADIN_CLI backlog epic-add <slug>` with the description on stdin for each
+  new epic, then `RADIN_CLI backlog epic-move "<id>" <epic>` for each row. Stop
+  at the first non-zero exit, print its stderr and ask once. `Stop`: end the
+  run with one line naming the loose ids.
 - `rank<TAB>csv`: these ids have no `priority`. Read
   `RADIN_LIB/radin-prioritization.md` and apply its weighted criteria to those
   ids alone. It produces two things: the unset group in your order, as one

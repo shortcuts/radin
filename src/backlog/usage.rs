@@ -108,6 +108,10 @@ pub const USAGE: &[(&str, &str)] = &[
         r##"epics [--deps]              # print every epic id, one per line (--deps: "id<TAB>csv of the epics it depends on")"##,
     ),
     (
+        "loose",
+        r##"loose                       # print "id<TAB>category<TAB>title" for every entry outside an epic, one per line; empty when none"##,
+    ),
+    (
         "suggest",
         r##"suggest [order flags]       # print "tasks<TAB><count><TAB>all|epic" (epic when the count exceeds RADIN_EPIC_THRESHOLD, default 20, and an epic exists) and "epic<TAB><id><TAB><task count>" for the epic that holds the first task in `order --steps`"##,
     ),
@@ -129,7 +133,7 @@ pub const USAGE: &[(&str, &str)] = &[
     ),
     (
         "epic-move",
-        r##"epic-move <id-or-title> <epic-id|--none>  # move a task into/out of an epic"##,
+        r##"epic-move <id-or-title> <epic-id|--none>  # move a task into/out of an epic (maintenance is created when absent)"##,
     ),
     (
         "epic-set-deps",

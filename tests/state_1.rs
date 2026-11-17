@@ -158,16 +158,22 @@ fn preflight_prints_one_tagged_line_per_applicable_branch_and_only_empty_on_an_e
         ".radin/state/BACKLOG_STEPS.json",
         "{\"id\":\"t-one\",\"order\":1,\"status\":\"blocked\",\"reason\":\"deferred\",\"depends_on\":[],\"attempts\":1,\"debugged\":0,\"note\":\"which db?\"}\n{\"id\":\"t-two\",\"order\":2,\"status\":\"in_progress\",\"depends_on\":[],\"attempts\":2,\"debugged\":0,\"note\":\"dispatched\"}\n",
     );
+    w.bl(&["epic-move", "t-one", "--none"], "");
     let r = w.state(&["preflight"]);
     assert_eq!(r.code, 0);
     for line in [
         "stuck\tt-two\t2\tdispatched",
         "waiting\tt-one\tdeferred\twhich db?",
+        "loose\tt-one",
         "rank\tt-one",
     ] {
         assert!(r.out.contains(line), "{line} in {}", r.out);
     }
     assert!(!r.out.contains("session\t"), "{}", r.out);
+    w.bl(&["epic-add", "e"], "ctx");
+    w.bl(&["epic-move", "t-one", "e"], "");
+    let r = w.state(&["preflight"]);
+    assert!(!r.out.contains("loose\t"), "{}", r.out);
     w.bl(&["remove", "t-one"], "");
     let r = w.state(&["preflight"]);
     assert_eq!((r.code, r.out.as_str()), (0, "empty\n"));

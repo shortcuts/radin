@@ -12,7 +12,7 @@
   resume                       # move each failed entry and each retryable blocked entry to pending, attempts and debugged kept; print "id<TAB>old status" per move; blocked entries with a dependency, unmerged, max-attempts or waiting reason stay
   stuck                        # print "id<TAB>attempts<TAB>note" per in_progress entry, exit 1 if none
   steps-waiting                # print "id<TAB>reason<TAB>note" per blocked entry whose reason (deferred, inconclusive, fact, decision) holds an unanswered question, exit 1 if none
-  preflight                    # run the startup checks, print "empty" | "stuck<TAB>id<TAB>attempts<TAB>note" | "waiting<TAB>id<TAB>reason<TAB>note" | "rank<TAB>csv" | "leftovers", exit 0
+  preflight                    # run the startup checks, print "empty" | "stuck<TAB>id<TAB>attempts<TAB>note" | "waiting<TAB>id<TAB>reason<TAB>note" | "loose<TAB>csv" | "rank<TAB>csv" | "leftovers", exit 0
   steps-open                   # print "id<TAB>question" per open decision of a pending entry, exit 1 if none
   steps-list                   # print "id<TAB>order<TAB>status<TAB>attempts<TAB>note" per entry, exit 1 if none
   wave-partition [--wave N] [--cap N]  # read ids on stdin, print "group<TAB>n<TAB>csv", "apart<TAB>a<TAB>b<TAB>shared paths" and "unplanned<TAB>id"; exit 1 on empty input; claims nothing; the cap comes from `wave-cap`; --wave also records a parallel serialized telemetry event per apart pair, unplanned id and cap-split id

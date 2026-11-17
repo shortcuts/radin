@@ -44,10 +44,10 @@ fn resolve_deps(idx: &Index, csv: &str) -> Result<Vec<String>, Fail> {
     Ok(ids)
 }
 
-const MAINTENANCE: &str = "maintenance";
+pub(super) const MAINTENANCE: &str = "maintenance";
 const MAINTENANCE_DESCRIPTION: &str = "Orphan fixes and follow-ups that fit no feature epic: bug fixes, review and gate findings, tooling and doc chores.\n";
 
-fn ensure_maintenance(cx: &Ctx, idx: &Index) -> Result<(), super::Fail> {
+pub(super) fn ensure_maintenance(cx: &Ctx, idx: &Index) -> Result<(), super::Fail> {
     let dir = cx.ns.backlog_tasks_dir.join(MAINTENANCE);
     if dir.is_dir() {
         return Ok(());

@@ -116,6 +116,12 @@ impl W {
         fs::write(self.proj.join(IDX), text).unwrap();
     }
 
+    fn write_task(&self, rel: &str) {
+        let p = self.proj.join(".radin/backlog").join(rel);
+        fs::create_dir_all(p.parent().unwrap()).unwrap();
+        fs::write(p, "body").unwrap();
+    }
+
     fn write_plan(&self, rel: &str, outcome: &str) {
         let p = self.proj.join(rel);
         fs::create_dir_all(p.parent().unwrap()).unwrap();
@@ -1745,7 +1751,7 @@ fn env_prints_quoted_namespace_variables() {
 fn help_unknown_verbs_and_missing_index() {
     let w = W::new();
     let all = w.ok(&["help"], "");
-    assert_eq!(all.lines().count(), 36);
+    assert_eq!(all.lines().count(), 37);
     assert!(all.starts_with("  help [command]"));
     for flag in ["--help", "-h"] {
         assert_eq!(w.ok(&[flag], ""), all);
@@ -1759,7 +1765,7 @@ fn help_unknown_verbs_and_missing_index() {
         .err
         .starts_with("radin-backlog: unknown command: nope\n  help [command]"));
     let r = w.fails(&["nope"], "");
-    assert_eq!(r.err.lines().count(), 37);
+    assert_eq!(r.err.lines().count(), 38);
     assert!(r.err.starts_with("radin-backlog: unknown command: nope\n"));
     assert!(w
         .fails(&[], "")
@@ -1834,4 +1840,40 @@ fn add_warns_when_an_open_entry_already_has_the_same_location_file() {
     );
     let other = w.cli(&["add", "fix", "third", "--location", "t/B.kt:1"], "b\n");
     assert!(!other.err.contains("warning"), "{}", other.err);
+}
+
+#[test]
+fn loose_lists_entries_outside_any_epic_and_epic_move_creates_maintenance() {
+    let w = W::new();
+    w.set_index(
+        r#"{"id":"flat-one","category":"fix","title":"flat one","file":"tasks/flat-one.md"}
+{"id":"kid","category":"feat","title":"kid","file":"tasks/auth/kid.md"}
+"#,
+    );
+    w.write_task("tasks/flat-one.md");
+    assert_eq!(w.ok(&["loose"], ""), "flat-one\tfix\tflat one\n");
+    assert!(w
+        .fails(&["loose", "x"], "")
+        .err
+        .contains("loose takes no argument"));
+    w.ok(&["epic-move", "flat-one", "maintenance"], "");
+    assert!(w.tasks().join("maintenance/DESCRIPTION.md").is_file());
+    assert_eq!(w.ok(&["loose"], ""), "");
+}
+
+#[test]
+fn epic_move_onto_a_task_id_maintenance_dies_with_the_collision() {
+    let w = W::new();
+    w.set_index(
+        r#"{"id":"maintenance","category":"fix","title":"maintenance","file":"tasks/maintenance.md"}
+{"id":"other","category":"fix","title":"other","file":"tasks/other.md"}
+"#,
+    );
+    w.write_task("tasks/other.md");
+    let r = w.fails(&["epic-move", "other", "maintenance"], "");
+    assert!(
+        r.err.contains("a task already uses that id: maintenance"),
+        "{}",
+        r.err
+    );
 }

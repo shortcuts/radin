@@ -3,6 +3,7 @@ flowchart TD
   p0 -. session line .-> note1[read session file]
   p0 -. stuck line .-> note2[recover stuck]
   p0 -. waiting line .-> note3[settle questions]
+  p0 -. loose line .-> note7[epic triage table: one approval, epic-move each]
   p0 -. rank line .-> note4[rank unset ids]
   p0 -. leftovers line .-> note5[state reconcile: land every task branch]
   note5 -- conflict, exit 3 --> leafM

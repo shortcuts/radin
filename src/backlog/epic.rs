@@ -71,6 +71,24 @@ pub fn epics(cx: &Ctx, a: &[String], io: &mut Io) -> R {
     Ok(0)
 }
 
+pub fn loose(cx: &Ctx, a: &[String], io: &mut Io) -> R {
+    if !a.is_empty() {
+        return Err(usage_die(
+            "loose",
+            &format!("loose takes no argument, got: {}", a[0]),
+        ));
+    }
+    for e in cx.require()?.entries.iter().filter(|e| e.epic().is_empty()) {
+        io.out.push_str(&format!(
+            "{}\t{}\t{}\n",
+            e.id(),
+            e.str("category"),
+            e.str("title")
+        ));
+    }
+    Ok(0)
+}
+
 pub fn epic_add(cx: &Ctx, a: &[String], io: &mut Io) -> R {
     let epic = arg(a, 0);
     if epic.is_empty() {
@@ -144,6 +162,9 @@ pub fn epic_move(cx: &Ctx, a: &[String], io: &mut Io) -> R {
     let new = if target == "--none" {
         format!("tasks/{id}.md")
     } else {
+        if target == super::write::MAINTENANCE {
+            super::write::ensure_maintenance(cx, &idx)?;
+        }
         require_epic_id(cx, target)?;
         format!("tasks/{target}/{id}.md")
     };

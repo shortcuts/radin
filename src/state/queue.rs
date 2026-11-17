@@ -178,6 +178,10 @@ pub fn preflight(s: &S, io: &mut Io) -> R {
     for l in w.out.lines() {
         let _ = writeln!(io.out, "waiting\t{l}");
     }
+    if let Some(l) = s.bl_ok(&["loose"]).filter(|l| !l.trim().is_empty()) {
+        let ids: Vec<&str> = l.lines().filter_map(|r| r.split('\t').next()).collect();
+        let _ = writeln!(io.out, "loose\t{}", ids.join(","));
+    }
     if let Some(ids) = s.bl_ok(&["order", "--rank-needed"]) {
         let _ = writeln!(
             io.out,
