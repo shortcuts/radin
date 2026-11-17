@@ -146,7 +146,7 @@ fn build(c: &Ctx, args: &[String]) -> R<Out> {
     let a = |i: usize| args.get(i).map_or("", String::as_str);
     let (kind, id, extra) = (a(0), a(1), a(2));
     if kind.is_empty() || (id.is_empty() && kind != "gate" && kind != "merge") {
-        return die("usage: radin prompt <planning|execution|debug|factfind> <id> [<failure|question>] | planning <id> [<earlier-id>...] | gate | merge [<branch>...] | sync <id> | sync --lane <epic> <dir> [<answer>]");
+        return die("usage: radin prompt <planning|execution|debug|factfind> <id> [<failure|question>] | planning <id> [<earlier-id>...] | gate [--lane <epic>] | merge [<branch>...] | sync <id> | sync --lane <epic> <dir> [<answer>]");
     }
     if ![
         "planning",
@@ -197,11 +197,38 @@ fn build(c: &Ctx, args: &[String]) -> R<Out> {
     let sub = |body: &mut String, token: &str, value: &str| *body = body.replace(token, value);
 
     if kind == "gate" {
-        let map = c.nested(&root, &["state", "gate-map"]);
-        if map.0 != 0 {
-            return die("no session commits, so no gate is due");
+        let lane = id == "--lane";
+        if lane && extra.is_empty() {
+            return die("usage: gate --lane <epic>");
         }
-        let active = if ns.join("state/gate-reviewed").exists() {
+        let map = if lane {
+            c.nested(&root, &["state", "lane-gate", extra, "--map"])
+        } else {
+            c.nested(&root, &["state", "gate-map"])
+        };
+        if map.0 != 0 || (lane && map.1.is_empty()) {
+            return die(if lane {
+                "no merged lane to gate"
+            } else {
+                "no session commits, so no gate is due"
+            });
+        }
+        let (map_line, previous) = match map.1.split_once('\n') {
+            Some((m, rest)) if lane => (m, rest),
+            _ => (chomp(&map.1), ""),
+        };
+        let previous = previous
+            .lines()
+            .filter_map(|l| l.strip_prefix("previous\t"))
+            .collect::<Vec<_>>()
+            .join("; ");
+        let active = if lane {
+            if previous.is_empty() {
+                " "
+            } else {
+                " GATE_PREVIOUS "
+            }
+        } else if ns.join("state/gate-reviewed").exists() {
             " "
         } else {
             " GATE_REVIEW "
@@ -210,8 +237,14 @@ fn build(c: &Ctx, args: &[String]) -> R<Out> {
         sub(&mut body, "LEAF_CONTRACT", &leaf);
         sub(&mut body, "PLANNING_RULE", &planning);
         sub(&mut body, "COMPLEXITY_RULE", &complexity);
-        sub(&mut body, "GATE_MAP", chomp(&map.1));
-        let out = write_prompt(&ns, "session-gate.md", &body)?;
+        sub(&mut body, "GATE_MAP", map_line);
+        sub(&mut body, "GATE_PREVIOUS", &previous);
+        let file = if lane {
+            format!("session-gate-lane-{extra}.md")
+        } else {
+            "session-gate.md".into()
+        };
+        let out = write_prompt(&ns, &file, &body)?;
         return Ok(d.print("radin-gate", &out));
     }
     if kind == "sync" {

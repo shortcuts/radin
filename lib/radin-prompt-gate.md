@@ -2,7 +2,8 @@
 
 Rendered by `radin prompt gate`. `src/prompt.rs` holds the format. The
 `GATE_REVIEW` block drops once `radin state gate-filed` marks the session's
-one review round used.
+one review round used. `gate --lane <epic>` keeps it off and fills
+`GATE_PREVIOUS` from the lane's failed attempts.
 
 <!-- host:claude -->
 `model: "RADIN_MODEL_EXECUTION"`
@@ -20,6 +21,9 @@ LEAF_CONTRACT
 The session's branches, one per line: branch, tip, worktree, oldest session
 commit, TAB-separated.
 GATE_MAP
+<!-- if:GATE_PREVIOUS -->
+An earlier run on this tip failed: GATE_PREVIOUS. Fix forward from there.
+<!-- end -->
 
 Red: fix forward on that branch through `@@skill:surgical-patch@@`, commit
 through `@@skill:caveman-commit@@`, and re-run the checks. Leave the tree clean.

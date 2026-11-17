@@ -23,6 +23,7 @@ fn epics(w: &W) {
 
 fn merged(w: &W, epic: &str) {
     w.write(".radin/state/merge-queue", &format!("{epic}\tmerged\n"));
+    w.write(&format!(".radin/state/gate/{epic}"), "green\n");
 }
 
 #[test]
@@ -447,6 +448,13 @@ fn lane_merge_merges_no_ff_one_lane_at_a_time_and_lane_done_frees_the_queue() {
     let r = w.state(&["lane-merge"]);
     assert_eq!((r.code, r.out.as_str()), (2, "waiting\tea\n"));
     assert!(!w.git_ok(&["merge-base", "--is-ancestor", "radin/eb", "HEAD"]));
+    let gate = w.state(&[
+        "lane-gate",
+        "ea",
+        "--report",
+        "STATUS: SUCCESS — checks green",
+    ]);
+    assert_eq!(gate.out, "green\tea\n");
     let r = w.state(&["lane-done", "ea"]);
     assert_eq!(r.code, 0, "{}", r.all());
     assert!(!ea.exists());
@@ -455,6 +463,7 @@ fn lane_merge_merges_no_ff_one_lane_at_a_time_and_lane_done_frees_the_queue() {
     let r = w.state(&["lane-merge"]);
     assert!(r.out.starts_with("merged\teb\t"), "{}", r.all());
     assert!(w.git_ok(&["merge-base", "--is-ancestor", "radin/eb", "HEAD"]));
+    w.state(&["lane-gate", "eb", "--report", "STATUS: SUCCESS — ok"]);
     assert_eq!(w.state(&["lane-done", "eb"]).code, 0);
     assert_eq!(w.state(&["lane-merge"]).code, 1);
 }
@@ -534,4 +543,264 @@ fn completed_show_prints_the_acceptance_and_epic() {
     let out = w.state(&["completed-show", "a-one"]).out;
     assert!(out.contains("\nepic\tea\n"), "{out}");
     assert!(out.contains("\nacceptance\t"), "{out}");
+}
+
+fn queue_and_merge(w: &W, epic: &str) -> String {
+    assert_eq!(w.state(&["lane-queue", epic]).code, 0);
+    let r = w.state(&["lane-merge"]);
+    assert_eq!(r.code, 0, "{}", r.all());
+    r.out.trim().rsplit('\t').next().unwrap().to_string()
+}
+
+fn merged_ea(w: &W) -> String {
+    epics(w);
+    w.lane_mode("lanes");
+    clean_root(w);
+    run_lane(w, "ea");
+    finish_lane_task(w, "a-one", "a1.txt");
+    finish_lane_task(w, "a-two", "a2.txt");
+    queue_and_merge(w, "ea")
+}
+
+const FAIL: &str = "STATUS: FAILED — lint\tred";
+
+fn red_ea(w: &W) -> String {
+    merged_ea(w);
+    assert_eq!(
+        w.state(&["lane-gate", "ea", "--report", FAIL]).out,
+        "retry\tea\t2\n"
+    );
+    let r = w.state(&["lane-gate", "ea", "--report", FAIL]);
+    let id = r
+        .out
+        .strip_prefix("red\tea\t")
+        .unwrap_or_else(|| panic!("{}", r.all()));
+    id.trim().to_string()
+}
+
+#[test]
+fn lane_gate_runs_after_the_merge_and_a_green_report_frees_lane_done() {
+    let w = W::new();
+    epics(&w);
+    w.lane_mode("lanes");
+    clean_root(&w);
+    run_lane(&w, "ea");
+    finish_lane_task(&w, "a-one", "a1.txt");
+    finish_lane_task(&w, "a-two", "a2.txt");
+    let r = w.state(&["lane-gate", "ea"]);
+    assert_eq!(
+        (r.code, r.err.as_str()),
+        (1, "radin-state: lane ea has not merged\n")
+    );
+    let hash = queue_and_merge(&w, "ea");
+    assert_eq!(w.state(&["lane-gate", "ea"]).out, "run\tea\t1\n");
+    let r = w.state(&["lane-done", "ea"]);
+    assert_eq!(
+        (r.code, r.err.as_str()),
+        (1, "radin-state: lane ea gate is run\n")
+    );
+    let map = w.state(&["lane-gate", "ea", "--map"]).out;
+    assert_eq!(
+        map,
+        format!("{}\t{hash}\t{}\t{hash}\n", w.base(), w.p.display())
+    );
+    let r = w.state(&[
+        "lane-gate",
+        "ea",
+        "--report",
+        "`STATUS: SUCCESS — checks green at abc`",
+    ]);
+    assert_eq!(r.out, "green\tea\n");
+    assert_eq!(w.state(&["lane-gate", "ea"]).out, "green\tea\n");
+    assert_eq!(w.state(&["lane-gate", "ea", "--report", FAIL]).code, 1);
+    assert_eq!(w.state(&["lane-done", "ea"]).code, 0);
+}
+
+#[test]
+fn two_failed_gates_file_a_priority_21_fix_with_the_lane_tasks_and_the_failures() {
+    let w = W::new();
+    let merge = merged_ea(&w);
+    assert_eq!(
+        w.state(&["lane-gate", "ea", "--report", FAIL]).out,
+        "retry\tea\t2\n"
+    );
+    let map = w.state(&["lane-gate", "ea", "--map"]).out;
+    assert!(
+        map.ends_with("\nprevious\tSTATUS: FAILED — lint red\n"),
+        "{map}"
+    );
+    let r = w.state(&[
+        "lane-gate",
+        "ea",
+        "--report",
+        "STATUS: INCONCLUSIVE — no cargo",
+    ]);
+    let id = format!("fix-red-{}-after-lane-ea", w.base());
+    assert_eq!(r.out, format!("red\tea\t{id}\n"), "{}", r.all());
+    let body = std::fs::read_to_string(w.task_file(&id)).unwrap();
+    assert!(
+        body.contains(&format!("merged into {} at {merge}", w.base())),
+        "{body}"
+    );
+    assert!(body.contains("**Introduced by:** a-one, a-two\n"), "{body}");
+    assert!(
+        body.trim_end().ends_with(
+            "- attempt 1: STATUS: FAILED — lint red\n- attempt 2: STATUS: INCONCLUSIVE — no cargo"
+        ),
+        "{body}"
+    );
+    let meta = w.bl(&["meta", &id], "").out;
+    assert!(meta.contains("origin\ta-one"), "{meta}");
+    let list = w.bl(&["list", "--order", "created"], "").out;
+    let row = list.lines().find(|l| l.starts_with(&id)).unwrap();
+    assert!(row.contains("maintenance"), "{row}");
+    assert!(row.split('\x1f').any(|f| f == "21"), "{row:?}");
+    assert!(w.read(".radin/state/BACKLOG_STEPS.json").contains(&format!(
+        "{{\"id\":\"{id}\",\"order\":0,\"status\":\"pending\""
+    )));
+    assert_eq!(w.read(&format!(".radin/state/hotfix/{id}")), "open\n");
+    assert_eq!(
+        w.state(&["lane-gate", "ea"]).out,
+        format!("red\tea\t{id}\n")
+    );
+    assert_eq!(w.bl(&["list", "--order", "created"], "").out, list);
+}
+
+#[test]
+fn a_gate_with_no_lane_task_in_the_merge_files_a_fix_without_origin() {
+    let w = W::new();
+    epics(&w);
+    w.lane_mode("lanes");
+    clean_root(&w);
+    run_lane(&w, "ea");
+    w.state(&["set-status", "a-one", "failed", "boom"]);
+    w.state(&["set-status", "a-two", "failed", "boom"]);
+    commit_in(&w, &lane_tree(&w, "a-one"), "x.txt", "x\n");
+    queue_and_merge(&w, "ea");
+    w.state(&["lane-gate", "ea", "--report", FAIL]);
+    let r = w.state(&["lane-gate", "ea", "--report", FAIL]);
+    let id = r.out.trim().rsplit('\t').next().unwrap().to_string();
+    let body = std::fs::read_to_string(w.task_file(&id)).unwrap();
+    assert!(
+        body.contains("**Introduced by:** no lane task matched"),
+        "{body}"
+    );
+    assert!(!w.bl(&["meta", &id], "").out.contains("origin"));
+}
+
+fn hotfix_merged(w: &W, id: &str) {
+    let wt = format!("{}-hotfix-{id}", w.p.display());
+    assert_eq!(w.prep_dir(id), wt);
+    assert_eq!(
+        w.git_at(Path::new(&wt), &["branch", "--show-current"]),
+        format!("radin/hotfix-{id}")
+    );
+    finish_lane_task(w, id, "fix.txt");
+    assert_eq!(queue_and_merge(w, &format!("hotfix-{id}")).len(), 12);
+}
+
+#[test]
+fn an_open_hotfix_pauses_the_queue_takes_a_slot_without_a_judge_and_closes_on_green() {
+    let w = W::new();
+    let id = red_ea(&w);
+    assert_eq!(w.state(&["lane-merge"]).out, "waiting\tea\n");
+    assert_eq!(
+        w.state(&["lane-done", "ea"]).code,
+        0,
+        "a red lane may finish"
+    );
+    run_lane(&w, "eb");
+    w.write(".radin/state/merge-queue", "eb\tqueued\n");
+    let r = w.state(&["lane-merge"]);
+    assert_eq!(
+        (r.code, r.out.as_str()),
+        (2, format!("paused\teb\t{id}\n").as_str())
+    );
+    let r = w.state(&["lane-next"]);
+    assert_eq!(
+        (r.code, r.out.as_str()),
+        (0, format!("start\thotfix-{id}\n").as_str()),
+        "{}",
+        r.all()
+    );
+    finish_lane_task(&w, "b-one", "b1.txt");
+    let wt = format!("{}-hotfix-{id}", w.p.display());
+    assert_eq!(w.prep_dir(&id), wt);
+    finish_lane_task(&w, &id, "fix.txt");
+    let r = w.state(&["lane-queue", &format!("hotfix-{id}")]);
+    assert_eq!(r.out, format!("queued\thotfix-{id}\t1\n"), "{}", r.all());
+    assert_eq!(
+        w.read(".radin/state/merge-queue"),
+        format!("hotfix-{id}\tqueued\neb\tqueued\n")
+    );
+    let r = w.state(&["lane-merge"]);
+    assert!(
+        r.out.starts_with(&format!("merged\thotfix-{id}\t")),
+        "{}",
+        r.all()
+    );
+    let hot = format!("hotfix-{id}");
+    assert_eq!(
+        w.state(&["lane-gate", &hot, "--report", "STATUS: SUCCESS — ok"])
+            .out,
+        format!("green\t{hot}\n")
+    );
+    assert_eq!(w.read(&format!(".radin/state/hotfix/{id}")), "open\n");
+    assert_eq!(w.state(&["lane-done", &hot]).code, 0);
+    assert_eq!(w.read(&format!(".radin/state/hotfix/{id}")), "closed\n");
+    let r = w.state(&["lane-merge"]);
+    assert!(r.out.starts_with("merged\teb\t"), "{}", r.all());
+}
+
+#[test]
+fn a_hotfix_lane_that_fails_twice_asks_the_user_and_files_no_entry() {
+    let w = W::new();
+    let id = red_ea(&w);
+    w.state(&["lane-done", "ea"]);
+    assert_eq!(w.state(&["lane-next"]).out, format!("start\thotfix-{id}\n"));
+    hotfix_merged(&w, &id);
+    let hot = format!("hotfix-{id}");
+    let before = w.bl(&["list", "--order", "created"], "").out;
+    assert_eq!(
+        w.state(&["lane-gate", &hot, "--report", FAIL]).out,
+        format!("retry\t{hot}\t2\n")
+    );
+    assert_eq!(
+        w.state(&["lane-gate", &hot, "--report", FAIL]).out,
+        format!("ask\t{hot}\n")
+    );
+    assert_eq!(w.bl(&["list", "--order", "created"], "").out, before);
+    let r = w.state(&["lane-done", &hot]);
+    assert_eq!(r.err, format!("radin-state: lane {hot} gate is ask\n"));
+    assert_eq!(
+        w.state(&["lane-gate", &hot, "--reset"]).out,
+        format!("run\t{hot}\t1\n")
+    );
+    assert_eq!(w.state(&["lane-gate", &hot, "--reset"]).code, 1);
+}
+
+#[test]
+fn lanes_init_clears_gate_and_hotfix_files_and_rejects_a_hotfix_epic_while_main_prints_nothing() {
+    let w = W::new();
+    epics(&w);
+    w.write(".radin/state/gate/ea", "green\n");
+    w.write(".radin/state/hotfix/x", "open\n");
+    assert_eq!(w.state(&["lanes-init"]).code, 0);
+    assert!(!w.exists(".radin/state/gate/ea") && !w.exists(".radin/state/hotfix/x"));
+    w.lane_mode("main");
+    let r = w.state(&["lane-gate", "ea"]);
+    assert_eq!((r.code, r.out.as_str()), (0, ""));
+    assert_eq!(w.state(&["lane-gate"]).code, 1);
+    w.bl(&["epic-add", "hotfix-z"], "");
+    assert_eq!(
+        w.bl(&["add", "fix", "z one", "--epic", "hotfix-z"], "body\n")
+            .code,
+        0
+    );
+    w.steps_init("a-one\t1\t\tpending\nz-one\t2\t\tpending\n");
+    let r = w.state(&["lanes-init"]);
+    assert_eq!(
+        (r.code, r.err.as_str()),
+        (1, "radin-state: epic hotfix-z is reserved\n")
+    );
 }

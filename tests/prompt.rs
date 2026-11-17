@@ -120,6 +120,12 @@ impl E {
                     "radin/t-one\tabc123def456\t/wt/path\t0123456789ab\n".into(),
                     String::new(),
                 ),
+                ("state", "lane-gate") => (
+                    0,
+                    "main\tabc123def456\t/root\t0123456789ab\nprevious\tlint red\nprevious\ttests red\n"
+                        .into(),
+                    String::new(),
+                ),
                 ("state", "leftovers") => {
                     (0, "base\tmain\nbranch\tradin/t-one\n".into(), String::new())
                 }
@@ -363,6 +369,28 @@ fn prompt_sync_lane_renders_the_epic_dir_and_answer() {
         assert!(!text.contains(token), "{token} left in {text}");
     }
     assert_eq!(e.go(&["sync", "--lane", "ea"]).0, 1);
+}
+
+#[test]
+fn prompt_gate_lane_renders_the_root_map_line_and_the_earlier_failures() {
+    let e = env(Host::Claude);
+    let out = e.go(&["gate", "--lane", "ea"]);
+    assert_eq!(out.0, 0, "{}", out.2);
+    let text = e.prompt_of(&out);
+    assert!(
+        text.contains("main\tabc123def456\t/root\t0123456789ab\n"),
+        "{text}"
+    );
+    assert!(
+        text.contains("An earlier run on this tip failed: lint red; tests red. Fix forward"),
+        "{text}"
+    );
+    assert!(!text.contains("Review: once"), "{text}");
+    for token in ["GATE_MAP", "GATE_PREVIOUS", "GATE_REVIEW"] {
+        assert!(!text.contains(token), "{token} left in {text}");
+    }
+    assert!(!e.prompt_of(&e.go(&["gate"])).contains("An earlier run"));
+    assert_eq!(e.go(&["gate", "--lane"]).0, 1);
 }
 
 #[test]

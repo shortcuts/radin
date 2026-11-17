@@ -148,10 +148,9 @@ fn next(
     if running.len() >= limit || cands.is_empty() {
         return Next::Nothing;
     }
-    match cands
-        .iter()
-        .find(|c| mode == "main" || running.is_empty() || cleared.contains(c))
-    {
+    match cands.iter().find(|c| {
+        mode == "main" || running.is_empty() || cleared.contains(c) || c.starts_with("hotfix-")
+    }) {
         Some(c) => Next::Start(c.clone()),
         None => Next::Judge(cands.to_vec()),
     }
@@ -248,7 +247,7 @@ fn backlog(s: &S, args: &[&str]) -> Result<String, Fail> {
 
 /// Task id -> epic from one `backlog list`; an id the list lacks is `maintenance` at the caller.
 pub fn epic_map(s: &S) -> Result<HashMap<String, String>, Fail> {
-    Ok(backlog(s, &["list", "--order", "created"])?
+    let mut map: HashMap<String, String> = backlog(s, &["list", "--order", "created"])?
         .lines()
         .filter_map(|l| {
             let f: Vec<&str> = l.split('\x1f').collect();
@@ -262,7 +261,11 @@ pub fn epic_map(s: &S) -> Result<HashMap<String, String>, Fail> {
                 },
             ))
         })
-        .collect())
+        .collect();
+    for (id, _) in s.files_in("hotfix") {
+        map.insert(id.clone(), format!("hotfix-{id}"));
+    }
+    Ok(map)
 }
 
 pub fn task_epic(s: &S, id: &str) -> Result<String, Fail> {
@@ -278,12 +281,21 @@ fn lane_lines(r: &Run, io: &mut Io, order: &[String]) {
 }
 
 pub fn lanes_init(s: &S, io: &mut Io) -> R {
+    for dir in ["gate", "hotfix"] {
+        for (_, p) in s.files_in(dir) {
+            let _ = std::fs::remove_file(p);
+        }
+    }
     let r = Run::load(s)?;
     if r.tasks.is_empty() {
         return Err(die("no tasks in the run"));
     }
-    if r.tasks.iter().any(|t| t.epic == "wip") {
-        return Err(die("epic wip is reserved"));
+    if let Some(t) = r
+        .tasks
+        .iter()
+        .find(|t| t.epic == "wip" || t.epic.starts_with("hotfix-"))
+    {
+        return Err(die(format!("epic {} is reserved", t.epic)));
     }
     let cap = s.lane_cap()?;
     let m = mode(s.session_parallel(), cap, &r.tasks, &r.deps);
@@ -363,6 +375,13 @@ pub fn lane_done(s: &S, a: &[String], io: &mut Io) -> R {
     if s.lane_mode() == "lanes" {
         if super::mergeq::status(s, e) != "merged" {
             return Err(die(format!("lane {e} has not merged")));
+        }
+        let gate = super::gate::state_of(s, e);
+        if !matches!(gate, "green" | "red") {
+            return Err(die(format!("lane {e} gate is {gate}")));
+        }
+        if let (Some(id), "green") = (e.strip_prefix("hotfix-"), gate) {
+            super::gate::close_hotfix(s, id);
         }
         super::mergeq::remove(s, e);
         let (branch, wt) = (format!("radin/{e}"), s.lane_dir_path(e));
@@ -501,6 +520,11 @@ mod tests {
             Next::Judge(c.clone())
         );
         assert_eq!(next("lanes", 1, &run, &c, &names(&["c"])), Next::Nothing);
+        let hot = names(&["hotfix-x", "b"]);
+        assert_eq!(
+            next("lanes", 2, &run, &hot, &[]),
+            Next::Start("hotfix-x".into())
+        );
         assert_eq!(next("lanes", 2, &[], &[], &[]), Next::Nothing);
         assert_eq!(next("main", 1, &[], &c, &[]), Next::Start("b".into()));
     }

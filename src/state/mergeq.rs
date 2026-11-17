@@ -1,3 +1,4 @@
+use super::gate;
 use super::git::{dirty_files, g, gt, gx};
 use super::land::{ensure_lane_tree, settle_checkout};
 use super::park::{merge_in_progress, sync_lane};
@@ -45,7 +46,16 @@ pub(super) fn remove(s: &S, epic: &str) {
     save(s, &q);
 }
 
-fn base_of(s: &S) -> Result<String, crate::backlog::Fail> {
+pub(super) fn enqueue(q: &mut Vec<(String, String)>, epic: &str, status: &str) {
+    let row = (epic.to_string(), status.to_string());
+    if epic.starts_with("hotfix-") {
+        q.insert(0, row);
+    } else {
+        q.push(row);
+    }
+}
+
+pub(super) fn base_of(s: &S) -> Result<String, crate::backlog::Fail> {
     let base = s.resolve_base();
     if base.is_empty() {
         return Err(die("no base branch"));
@@ -75,20 +85,22 @@ pub fn lane_queue(s: &S, a: &[String], io: &mut Io) -> R {
     let ahead = s.branch_exists(&branch)
         && s.gt(&["rev-list", "--count", &format!("{base}..{branch}")]) != "0";
     if !ahead {
-        q.push((epic.to_string(), "merged".into()));
+        enqueue(&mut q, epic, "merged");
         save(s, &q);
+        gate::record_green(s, epic);
         s.journal("lane-queue", "", &format!("{epic} empty"));
         let _ = writeln!(io.out, "empty\t{epic}");
         return Ok(0);
     }
-    q.push((epic.to_string(), "queued".into()));
+    enqueue(&mut q, epic, "queued");
     save(s, &q);
-    s.journal("lane-queue", "", &format!("{epic} position {}", q.len()));
-    let _ = writeln!(io.out, "queued\t{epic}\t{}", q.len());
+    let pos = q.iter().position(|(e, _)| e == epic).map_or(0, |i| i + 1);
+    s.journal("lane-queue", "", &format!("{epic} position {pos}"));
+    let _ = writeln!(io.out, "queued\t{epic}\t{pos}");
     Ok(0)
 }
 
-/// Merges the head lane into the base with `--no-ff`; exit 2 waits for the previous lane's `lane-done`, exit 3 hands a conflict to the sync agent.
+/// Merges the head lane into the base with `--no-ff`; exit 2 waits for the previous lane's `lane-done` or an open hotfix, exit 3 hands a conflict to the sync agent.
 pub fn lane_merge(s: &S, a: &[String], io: &mut Io) -> R {
     let abort = arg(a, 0) == "--abort";
     if a.len() > 1 || (a.len() == 1 && !abort) {
@@ -102,6 +114,10 @@ pub fn lane_merge(s: &S, a: &[String], io: &mut Io) -> R {
     };
     if st == "merged" {
         let _ = writeln!(io.out, "waiting\t{epic}");
+        return Ok(2);
+    }
+    if let Some(id) = gate::open_hotfix(s).filter(|id| epic != format!("hotfix-{id}")) {
+        let _ = writeln!(io.out, "paused\t{epic}\t{id}");
         return Ok(2);
     }
     let dir = ensure_lane_tree(s, &epic, io)?;
@@ -146,6 +162,7 @@ pub fn lane_merge(s: &S, a: &[String], io: &mut Io) -> R {
     }
     set(s, &epic, "merged");
     let h = gt(&s.root, &["rev-parse", "--short=12", "HEAD"]);
+    gate::record_merge(s, &epic, &h);
     s.journal("lane-merge", "", &format!("{epic} at {h}"));
     let _ = writeln!(io.out, "merged\t{epic}\t{h}");
     Ok(0)
