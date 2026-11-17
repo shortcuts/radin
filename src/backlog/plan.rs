@@ -84,7 +84,7 @@ pub fn lint(text: &str) -> Vec<String> {
     out
 }
 
-fn changes_of(text: &str) -> Vec<String> {
+pub(super) fn changes_of(text: &str) -> Vec<String> {
     let (mut fence, mut inchg, mut out) = (false, false, vec![]);
     for l in text.lines() {
         if l.starts_with("```") {

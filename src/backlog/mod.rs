@@ -1,7 +1,9 @@
 mod epic;
+mod graph;
 mod index;
 pub(crate) use index::epic_of;
 mod order;
+mod overlap;
 mod plan;
 mod read;
 mod usage;
@@ -176,6 +178,7 @@ fn dispatch(args: &[String], env: &Env, io: &mut Io) -> R {
         "epic-show" => epic::epic_show(&cx, a, io),
         "epic-move" => epic::epic_move(&cx, a, io),
         "epic-set-deps" => epic::epic_set_deps(&cx, a, io),
+        "overlap" => overlap::overlap(&cx, a, io),
         _ => epic::epic_remove(&cx, a, io),
     }
 }

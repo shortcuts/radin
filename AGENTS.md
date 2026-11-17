@@ -54,6 +54,7 @@ radin is a Claude Code plugin of skills, a CLI, and install glue.
 | Install asks every question before the first write | `tests/install_*.rs` wizard cases (forward, back, checkbox, `--update` Recap, `--yes` and `STEP_TOTAL`) | A terminal that rejects raw mode falls back to numbered prompts with no back; review only. |
 | A selected host with no CLI still installs | `tests/install_*.rs` ("every selected host installs its files when no host CLI exists") | None. |
 | `radin update` keeps a failed host in the manifest | `tests/install_*.rs` ("--update leaves a host whose render fails untouched...") | None. |
+| An overlap graph gap exits 2, skips the symbol tier and records a `setup-issue` telemetry line | `tests/overlap.rs` (`every_graph_gap_exits_2_and_records_telemetry`) | The real graph CLI runs against a stub; its JSON shape is measured on 0.12.1 only. |
 | Same checks locally and in CI | `make check` and `make test` in `.github/workflows/ci.yml` | Linux run unverified. |
 | Deterministic work lives in the CLI | `tests/lints.rs` raw `git` lint over `lib/radin-run.md` and `lib/radin-batch-*.md` | Other deterministic steps in prose, and a raw `git` outside those files; review only. |
 | No namespaced companion name outside the table | `tests/lints.rs` name lint (`.sh` literals, tokens missing from a table) and its skill-name tests | A bare name written without a slash; review only. |

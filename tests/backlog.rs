@@ -1693,7 +1693,7 @@ fn env_prints_quoted_namespace_variables() {
 fn help_unknown_verbs_and_missing_index() {
     let w = W::new();
     let all = w.ok(&["help"], "");
-    assert_eq!(all.lines().count(), 35);
+    assert_eq!(all.lines().count(), 36);
     assert!(all.starts_with("  help [command]"));
     for flag in ["--help", "-h"] {
         assert_eq!(w.ok(&[flag], ""), all);
@@ -1707,7 +1707,7 @@ fn help_unknown_verbs_and_missing_index() {
         .err
         .starts_with("radin-backlog: unknown command: nope\n  help [command]"));
     let r = w.fails(&["nope"], "");
-    assert_eq!(r.err.lines().count(), 36);
+    assert_eq!(r.err.lines().count(), 37);
     assert!(r.err.starts_with("radin-backlog: unknown command: nope\n"));
     assert!(w
         .fails(&[], "")

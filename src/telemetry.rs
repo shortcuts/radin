@@ -2,6 +2,7 @@ use crate::paths::git;
 use crate::{Ctx, Out};
 use std::fs::{self, OpenOptions};
 use std::io::Write;
+use std::path::Path;
 
 const USAGE: &str = "usage: radin telemetry record <scope> <kind> [key=value ...]\n       radin telemetry report-error <scope> <where> <message> [key=value ...]\n";
 
@@ -81,19 +82,23 @@ pub fn run(c: &Ctx, args: &[String]) -> Out {
     if !valid_name(kind) {
         return usage(&format!("invalid kind: {kind}"));
     }
-    let ev = match evidence(&rest) {
+    record(&c.cwd, &c.home, scope, kind, &rest)
+}
+
+pub(crate) fn record(cwd: &Path, home: &Path, scope: &str, kind: &str, pairs: &[String]) -> Out {
+    let ev = match evidence(pairs) {
         Ok(e) => e,
         Err(o) => return o,
     };
-    let repo = git(&c.cwd, &["rev-parse", "--show-toplevel"])
+    let repo = git(cwd, &["rev-parse", "--show-toplevel"])
         .map(|s| s.trim_end_matches('\n').to_string())
-        .unwrap_or_else(|| c.cwd.to_string_lossy().into_owned());
+        .unwrap_or_else(|| cwd.to_string_lossy().into_owned());
     let line = format!(
         "{{\"ts\":\"{}\",\"repo\":\"{}\",\"scope\":\"{scope}\",\"kind\":\"{kind}\",\"evidence\":{ev}}}\n",
         now_utc(),
         escape(&repo)
     );
-    let dir = c.home.join(".radin/telemetry");
+    let dir = home.join(".radin/telemetry");
     let file = dir.join(format!("{scope}.jsonl"));
     let wrote = fs::create_dir_all(&dir)
         .and_then(|()| OpenOptions::new().create(true).append(true).open(&file))

@@ -24,7 +24,7 @@ pub fn prune_empty_epic(tasks: &Path, epic: &str) {
     }
 }
 
-fn require_epic_id(cx: &Ctx, id: &str) -> Result<(), super::Fail> {
+pub(super) fn require_epic_id(cx: &Ctx, id: &str) -> Result<(), super::Fail> {
     if slugify(id) != id {
         return Err(die(format!(
             "epic id must be a slug (lowercase, dashes), got: {id}"
