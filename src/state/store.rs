@@ -329,9 +329,22 @@ impl S<'_> {
     }
 
     pub fn next_pending(&self) -> Option<(String, u64)> {
+        self.next_pending_where(|_| true)
+    }
+
+    /// Lowest-order pending task of `epic`; an id the map lacks is `maintenance`.
+    pub fn next_pending_in(
+        &self,
+        epic_of: &std::collections::HashMap<String, String>,
+        epic: &str,
+    ) -> Option<(String, u64)> {
+        self.next_pending_where(|id| epic_of.get(id).map_or("maintenance", String::as_str) == epic)
+    }
+
+    fn next_pending_where(&self, keep: impl Fn(&str) -> bool) -> Option<(String, u64)> {
         let mut best: Option<(String, u64)> = None;
         for l in read_lines(&self.steps) {
-            if get(&l, "status") != "pending" {
+            if get(&l, "status") != "pending" || !keep(&get(&l, "id")) {
                 continue;
             }
             let o = num(&l, "order");

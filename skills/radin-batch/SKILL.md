@@ -2,8 +2,8 @@
 name: radin-batch
 description: |
   Use for "work through my backlog", or name an epic or task to run only those.
-  Works tasks via sub-agents in priority order, one commit each, and plans
-  first the entries radin-record flagged as needing a plan.
+  Works tasks via sub-agents, one commit each, with epics running in parallel
+  lanes, and plans the entries radin-record flagged as needing a plan.
 <!-- host:claude -->
 argument-hint: "[epic | task id | title]"
 <!-- /host -->

@@ -134,6 +134,12 @@ impl E {
                     "t-one\x1ffix\x1ft\x1ftasks/ea/t-one.md\n".into(),
                     String::new(),
                 ),
+                ("backlog", "overlap") if a[5] == "gap" => (
+                    2,
+                    String::new(),
+                    "gap\tgraph missing\n".into(),
+                ),
+                ("backlog", "overlap") => (0, "file\tsrc/x.rs\n".into(), String::new()),
                 ("state", "task-dir") => (0, format!("{}\n", self.proj.display()), String::new()),
                 _ => (1, String::new(), format!("unexpected {a:?}\n")),
             }
@@ -472,4 +478,32 @@ fn earlier_plans_reach_only_a_planning_prompt_that_names_them() {
         after.contains(&format!("{}/plans/t-one.md", e.ns.display())),
         "{after}"
     );
+}
+
+#[test]
+fn prompt_judge_renders_evidence_and_the_execution_model() {
+    let e = env(Host::Claude);
+    let out = e.go(&["judge", "ea", "eb"]);
+    assert_eq!(
+        out.1.lines().find_map(|l| l.strip_prefix("name\t")),
+        Some("radin-judge")
+    );
+    assert!(out.1.starts_with("model\tRADIN_MODEL_EXECUTION\n"));
+    let text = e.prompt_of(&out);
+    assert!(text.contains("Decide whether epic ea"), "{text}");
+    assert!(text.contains("file\tsrc/x.rs"), "{text}");
+    assert!(text.contains("STATUS: PARALLEL — yes:"), "{text}");
+    for token in ["JUDGE_", "LEAF_CONTRACT", "EXPLORE_RULE"] {
+        assert!(!text.contains(token), "{token} left in {text}");
+    }
+    assert_eq!(e.go(&["judge", "ea"]).0, 1);
+}
+
+#[test]
+fn prompt_judge_exits_2_on_an_overlap_gap() {
+    let e = env(Host::Claude);
+    let out = e.go(&["judge", "ea", "gap"]);
+    assert_eq!(out.0, 2, "{}", out.2);
+    assert!(out.1.is_empty() && out.2.contains("gap"), "{out:?}");
+    assert!(!e.ns.join("state/session-judge-ea-gap.md").exists());
 }

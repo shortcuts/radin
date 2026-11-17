@@ -26,6 +26,8 @@ entry that holds an unanswered question. Route a `fact` reason through `clarify 
 `resume` leaves waiting, `MAX_ATTEMPTS`, dependency and unmerged entries `blocked`; `task-next` frees the last two when the block lifts. A waiting entry
 needs an answer. A `MAX_ATTEMPTS` entry needs the user to look, not another retry.
 
+After a compaction, run `RADIN_CLI state lanes-show` and continue Phase 4 from it. Never run `lanes-init` again: it resets every lane marker.
+
 ## State Persistence Contract
 
 `.radin/state/BACKLOG_STEPS.json` is the source of truth, and an

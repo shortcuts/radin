@@ -36,6 +36,7 @@ radin is a Claude Code plugin of skills, a CLI, and install glue.
 | Install changes only paths radin owns | `tests/install_*.rs` (the unowned, edited and `--force` tests) | A foreign file inside a radin skill directory is overlaid, not checked. |
 | A forbid hit stops one host | `tests/install_*.rs` (the claude and agents render-failure tests) | None. |
 | Companion install is advisory | `tests/install_*.rs` ("a failing companion tool...") | None. |
+| The overlap judge runs on the execution model | `tests/prompt.rs` (`prompt_judge_renders_evidence_and_the_execution_model`) | The host's model for that token; review only. |
 | One owner per delegation | `tests/lints.rs` (every name resolves) | Nothing for "one file per delegation" and graph tool names; review only. |
 | One owner per prose rule | `LEAF_CONTRACT`, `EXPLORE_RULE`, `OPEN_DECISIONS_RULE` and `PLANNING_RULE` tokens, `tests/lints.rs` (new verbatim sentence copy) | A paraphrase or contradiction; review only. |
 | Name each companion directly, no guard or escape clause | `tests/lints.rs` guard phrases | A paraphrase escapes the phrase list. |
@@ -152,12 +153,12 @@ The graph tool name lives in one file and must exist in the upstream table ([whi
 
 - **No router-side per-task verification in `radin-batch`.** The leaf verifies and reviews its own staged diff before it commits. A `FAILED` task gets a Debug prompt once per session. One that still fails asks the user and re-runs. The router defers only on the user's explicit word ([why](docs/agents/DECISIONS.md#the-run-loop)).
 - **What a sub-agent learns stays on its task.** It records a `**Fact:**` or `**Root cause:**` line, and the long form goes in `state/facts/<id>.md`. There is no shared note file and no cross-task memory.
-- **`radin-batch` worktree and branch answers never reach a prompt.** Only `radin state prepare` turns them into git commands. A model that receives them can eventually override a `no`.
+- **`radin-batch` lane mode never reaches a prompt.** Only `radin state lanes-init` and `radin state prepare` turn it into git commands. A model that receives a tree name can eventually override the mode.
 - **`radin wire` snapshots before the upstream write.** The upstream installer replaces the whole hook array and does not merge ([limits](docs/agents/DECISIONS.md#limits-of-the-codebase-memory-mcp-bracket)).
 - **`order` moves a dependency up, never a dependent down.** Kahn's algorithm with a priority tie-break discards more of the human ranking.
 - **The TUI loads `backlog list --order created`,** so a mutation reorders nothing. `Shift-A`, `Shift-P`, `Shift-C`, and `Shift-T` are the only reorder keys. They last one session, and the header shows the active one. The CLI default stays `priority`, the contract `radin-prioritization.md` reads.
 - **One sub-agent takes one task** and returns one `STATUS` line. A leaf starts cold, so batching tasks for file locality saves no tokens.
-- **Plan one task at a time, just in time.** Only the current wave of ready tasks is planned before it runs, because nothing lands between those plans and their execution; a later wave drifts when an earlier commit changes the tree ([why](docs/agents/DECISIONS.md#the-run-loop)).
+- **Plan one task at a time, just in time.** A lane plans a task right before it runs, because a plan written earlier drifts when another commit changes the tree ([why](docs/agents/DECISIONS.md#the-run-loop)).
 - **No arena or judge at execution level.** N worktrees and a judge that reads N diffs break the router's low-resolution rule. At planning it stays an opt-in in its own backlog entry, gated on a review-origin rollup.
 - **No model escalation on retry.** All four roles (planning, execution, review, debug) default to sonnet.
 

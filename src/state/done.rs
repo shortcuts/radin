@@ -11,14 +11,27 @@ fn first_line(s: &str) -> &str {
     s.lines().next().unwrap_or("")
 }
 
-pub fn task_next(s: &S, want: &str, io: &mut Io) -> R {
+pub fn task_next(s: &S, want: &str, lane: Option<&str>, io: &mut Io) -> R {
     if want.is_empty() && s.exists("teardown") {
         return Ok(1);
     }
+    let lane_epics = match lane {
+        Some(e) => {
+            if s.read(&format!("lanes/{e}")).trim() != "running" {
+                return Err(die(format!("lane {e} is not running")));
+            }
+            Some(super::lanes::epic_map(s)?)
+        }
+        None => None,
+    };
     release_ready(s)?;
     loop {
         let (pid, order) = if want.is_empty() {
-            match s.next_pending() {
+            let p = match (&lane_epics, lane) {
+                (Some(m), Some(e)) => s.next_pending_in(m, e),
+                _ => s.next_pending(),
+            };
+            match p {
                 Some(p) => p,
                 None => return Ok(1),
             }

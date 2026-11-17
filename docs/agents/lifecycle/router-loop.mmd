@@ -1,39 +1,35 @@
 flowchart TD
   p0[Phase 0<br/>state preflight] --> p1[Phase 1<br/>resolve scope]
-  p0 -. session line .-> note1[read session file]
   p0 -. stuck line .-> note2[recover stuck]
   p0 -. waiting line .-> note3[settle questions]
   p0 -. loose line .-> note7[epic triage table: one approval, epic-move each]
   p0 -. rank line .-> note4[rank unset ids]
   p0 -. leftovers line .-> note5[state lanes-recover: park, queue lanes, drain the merge queue;<br/>then state reconcile for legacy branches]
-  note5 -- conflict, exit 3 --> leafM
+  note5 -- conflict, exit 3 --> leafM[[Merge leaf]]
   p0 -. queued lane .-> lq
   p0 -. candidate line .-> note6[state stash-triage: factfind per candidate, stash-claim]
-  p1 --> p2[Phase 2<br/>user picks tasks, print order]
-  p2 --> p3[Phase 3<br/>persist BACKLOG_STEPS.json]
+  p1 --> p2[Phase 2<br/>print order, no question]
+  p2 --> p3[Phase 3<br/>steps-init, then lanes-init]
   p3 --> p35[Phase 3.5<br/>settle open decisions, one grilling]
-  p35 --> mode{worktree}
-  mode -- no, serial --> next{{task-next}}
-  mode -- yes, waves --> wave{{state wave}}
-  wave -- exit 1 --> p45
-  wave --> wplan[plan unplanned tasks one at a time,<br/>each reads earlier plans, deferred leave the wave]
-  wplan --> leafP
-  wplan --> part[state wave-partition --wave N]
-  part --> veto[factfind per group:<br/>graph veto, never merge groups]
-  veto --> group[state group-set --wave N<br/>one group, up to the cap]
-  group --> leafE
-  next -. lanes mode: state lane-sync before each lane task .-> leafE
-  next -. lanes mode: lane has no ready task .-> lq[state lane-queue, then lane-merge<br/>first queued lane, git merge --no-ff]
+  p35 --> fill{{state lane-next}}
+  fill -- start --> pick{{state task-next with lane, per running lane}}
+  fill -- judge --> judge[[Judge leaf: backlog overlap evidence,<br/>PARALLEL yes or no, sonnet]]
+  judge --> lj[state lane-judge<br/>telemetry with evidence]
+  lj -- every yes: lane-next with cleared --> fill
+  lj -- a no: next candidate, none cleared --> pick
+  fill -- exit 1 --> pick
+  pick -. lanes mode: state lane-sync before each lane task .-> leafE
+  pick -- lane has no task --> lq[state lane-queue, then lane-merge<br/>first queued lane, git merge --no-ff]
   lq -- conflict --> sync[radin-sync leaf merges the base into the lane]
   sync --> lq
   lq -- merged --> lg[state lane-gate<br/>full suite on main, two fix attempts]
   lg -- green --> ld[state lane-done]
   lg -- red: fix entry at priority 21 --> ld
-  ld -. hotfix lane takes the first slot and the queue head .-> next
-  next -- exit 1, nothing left or teardown requested --> p45[Phase 4.5<br/>session gate: tests, lint, format, review]
-  p45 -- findings filed, once --> next
-  next -- exit 0 --> kind{kind}
-  kind -- planning --> leafP[[Planning leaf]]
+  ld -. hotfix lane takes the first slot and the queue head .-> fill
+  pick -- round claimed nothing, no lane moved, lane-next exit 1 --> p45[Phase 4.5<br/>session gate: tests, lint, format, review]
+  p45 -- findings filed, once --> fill
+  pick -- exit 0 --> kind{kind}
+  kind -- planning --> leafP[[Planning leaf, in its lane]]
   kind -- execution --> leafE[[Execution leaf]]
   leafE -- STATUS line --> report[task-report]
   leafE -. idle, no STATUS .-> nudge[claude: ListAgents, one nudge]
@@ -42,21 +38,15 @@ flowchart TD
   leafP -- STATUS line --> report
   leafE -. agents: leaf returns, no STATUS .-> report
   leafP -. agents: leaf returns, no STATUS .-> report
-  report -- commit on a side branch --> blocked[blocked until the merge lands]
+  report -- commit on a lane branch --> blocked[done after the lane merge]
   report -- commit leaves its plan paths --> route
   report --> route{next}
-  route -- continue --> next
-  route -- wave landed, refill --> wave
+  route -- continue, next round --> fill
   route -- debug --> debug[[Debug leaf, once]]
-  debug --> next
+  debug --> fill
   route -- clarify --> user[/Ask the user<br/>FACT or DECISION/]
-  user --> next
-  p45 --> p47[Phase 4.7<br/>merge task branches]
-  p47 --> mergeCli[radin state reconcile squash]
-  mergeCli -- all landed, tasks done, Finish entries filed --> p5[Phase 5<br/>state report]
-  mergeCli -- conflict, exit 3 --> leafM[[Merge leaf]]
-  p47 -- no branches --> p5
-  leafM -- SUCCESS --> mergeCli
+  user --> fill
+  p45 --> p47[Phase 4.7<br/>state lanes-show]
+  p47 --> p5[Phase 5<br/>state report]
   p5 -. waiting entries left .-> ask5[ask: settle now?<br/>yes: same grilling as Phase 0]
-  p5 --> p6
-  leafM --> p6[Phase 6<br/>point to /radin-review]
+  p5 --> p6[Phase 6<br/>point to /radin-review]

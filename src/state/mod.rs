@@ -40,7 +40,7 @@ pub struct S<'a> {
 
 const HELP: &str = include_str!("help.txt");
 
-const VERBS: &str = "teardown|steps-init|steps-list|wave|wave-partition|plan-discard|steps-open|steps-waiting|answered|retry|task-next|task-report|task-fact|task-diagnosis|task-done|base-failing|set-status|stuck|preflight|resume|recover|recover-reject|report|session-set|session-get|group-set|prepare|dirty-check|trace|completed-show|completed-list|unlanded|session-commits|gate-map|leftovers|stash-triage|stash-claim|reconcile|gate-fix|gate-filed|gate-done|deps-check|task-dir|journal-tail|plan-covers|review-findings|finding-classes|lane-cap|lanes-init|lane-next|lane-done|lanes-show|lane-sync|lane-queue|lane-merge|lane-gate|lanes-recover";
+const VERBS: &str = "teardown|steps-init|steps-list|wave|wave-partition|plan-discard|steps-open|steps-waiting|answered|retry|task-next|task-report|task-fact|task-diagnosis|task-done|base-failing|set-status|stuck|preflight|resume|recover|recover-reject|report|session-set|session-get|group-set|prepare|dirty-check|trace|completed-show|completed-list|unlanded|session-commits|gate-map|leftovers|stash-triage|stash-claim|reconcile|gate-fix|gate-filed|gate-done|deps-check|task-dir|journal-tail|plan-covers|review-findings|finding-classes|lane-cap|lanes-init|lane-next|lane-done|lane-judge|lanes-show|lane-sync|lane-queue|lane-merge|lane-gate|lanes-recover";
 
 const ID_VERBS: &[&str] = &[
     "task-next",
@@ -304,7 +304,8 @@ fn dispatch(c: &Ctx, args: &[String], io: &mut Io) -> R {
             if verb.is_empty() { "<none>" } else { verb }
         )));
     }
-    if ID_VERBS.contains(&verb) && arg(a, 0).starts_with('-') {
+    let lane_flag = verb == "task-next" && arg(a, 0) == "--lane";
+    if ID_VERBS.contains(&verb) && arg(a, 0).starts_with('-') && !lane_flag {
         return match arg(a, 0) {
             "--help" | "-h" => {
                 io.out.push_str(&verb_usage(verb));
@@ -329,6 +330,7 @@ fn dispatch(c: &Ctx, args: &[String], io: &mut Io) -> R {
         "lanes-init" => lanes::lanes_init(&s, io),
         "lane-next" => lanes::lane_next(&s, a, io),
         "lane-done" => lanes::lane_done(&s, a, io),
+        "lane-judge" => lanes::lane_judge(&s, a, io),
         "lane-queue" => mergeq::lane_queue(&s, a, io),
         "lane-merge" => mergeq::lane_merge(&s, a, io),
         "lane-gate" => gate::lane_gate(&s, a, io),
@@ -339,7 +341,11 @@ fn dispatch(c: &Ctx, args: &[String], io: &mut Io) -> R {
         "wave-partition" => queue::wave_partition(&s, a, io),
         "deps-check" => queue::deps_check_verb(&s, a, io),
         "teardown" => queue::teardown(&s),
-        "task-next" => done::task_next(&s, arg(a, 0), io),
+        "task-next" if lane_flag => match a {
+            [_, epic] => done::task_next(&s, "", Some(epic), io),
+            _ => Err(die(format!("usage: {}", verb_usage(verb).trim_end()))),
+        },
+        "task-next" => done::task_next(&s, arg(a, 0), None, io),
         "task-report" => task_report::task_report(&s, a, io),
         "task-fact" => done::task_fact(&s, a, io),
         "task-diagnosis" => done::task_diagnosis(&s, a, io),

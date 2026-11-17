@@ -1060,3 +1060,54 @@ fn preflight_reports_leftovers_for_a_lone_wip_branch_a_queue_row_or_a_lane_base(
     w.write(".radin/state/lane-base/a-one", "abc\n");
     assert!(w.state(&["preflight"]).out.contains("leftovers\n"));
 }
+
+#[test]
+fn task_next_lane_picks_per_epic_refuses_a_waiting_lane_and_honors_teardown() {
+    let w = W::new();
+    epics(&w);
+    w.state(&["lanes-init"]);
+    let r = w.state(&["task-next", "--lane", "eb"]);
+    assert_eq!(r.code, 1, "{}", r.all());
+    assert!(r.err.contains("lane eb is not running"), "{}", r.err);
+    w.state(&["lane-next"]);
+    w.state(&["lane-next", "--cleared", "eb"]);
+    let r = w.state(&["task-next", "--lane", "eb"]);
+    assert_eq!(r.code, 0, "{}", r.all());
+    assert!(r.out.starts_with("id\tb-one\n"), "{}", r.out);
+    let r = w.state(&["task-next", "--lane", "ea"]);
+    assert!(r.out.starts_with("id\ta-one\n"), "{}", r.out);
+    assert_eq!(w.state(&["task-next", "--lane", "eb"]).code, 1);
+    assert_eq!(w.state(&["task-next", "--lane"]).code, 1);
+    w.state(&["teardown"]);
+    assert_eq!(w.state(&["task-next", "--lane", "ea"]).code, 1);
+}
+
+#[test]
+fn lane_judge_records_one_judged_line_per_decision() {
+    let w = W::new();
+    epics(&w);
+    let cases = [
+        ("STATUS: PARALLEL — yes: disjoint", "yes", "disjoint"),
+        (
+            "STATUS: PARALLEL — no: both edit cli",
+            "no",
+            "both edit cli",
+        ),
+        ("maybe", "no", "no PARALLEL line: maybe"),
+        ("--gap", "no", "gap"),
+    ];
+    for (line, verdict, reason) in cases {
+        let r = w.state(&["lane-judge", "ea", "eb", line]);
+        assert_eq!(r.code, 0, "{}", r.all());
+        assert_eq!(r.out, format!("judged\tea\teb\t{verdict}\n"));
+        let last = w.tele.borrow().last().unwrap().clone();
+        assert!(
+            last.starts_with(&format!(
+                "judged epic=ea with=eb verdict={verdict} reason={reason} evidence="
+            )),
+            "{last}"
+        );
+    }
+    assert_eq!(w.tele.borrow().len(), 4);
+    assert_eq!(w.state(&["lane-judge", "ea", "eb"]).code, 1);
+}

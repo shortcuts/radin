@@ -25,7 +25,7 @@ A `parked<TAB>` line in a `task-report` output means the task's partial work now
 
 ## Merge queue
 
-When a lane has no ready task left, run `RADIN_CLI state lane-queue "<epic>"`. An `empty` line goes straight to `RADIN_CLI state lane-done "<epic>"`. Otherwise loop `RADIN_CLI state lane-merge` and route on the first field of its line.
+When a lane has no ready task left, run `RADIN_CLI state lane-queue "<epic>"`. An `empty` line goes straight to `RADIN_CLI state lane-done "<epic>"`. In `mode main` it prints nothing and exits 0: run `RADIN_CLI state lane-done "<epic>"` directly. Otherwise loop `RADIN_CLI state lane-merge` and route on the first field of its line.
 
 - `merged`: run `RADIN_CLI state lane-gate "<epic>"` and route it as in Gate.
 - `waiting` or `paused` (exit 2): stop the loop. The next `lane-done` frees the queue.

@@ -146,7 +146,7 @@ fn build(c: &Ctx, args: &[String]) -> R<Out> {
     let a = |i: usize| args.get(i).map_or("", String::as_str);
     let (kind, id, extra) = (a(0), a(1), a(2));
     if kind.is_empty() || (id.is_empty() && kind != "gate" && kind != "merge") {
-        return die("usage: radin prompt <planning|execution|debug|factfind> <id> [<failure|question>] | planning <id> [<earlier-id>...] | gate [--lane <epic>] | merge [<branch>...] | sync <id> | sync --lane <epic> <dir> [<answer>]");
+        return die("usage: radin prompt <planning|execution|debug|factfind> <id> [<failure|question>] | planning <id> [<earlier-id>...] | gate [--lane <epic>] | merge [<branch>...] | sync <id> | sync --lane <epic> <dir> [<answer>] | judge <candidate-epic> <running-epic>");
     }
     if ![
         "planning",
@@ -156,6 +156,7 @@ fn build(c: &Ctx, args: &[String]) -> R<Out> {
         "gate",
         "merge",
         "sync",
+        "judge",
     ]
     .contains(&kind)
     {
@@ -246,6 +247,24 @@ fn build(c: &Ctx, args: &[String]) -> R<Out> {
         };
         let out = write_prompt(&ns, &file, &body)?;
         return Ok(d.print("radin-gate", &out));
+    }
+    if kind == "judge" {
+        if extra.is_empty() {
+            return die("usage: judge <candidate-epic> <running-epic>");
+        }
+        let (code, evidence, err) = c.nested(&root, &["backlog", "overlap", id, extra]);
+        match code {
+            0 => {}
+            2 => return Err((2, String::new(), format!("{err}{evidence}"))),
+            _ => return die(format!("backlog overlap failed: {}", err.trim())),
+        }
+        sub(&mut body, "LEAF_CONTRACT", &leaf);
+        sub(&mut body, "EXPLORE_RULE", &explore);
+        sub(&mut body, "JUDGE_CANDIDATE", id);
+        sub(&mut body, "JUDGE_RUNNING", extra);
+        sub(&mut body, "JUDGE_EVIDENCE", chomp(&evidence));
+        let out = write_prompt(&ns, &format!("session-judge-{id}-{extra}.md"), &body)?;
+        return Ok(d.print("radin-judge", &out));
     }
     if kind == "sync" {
         let by_epic = id == "--lane";

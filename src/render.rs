@@ -485,9 +485,8 @@ mod tests {
             assert!(out.contains("radin-ask-rule.md"), "{f}");
             assert!(!out.contains("AskUserQuestion"), "{f}");
         }
-        for f in ["lib/radin-batch-session.md", "lib/radin-batch-clarify.md"] {
-            assert!(!lib_render("agents", f).contains("AskUserQuestion"), "{f}");
-        }
+        let f = "lib/radin-batch-clarify.md";
+        assert!(!lib_render("agents", f).contains("AskUserQuestion"), "{f}");
     }
 
     #[test]

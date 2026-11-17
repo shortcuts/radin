@@ -361,6 +361,53 @@ pub fn lane_next(s: &S, a: &[String], io: &mut Io) -> R {
     }
 }
 
+/// Records the overlap judge's decision for one candidate and running lane.
+pub fn lane_judge(s: &S, a: &[String], io: &mut Io) -> R {
+    let usage = || {
+        die("usage: lane-judge <candidate-epic> <running-epic> \"<STATUS: PARALLEL line>\"|--gap")
+    };
+    let (c, r) = (arg(a, 0), arg(a, 1));
+    if c.is_empty() || r.is_empty() || a.len() != 3 {
+        return Err(usage());
+    }
+    let line = arg(a, 2);
+    let (verdict, reason) = if line == "--gap" {
+        ("no", "gap".to_string())
+    } else if let Some(why) = line.strip_prefix("STATUS: PARALLEL — yes: ") {
+        ("yes", why.to_string())
+    } else if let Some(why) = line.strip_prefix("STATUS: PARALLEL — no: ") {
+        ("no", why.to_string())
+    } else {
+        ("no", format!("no PARALLEL line: {line}"))
+    };
+    let (_, out, err) = s.bl(&["overlap", c, r], "");
+    let evidence: String = format!("{out}{err}")
+        .lines()
+        .filter(|l| !l.is_empty())
+        .collect::<Vec<_>>()
+        .join("; ")
+        .chars()
+        .take(2000)
+        .collect();
+    s.telemetry(
+        "judged",
+        &[
+            format!("epic={c}"),
+            format!("with={r}"),
+            format!("verdict={verdict}"),
+            format!("reason={reason}"),
+            format!("evidence={evidence}"),
+        ],
+    );
+    s.journal(
+        "lane-judge",
+        "",
+        &format!("{c} vs {r}: {verdict}: {reason}"),
+    );
+    let _ = writeln!(io.out, "judged\t{c}\t{r}\t{verdict}");
+    Ok(0)
+}
+
 /// Why a running lane cannot enter the merge queue yet, or `None`.
 pub(super) fn queue_blocker(s: &S, epic: &str) -> Result<Option<String>, Fail> {
     let r = Run::load(s)?;

@@ -225,7 +225,7 @@ pub fn task_report(s: &S, a: &[String], io: &mut Io) -> R {
     if rc != 0 || child.out.lines().last() != Some("next\tcontinue") {
         return Ok(rc);
     }
-    super::done::task_next(s, "", io)
+    super::done::task_next(s, "", None, io)
 }
 
 fn next_continue(io: &mut Io) -> R {
