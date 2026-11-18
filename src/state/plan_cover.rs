@@ -13,6 +13,49 @@ pub fn is_test_path(p: &str) -> bool {
             .any(|s| p.contains(s))
 }
 
+/// Files that judge a change: CI workflows, build and lint config, and the rubric files.
+pub fn is_verify_path(p: &str) -> bool {
+    p.starts_with(".github/workflows/")
+        || [
+            ".gitlab-ci.yml",
+            "Makefile",
+            "REVIEW.md",
+            "AGENTS.md",
+            "CLAUDE.md",
+            "CONTRIBUTING.md",
+            ".pre-commit-config.yaml",
+            "rustfmt.toml",
+            "clippy.toml",
+        ]
+        .contains(&p)
+        || p.starts_with(".eslintrc")
+        || p.starts_with("eslint.config.")
+}
+
+/// Comma-joined verification files commit `hash` changes that the plan does not list.
+pub fn verify_edits(dir: &Path, hash: &str, plan: &[String]) -> String {
+    if hash.is_empty() {
+        return String::new();
+    }
+    let files = g(
+        dir,
+        &[
+            "diff-tree",
+            "--no-commit-id",
+            "--name-only",
+            "-r",
+            "--root",
+            hash,
+        ],
+    )
+    .unwrap_or_default();
+    files
+        .lines()
+        .filter(|f| is_verify_path(f) && !plan_covers_file(dir, f, plan))
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
 /// True when `file` is a plan path, or sits under a plan directory (trailing slash, or a directory in `tree`).
 pub fn plan_covers_file(tree: &Path, file: &str, plan: &[String]) -> bool {
     plan.iter().any(|p| {
@@ -91,6 +134,21 @@ mod tests {
         }
         for p in ["lib/a.sh", "libtests/a", "attest.sh"] {
             assert!(!is_test_path(p), "{p}");
+        }
+    }
+
+    #[test]
+    fn verify_paths_are_the_files_that_judge_a_change() {
+        for p in [
+            ".github/workflows/ci.yml",
+            "Makefile",
+            "REVIEW.md",
+            "eslint.config.js",
+        ] {
+            assert!(is_verify_path(p), "{p}");
+        }
+        for p in ["src/Makefile.rs", "docs/REVIEW.md", "lib/a.sh"] {
+            assert!(!is_verify_path(p), "{p}");
         }
     }
 

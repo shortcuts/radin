@@ -343,3 +343,67 @@ fn reconcile_lands_every_leftover_branch_but_a_live_one_and_files_a_follow_up_fo
         assert!(j.contains(ev), "{ev} in {j}");
     }
 }
+
+fn commit_with_trailer(w: &W, files: &[&str], trailer: &str) {
+    git_in(&w.p, &["add", ".gitignore"]);
+    git_in(&w.p, &["commit", "-q", "-m", "ignore"]);
+    for f in files {
+        w.write(f, "x\n");
+    }
+    let mut add = vec!["add", "--"];
+    add.extend(files);
+    w.git(&add);
+    w.git(&["commit", "-q", "-m", "c", "--trailer", trailer]);
+    *w.hash.borrow_mut() = w.git(&["rev-parse", "--short=12", "HEAD"]);
+}
+
+const JOURNAL: &str = ".radin/state/journal.jsonl";
+
+#[test]
+fn task_report_journals_a_verification_file_edit_and_a_commit_with_no_trailer() {
+    let w = W::new();
+    w.plan_with(&["lib/a.sh"]);
+    w.commit_files(&["lib/a.sh", "Makefile"]);
+    assert_eq!(w.report_success().code, 0);
+    let j = w.read(JOURNAL);
+    assert!(
+        j.contains("\"event\":\"verify-edit\"") && j.contains("Makefile"),
+        "{j}"
+    );
+    assert!(j.contains("\"event\":\"unstamped\""), "{j}");
+    assert!(w
+        .tele
+        .borrow()
+        .iter()
+        .any(|t| t.starts_with("verify-edit ")));
+}
+
+#[test]
+fn a_verification_file_the_plan_lists_is_no_edit_and_a_high_risk_trailer_is_journaled() {
+    let w = W::new();
+    w.plan_with(&["Makefile"]);
+    commit_with_trailer(
+        &w,
+        &["Makefile"],
+        "Verified: test=pass, lint=pass, review=pass, risk=high",
+    );
+    assert_eq!(w.report_success().code, 0);
+    let j = w.read(JOURNAL);
+    assert!(
+        !j.contains("verify-edit") && !j.contains("unstamped"),
+        "{j}"
+    );
+    assert!(
+        j.contains("\"event\":\"risk\"") && j.contains("\"detail\":\"high\""),
+        "{j}"
+    );
+}
+
+#[test]
+fn pattern_seen_counts_per_slug_and_rejects_a_bad_slug() {
+    let w = W::new();
+    assert_eq!(w.state(&["pattern-seen", "missing-await"]).out, "1\n");
+    assert_eq!(w.state(&["pattern-seen", "other"]).out, "1\n");
+    assert_eq!(w.state(&["pattern-seen", "missing-await"]).out, "2\n");
+    assert_eq!(w.state(&["pattern-seen", "Bad Slug"]).code, 1);
+}

@@ -46,6 +46,9 @@ repeated `timeout 240 sh -c 'while pgrep -f "<cmd>" >/dev/null; do sleep 5; done
 That poll is a wait inside the turn, not a background task.
 End with your `STATUS:` line alone. A closing note a hook or skill asks for
 (what you skipped, a risk, a next step) goes inside that line.
+A test that fails on some runs is a bug in the test or the code. Never skip
+it, add a sleep or retry it until it passes. Fix the root cause. When you
+cannot find it, delete the test and name why in your `STATUS:` line.
 Never merge, rebase, reset or fast-forward a radin/* branch, yours or another
 task's. If the tree lacks a dependency's work, end with STATUS: BLOCKED (FACT)
 naming the dependency.

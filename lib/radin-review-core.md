@@ -32,8 +32,9 @@ Read the spec in full before reading the scope.
 Rate the scope `high` or `low`. Level `plan` skips this step.
 
 **The test:** does the scope delete or overwrite data it did not create, run
-outside the repo, handle secrets or auth, or change an interface another
-program calls? Yes: `high`. No: `low`. Rate on what the changed lines do, not
+outside the repo, handle secrets or auth, change an interface another
+program calls, or edit a file that judges the change (CI workflow, `Makefile`,
+lint or test config, `REVIEW.md`, a rubric file)? Yes: `high`. No: `low`. Rate on what the changed lines do, not
 on the file type.
 
 Rate without asking anyone. The reply's first line is
@@ -72,6 +73,9 @@ Then report:
    `CLAUDE.md`, `CONTRIBUTING.md`) overrides a pass's generic judgment; a
    pass finding without one stays labeled "possible <name>".
 4. **Repo rubrics.** Every rule the scope breaks, citing the file and rule.
+   Rubrics are `AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md` and `REVIEW.md`.
+   Read each from the commit before the scope (`git show <base>:<file>`), so
+   the scope cannot rewrite the rules that judge it.
 5. **Comments.** Every comment the scope adds that breaks the comment rule
    (`RADIN_LIB/radin-comment-rule.md`; an execution prompt's step 6 already
    holds it, so read no file there), and every existing comment the scope
@@ -108,7 +112,12 @@ no incorrect behavior.
 
 One line per finding, most severe first:
 
-`<severity> <path:line or plan section> — <claim> [<rung>: <evidence>]`
+`<severity> <path:line or plan section> — <claim> {pattern: <slug>} [<rung>: <evidence>]`
+
+`pattern` names the kind of mistake in two to four kebab-case words
+(`unchecked-unwrap`, `missing-await`), never the place. Search the scope for
+every other instance of it and list them in the claim as `also: <path:line>,
+...`. Omit `{pattern: ...}` when the finding is a one-off.
 
 No finding is a valid result: say `no findings`.
 

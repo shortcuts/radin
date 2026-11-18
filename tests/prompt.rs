@@ -122,8 +122,10 @@ impl E {
                 ),
                 ("state", "lane-gate") => (
                     0,
-                    "main\tabc123def456\t/root\t0123456789ab\nprevious\tlint red\nprevious\ttests red\n"
-                        .into(),
+                    format!(
+                        "main\tabc123def456\t/root\t0123456789ab\nprevious\tlint red\nprevious\ttests red\n{}",
+                        if a[4] == "eb" { "risk\thigh\n" } else { "" }
+                    ),
                     String::new(),
                 ),
                 ("state", "leftovers") => {
@@ -186,7 +188,9 @@ fn golden(host: Host) {
         let out = e.go(args);
         let got = e.norm(&e.prompt_of(&out));
         let want = fs::read_to_string(fixtures().join(format!("{h}-{kind}.txt"))).unwrap();
-        if got != want {
+        if got != want && std::env::var_os("GOLDEN_UPDATE").is_some() {
+            fs::write(fixtures().join(format!("{h}-{kind}.txt")), &got).unwrap();
+        } else if got != want {
             let (g, w): (Vec<&str>, Vec<&str>) = (got.lines().collect(), want.lines().collect());
             let i = g
                 .iter()
@@ -397,6 +401,16 @@ fn prompt_gate_lane_renders_the_root_map_line_and_the_earlier_failures() {
     }
     assert!(!e.prompt_of(&e.go(&["gate"])).contains("An earlier run"));
     assert_eq!(e.go(&["gate", "--lane"]).0, 1);
+}
+
+#[test]
+fn prompt_gate_lane_reviews_only_a_high_risk_lane() {
+    let e = env(Host::Claude);
+    let high = e.prompt_of(&e.go(&["gate", "--lane", "eb"]));
+    assert!(high.contains("Review: once the checks are green"), "{high}");
+    assert!(high.contains("state pattern-seen"), "{high}");
+    let low = e.prompt_of(&e.go(&["gate", "--lane", "ea"]));
+    assert!(!low.contains("Review: once"), "{low}");
 }
 
 #[test]

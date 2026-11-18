@@ -2,7 +2,8 @@
 
 Rendered by `radin prompt gate`. `src/prompt.rs` holds the format. The
 `GATE_REVIEW` block drops once `radin state gate-filed` marks the session's
-one review round used. `gate --lane <epic>` keeps it off and fills
+one review round used. `gate --lane <epic>` keeps it on only when the lane is
+high risk (`lane-gate --map` prints a `risk<TAB>high` line) and fills
 `GATE_PREVIOUS` from the lane's failed attempts.
 
 <!-- host:claude -->
@@ -43,6 +44,7 @@ RADIN_CLI backlog add <fix|refactor> "<short title>" --location "<path:line>" [-
 **Severity:** <critical|warning|nit>
 **Evidence:** <rung> — <the reasoning or output>
 **Preferred remedy:** <the concrete change>
+**Pattern:** <the finding's {pattern: slug}, or leave the line out>
 EOF
 
 Pass `--planning needed` unless this rule says the entry needs no plan:
@@ -51,6 +53,13 @@ PLANNING_RULE
 Size an entry with no `--planning needed` by this rule and pass
 `--complexity <low|high>`:
 COMPLEXITY_RULE
+
+For each filed entry that has a `**Pattern:**` line, run
+`RADIN_CLI state pattern-seen <slug>`. It prints how many findings of that
+pattern this repo has seen. On `2`, append one line
+`- <slug>: <what the failure looks like, and the check that catches it>` to
+`REVIEW.md` in the checkout of that branch line (create the file when absent)
+and commit it through `@@skill:caveman-commit@@`. Any other number adds no rule.
 
 File a failing check you could not fix the same way, as a `fix` entry. Each
 entry you file is one id in the final line's `filed` list.

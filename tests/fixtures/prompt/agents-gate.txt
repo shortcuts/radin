@@ -10,6 +10,9 @@ prompt's BLOCKED rule instead. Run every check in the foreground and wait for
 its exit in this turn.
 End with your `STATUS:` line alone. A closing note a hook or skill asks for
 (what you skipped, a risk, a next step) goes inside that line.
+A test that fails on some runs is a bug in the test or the code. Never skip
+it, add a sleep or retry it until it passes. Fix the root cause. When you
+cannot find it, delete the test and name why in your `STATUS:` line.
 Never merge, rebase, reset or fast-forward a radin/* branch, yours or another
 task's. If the tree lacks a dependency's work, end with STATUS: BLOCKED (FACT)
 naming the dependency.
@@ -35,6 +38,7 @@ RADIN_CLI backlog add <fix|refactor> "<short title>" --location "<path:line>" [-
 **Severity:** <critical|warning|nit>
 **Evidence:** <rung> — <the reasoning or output>
 **Preferred remedy:** <the concrete change>
+**Pattern:** <the finding's {pattern: slug}, or leave the line out>
 EOF
 
 Pass `--planning needed` unless this rule says the entry needs no plan:
@@ -49,6 +53,13 @@ starts, and no step needs measuring, tuning, debugging or a device run.
 Anything else is `complexity high`, and so is any doubt. Judge the work, not
 the category: a chore can be hard. The size picks no model: every execution
 task runs on the execution model, sonnet by default.
+
+For each filed entry that has a `**Pattern:**` line, run
+`RADIN_CLI state pattern-seen <slug>`. It prints how many findings of that
+pattern this repo has seen. On `2`, append one line
+`- <slug>: <what the failure looks like, and the check that catches it>` to
+`REVIEW.md` in the checkout of that branch line (create the file when absent)
+and commit it through `caveman-commit`. Any other number adds no rule.
 
 File a failing check you could not fix the same way, as a `fix` entry. Each
 entry you file is one id in the final line's `filed` list.

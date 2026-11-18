@@ -99,6 +99,16 @@ fn lane_tasks(s: &S, merge: &str) -> Vec<String> {
     ids
 }
 
+/// True when a task of the merged lane reported `risk=high` in its commit trailer or edited a verification file.
+fn lane_high(s: &S, merge: &str) -> bool {
+    let ids = lane_tasks(s, merge);
+    s.journal_lines().iter().any(|l| {
+        ids.contains(&get(l, "id"))
+            && (get(l, "event") == "verify-edit"
+                || (get(l, "event") == "risk" && get(l, "detail") == "high"))
+    })
+}
+
 fn file_fix(
     s: &S,
     epic: &str,
@@ -187,6 +197,9 @@ pub fn lane_gate(s: &S, a: &[String], io: &mut Io) -> R {
             let _ = writeln!(io.out, "{base}\t{tip}\t{}\t{merge}", s.root.display());
             for f in records(s, epic, "failed") {
                 let _ = writeln!(io.out, "previous\t{f}");
+            }
+            if lane_high(s, &merge) {
+                let _ = writeln!(io.out, "risk\thigh");
             }
             Ok(0)
         }

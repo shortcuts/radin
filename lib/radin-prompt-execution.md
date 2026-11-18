@@ -226,7 +226,10 @@ COMMENT_RULE
    restage and review again. Two rounds at most: a `critical` still standing
    then is `STATUS: FAILED` with its citation. Fix a `nit` finding only when
    it sits in a file you staged.
-10. Invoke the `@@skill:caveman-commit@@` skill to draft the commit message, then commit.
+10. Invoke the `@@skill:caveman-commit@@` skill to draft the commit message, then
+   commit with the trailer `--trailer "Verified: test=<pass|na>, lint=<pass|na>,
+   review=pass, risk=<high|low>"`. The values are your `checks:` clause and the
+   `Risk:` value of step 9's review.
 11. Run `RADIN_CLI state dirty-check` from the tree
    step 2 handed you, so the check covers the files you actually touched.
    Delete any scratch file or script you created only to iterate. If anything

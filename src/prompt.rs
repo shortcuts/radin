@@ -223,11 +223,13 @@ fn build(c: &Ctx, args: &[String]) -> R<Out> {
             .filter_map(|l| l.strip_prefix("previous\t"))
             .collect::<Vec<_>>()
             .join("; ");
+        let high = lane && map.1.lines().any(|l| l == "risk\thigh");
         let active = if lane {
-            if previous.is_empty() {
-                " "
-            } else {
-                " GATE_PREVIOUS "
+            match (previous.is_empty(), high) {
+                (true, false) => " ",
+                (false, false) => " GATE_PREVIOUS ",
+                (true, true) => " GATE_REVIEW ",
+                (false, true) => " GATE_PREVIOUS GATE_REVIEW ",
             }
         } else if ns.join("state/gate-reviewed").exists() {
             " "

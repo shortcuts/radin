@@ -1,6 +1,6 @@
 use super::done::{record_done, task_done};
 use super::git::{dirty_files, ok, wip_commit};
-use super::plan_cover::plan_extras;
+use super::plan_cover::{plan_extras, verify_edits};
 use super::store::{get, json_escape, num, MAX_ATTEMPTS};
 use super::{arg, die, S};
 use crate::backlog::{Fail, Io, R};
@@ -446,6 +446,25 @@ fn report_inner(s: &S, a: &[String], usages: &[String], io: &mut Io) -> R {
                     ],
                 );
             }
+            let edits = verify_edits(&s.task_dir(id), &hash, &plan);
+            if !edits.is_empty() {
+                s.journal("verify-edit", id, &edits);
+                s.telemetry(
+                    "verify-edit",
+                    &[
+                        format!("task={id}"),
+                        format!("commit={hash}"),
+                        format!("files={edits}"),
+                    ],
+                );
+            }
+            if !hash.is_empty() {
+                match stamp_of(&s.task_dir(id), &hash).as_deref() {
+                    None => s.journal("unstamped", id, &hash),
+                    Some(t) if t.contains("risk=high") => s.journal("risk", id, "high"),
+                    Some(_) => {}
+                }
+            }
             let mut d = Io::default();
             let r = if hash.is_empty() {
                 record_done(s, id, "", &mut d)
@@ -494,6 +513,21 @@ fn report_inner(s: &S, a: &[String], usages: &[String], io: &mut Io) -> R {
             Ok(0)
         }
     }
+}
+
+/// The `Verified:` trailer of commit `hash`, or None when the commit has none.
+fn stamp_of(dir: &Path, hash: &str) -> Option<String> {
+    let t = super::git::g(
+        dir,
+        &[
+            "log",
+            "-1",
+            "--format=%(trailers:key=Verified,valueonly)",
+            hash,
+        ],
+    )?;
+    let t = t.trim();
+    (!t.is_empty()).then(|| t.to_string())
 }
 
 /// Acceptance criteria no `**Fact:** [measured]` line starts with; read before task-done deletes the task file.

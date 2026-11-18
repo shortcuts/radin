@@ -1166,3 +1166,15 @@ fn lanes_view_derives_sync_from_the_lane_worktree() {
     w.git_at(&wt, &["add", "c.txt"]);
     assert_eq!(sync(), "merging");
 }
+
+#[test]
+fn a_lane_map_prints_risk_high_only_after_a_lane_task_reported_high_risk() {
+    let w = W::new();
+    merged_ea(&w);
+    assert!(!w.state(&["lane-gate", "ea", "--map"]).out.contains("risk"));
+    let j = ".radin/state/journal.jsonl";
+    let line = "{\"ts\":\"2026-01-01T00:00:00Z\",\"event\":\"risk\",\"id\":\"a-two\",\"detail\":\"high\"}\n";
+    w.write(j, &format!("{}{line}", w.read(j)));
+    let map = w.state(&["lane-gate", "ea", "--map"]).out;
+    assert!(map.ends_with("\nrisk\thigh\n"), "{map}");
+}

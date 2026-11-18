@@ -366,6 +366,9 @@ fn repo_tables_count_journal_events_and_refixed_tasks() {
         r#"{"ts":"2025-01-02T10:00:00Z","event":"in_progress","id":"t1"}"#,
         r#"{"ts":"2025-01-02T10:00:00Z","event":"done","id":"t1"}"#,
         r#"{"ts":"2025-01-02T10:00:00Z","event":"usage","id":"t1","detail":"execution 1000 4 120000"}"#,
+        r#"{"ts":"2025-01-02T10:00:00Z","event":"gate-red","detail":"ea fix-1"}"#,
+        r#"{"ts":"2025-01-02T10:00:00Z","event":"unstamped","id":"t1","detail":"abc"}"#,
+        r#"{"ts":"2025-01-02T10:00:00Z","event":"unstamped","id":"t2","detail":"def"}"#,
         r#"{"ts":"2020-01-02T10:00:00Z","event":"failed","id":"t0"}"#,
         "not json",
     ]
@@ -403,11 +406,14 @@ fn repo_tables_count_journal_events_and_refixed_tasks() {
                 "failed",
                 "blocked",
                 "debug",
+                "gate-red",
+                "verify-edit",
+                "unstamped",
                 "sub-agent-tokens",
                 "sub-agent-tools",
                 "sub-agent-min"
             ]),
-            row(&["r1", "3", "1", "1", "0", "0", "0", "1000", "4", "2.0"]),
+            row(&["r1", "3", "1", "1", "0", "0", "0", "1", "0", "2", "1000", "4", "2.0"]),
         ]
     );
     assert_eq!(

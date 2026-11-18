@@ -151,6 +151,18 @@ pub fn report(s: &S, a: &[String], io: &mut Io) -> R {
             .map(|(i, d)| format!("- {i} — {d}"))
             .collect(),
     );
+    let verify_block = dedupe(
+        pick("verify-edit", true)
+            .iter()
+            .map(|(i, d)| format!("- {i} — {d}"))
+            .collect(),
+    );
+    let unstamped_block = dedupe(
+        pick("unstamped", true)
+            .iter()
+            .map(|(i, d)| format!("- {i} — {d}"))
+            .collect(),
+    );
     let mut usage: Vec<(&str, u64, u64, u64, u64)> = ["planning", "execution", "debug", "factfind"]
         .iter()
         .map(|k| (*k, 0, 0, 0, 0))
@@ -310,6 +322,14 @@ pub fn report(s: &S, a: &[String], io: &mut Io) -> R {
             &unproven_block,
         ),
         (
+            "Verification files edited (the files that judge a change; the gate rates it high risk):",
+            &verify_block,
+        ),
+        (
+            "Commits with no Verified trailer (nothing records how they were checked):",
+            &unstamped_block,
+        ),
+        (
             "Skills dropped as unrunnable by a sub-agent (run them yourself):",
             &dropped_block,
         ),
@@ -392,6 +412,35 @@ pub fn review_findings(s: &S, io: &mut Io) -> R {
         }
         let _ = writeln!(io.out, "{l}");
     }
+    Ok(0)
+}
+
+pub fn pattern_seen(s: &S, a: &[String], io: &mut Io) -> R {
+    let slug = a.first().map_or("", String::as_str);
+    if a.len() != 1
+        || slug.is_empty()
+        || !slug
+            .bytes()
+            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
+    {
+        return Err(die("usage: pattern-seen <kebab-case slug>"));
+    }
+    let _ = std::fs::create_dir_all(&s.state);
+    let mut rows: Vec<(String, u64)> = s
+        .read("patterns")
+        .lines()
+        .filter_map(|l| l.split_once('\t'))
+        .map(|(k, n)| (k.to_string(), n.parse().unwrap_or(0)))
+        .collect();
+    match rows.iter_mut().find(|r| r.0 == slug) {
+        Some(r) => r.1 += 1,
+        None => rows.push((slug.to_string(), 1)),
+    }
+    let n = rows.iter().find(|r| r.0 == slug).map_or(1, |r| r.1);
+    let text: String = rows.iter().map(|(k, n)| format!("{k}\t{n}\n")).collect();
+    super::write(s, "patterns", &text);
+    s.journal("pattern-seen", "", &format!("{slug} {n}"));
+    let _ = writeln!(io.out, "{n}");
     Ok(0)
 }
 

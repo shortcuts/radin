@@ -53,4 +53,5 @@
   journal-tail [n]             # last n journal events (default 20); each line holds run, and a status line also holds from, dispatch and kind
   plan-covers <plan-csv> <path>  # print in (a listed plan's Changes names the path), test (a test path, exempt) or out
   review-findings              # stdin "<task><TAB><plan|executor|none><TAB><plan path>[<TAB><section>]" per logged review finding (section: plan only, a plan-template label): journal one review-finding event each, print the per-class and per-task rollup
+  pattern-seen <slug>  # count one more review finding of this pattern in this repo and print the total; a lane gate leaf adds a REVIEW.md rule when it prints 2
   finding-classes [--since <ts>] [--min <n>]  # print the plan-template sections plan findings land in, by distinct task, and the sections at >= n tasks (default 3); exit 1 when no finding passes

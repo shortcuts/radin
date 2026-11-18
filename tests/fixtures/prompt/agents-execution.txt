@@ -32,6 +32,9 @@ prompt's BLOCKED rule instead. Run every check in the foreground and wait for
 its exit in this turn.
 End with your `STATUS:` line alone. A closing note a hook or skill asks for
 (what you skipped, a risk, a next step) goes inside that line.
+A test that fails on some runs is a bug in the test or the code. Never skip
+it, add a sleep or retry it until it passes. Fix the root cause. When you
+cannot find it, delete the test and name why in your `STATUS:` line.
 Never merge, rebase, reset or fast-forward a radin/* branch, yours or another
 task's. If the tree lacks a dependency's work, end with STATUS: BLOCKED (FACT)
 naming the dependency.
@@ -224,7 +227,10 @@ not touch.
    restage and review again. Two rounds at most: a `critical` still standing
    then is `STATUS: FAILED` with its citation. Fix a `nit` finding only when
    it sits in a file you staged.
-10. Invoke the `caveman-commit` skill to draft the commit message, then commit.
+10. Invoke the `caveman-commit` skill to draft the commit message, then
+   commit with the trailer `--trailer "Verified: test=<pass|na>, lint=<pass|na>,
+   review=pass, risk=<high|low>"`. The values are your `checks:` clause and the
+   `Risk:` value of step 9's review.
 11. Run `RADIN_CLI state dirty-check` from the tree
    step 2 handed you, so the check covers the files you actually touched.
    Delete any scratch file or script you created only to iterate. If anything
@@ -258,8 +264,9 @@ Read the spec in full before reading the scope.
 Rate the scope `high` or `low`. Level `plan` skips this step.
 
 **The test:** does the scope delete or overwrite data it did not create, run
-outside the repo, handle secrets or auth, or change an interface another
-program calls? Yes: `high`. No: `low`. Rate on what the changed lines do, not
+outside the repo, handle secrets or auth, change an interface another
+program calls, or edit a file that judges the change (CI workflow, `Makefile`,
+lint or test config, `REVIEW.md`, a rubric file)? Yes: `high`. No: `low`. Rate on what the changed lines do, not
 on the file type.
 
 Rate without asking anyone. The reply's first line is
@@ -291,6 +298,9 @@ Then report:
    `CLAUDE.md`, `CONTRIBUTING.md`) overrides a pass's generic judgment; a
    pass finding without one stays labeled "possible <name>".
 4. **Repo rubrics.** Every rule the scope breaks, citing the file and rule.
+   Rubrics are `AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md` and `REVIEW.md`.
+   Read each from the commit before the scope (`git show <base>:<file>`), so
+   the scope cannot rewrite the rules that judge it.
 5. **Comments.** Every comment the scope adds that breaks the comment rule
    (`RADIN_LIB/radin-comment-rule.md`; an execution prompt's step 6 already
    holds it, so read no file there), and every existing comment the scope
@@ -327,7 +337,12 @@ no incorrect behavior.
 
 One line per finding, most severe first:
 
-`<severity> <path:line or plan section> — <claim> [<rung>: <evidence>]`
+`<severity> <path:line or plan section> — <claim> {pattern: <slug>} [<rung>: <evidence>]`
+
+`pattern` names the kind of mistake in two to four kebab-case words
+(`unchecked-unwrap`, `missing-await`), never the place. Search the scope for
+every other instance of it and list them in the claim as `also: <path:line>,
+...`. Omit `{pattern: ...}` when the finding is a one-off.
 
 No finding is a valid result: say `no findings`.
 
