@@ -88,6 +88,7 @@ check:
 	cargo clippy --all-targets -- -D warnings
 	markdownlint '**/*.md' --ignore node_modules --ignore CHANGELOG.md
 	cargo test --test lints --test shipped
+	cargo run -q -- context --check
 
 # Pinned so a pele release never reshuffles the committed SVGs. node_modules is
 # removed after the run: radin ships no JS and tracks no lockfile.

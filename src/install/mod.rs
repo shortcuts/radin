@@ -1,8 +1,8 @@
-mod assets;
+pub mod assets;
 mod cbm;
 mod companions;
 pub(crate) mod fff;
-mod guidance;
+pub mod guidance;
 mod home;
 mod manifest_out;
 mod opencode;

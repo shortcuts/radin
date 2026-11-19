@@ -1,7 +1,9 @@
+mod context;
 mod repos;
 mod transcripts;
 
 use crate::{Ctx, Out};
+use context::scan_load;
 use repos::{cost_vs_quality, journal_rows, outcome_rows};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -10,14 +12,14 @@ use transcripts::{scan_transcripts, tables_of};
 
 const USAGE: &str = "usage: radin stats [--since YYYY-MM-DD] [--repos-root DIR] [--no-transcripts] [--no-repos] [--no-companions]\n";
 
-pub(super) type Rows = Vec<Vec<String>>;
+pub(crate) type Rows = Vec<Vec<String>>;
 
-pub(super) fn row<const N: usize>(cells: [&str; N]) -> Vec<String> {
+pub(crate) fn row<const N: usize>(cells: [&str; N]) -> Vec<String> {
     cells.iter().map(|s| s.to_string()).collect()
 }
 
 /// Rows aligned like `column -t -s TAB`: each column padded to its widest cell plus two spaces.
-fn table(title: &str, rows: &Rows) -> String {
+pub(crate) fn table(title: &str, rows: &Rows) -> String {
     let cols = rows.iter().map(Vec::len).max().unwrap_or(0);
     let width: Vec<usize> = (0..cols)
         .map(|i| {
@@ -250,6 +252,10 @@ pub fn run(c: &Ctx, args: &[String]) -> Out {
             out += &table(
                 "radin tasks, top 15 by sub-agent tokens",
                 &hdr(row(["task", "tokens"]), t.tasks),
+            );
+            out += &table(
+                "radin context load (tokens a skill, lib file, rendered prompt or sub-agent report added to the context; the growth between two requests, split over the results by size)",
+                &scan_load(&root, &since).rows(),
             );
             out += &table(
                 "Hooks (one row per hook output; a hook that never fires has no row)",

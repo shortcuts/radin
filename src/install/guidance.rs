@@ -33,11 +33,10 @@ pub fn write_guidance(file: &Path, body: &str) -> io::Result<()> {
     fs::write(file, out)
 }
 
-impl Session<'_> {
-    pub(super) fn claude_body(&self) -> String {
-        let cli = &self.cli_value;
-        format!(
-            "{BEGIN}
+/// The radin block of the Claude `CLAUDE.md`; it loads into every session.
+pub fn claude_body(cli: &str) -> String {
+    format!(
+        "{BEGIN}
 ## radin
 
 radin keeps a per-repo backlog in `<repo-root>/.radin/` so tasks
@@ -50,13 +49,13 @@ survive past one conversation. Reach for it instead of ad-hoc task tracking:
 - Never hand-edit files under `.radin/` -- every backlog operation goes through the `{cli} backlog` CLI.
 - Never guess on a broad or ambiguous ask: invoke `/mattpocock-skills:grilling` and let the user settle it before radin writes anything.
 {END}"
-        )
-    }
+    )
+}
 
-    pub(super) fn agents_body(&self) -> String {
-        let cli = &self.cli_value;
-        format!(
-            "{BEGIN}
+/// The radin block of the agents-host `AGENTS.md`.
+pub fn agents_body(cli: &str) -> String {
+    format!(
+        "{BEGIN}
 ## radin
 
 radin keeps a per-repo backlog in `<repo-root>/.radin/` so tasks
@@ -69,7 +68,16 @@ survive past one conversation. Reach for it instead of ad-hoc task tracking:
 - Never hand-edit files under `.radin/`. Every backlog operation goes through the `{cli} --host agents backlog` CLI.
 - Never guess on a broad or ambiguous ask: use the `grilling` skill and let the user settle it before radin writes anything.
 {END}"
-        )
+    )
+}
+
+impl Session<'_> {
+    pub(super) fn claude_body(&self) -> String {
+        claude_body(&self.cli_value)
+    }
+
+    pub(super) fn agents_body(&self) -> String {
+        agents_body(&self.cli_value)
     }
 
     pub(super) fn write_block(&self, file: &Path, body: &str) -> Result<(), super::Stop> {

@@ -470,3 +470,60 @@ fn the_repo_scan_reads_dot_radin_for_every_host() {
         .collect();
     assert_eq!(names, ["a"]);
 }
+
+#[test]
+fn context_load_bills_a_request_s_growth_to_the_radin_results_by_size() {
+    let w = w();
+    let p = w.home.join(".claude/projects/p1");
+    fs::create_dir_all(&p).unwrap();
+    let req = |id: &str, total: u32, out: u32, uses: &str| {
+        line(
+            "2026-02-01",
+            &format!("\"type\":\"assistant\",\"requestId\":\"{id}\",\"message\":{{\"usage\":{{\"input_tokens\":100,\"cache_creation_input_tokens\":0,\"cache_read_input_tokens\":{},\"output_tokens\":{out}}},\"content\":[{uses}]}}", total - 100),
+        )
+    };
+    let result = |id: &str| {
+        format!(
+            "{{\"type\":\"tool_result\",\"tool_use_id\":\"{id}\",\"content\":\"{}\"}}",
+            "x".repeat(400)
+        )
+    };
+    let skill = "{\"type\":\"tool_use\",\"id\":\"toolu_1\",\"name\":\"Skill\",\"input\":{\"skill\":\"radin-plan\"}}";
+    let bash = "{\"type\":\"tool_use\",\"id\":\"toolu_2\",\"name\":\"Bash\",\"input\":{\"command\":\"\\\"$HOME/.radin/bin/radin\\\" prompt execution t1\"}}";
+    let mut s = req("r1", 1000, 50, &format!("{skill},{bash}"));
+    // a second line of the same request must not open a new gap
+    s += &req("r1", 1000, 60, "");
+    s += &line(
+        "2026-02-01",
+        &format!(
+            "\"type\":\"user\",\"message\":{{\"content\":[{},{}]}}",
+            result("toolu_1"),
+            result("toolu_2")
+        ),
+    );
+    s += &req("r2", 1660, 10, "");
+    // a smaller context after a compaction adds nothing
+    s += &line(
+        "2026-02-01",
+        &format!(
+            "\"type\":\"user\",\"message\":{{\"content\":[{}]}}",
+            result("toolu_2")
+        ),
+    );
+    s += &req("r3", 300, 10, "");
+    fs::write(p.join("s1.jsonl"), s).unwrap();
+    let o = go(&w, &args(&["--since", "2026-01-01"]), &no_cli);
+    let rows = table(&o.1, "radin context load");
+    assert_eq!(
+        rows[1],
+        row(&["prompt execution", "1", "1", "300", "300", "300"]),
+        "{rows:?}"
+    );
+    assert_eq!(
+        rows[2],
+        row(&["skill radin-plan", "1", "1", "300", "300", "300"]),
+        "{rows:?}"
+    );
+    assert_eq!(rows[3][1], "600", "{rows:?}");
+    assert!(rows[3][2].starts_with("100.0%"), "{rows:?}");
+}

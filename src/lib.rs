@@ -1,5 +1,6 @@
 pub mod backlog;
 pub mod cbm;
+pub mod context;
 pub mod doctor;
 pub mod host;
 pub mod install;
@@ -21,12 +22,13 @@ pub mod uninstall;
 pub use host::Host;
 use std::path::{Path, PathBuf};
 
-pub const SUBCOMMANDS: [&str; 13] = [
+pub const SUBCOMMANDS: [&str; 14] = [
     "backlog",
     "state",
     "scope",
     "prompt",
     "stats",
+    "context",
     "telemetry",
     "install",
     "update",
@@ -37,7 +39,7 @@ pub const SUBCOMMANDS: [&str; 13] = [
     "repair",
 ];
 
-pub const USAGE: &str = "usage: radin [--host claude|agents] <backlog|state|scope|prompt|stats|telemetry|hooks|wire|repair|install|update|doctor|uninstall> [args]\n\
+pub const USAGE: &str = "usage: radin [--host claude|agents] <backlog|state|scope|prompt|stats|context|telemetry|hooks|wire|repair|install|update|doctor|uninstall> [args]\n\
 With no subcommand on a terminal, radin opens the TUI; \"radin help\" prints this text.\n\
 Each subcommand prints its own usage when run with no arguments.\n";
 
@@ -154,6 +156,7 @@ pub fn run_in(
         Some("prompt") => prompt::run(&ctx(), &rest[1..]),
         Some("scope") => scope::run(&ctx(), &rest[1..]),
         Some("stats") => stats::run(&ctx(), &rest[1..]),
+        Some("context") => context::run(&ctx(), &rest[1..]),
         Some("install") => install::run(&ctx(), &rest[1..], false),
         Some("update") => install::run_update(&ctx(), &rest[1..]),
         Some("doctor") => doctor::run(&ctx(), &rest[1..]),

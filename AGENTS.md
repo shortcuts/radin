@@ -65,6 +65,7 @@ radin is a Claude Code plugin of skills, a CLI, and install glue.
 | A task commit cannot quietly edit the files that judge it | `tests/state_1.rs` (`task_report_journals_a_verification_file_edit_*`, `a_verification_file_the_plan_lists_*`), `src/state/plan_cover.rs` unit test | The path list is fixed, not per repo; a repo-specific check file is unlisted. |
 | A high-risk lane gets a fresh-context review | `tests/state_lanes.rs` (`a_lane_map_prints_risk_high_*`), `tests/prompt.rs` (`prompt_gate_lane_reviews_only_a_high_risk_lane`) | The leaf's own `Risk:` value feeds the trailer; a wrong rating is review only. |
 | A repeated finding pattern becomes a `REVIEW.md` rule | `tests/state_1.rs` (`pattern_seen_counts_per_slug_*`) | The gate leaf's append and commit is prose; review only. |
+| Context a host loads stays under a ceiling | `radin context --check` in `make check` (`ALWAYS_CEILING` and `ROUTE_CEILING` in `src/context.rs`), `tests/context.rs` | The 4-bytes-a-token estimate is rough; `radin stats` shows the measured load. A new `RADIN_LIB/` reference in a lib file raises a route, so a ceiling bump needs a reason in the commit. |
 | Same checks locally and in CI | `make check` and `make test` in `.github/workflows/ci.yml` | Linux run unverified. |
 | Deterministic work lives in the CLI | `tests/lints.rs` raw `git` lint over `lib/radin-run.md` and `lib/radin-batch-*.md` | Other deterministic steps in prose, and a raw `git` outside those files; review only. |
 | No namespaced companion name outside the table | `tests/lints.rs` name lint (`.sh` literals, tokens missing from a table) and its skill-name tests | A bare name written without a slash; review only. |
@@ -167,6 +168,14 @@ The graph tool name lives in one file and must exist in the upstream table ([whi
 - **Plan one task at a time, just in time.** A lane plans a task right before it runs, because a plan written earlier drifts when another commit changes the tree ([why](docs/agents/DECISIONS.md#the-run-loop)).
 - **No arena or judge at execution level.** N worktrees and a judge that reads N diffs break the router's low-resolution rule. At planning it stays an opt-in in its own backlog entry, gated on a review-origin rollup.
 - **No model escalation on retry.** All four roles (planning, execution, review, debug) default to sonnet.
+
+## Context budget
+
+Every `SKILL.md`, lib file and rendered prompt spends the context of the agent that reads it.
+
+- **Measure before and after.** A change to a `SKILL.md`, a `lib/*.md` file or a `radin prompt` render runs `radin context` and keeps the totals flat or lower. The `radin context load` table of `radin stats` shows what a skill, lib file or `radin prompt` render cost in real sessions.
+- **Raise a ceiling with a reason.** `ALWAYS_CEILING` and `ROUTE_CEILING` in `src/context.rs` move up only when the commit message names the gain.
+- **Run `/self-improve` after real sessions.** It measures both views, ranks what to trim and hands entries to `/radin-record`.
 
 ## Before committing
 
