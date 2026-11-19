@@ -16,7 +16,7 @@
   steps-open                   # print "id<TAB>question" per open decision of a pending entry, exit 1 if none
   steps-list                   # print "id<TAB>order<TAB>status<TAB>attempts<TAB>note" per entry, exit 1 if none
   lane-cap                     # print the most lanes one run holds at once: $RADIN_LANE_CAP, else the install manifest's lane_cap, else 2
-  lanes-init                   # after steps-init: pick the lane mode, reset the lane markers, print "mode<TAB>lanes|main", "cap<TAB>n" and "lane<TAB>epic<TAB>waiting<TAB>tasks" per epic in start order; exit 1 on an empty run
+  lanes-init                   # after steps-init: pick the lane mode, reset the lane markers, print "mode<TAB>lanes|main", "cap<TAB>n" and "lane<TAB>epic<TAB>waiting<TAB>tasks" per epic in start order; exit 1 on an empty run or an epic dependency cycle
   lane-next [--cleared <csv>]  # claim one lane: print "start<TAB>epic" (exit 0); "judge<TAB>epic<TAB>running csv" per candidate when a lane runs and none is cleared (exit 2); nothing at the cap or with no candidate (exit 1)
   lane-judge <candidate> <running> "<line>"|--gap  # record the overlap judge's decision with the overlap evidence in telemetry and the journal; only an exact "STATUS: PARALLEL — yes: <reason>" line is yes, any other line or --gap is no; print "judged<TAB>candidate<TAB>running<TAB>yes|no" (exit 0)
   lane-done <epic>             # mark a running lane done, a dependent epic may then start; in lanes mode the lane must have merged with a green or red gate, and its worktree and branch go; a green hotfix lane closes its hotfix; exit 1 when the lane is not running, has not merged or its gate is run or ask

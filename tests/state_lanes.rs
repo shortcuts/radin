@@ -56,6 +56,21 @@ fn lanes_init_picks_the_mode_and_resets_lane_markers() {
 }
 
 #[test]
+fn lanes_init_rejects_epics_whose_tasks_depend_on_each_other() {
+    let w = W::new();
+    epics(&w);
+    w.steps_init("a-one\t1\tb-one\tpending\nb-one\t3\ta-one\tpending\n");
+    let r = w.state(&["lanes-init"]);
+    assert_eq!(
+        (r.code, r.err.as_str()),
+        (
+            1,
+            "radin-state: epic dependency cycle: ea waits for eb (task a-one depends on b-one); eb waits for ea (task b-one depends on a-one)\n"
+        )
+    );
+}
+
+#[test]
 fn lane_next_fills_slots_waits_for_merges_and_asks_for_clearance() {
     let w = W::new();
     epics(&w);

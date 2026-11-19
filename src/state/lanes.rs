@@ -65,6 +65,47 @@ fn reaches(d: &Deps, from: &str, to: &str) -> bool {
     false
 }
 
+/// The shortest chain of epic waits that returns to its start, as a message naming each edge's cause.
+fn cycle_message(tasks: &[Task], d: &Deps) -> Option<String> {
+    let start = d.keys().find(|e| reaches(d, e, e))?;
+    let mut parent: BTreeMap<&str, &str> = BTreeMap::new();
+    let mut queue = std::collections::VecDeque::from([start.as_str()]);
+    let last = 'bfs: loop {
+        let e = queue.pop_front()?;
+        for n in &d[e] {
+            if n == start {
+                break 'bfs e;
+            }
+            if parent.insert(n, e).is_none() {
+                queue.push_back(n);
+            }
+        }
+    };
+    let mut chain = vec![last];
+    while let Some(p) = parent.get(chain[chain.len() - 1]) {
+        chain.push(p);
+    }
+    chain.reverse();
+    let epic_of: HashMap<&str, &str> = tasks
+        .iter()
+        .map(|t| (t.id.as_str(), t.epic.as_str()))
+        .collect();
+    let mut edges = Vec::new();
+    for (i, waiter) in chain.iter().enumerate() {
+        let target = chain.get(i + 1).copied().unwrap_or(start.as_str());
+        let cause = tasks
+            .iter()
+            .filter(|t| t.epic == *waiter)
+            .flat_map(|t| t.deps.iter().map(move |dep| (t, dep)))
+            .find(|(_, dep)| epic_of.get(dep.as_str()) == Some(&target))
+            .map_or("declared by epic-set-deps".to_string(), |(t, dep)| {
+                format!("task {} depends on {dep}", t.id)
+            });
+        edges.push(format!("{waiter} waits for {target} ({cause})"));
+    }
+    Some(format!("epic dependency cycle: {}", edges.join("; ")))
+}
+
 /// `lanes` when two run epics can ever run at once, else `main`.
 fn mode(parallel: bool, cap: u64, tasks: &[Task], d: &Deps) -> &'static str {
     let run: Vec<String> = epics_of(tasks).into_iter().collect();
@@ -311,6 +352,9 @@ pub fn lanes_init(s: &S, io: &mut Io) -> R {
         .find(|t| t.epic == "wip" || t.epic.starts_with("hotfix-"))
     {
         return Err(die(format!("epic {} is reserved", t.epic)));
+    }
+    if let Some(msg) = cycle_message(&r.tasks, &r.deps) {
+        return Err(die(msg));
     }
     let cap = s.lane_cap()?;
     let m = mode(s.session_parallel(), cap, &r.tasks, &r.deps);
@@ -573,6 +617,18 @@ mod tests {
         ];
         assert_eq!(mode_of(true, 2, &chain, &[("b", "a"), ("c", "b")]), "main");
         assert_eq!(mode_of(true, 2, &chain, &[("b", "a")]), "lanes");
+    }
+
+    #[test]
+    fn a_cycle_names_each_epic_and_the_task_dependency_behind_each_edge() {
+        let tasks = [t("a1", "a", 1, &["b1"]), t("b1", "b", 2, &["a1"])];
+        let d = epic_deps(&tasks, &[]);
+        assert_eq!(
+            cycle_message(&tasks, &d).unwrap(),
+            "epic dependency cycle: a waits for b (task a1 depends on b1); b waits for a (task b1 depends on a1)"
+        );
+        let free = [t("a1", "a", 1, &[]), t("b1", "b", 2, &["a1"])];
+        assert_eq!(cycle_message(&free, &epic_deps(&free, &[])), None);
     }
 
     #[test]

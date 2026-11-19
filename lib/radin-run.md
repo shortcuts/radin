@@ -187,7 +187,8 @@ to ids is yours; the excluded set, renumbering and the `depends_on` precedence a
 task keeps the `order` number the report printed.
 
 Then run `RADIN_CLI state lanes-init` and print its output. It derives the lane
-mode and prints one `lane<TAB>epic<TAB>state<TAB>count` line per epic.
+mode and prints one `lane<TAB>epic<TAB>state<TAB>count` line per epic. An exit 1 with
+`epic dependency cycle` names the epics and the task dependency behind each edge. Print it and stop.
 
 ## Phase 3.5: Settle Open Decisions
 
