@@ -7,7 +7,7 @@ use crate::stats::{row, table, Rows};
 use crate::{Ctx, Out};
 use std::collections::{BTreeMap, BTreeSet};
 
-const USAGE: &str = "usage: radin context [--check | --repo]\n";
+const USAGE: &str = "usage: radin context [--check | --repo | --refs | --signals]\n";
 
 /// Ceilings in estimated tokens per host. **Why:** the description of every skill and the radin
 /// block sit in every session, and a route is what one skill pulls in when it runs.
@@ -198,6 +198,8 @@ pub fn run(c: &Ctx, args: &[String]) -> Out {
         [] => (false, false),
         [a] if a == "--check" => (true, false),
         [a] if a == "--repo" => (false, true),
+        [a] if a == "--refs" => return (0, crate::repo_audit::refs(c), String::new()),
+        [a] if a == "--signals" => return (0, crate::repo_audit::signals(c), String::new()),
         _ => return (1, String::new(), USAGE.into()),
     };
     let mut out = crate::repo_context::measure(c);

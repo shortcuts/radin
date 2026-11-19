@@ -170,3 +170,90 @@ fn repo_under_home_counts_the_user_config_once_as_user() {
         r.out
     );
 }
+
+#[test]
+fn repo_reports_a_subtotal_per_scope() {
+    let t = tempfile::tempdir().unwrap();
+    let (repo, home) = (t.path().join("repo"), t.path().join("home"));
+    write(&repo, "AGENTS.md", &"p\n".repeat(40));
+    write(&home, ".claude/CLAUDE.md", &"u\n".repeat(40));
+    let r = cli::radin(&repo, &home, &["context", "--repo"]);
+    for l in ["total project", "total user", "total  "] {
+        assert!(r.out.lines().any(|x| x.starts_with(l)), "{l}:\n{}", r.out);
+    }
+}
+
+#[test]
+fn refs_names_only_the_references_the_repo_contradicts() {
+    let t = tempfile::tempdir().unwrap();
+    let (repo, home) = (t.path().join("repo"), t.path().join("home"));
+    write(&repo, "src/ok.rs", "");
+    write(&repo, "docs/a.md", "# Real heading\n");
+    write(&repo, "Makefile", ".PHONY: build\nbuild:\n\techo\n");
+    write(
+        &repo,
+        "AGENTS.md",
+        "Edit `src/ok.rs`, `src/gone.rs:12`, run `make build` and `make nope`.\n\
+         See [a](docs/a.md#real-heading), [b](docs/a.md#no-such), [c](docs/zzz.md).\n\
+         Skip `~/.claude/x`, `lib/<host>.txt`, `src/*.rs`, `https://x.io/a/b` and `a/b c`.\n\
+         ```\n`fenced/gone.rs`\n```\n",
+    );
+    let r = cli::radin(&repo, &home, &["context", "--refs"]);
+    assert_eq!(r.code, 0, "{}{}", r.out, r.err);
+    for bad in [
+        "src/gone.rs",
+        "make nope",
+        "docs/a.md#no-such",
+        "docs/zzz.md",
+    ] {
+        assert!(r.out.contains(bad), "{bad}:\n{}", r.out);
+    }
+    for ok in [
+        "src/ok.rs",
+        "make build",
+        "real-heading",
+        "~/.claude",
+        "fenced",
+        "<host>",
+        "https",
+    ] {
+        assert!(!r.out.contains(ok), "{ok}:\n{}", r.out);
+    }
+    assert!(r.out.contains("AGENTS.md:1"), "{}", r.out);
+}
+
+#[test]
+fn signals_flag_dated_text_and_repeated_lines_with_their_commit() {
+    let t = tempfile::tempdir().unwrap();
+    let (repo, home) = (t.path().join("repo"), t.path().join("home"));
+    let dup = "Keep every test under a second so the suite stays fast for everyone.";
+    write(
+        &repo,
+        "AGENTS.md",
+        &format!(
+            "You MUST run it. Never skip. Try to be brief if possible.\n{dup}\nThink step by step.\nUse claude-3 here. Set `ALWAYS_CEILING`.\n"
+        ),
+    );
+    write(&repo, ".claude/rules/t.md", &format!("- **{dup}**\n"));
+    cli::git(&repo, &["init", "-q"]);
+    cli::git(&repo, &["add", "-A"]);
+    cli::git(&repo, &["commit", "-qm", "x"]);
+    let sha = cli::git(&repo, &["rev-parse", "--short=7", "HEAD"]);
+    let r = cli::radin(&repo, &home, &["context", "--signals"]);
+    assert_eq!(r.code, 0, "{}{}", r.out, r.err);
+    for id in ["P1", "P2", "P3", "P10"] {
+        assert!(r.out.lines().any(|l| l.contains(id)), "{id}:\n{}", r.out);
+    }
+    assert!(r.out.contains(sha.trim()), "blame column:\n{}", r.out);
+    let p1 = r
+        .out
+        .lines()
+        .filter(|l| l.split_whitespace().nth(1) == Some("P1"))
+        .count();
+    assert_eq!(p1, 1, "lowercase never is not pressure:\n{}", r.out);
+    assert!(
+        r.out.contains("AGENTS.md:2") && r.out.contains(".claude/rules/t.md:1"),
+        "duplicate names both sides:\n{}",
+        r.out
+    );
+}

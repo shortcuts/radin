@@ -9,11 +9,19 @@ use std::path::{Path, PathBuf};
 /// Claude Code stops following `@imports` after five hops.
 const IMPORT_DEPTH: usize = 5;
 
-struct Item {
+pub(crate) struct Item {
     scope: &'static str,
     label: String,
     tokens: usize,
     via: String,
+}
+
+/// A loaded file with its text, for the checks that read it.
+pub(crate) struct Loaded {
+    pub scope: &'static str,
+    pub label: String,
+    pub path: PathBuf,
+    pub text: String,
 }
 
 /// Every `@path` token outside a fence or a code span, as a path that exists.
@@ -50,6 +58,7 @@ struct Walk<'a> {
     home: &'a Path,
     seen: BTreeSet<PathBuf>,
     items: Vec<Item>,
+    files: Vec<Loaded>,
 }
 
 impl Walk<'_> {
@@ -76,6 +85,12 @@ impl Walk<'_> {
             return;
         }
         let label = self.label(p, scope);
+        self.files.push(Loaded {
+            scope,
+            label: label.clone(),
+            path: p.to_path_buf(),
+            text: text.clone(),
+        });
         self.items.push(Item {
             scope,
             label,
@@ -134,7 +149,7 @@ impl Walk<'_> {
     }
 }
 
-pub fn measure(c: &Ctx) -> String {
+pub(crate) fn load(c: &Ctx) -> (Vec<Item>, Vec<Loaded>) {
     // a cwd comes back canonical, so compare it with canonical paths: macOS `/var` is `/private/var`
     let canon = |p: PathBuf| fs::canonicalize(&p).unwrap_or(p);
     let home = canon(c.home.clone());
@@ -151,6 +166,7 @@ pub fn measure(c: &Ctx) -> String {
         home: &home,
         seen: BTreeSet::new(),
         items: Vec::new(),
+        files: Vec::new(),
     };
     for dir in c.cwd.ancestors() {
         for f in ["CLAUDE.md", "CLAUDE.local.md", "AGENTS.md"] {
@@ -169,13 +185,30 @@ pub fn measure(c: &Ctx) -> String {
     w.rules(&cfg.join("rules"), "user");
     w.skills(&cfg.join("skills"), "user");
     w.file(&codex.join("AGENTS.md"), "user", "", 0);
-    w.items.sort_by_key(|i| std::cmp::Reverse(i.tokens));
+    (w.items, w.files)
+}
+
+pub fn measure(c: &Ctx) -> String {
+    let (mut items, _) = load(c);
+    items.sort_by_key(|i| std::cmp::Reverse(i.tokens));
     let mut rows = Rows::from([row(["item", "scope", "tokens", "note"])]);
-    let total: usize = w.items.iter().map(|i| i.tokens).sum();
-    for i in &w.items {
+    for i in &items {
         rows.push(row([&i.label, i.scope, &i.tokens.to_string(), &i.via]));
     }
-    rows.push(row(["total", "", &total.to_string(), ""]));
+    let sum = |scope: &str| -> usize {
+        items
+            .iter()
+            .filter(|i| scope.is_empty() || i.scope == scope)
+            .map(|i| i.tokens)
+            .sum()
+    };
+    for (label, scope) in [
+        ("total project", "project"),
+        ("total user", "user"),
+        ("total", ""),
+    ] {
+        rows.push(row([label, scope, &sum(scope).to_string(), ""]));
+    }
     table(
         "repo: auto-loaded (est. tokens; every session pays these before the first prompt)",
         &rows,

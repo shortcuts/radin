@@ -17,7 +17,7 @@ Source: Anthropic's `prompt-audit`, `prompt-caching` and `token-counting` notes 
 
 | Id | Pattern | Fix |
 | --- | --- | --- |
-| P1 | Pressure language: dense `MUST`, `NEVER`, `CRITICAL`, `IMPORTANT`, `!!`. | State the rule plainly. Keep the stress only on a hard guardrail. |
+| P1 | Pressure language: dense uppercase `MUST`, `NEVER`, `ALWAYS`, `CRITICAL`, `IMPORTANT`, or `!!`. Lowercase `never` is not a hit. | State the rule plainly. Keep the stress only on a hard guardrail. |
 | P2 | Hedged requirement: `try to`, `if possible`, `ideally` on a real requirement. | Write the imperative. |
 | P3 | Scaffold a model feature replaced: `think step by step`, a scratchpad tag, `plan before acting`, `think harder`. | Delete. Control depth through the effort setting. |
 | P4 | Output ceiling or cadence: `under 120 words`, `summarize every N tool calls`, `no interim updates`. | State the audience and goal. Keep a number only where the format needs it. |
@@ -34,8 +34,8 @@ Source: Anthropic's `prompt-audit`, `prompt-caching` and `token-counting` notes 
 | P15 | Patch accretion: many narrow conditionals, each from one incident. | Write the one principle. |
 | P16 | Verbose skill or rule file. | Apply the test paragraph by paragraph. |
 | P17 | Wrong degrees of freedom: prose where a fragile command needs the exact text, or an exact script where judgment fits. | Match the form to the risk. |
-| P18 | Volatile specific: a hard-coded path, flag, version or count. | Check it against the repo. A claim the repo contradicts is high confidence. |
-| P19 | Conflict between two loaded files. | Quote both. `git blame` orders them, never file times. Rewrite the older to match. Flag it when the older is a safety rule or history cannot order them. |
+| P18 | Volatile specific: a hard-coded path, flag, version or count. | `radin context --refs` lists the misses. A claim the repo contradicts is high confidence. |
+| P19 | Conflict between two loaded files, or one sentence loaded twice (`radin context --signals`). | Quote both. `git blame` orders them, never file times. Rewrite the older to match. Flag it when the older is a safety rule or history cannot order them. |
 | P20 | Trigger-case list in a skill description. | Name the intent in general terms. |
 | P21 | Dead weight in the always-loaded set: reference text that one task needs. | Move it behind a skill or a path-scoped rule. Load it on demand. |
 
@@ -57,8 +57,9 @@ One entry per finding:
 - **Evidence:** the exact quote.
 - **Pattern:** the id from the table.
 - **Why:** one or two sentences.
-- **Confidence:** High (contradicted by the repo, or documented), Medium (seen to fail), Low (heuristic, flag only).
+- **Confidence:** High (contradicted by the repo, or documented), Medium (seen to fail), Low (heuristic, flag only). P21 and any length finding start at Low.
 - **Action:** remove, rewrite, move, merge or flag.
+- **Checked:** the table row or command that backs the claim.
 - **Saves:** estimated tokens.
 
 Sort by confidence, then by tokens saved. A finding with no hit on any pattern is not a finding.
