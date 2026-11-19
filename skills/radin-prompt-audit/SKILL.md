@@ -16,6 +16,8 @@ Run from the repo root.
 1. `radin context --repo` lists every file a session loads here, with its `@imports` and the name and description of each skill. It covers the project (the working directory and its parents) and the user config.
 2. In the radin source repo, also run `cargo run -q -- context`. It adds each host render of radin's skills, with the ceilings in `src/context.rs`. Run `cargo run -q -- stats --no-repos --no-companions --since <date>` too. Read `radin context load` and `radin roles`. Use the date the user names, else omit `--since`. An empty `radin context load` means no transcripts matched: say so and skip it.
 
+The table counts files only. A session also loads plugin skills, MCP server instructions, hook output, the output style and `MEMORY.md`, so the real load runs higher. Say so in the Reply.
+
 Counts are an estimate of 4 bytes a token, and a `Read` adds line numbers to measured ones. Compare items with each other, never one table with another.
 
 Done when every table printed has at least one row.
