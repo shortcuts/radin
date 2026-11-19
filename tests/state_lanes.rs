@@ -417,6 +417,25 @@ fn run_lane(w: &W, epic: &str) {
 }
 
 #[test]
+fn teardown_queues_a_lane_that_still_has_a_ready_task() {
+    let w = W::new();
+    epics(&w);
+    w.lane_mode("lanes");
+    clean_root(&w);
+    run_lane(&w, "ea");
+    finish_lane_task(&w, "a-one", "a1.txt");
+    assert_eq!(w.state(&["lane-queue", "ea"]).code, 1);
+    w.state(&["teardown"]);
+    let r = w.state(&["lane-queue", "ea"]);
+    assert_eq!(
+        (r.code, r.out.as_str()),
+        (0, "queued\tea\t1\n"),
+        "{}",
+        r.all()
+    );
+}
+
+#[test]
 fn lane_queue_waits_for_the_last_task_then_queues_in_order() {
     let w = W::new();
     epics(&w);

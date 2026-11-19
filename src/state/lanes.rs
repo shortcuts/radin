@@ -487,7 +487,8 @@ pub(super) fn queue_blocker(s: &S, epic: &str) -> Result<Option<String>, Fail> {
     {
         return Ok(Some(format!("lane {epic} has a task in progress")));
     }
-    let ready = first_ready(epic, &r.tasks, &r.done()).is_some();
+    // Teardown starts no task, so a ready one must not keep finished work off the base.
+    let ready = !s.exists("teardown") && first_ready(epic, &r.tasks, &r.done()).is_some();
     Ok(ready.then(|| format!("lane {epic} has a ready task")))
 }
 
