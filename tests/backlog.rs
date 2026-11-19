@@ -1884,3 +1884,16 @@ fn epic_add_rejects_the_reserved_wip_slug() {
     let r = w.fails(&["epic-add", "wip"], "d");
     assert!(r.err.contains("epic id is reserved: wip"), "{}", r.err);
 }
+
+#[test]
+fn epics_deps_lists_an_edge_that_comes_from_a_single_task_dependency() {
+    let w = W::new();
+    fs::create_dir_all(w.tasks().join("big")).unwrap();
+    fs::create_dir_all(w.tasks().join("small")).unwrap();
+    w.set_index(
+        r#"{"id":"b-1","category":"feat","title":"b 1","file":"tasks/big/b-1.md"}
+{"id":"s-1","category":"feat","title":"s 1","file":"tasks/small/s-1.md","depends_on":["b-1"]}
+"#,
+    );
+    assert_eq!(w.ok(&["epics", "--deps"], ""), "big\t\nsmall\tbig\n");
+}

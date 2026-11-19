@@ -274,6 +274,22 @@ impl<'a, 'b> Run<'a, 'b> {
         })
     }
 
+    /// One `wait\t<epic>\t<reason>` line per epic that has not started.
+    fn write_waiting(&self, io: &mut Io) {
+        let done = self.done();
+        for (e, deps) in &self.deps {
+            if self.lane_state(e) != "waiting" {
+                continue;
+            }
+            let reason = match deps.iter().find(|a| self.lane_state(a) != "done") {
+                Some(a) => format!("waits for epic {a} ({})", self.lane_state(a)),
+                None if first_ready(e, &self.tasks, &done).is_none() => "no ready task".into(),
+                None => continue,
+            };
+            let _ = writeln!(io.out, "wait\t{e}\t{reason}");
+        }
+    }
+
     fn count(&self, epic: &str) -> usize {
         self.tasks.iter().filter(|t| t.epic == epic).count()
     }
@@ -390,7 +406,12 @@ pub fn lane_next(s: &S, a: &[String], io: &mut Io) -> R {
     let cands = candidates(&r.tasks, &r.deps, &|e| r.lane_state(e), &r.done());
     let running = r.running();
     match next(&m, r.limit(&m)?, &running, &cands, &cleared) {
-        Next::Nothing => Ok(1),
+        Next::Nothing => {
+            if cands.is_empty() {
+                r.write_waiting(io);
+            }
+            Ok(1)
+        }
         Next::Start(e) => {
             mkdir(s, "lanes");
             write(s, &format!("lanes/{e}"), "running\n");

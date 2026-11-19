@@ -54,11 +54,24 @@ pub fn epics(cx: &Ctx, a: &[String], io: &mut Io) -> R {
         .filter(|n| !n.starts_with('.'))
         .collect();
     names.sort();
-    let edges = if deps {
-        epic_deps(&cx.ns.backlog_tasks_dir)
-    } else {
-        HashMap::new()
-    };
+    let mut edges = HashMap::new();
+    if deps {
+        edges = epic_deps(&cx.ns.backlog_tasks_dir);
+        let idx = Index::load(cx.ns.backlog_index.clone())?;
+        let epic_of: HashMap<String, String> =
+            idx.entries.iter().map(|e| (e.id(), e.epic())).collect();
+        for e in &idx.entries {
+            for dep in e.depends_on() {
+                let Some(to) = epic_of.get(&dep).filter(|to| **to != e.epic()) else {
+                    continue;
+                };
+                let v: &mut Vec<String> = edges.entry(e.epic()).or_default();
+                if !v.contains(to) {
+                    v.push(to.clone());
+                }
+            }
+        }
+    }
     for n in &names {
         match deps {
             true => io.out.push_str(&format!(

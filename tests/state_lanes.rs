@@ -97,7 +97,11 @@ fn a_dependent_epic_starts_only_after_its_dependency_lane_is_done() {
     w.bl(&["epic-set-deps", "eb", "ea"], "");
     w.state(&["lanes-init"]);
     assert_eq!(w.state(&["lane-next"]).out, "start\tea\n");
-    assert_eq!(w.state(&["lane-next"]).code, 1);
+    let r = w.state(&["lane-next"]);
+    assert_eq!(
+        (r.code, r.out.as_str()),
+        (1, "wait\teb\twaits for epic ea (running)\n")
+    );
     merged(&w, "ea");
     assert_eq!(w.state(&["lane-done", "ea"]).code, 0);
     assert_eq!(w.state(&["lane-next"]).out, "start\teb\n");

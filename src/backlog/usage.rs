@@ -105,7 +105,7 @@ pub const USAGE: &[(&str, &str)] = &[
     ),
     (
         "epics",
-        r##"epics [--deps]              # print every epic id, one per line (--deps: "id<TAB>csv of the epics it depends on")"##,
+        r##"epics [--deps]              # print every epic id, one per line (--deps: "id<TAB>csv of the epics it depends on", from epic-set-deps and from task dependencies across epics)"##,
     ),
     (
         "loose",
