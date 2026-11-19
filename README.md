@@ -96,6 +96,7 @@ Record, plan, execute, review. Each skill runs in your own conversation, so it c
 | `/radin-batch` | Work the backlog in priority order. One task per commit |
 | `/radin-do` | Record one ad-hoc prompt as a task, then execute only that task |
 | `/radin-review` | Review a commit, PR or directory. Kept findings go to the backlog |
+| `/radin-prompt-audit` | Measure the context an agent loads in this repo and audit it for dated or redundant text |
 | `/radin-stats` | Show every companion tool's savings report |
 | `/radin-teardown` | Gracefully stop a running batch: finish the current task, gate and merge, start nothing new |
 | `/radin-uninstall` | Remove what the installer put in every host's skills dir |

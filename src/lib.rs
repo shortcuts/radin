@@ -10,6 +10,7 @@ pub mod migrate;
 pub mod paths;
 pub mod prompt;
 pub mod render;
+pub mod repo_context;
 pub mod scope;
 pub mod shellwords;
 pub mod shipped;

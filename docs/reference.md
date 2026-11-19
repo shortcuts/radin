@@ -9,6 +9,7 @@
 | `/radin-batch` | Work the backlog in priority order, or only the epic or tasks you name. One task per commit. |
 | `/radin-do` | Record one ad-hoc prompt as a task, plan it when flagged, then execute only that task. |
 | `/radin-review` | Review a commit, PR, directory or range. Triage the findings into backlog tasks. |
+| `/radin-prompt-audit` | Measure the context an agent loads in the working repo and the user config, then audit it. Edits nothing. |
 | `/radin-stats` | Print each companion tool's own savings report. |
 | `/radin-teardown` | Stop a running `/radin-batch` or `/radin-do` from starting new tasks. The task in flight, the gate and the merge still finish. |
 | `/radin-uninstall` | Remove what `install.sh` put in every installed host. |

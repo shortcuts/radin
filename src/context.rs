@@ -7,7 +7,7 @@ use crate::stats::{row, table, Rows};
 use crate::{Ctx, Out};
 use std::collections::{BTreeMap, BTreeSet};
 
-const USAGE: &str = "usage: radin context [--check]\n";
+const USAGE: &str = "usage: radin context [--check | --repo]\n";
 
 /// Ceilings in estimated tokens per host. **Why:** the description of every skill and the radin
 /// block sit in every session, and a route is what one skill pulls in when it runs.
@@ -19,16 +19,16 @@ pub fn tokens(text: &str) -> usize {
     text.len().div_ceil(4)
 }
 
-struct Skill {
-    name: String,
+pub(crate) struct Skill {
+    pub(crate) name: String,
     /// Name and description: the part a host lists in every session.
-    listed: usize,
+    pub(crate) listed: usize,
     /// False when the render keeps the skill out of the model's list.
-    model_invoked: bool,
-    body: String,
+    pub(crate) model_invoked: bool,
+    pub(crate) body: String,
 }
 
-fn split_skill(name: &str, text: &str) -> Skill {
+pub(crate) fn split_skill(name: &str, text: &str) -> Skill {
     let rest = text.strip_prefix("---\n").unwrap_or(text);
     let (front, body) = rest.split_once("\n---\n").unwrap_or(("", rest));
     let mut desc = String::new();
@@ -194,12 +194,17 @@ pub fn breaches(host: &str, r: &Report) -> Vec<String> {
 }
 
 pub fn run(c: &Ctx, args: &[String]) -> Out {
-    let check = match args {
-        [] => false,
-        [a] if a == "--check" => true,
+    let (check, repo) = match args {
+        [] => (false, false),
+        [a] if a == "--check" => (true, false),
+        [a] if a == "--repo" => (false, true),
         _ => return (1, String::new(), USAGE.into()),
     };
-    let (mut out, mut bad) = (String::new(), Vec::new());
+    let mut out = crate::repo_context::measure(c);
+    if repo {
+        return (0, out, String::new());
+    }
+    let mut bad = Vec::new();
     for h in ["claude", "agents"] {
         match measure(c, h) {
             Ok(r) => {

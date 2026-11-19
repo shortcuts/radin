@@ -175,7 +175,7 @@ Every `SKILL.md`, lib file and rendered prompt spends the context of the agent t
 
 - **Measure before and after.** A change to a `SKILL.md`, a `lib/*.md` file or a `radin prompt` render runs `radin context` and keeps the totals flat or lower. The `radin context load` table of `radin stats` shows what a skill, lib file or `radin prompt` render cost in real sessions.
 - **Raise a ceiling with a reason.** `ALWAYS_CEILING` and `ROUTE_CEILING` in `src/context.rs` move up only when the commit message names the gain.
-- **Run `/self-improve` after real sessions.** It measures both views, ranks what to trim and hands entries to `/radin-record`.
+- **Run `/radin-prompt-audit` after real sessions.** It measures the static and the measured views, audits what a session loads and hands entries to `/radin-record`.
 
 ## Before committing
 

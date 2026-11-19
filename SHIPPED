@@ -3,6 +3,7 @@
 skill radin-batch
 skill radin-do
 skill radin-plan
+skill radin-prompt-audit
 skill radin-record
 skill radin-review
 skill radin-stats
@@ -35,6 +36,7 @@ hostlib radin-batch-clarify.md
 hostlib radin-batch-resume.md
 hostlib radin-run.md
 hostlib radin-review-core.md
+hostlib radin-audit-patterns.md
 # Tombstones: names an older radin shipped. Uninstall still removes them.
 # A renamed or retired skill is also removed by install, only while its SKILL.md names it.
 renamed skill radin-execute
