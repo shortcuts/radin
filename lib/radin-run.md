@@ -94,8 +94,9 @@ Empty output means no branch applies. Act on each line by its first field:
   `recovered` line. Exit 3: read `RADIN_LIB/radin-batch-recovery.md` and
   follow it for that id.
 - `waiting<TAB>id<TAB>reason<TAB>note`: this entry holds an unanswered question.
-  `steps-init` rewrites `BACKLOG_STEPS.json` in Phase 3, so a waiting entry
-  that stays unanswered restarts without its decision. Settle every one per
+  `steps-init` keeps a `deferred` entry out of the run and rewrites every other
+  waiting entry as `pending`, so one left unanswered restarts without its
+  decision. Settle every one per
   "Settling Waiting Entries" in `RADIN_LIB/radin-batch-clarify.md`.
 - `loose<TAB>csv`: these ids sit outside every epic. Run this triage before
   Phase 1, scoped or not. Read each title from `RADIN_CLI backlog loose` and

@@ -818,3 +818,30 @@ fn task_report_success_on_gitignored_paths_records_done_with_no_commit() {
         "{rep}"
     );
 }
+
+#[test]
+fn steps_init_keeps_a_deferred_entry_out_of_task_next_and_still_lists_it_as_waiting() {
+    let w = W::new();
+    w.bl(&["add", "fix", "t two"], "body\n");
+    w.steps_init("t-one\t1\t\tpending\nt-two\t2\t\tpending\n");
+    assert_eq!(
+        w.state(&[
+            "set-status",
+            "t-one",
+            "blocked",
+            "--reason",
+            "deferred",
+            "which db?"
+        ])
+        .code,
+        0
+    );
+    w.steps_init("t-one\t1\t\tpending\nt-two\t2\t\tpending\n");
+    let r = w.state(&["task-next"]);
+    assert_eq!(r.code, 0);
+    assert_eq!(r.out.lines().next(), Some("id\tt-two"), "{}", r.out);
+    assert_eq!(
+        w.state(&["steps-waiting"]).out,
+        "t-one\tdeferred\twhich db?\n"
+    );
+}

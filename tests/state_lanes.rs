@@ -91,6 +91,28 @@ fn lane_next_fills_slots_waits_for_merges_and_asks_for_clearance() {
 }
 
 #[test]
+fn a_lane_of_only_deferred_tasks_is_never_started() {
+    let w = W::new();
+    epics(&w);
+    assert_eq!(
+        w.state(&[
+            "set-status",
+            "b-one",
+            "blocked",
+            "--reason",
+            "deferred",
+            "q?"
+        ])
+        .code,
+        0
+    );
+    w.steps_init("a-one\t1\t\tpending\na-two\t2\ta-one\tpending\nb-one\t3\t\tpending\n");
+    w.state(&["lanes-init"]);
+    assert_eq!(w.state(&["lane-next"]).out, "start\tea\n");
+    assert_eq!(w.state(&["lane-next", "--cleared", "eb"]).code, 1);
+}
+
+#[test]
 fn a_dependent_epic_starts_only_after_its_dependency_lane_is_done() {
     let w = W::new();
     epics(&w);

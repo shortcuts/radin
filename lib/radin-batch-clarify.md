@@ -89,7 +89,14 @@ entry as `pending`.
 ## Settling Waiting Entries
 
 Phase 0 and Phase 5 of `RADIN_LIB/radin-run.md` read this section for every
-`waiting` entry. Invoke `@@skill:grilling@@` once for all of them,
+`waiting` entry. Handle the entries whose reason is `deferred` apart from the
+rest. Ask one yes/no question for all of them, per `RADIN_LIB/radin-ask-rule.md`:
+"Should deferred entries remain deferred?" `Yes`: change nothing. `steps-init`
+keeps each one `blocked`, so `task-next` and the lanes skip it and the run
+selects the other backlog items. `No`: run `RADIN_CLI state answered "<task id>"`
+for each, which returns it to `pending`.
+
+Invoke `@@skill:grilling@@` once for the other `waiting` entries,
 one question at a time, your recommendation first. Append each answer as
 above, then run `RADIN_CLI state answered "<task id>"`. An entry the user
 explicitly defers again keeps its `blocked` status and its `deferred` reason.

@@ -6,6 +6,11 @@ use std::fmt::Write;
 const LEGACY_STATE: [&str; 5] = ["unmerged", "stacked", "prepared", "wave-of", "groups"];
 
 pub fn steps_init(s: &S, io: &mut Io) -> R {
+    let deferred: std::collections::HashMap<String, String> = read_lines(&s.steps)
+        .into_iter()
+        .filter(|l| get(l, "status") == "blocked" && get(l, "reason") == "deferred")
+        .map(|l| (get(&l, "id"), l))
+        .collect();
     let mut out = String::new();
     let mut n = 0;
     for raw in s.c.stdin.lines().filter(|l| !l.is_empty()) {
@@ -27,6 +32,12 @@ pub fn steps_init(s: &S, io: &mut Io) -> R {
             return Err(die(format!(
                 "bad status for '{id}': {status} (pending|excluded)"
             )));
+        }
+        if let Some(old) = deferred.get(id).filter(|_| status == "pending") {
+            out += old;
+            out.push('\n');
+            n += 1;
+            continue;
         }
         let from_index = s.find_deps(id);
         let deps = if from_index.is_empty() {
