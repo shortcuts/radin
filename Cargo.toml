@@ -1,6 +1,6 @@
 [package]
 name = "radin"
-version = "3.2.0"
+version = "3.3.0"
 edition = "2021"
 description = "Cost-optimized agent harness: a repo-local backlog worked by cheap sub-agents."
 license = "MIT"

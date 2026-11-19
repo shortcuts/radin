@@ -1,5 +1,44 @@
 # Changelog
 
+## [3.3.0](https://github.com/shortcuts/radin/compare/v3.2.0...v3.3.0) (2026-11-19)
+
+
+### Features
+
+* apply learnings from https://claude.dev/blog/how-the-claude-code-team-thinks-about-verification/ ([329de48](https://github.com/shortcuts/radin/commit/329de48d0b8b41b0f544b53e0cc706a6ad89b54c))
+* **backlog:** add overlap verb with tiered epic evidence ([29889e8](https://github.com/shortcuts/radin/commit/29889e8cae8a42b8516341ec7705181ee9f4d26c))
+* **backlog:** epic dependencies and record-time ordering ([422b916](https://github.com/shortcuts/radin/commit/422b9167d65e89e86ff3db5a95b3ee0604c4a22f))
+* **backlog:** file every added task under an epic, default maintenance ([fe8dc72](https://github.com/shortcuts/radin/commit/fe8dc724da36b2b3d96693db85a00aeee1f5bf25))
+* epic edit ([5d64616](https://github.com/shortcuts/radin/commit/5d6461657e722e8597b177bddd9a0fa816a89ad7))
+* give radin-prompt-audit its evidence from the CLI ([6b1bd16](https://github.com/shortcuts/radin/commit/6b1bd16cc8287864fe144ea29804e64aa502085b))
+* **run:** lane run loop with overlap judge, no selection or worktree questions ([ac67f16](https://github.com/shortcuts/radin/commit/ac67f16b8a8ccb86c8ee9514466ddc28bb2dbcda))
+* ship radin-prompt-audit and measure the working repo's loaded context ([a491046](https://github.com/shortcuts/radin/commit/a49104697e77ee1283b6d67c929c0f57ca7cf55b))
+* **skills:** follow the Agent Skills spec in the agents render ([fcc06b9](https://github.com/shortcuts/radin/commit/fcc06b9978457ca7a89276af3b4cd2eb00e5c888))
+* **state:** epic triage table for loose tasks in Phase 0 ([c88fd37](https://github.com/shortcuts/radin/commit/c88fd374e8217ebf98631fb406f5d7131425272b))
+* **state:** gate on main after each lane merge with fix entry and hotfix lane ([742401e](https://github.com/shortcuts/radin/commit/742401e82e89638d1146eb302204b96730884ef2))
+* **state:** lane schedule, lane-cap and parallel switch ([d0d65ca](https://github.com/shortcuts/radin/commit/d0d65cad73e8684d8b4b424a934fd0d0e7de65c9))
+* **state:** lane sync with main and wip parking of an unrecovered task ([60e921e](https://github.com/shortcuts/radin/commit/60e921eec7d5b91f1a65e0b7cc9c3c4d6c27a20b))
+* **state:** lanes-recover queues leftover lanes and parks unverified work ([79bad5d](https://github.com/shortcuts/radin/commit/79bad5d1f4236fc1d63a54cca52ce35933f098db))
+* **state:** merge queue with no-ff lane merge via the sync agent ([468c758](https://github.com/shortcuts/radin/commit/468c758893bbb82ed538f7f5431d40c723719e8c))
+* **tui:** action registry with command palette and generated help ([fb454cd](https://github.com/shortcuts/radin/commit/fb454cd945e81ec77ed4ecd450f9469f3faa1043))
+* **tui:** reach every backlog verb and the run-state reads ([180fa7c](https://github.com/shortcuts/radin/commit/180fa7c78592670c790089a9e51fba60543979f4))
+* **tui:** render run status, meta, deps and epics in full ([19cccba](https://github.com/shortcuts/radin/commit/19cccbad4a35080d46fc1c5f8933c1bdc1fa4288))
+* **tui:** run-lanes pages state lanes-view for running lanes ([07a6d4e](https://github.com/shortcuts/radin/commit/07a6d4e9ce24a64031fc9634015b0dc9dbcc83b0))
+
+
+### Bug Fixes
+
+* agents mistakes task report ([f1b5cff](https://github.com/shortcuts/radin/commit/f1b5cff376b584550bd62b62eb318747496895f5))
+* **batch:** keep deferred entries out of the run ([a16edaa](https://github.com/shortcuts/radin/commit/a16edaacf0b3b144b1a7c6d083ce4d87be3aea64))
+* duplicate permissions.allow ([f4fea99](https://github.com/shortcuts/radin/commit/f4fea99173621bc37ed4d8d481530535d9e70fd2))
+* **install:** keep one radin Read rule per home and point cbm hooks at this machine's binary ([19d4e8d](https://github.com/shortcuts/radin/commit/19d4e8dcd77d8d938132b6ebf8954aff597e6979))
+* **lanes:** reject an epic dependency cycle in lanes-init ([864cc74](https://github.com/shortcuts/radin/commit/864cc74f556b73e0fb6a119f5855f41703675b1d))
+* **lanes:** say why an epic cannot start ([5e58d6c](https://github.com/shortcuts/radin/commit/5e58d6c6b4c7d85e1f5c96c5db28fed94ec9f37e))
+* prevent exhaustive summary ([c515e61](https://github.com/shortcuts/radin/commit/c515e615b80da19fb62313a1782f70a4fc28fb59))
+* **state:** refuse a group-set that merges wave-partition groups ([d2d6d82](https://github.com/shortcuts/radin/commit/d2d6d824b9cd314457810b2ea81a8a76b24462b6))
+* teardown merge branches ([3094f72](https://github.com/shortcuts/radin/commit/3094f72b0e812d4b788e6ce8381fc0fa6798c4c9))
+* test ([eada66e](https://github.com/shortcuts/radin/commit/eada66e82db214d2b3a6438f5f734f7054bb16c0))
+
 ## [3.2.0](https://github.com/shortcuts/radin/compare/v3.1.0...v3.2.0) (2026-11-10)
 
 
