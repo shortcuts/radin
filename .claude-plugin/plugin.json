@@ -1,6 +1,6 @@
 {
   "name": "radin",
-  "version": "3.2.0",
+  "version": "3.3.0",
   "description": "Cost-optimized agent harness for people on small subscriptions: a repo-local backlog worked by cheap sub-agents, plus a curated stack of token-saving tools. Works with Claude Code, Codex CLI and opencode.",
   "author": "shortcuts"
 }
