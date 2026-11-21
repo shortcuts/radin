@@ -192,7 +192,8 @@ pub fn epic_move(cx: &Ctx, a: &[String], io: &mut Io) -> R {
         entries: idx.entries.clone(),
     };
     moved.entries[i].set("file", Some(Value::String(new.clone())));
-    if tasks_cyclic(&moved, &epic_deps(&cx.ns.backlog_tasks_dir)) {
+    let edeps = epic_deps(&cx.ns.backlog_tasks_dir);
+    if !tasks_cyclic(&idx, &edeps) && tasks_cyclic(&moved, &edeps) {
         return Err(die(format!("epic-move would create a cycle through {id}")));
     }
     fs::rename(idx.task_path(&old), idx.task_path(&new))
@@ -358,9 +359,11 @@ pub fn epic_set_deps(cx: &Ctx, a: &[String], io: &mut Io) -> R {
             }
         }
         let mut edeps = epic_deps(tasks);
+        let idx = Index::load(cx.ns.backlog_index.clone())?;
+        let was = cyclic(&edeps) || tasks_cyclic(&idx, &edeps);
         if deps.iter().any(|d| d == epic) || {
             edeps.insert(epic.to_string(), deps.clone());
-            cyclic(&edeps) || tasks_cyclic(&Index::load(cx.ns.backlog_index.clone())?, &edeps)
+            !was && (cyclic(&edeps) || tasks_cyclic(&idx, &edeps))
         } {
             return Err(die(format!(
                 "epic depends_on would create a cycle through {epic}"

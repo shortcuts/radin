@@ -186,8 +186,10 @@ pub fn add(cx: &Ctx, a: &[String], io: &mut Io) -> R {
             }
         }
     }
+    let edeps = epic_deps(&cx.ns.backlog_tasks_dir);
+    let was = tasks_cyclic(&idx, &edeps);
     idx.entries.push(Entry::new(obj));
-    if tasks_cyclic(&idx, &epic_deps(&cx.ns.backlog_tasks_dir)) {
+    if !was && tasks_cyclic(&idx, &edeps) {
         return Err(die(format!("depends_on would create a cycle through {id}")));
     }
     fs::write(idx.task_path(&rel), format!("{body}\n")).map_err(|e| die(e.to_string()))?;
@@ -427,8 +429,10 @@ pub fn set_deps(cx: &Ctx, a: &[String], io: &mut Io) -> R {
         let deps = resolve_deps(&idx, v)?;
         value = (!deps.is_empty()).then(|| strs(&deps));
     }
+    let edeps = epic_deps(&cx.ns.backlog_tasks_dir);
+    let was = tasks_cyclic(&idx, &edeps);
     idx.entries[i].set("depends_on", value);
-    if tasks_cyclic(&idx, &epic_deps(&cx.ns.backlog_tasks_dir)) {
+    if !was && tasks_cyclic(&idx, &edeps) {
         return Err(die(format!("depends_on would create a cycle through {id}")));
     }
     idx.write()?;

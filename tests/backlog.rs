@@ -1074,6 +1074,11 @@ fn task_edges_that_make_two_epics_wait_for_each_other_are_refused() {
         "radin-backlog: depends_on would create a cycle through late\n"
     );
     assert!(!w.tasks().join("small/late.md").exists());
+    // a cycle already stored must not block the edit that cuts it
+    let l = w.line("s-1");
+    let cut = l.replacen('}', ",\"depends_on\":[\"b-2\"]}", 1);
+    fs::write(w.proj.join(IDX), w.index().replace(&l, &cut)).unwrap();
+    w.ok(&["set-deps", "s-1", "--none"], "");
 }
 
 #[test]
