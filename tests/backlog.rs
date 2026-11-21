@@ -1056,6 +1056,27 @@ fn epic_set_deps_refuses_a_self_edge_a_cycle_and_a_missing_epic_and_task_edits_r
 }
 
 #[test]
+fn task_edges_that_make_two_epics_wait_for_each_other_are_refused() {
+    let w = W::new();
+    epic_backlog(&w);
+    epic_files(&w);
+    w.ok(&["set-deps", "b-1", "s-1"], "");
+    assert_eq!(
+        w.fails(&["set-deps", "s-1", "b-2"], "").err,
+        "radin-backlog: depends_on would create a cycle through s-1\n"
+    );
+    let e = w.fails(
+        &["add", "fix", "late", "--epic", "small", "--deps", "b-2"],
+        "body",
+    );
+    assert_eq!(
+        e.err,
+        "radin-backlog: depends_on would create a cycle through late\n"
+    );
+    assert!(!w.tasks().join("small/late.md").exists());
+}
+
+#[test]
 fn order_first_and_only_derive_the_deferred_set_two_selectors_are_refused() {
     let w = W::new();
     prioritized(&w);

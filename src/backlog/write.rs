@@ -139,7 +139,6 @@ pub fn add(cx: &Ctx, a: &[String], io: &mut Io) -> R {
         epic
     };
     let rel = format!("tasks/{epic}/{id}.md");
-    fs::write(idx.task_path(&rel), format!("{body}\n")).map_err(|e| die(e.to_string()))?;
     let mut obj = Map::new();
     for (k, v) in [
         ("id", id.as_str()),
@@ -188,6 +187,10 @@ pub fn add(cx: &Ctx, a: &[String], io: &mut Io) -> R {
         }
     }
     idx.entries.push(Entry::new(obj));
+    if tasks_cyclic(&idx, &epic_deps(&cx.ns.backlog_tasks_dir)) {
+        return Err(die(format!("depends_on would create a cycle through {id}")));
+    }
+    fs::write(idx.task_path(&rel), format!("{body}\n")).map_err(|e| die(e.to_string()))?;
     idx.write()?;
     io.err.push_str(&format!(
         "added \"{title}\" (id: {id}) under {category} in {}\n",

@@ -322,8 +322,21 @@ pub fn cyclic(g: &HashMap<String, Vec<String>>) -> bool {
     g.keys().any(|k| visit(k, g, &mut st))
 }
 
+/// True on a task cycle, or on an epic cycle that task edges alone create: `lanes-init` refuses both.
 pub fn tasks_cyclic(idx: &Index, edeps: &HashMap<String, Vec<String>>) -> bool {
-    cyclic(&task_graph(idx, edeps).into_iter().collect())
+    let graph = task_graph(idx, edeps);
+    let epic: HashMap<String, String> = idx.entries.iter().map(|e| (e.id(), e.epic())).collect();
+    let mut quotient: HashMap<String, Vec<String>> = HashMap::new();
+    for (id, deps) in &graph {
+        for dep in deps {
+            if let (Some(a), Some(b)) = (epic.get(id), epic.get(dep)) {
+                if a != b && !a.is_empty() && !b.is_empty() {
+                    quotient.entry(a.clone()).or_default().push(b.clone());
+                }
+            }
+        }
+    }
+    cyclic(&graph.into_iter().collect()) || cyclic(&quotient)
 }
 
 pub fn epic_set_deps(cx: &Ctx, a: &[String], io: &mut Io) -> R {
