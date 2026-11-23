@@ -66,9 +66,9 @@ For each sub-task, in order:
    the plan, its glossary or domain-model doc where it has one, and respect
    any ADR covering the area.
 3. Settle each open fact before you write:
-   - A fact you can observe by running something (a command, a scratch
-     script, a one-off probe outside the repo tree) is yours to run. Delete
-     the scratch file after.
+   - A fact you can observe by running something (a command or a scratch
+     script outside the repo tree) is yours to run. Delete
+     it after.
    - Third-party API or library behavior local code cannot confirm: read the
      entry's `**Fact:**` lines and the `facts` file Step 1 printed first.
      Still open, interactive: hand the question to
@@ -90,9 +90,9 @@ For each sub-task, in order:
 5. Apply the ponytail ladder already in your context to produce the plan.
    When the plan places a new module boundary or reshapes an interface,
    invoke `@@skill:codebase-design@@` for that part. Write it to the
-   template below. Non-interactive: a question the entry, the repo and this
-   conversation cannot answer ends the run as a report line, not an open
-   decision in the plan.
+   template below. Non-interactive: pick the option closest to the entry's
+   intent and write `chose: <question> → <answer>` in `## Decisions`. Only
+   irreversible work or an entry with no basis to choose ends the run.
 6. Save the plan at the `plan_file` path Step 1 printed. For a sub-task from a
    split, re-run `plan-target "<id>" "<sub-task short title>"` and use the
    `plan_file` it prints.
@@ -131,8 +131,7 @@ Keep every heading, in this order. A section that does not apply reads
 
 <A change that adds state settles its data shape here, before any logic: a
 state machine over scattered booleans, a table over branching, a typed model
-over repeated shape assumptions. A claim with no source is an open question,
-which ends the run per Step 3; a decision the executor has to invent is a
+over repeated shape assumptions. A claim with no source is an open question; a decision the executor has to invent is a
 defect in this plan.>
 
 ## Alternatives rejected

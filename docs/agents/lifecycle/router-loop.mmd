@@ -44,9 +44,13 @@ flowchart TD
   route -- continue, next round --> fill
   route -- debug --> debug[[Debug leaf, once]]
   debug --> fill
-  route -- clarify --> user[/Ask the user<br/>FACT or DECISION/]
+  route -- clarify FACT --> ff[[Fact-finder or research]]
+  ff --> fill
+  route -- clarify DECISION --> park[park: blocked + Open decision line<br/>other tasks and lanes go on]
+  park --> fill
+  route -- irreversible work --> user[/Ask the user now/]
   user --> fill
   p45 --> p47[Phase 4.7<br/>state lanes-show]
   p47 --> p5[Phase 5<br/>state report]
-  p5 -. waiting entries left .-> ask5[ask: settle now?<br/>yes: same grilling as Phase 0]
+  p5 -. waiting and parked entries left .-> ask5[ask: settle now?<br/>yes: same grilling as Phase 0]
   p5 --> p6[Phase 6<br/>point to /radin-review]

@@ -10,6 +10,21 @@ fn first_line(s: &str) -> &str {
     s.lines().next().unwrap_or("")
 }
 
+/// True while the last `**Progress:**` or `**Decision:**` line of the task file records an owner deferral.
+pub fn owner_deferred(s: &S, id: &str) -> bool {
+    let Ok(path) = s.field(id, "TASK_FILE") else {
+        return false;
+    };
+    let body = std::fs::read_to_string(path).unwrap_or_default();
+    body.lines()
+        .filter_map(|l| {
+            l.strip_prefix("**Progress:**")
+                .or_else(|| l.strip_prefix("**Decision:**"))
+        })
+        .next_back()
+        .is_some_and(|t| t.trim_start().to_lowercase().starts_with("defer"))
+}
+
 pub fn task_next(s: &S, want: &str, lane: Option<&str>, io: &mut Io) -> R {
     if want.is_empty() && s.exists("teardown") {
         return Ok(1);
@@ -61,6 +76,14 @@ pub fn task_next(s: &S, want: &str, lane: Option<&str>, io: &mut Io) -> R {
                 continue;
             }
             return Ok(1);
+        }
+        if want.is_empty() && owner_deferred(s, &pid) {
+            s.set_blocked(
+                &pid,
+                "deferred",
+                "owner deferral stands; state retry re-runs it",
+            )?;
+            continue;
         }
         let planning = s.field(&pid, "PLANNING").is_ok() && s.field(&pid, "PLAN_PATHS").is_err();
         let entry = s.need_entry(&pid)?;
