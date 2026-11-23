@@ -845,3 +845,38 @@ fn steps_init_keeps_a_deferred_entry_out_of_task_next_and_still_lists_it_as_wait
         "t-one\tdeferred\twhich db?\n"
     );
 }
+
+#[test]
+fn task_next_skips_an_owner_deferred_task_silently_until_retry() {
+    let w = W::new();
+    w.bl(&["add", "fix", "t two"], "body\n");
+    w.steps_init("t-one\t1\t\tpending\nt-two\t2\t\tpending\n");
+    w.bl(
+        &["append", "t-one"],
+        "**Progress:** Deferred again by the owner: which db?\n",
+    );
+    let r = w.state(&["task-next"]);
+    assert_eq!(r.out.lines().next(), Some("id\tt-two"), "{}", r.out);
+    assert!(!r.out.contains("blocked\tt-one"), "{}", r.out);
+    let steps = w.read(".radin/state/BACKLOG_STEPS.json");
+    assert!(
+        steps.contains(
+            "\"id\":\"t-one\",\"order\":1,\"status\":\"blocked\",\"reason\":\"deferred\""
+        ),
+        "{steps}"
+    );
+    w.steps_init("t-one\t1\t\tpending\nt-two\t2\t\tpending\n");
+    let n = |w: &W| {
+        w.read(".radin/state/journal.jsonl")
+            .matches("t-one")
+            .count()
+    };
+    let before = n(&w);
+    w.state(&["task-next"]);
+    assert_eq!(n(&w), before);
+    assert_eq!(w.state(&["retry", "t-one"]).code, 0);
+    assert_eq!(
+        w.state(&["task-next"]).out.lines().next(),
+        Some("id\tt-one")
+    );
+}

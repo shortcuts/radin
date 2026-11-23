@@ -278,9 +278,17 @@ pub fn answered(s: &S, a: &[String]) -> R {
         return Err(die(format!("no state file: {}", s.steps.display())));
     }
     s.need_entry(id)?;
+    lift_deferral(s, id);
     s.write_entry(id, "pending", 0, "", None)?;
     s.journal("answered", id, "");
     Ok(0)
+}
+
+/// A retry or an answer ends a recorded owner deferral, so `task-next` dispatches the task again.
+fn lift_deferral(s: &S, id: &str) {
+    if super::done::owner_deferred(s, id) {
+        s.entry_note(id, "Retried by the user.");
+    }
 }
 
 pub fn retry(s: &S, a: &[String]) -> R {
@@ -292,6 +300,7 @@ pub fn retry(s: &S, a: &[String]) -> R {
         return Err(die(format!("no state file: {}", s.steps.display())));
     }
     s.need_entry(id)?;
+    lift_deferral(s, id);
     s.write_entry(id, "pending", 0, "", Some(0))?;
     s.journal("retry", id, "");
     Ok(0)

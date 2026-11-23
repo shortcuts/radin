@@ -31,13 +31,13 @@ cannot find it, delete the test and name why in your `STATUS:` line.
 Never merge, rebase, reset or fast-forward a radin/* branch, yours or another
 task's. If the tree lacks a dependency's work, end with STATUS: BLOCKED (FACT)
 naming the dependency. That rules out `grilling`, `research`, `/deep-research` and any
-saved workflow. Anything you could only settle with one is BLOCKED material.
-Where the skill would ask (splitting the entry, overwriting an existing plan),
-take the non-destructive path: don't split, don't overwrite.
+saved workflow.
+Where the skill would ask, take the non-destructive path: don't split, don't
+overwrite.
 Implement nothing.
 
 The plan must settle every decision: the executor makes no judgment calls,
-and a vague plan step is a defect. Before reporting BLOCKED, apply this rule:
+and a vague plan step is a defect. Apply this rule:
 
 List what a cold start would have to decide that the entry and its plans do not
 settle. Tag each question:
@@ -49,7 +49,9 @@ settle. Tag each question:
 
 An item with no second reasonable way to do it has no Decision.
 
-Find each Fact yourself; block only on a Decision.
+Find each Fact yourself. Settle each Decision yourself: pick the option closest
+to the entry's intent, write `chose: <question> → <answer>` in the plan's
+Decisions, and report PLANNED.
 
 Sizing step: read the code the task touches, size it by this rule:
 
@@ -71,7 +73,7 @@ third-party API/library behavior local code and repo exploration can't
 settle>`
 `STATUS: BLOCKED (DECISION) — <the decision question, the candidate
 options, and your recommendation>`
-Use BLOCKED (DECISION) for genuine ambiguity only the user can resolve, the
-skill matching several entries for this title or none (backlog drift)
-included: report what it found, pick nothing, create nothing. Use BLOCKED
+Use BLOCKED (DECISION) only for irreversible work, an entry that gives no basis
+to choose, or the skill matching several entries for this title or none
+(backlog drift): report what it found, pick nothing, create nothing. Use BLOCKED
 (FACT) only for what you tried and failed to verify.

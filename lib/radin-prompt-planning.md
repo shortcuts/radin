@@ -11,9 +11,9 @@ Rendered by `radin prompt planning <id>`. `src/prompt.rs` holds the format.
 Read TASK_FILE first.
 
 <!-- if:EARLIER_PLANS -->
-Tasks planned before this one in this wave left the plans EARLIER_PLAN_PATHS.
-Read the `## Changes` of each. Before you write a plan, list the files and
-symbols your change touches. Write no plan when a file is shared, when a symbol
+Tasks planned earlier in this wave left the plans EARLIER_PLAN_PATHS.
+Read the `## Changes` of each. Before you plan, list the files and symbols
+your change touches. Write no plan when a file is shared, when a symbol
 of yours calls or is called by one of theirs (check the graph's callers and
 callees), when a dependency is shared, or when you doubt it. End with
 `STATUS: PLANNED — deferred: <what is shared, and with which task id>`.
@@ -28,17 +28,19 @@ reading TASK_FILE in full as the task scope. It writes the plan file(s) and
 records the plan pointer(s) on that task's backlog entry.
 
 LEAF_CONTRACT That rules out `grilling`, `research`, `/deep-research` and any
-saved workflow. Anything you could only settle with one is BLOCKED material.
-Where the skill would ask (splitting the entry, overwriting an existing plan),
-take the non-destructive path: don't split, don't overwrite.
+saved workflow.
+Where the skill would ask, take the non-destructive path: don't split, don't
+overwrite.
 Implement nothing.
 
 The plan must settle every decision: the executor makes no judgment calls,
-and a vague plan step is a defect. Before reporting BLOCKED, apply this rule:
+and a vague plan step is a defect. Apply this rule:
 
 OPEN_DECISIONS_RULE
 
-Find each Fact yourself; block only on a Decision.
+Find each Fact yourself. Settle each Decision yourself: pick the option closest
+to the entry's intent, write `chose: <question> → <answer>` in the plan's
+Decisions, and report PLANNED.
 
 Sizing step: read the code the task touches, size it by this rule:
 
@@ -56,8 +58,8 @@ third-party API/library behavior local code and repo exploration can't
 settle>`
 `STATUS: BLOCKED (DECISION) — <the decision question, the candidate
 options, and your recommendation>`
-Use BLOCKED (DECISION) for genuine ambiguity only the user can resolve, the
-skill matching several entries for this title or none (backlog drift)
-included: report what it found, pick nothing, create nothing. Use BLOCKED
+Use BLOCKED (DECISION) only for irreversible work, an entry that gives no basis
+to choose, or the skill matching several entries for this title or none
+(backlog drift): report what it found, pick nothing, create nothing. Use BLOCKED
 (FACT) only for what you tried and failed to verify.
 ```

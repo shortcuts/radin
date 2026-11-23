@@ -67,7 +67,7 @@ Routers and sub-agents proceed on reversible work without asking: code edits, no
 
 - A skill in the user's thread asks the user first.
 - A sub-agent stops on irreversible work and reports `STATUS: BLOCKED (DECISION)` with the question, the options, and its recommendation. It never skips the task.
-- The human owns product direction and settles it at record time. A planning sub-agent that meets an open product choice reports it and does not pick. An execution sub-agent picks the option closest to the task's intent and names it in `chose:`.
+- The human owns product direction and settles it at record time. A sub-agent that meets an open product choice picks the option closest to the entry's intent and names it in `chose:`. It blocks only on an entry with no basis to choose, and the router parks it and asks at batch end.
 - Asked to add scope, an agent gives its real judgment. "No" is a valid reply. Agreement it does not hold is not.
 
 ## Writing prose for agents
@@ -126,7 +126,7 @@ Every `SKILL.md`, lib file and rendered prompt spends the context of the agent t
 
 - **Measure before and after.** A change to a `SKILL.md`, a `lib/*.md` file or a `radin prompt` render runs `radin context` and keeps the totals flat or lower. The `radin context load` table of `radin stats` shows what a skill, lib file or `radin prompt` render cost in real sessions.
 - **Raise a ceiling with a reason.** `ALWAYS_CEILING` and `ROUTE_CEILING` in `src/context.rs` move up only when the commit message names the gain.
-- **Run `/radin-prompt-audit` after real sessions.** It measures the static and the measured views, audits what a session loads and hands entries to `/radin-record`.
+- **Run `/radin-prompt-audit` after real sessions.** It audits what a session loads and hands entries to `/radin-record`.
 
 ## Before committing
 

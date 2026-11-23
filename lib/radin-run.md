@@ -12,8 +12,7 @@ as ids, titles, order and exit codes, and leave every zoom to a sub-agent: a tas
 body, a plan file, a diff, and codebase exploration above all are what a leaf
 reads and hands back as one `STATUS:` line.
 
-You run in the user's own thread, so you can ask them and they can interrupt
-you.
+You run in the user's own thread, so you can ask them.
 
 ## Core Constraints
 
@@ -323,14 +322,15 @@ claims it again and bumps `attempts`, so the cap still ends it.
 <!-- host:agents -->
 | `debug` | This task still has its one debug pass. `RADIN_CLI prompt debug "<task id>" "<the reason from the STATUS: line>"` prints a `prompt` path, and a `model` line when the host sets one: dispatch it the same way. `STATUS: DIAGNOSED`: record it as below, then re-run the task. `STATUS: NOT DIAGNOSED`: re-run `task-report` with the same line, which records the failure on the entry and returns `continue`. |
 <!-- /host -->
-| `clarify FACT` / `clarify DECISION` | Route per Clarifying Ambiguity. Once settled, run `RADIN_CLI state answered "<task id>"`, then re-run the task. |
+| `clarify FACT` | Route per Clarifying Ambiguity. Once found, re-run the task. |
+| `clarify DECISION` | Park it per Clarifying Ambiguity and go on. A question asked now, once settled: `RADIN_CLI state answered "<task id>"`, then re-run the task. |
 
 ```bash
 RADIN_CLI state task-diagnosis "<task id>" "<the STATUS: DIAGNOSED line>"
 ```
 
 A task report is not a stopping point: carry on to the next step in the same
-turn. The loop stops only at a `clarify` waiting on the user, Phase 4.5, or
+turn. The loop stops only at an irreversible-work question to the user, Phase 4.5, or
 Phase 5.
 
 **Merge.** A lane whose `task-next --lane` exited 1 goes through the Merge
@@ -370,17 +370,16 @@ RADIN_CLI state report --brief
 
 Print its output verbatim. Then write `Succeeded:` yourself: one line per task
 that has a `task-report` in your context, saying what it built in plain words, at
-most 15 words, no hashes. A task you no longer remember (after a compaction) gets
-its line from `RADIN_CLI state report`, whose `Succeeded:` list you condense. Read
-`RADIN_LIB/radin-batch-reporting.md` for the one thing the CLI
-cannot do.
+most 15 words, no hashes. A task you no longer remember gets its line from
+`RADIN_CLI state report`, whose `Succeeded:` list you condense. Read
+`RADIN_LIB/radin-batch-reporting.md` for the one thing the CLI cannot do.
 
 Then run `RADIN_CLI state steps-waiting`. Exit 1: go to Phase 6. Exit 0
 <!-- host:claude -->
-prints the `waiting` entries this run left, so ask via one `AskUserQuestion`:
+prints the `waiting` entries this run left, parked ones included, so ask via one `AskUserQuestion`:
 <!-- /host -->
 <!-- host:agents -->
-prints the `waiting` entries this run left, so ask per `RADIN_LIB/radin-ask-rule.md`:
+prints the `waiting` entries this run left, parked ones included, so ask per `RADIN_LIB/radin-ask-rule.md`:
 <!-- /host -->
 "Settle N open decisions now?" Options: `Yes` / `Later`. `Yes`: settle them per
 "Settling Waiting Entries" in `RADIN_LIB/radin-batch-clarify.md`, then tell the
@@ -398,7 +397,6 @@ RADIN_CLI state session-commits>.`
 - **Resume, and recovery after a compaction**: `BACKLOG_STEPS.json` already
   exists at startup, or earlier turns got summarized away. Either way, read
   `RADIN_LIB/radin-batch-resume.md` and follow it. It holds
-  the resume triage, the `MAX_ATTEMPTS` exception, and the state-persistence
-  contract that lets you continue from disk rather than memory. A run that
-  starts clean and stays in context never loads it.
+  the resume triage, the `MAX_ATTEMPTS` exception and the state-persistence
+  contract.
 - **Every commit traces to a backlog entry.**
