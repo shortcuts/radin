@@ -275,3 +275,20 @@ fn unknown_epic_and_same_epic_exit_1() {
         r.err
     );
 }
+
+#[test]
+fn a_cbm_daemon_failure_is_retried_once_before_it_is_a_gap() {
+    let w = W::new();
+    w.rust_epics();
+    w.healthy_graph("[]");
+    // list_projects fails once with a daemon message, then answers from its json.
+    stub(
+        &w.bin,
+        "codebase-memory-mcp",
+        "echo \"$*\" >> \"$STUB/calls.log\"\nif [ \"$2\" = list_projects ] && [ ! -f \"$STUB/seen\" ]; then touch \"$STUB/seen\"; echo 'CBM daemon is running' >&2; exit 1; fi\ncat \"$STUB/$2.json\"\n",
+    );
+    let r = w.overlap(true);
+    assert_eq!(r.code, 0, "{}{}", r.out, r.err);
+    assert_eq!(w.calls().matches("list_projects").count(), 2);
+    assert!(w.telemetry().is_empty());
+}

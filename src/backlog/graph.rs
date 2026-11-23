@@ -14,6 +14,8 @@ pub struct Gap {
     pub detail: String,
 }
 
+const RETRY_WAIT_MS: u64 = 300;
+
 fn gap(kind: &'static str, detail: impl Into<String>) -> Vec<Gap> {
     vec![Gap {
         kind,
@@ -22,11 +24,19 @@ fn gap(kind: &'static str, detail: impl Into<String>) -> Vec<Gap> {
 }
 
 fn call(tool: &str, flags: &[&str]) -> Result<Value, Vec<Gap>> {
-    let o = Command::new("codebase-memory-mcp")
-        .args(["cli", tool, "--format", "json"])
-        .args(flags)
-        .output()
-        .map_err(|e| gap("graph-cli", format!("{tool}: {e}")))?;
+    let run = || {
+        Command::new("codebase-memory-mcp")
+            .args(["cli", tool, "--format", "json"])
+            .args(flags)
+            .output()
+            .map_err(|e| gap("graph-cli", format!("{tool}: {e}")))
+    };
+    let mut o = run()?;
+    // A busy CBM daemon clears in seconds, so one bounded retry saves a false gap.
+    if !o.status.success() && String::from_utf8_lossy(&o.stderr).contains("daemon") {
+        std::thread::sleep(std::time::Duration::from_millis(RETRY_WAIT_MS));
+        o = run()?;
+    }
     if !o.status.success() {
         let err = String::from_utf8_lossy(&o.stderr);
         let first = err.lines().next().unwrap_or("");

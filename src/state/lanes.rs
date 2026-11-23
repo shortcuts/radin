@@ -430,17 +430,14 @@ pub fn lane_next(s: &S, a: &[String], io: &mut Io) -> R {
 
 /// Records the overlap judge's decision for one candidate and running lane.
 pub fn lane_judge(s: &S, a: &[String], io: &mut Io) -> R {
-    let usage = || {
-        die("usage: lane-judge <candidate-epic> <running-epic> \"<STATUS: PARALLEL line>\"|--gap")
-    };
+    let usage =
+        || die("usage: lane-judge <candidate-epic> <running-epic> \"<STATUS: PARALLEL line>\"");
     let (c, r) = (arg(a, 0), arg(a, 1));
     if c.is_empty() || r.is_empty() || a.len() != 3 {
         return Err(usage());
     }
     let line = arg(a, 2);
-    let (verdict, reason) = if line == "--gap" {
-        ("no", "gap".to_string())
-    } else if let Some(why) = line.strip_prefix("STATUS: PARALLEL — yes: ") {
+    let (verdict, reason) = if let Some(why) = line.strip_prefix("STATUS: PARALLEL — yes: ") {
         ("yes", why.to_string())
     } else if let Some(why) = line.strip_prefix("STATUS: PARALLEL — no: ") {
         ("no", why.to_string())

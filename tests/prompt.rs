@@ -138,8 +138,8 @@ impl E {
                 ),
                 ("backlog", "overlap") if a[5] == "gap" => (
                     2,
-                    String::new(),
                     "gap\tgraph missing\n".into(),
+                    String::new(),
                 ),
                 ("backlog", "overlap") => (0, "file\tsrc/x.rs\n".into(), String::new()),
                 ("state", "task-dir") => (0, format!("{}\n", self.proj.display()), String::new()),
@@ -514,10 +514,10 @@ fn prompt_judge_renders_evidence_and_the_execution_model() {
 }
 
 #[test]
-fn prompt_judge_exits_2_on_an_overlap_gap() {
+fn prompt_judge_renders_the_evidence_with_an_overlap_gap() {
     let e = env(Host::Claude);
     let out = e.go(&["judge", "ea", "gap"]);
-    assert_eq!(out.0, 2, "{}", out.2);
-    assert!(out.1.is_empty() && out.2.contains("gap"), "{out:?}");
-    assert!(!e.ns.join("state/session-judge-ea-gap.md").exists());
+    assert_eq!(out.0, 0, "{}", out.2);
+    let text = e.prompt_of(&out);
+    assert!(text.contains("gap\tgraph missing"), "{text}");
 }

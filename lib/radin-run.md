@@ -212,9 +212,9 @@ its own dispatch and its own `task-report`. Repeat the four steps below as round
 Exit 0 prints `start<TAB>epic`: that lane runs now. Exit 2 prints one
 `judge<TAB>epic<TAB>running csv` line per candidate in start order. Take the
 first candidate and run `RADIN_CLI prompt judge "<candidate>" "<running>"`
-for each running epic. Exit 2 means the overlap evidence has a gap: run
-`RADIN_CLI state lane-judge "<candidate>" "<running>" --gap`. Any other non-zero exit: print its stderr and take the next candidate. Otherwise
-dispatch the printed prompt as one sub-agent (name from the printed `name`
+for each running epic. Any non-zero exit: print its stderr and take the next
+candidate. A graph gap does not fail it: the prompt carries the `gap` line and the
+judge decides. Dispatch the printed prompt as one sub-agent (name from the printed `name`
 line, the printed `model` and `effort`, when printed), all judges of one
 candidate in one message. Run `RADIN_CLI state lane-judge "<candidate>"
 "<running>" "<its last line>"` for each. Every `yes`: run

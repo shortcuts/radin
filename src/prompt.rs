@@ -257,7 +257,7 @@ fn build(c: &Ctx, args: &[String]) -> R<Out> {
         let (code, evidence, err) = c.nested(&root, &["backlog", "overlap", id, extra]);
         match code {
             0 => {}
-            2 => return Err((2, String::new(), format!("{err}{evidence}"))),
+            2 => {} // a graph gap is unknown evidence: the judge still decides
             _ => return die(format!("backlog overlap failed: {}", err.trim())),
         }
         sub(&mut body, "LEAF_CONTRACT", &leaf);

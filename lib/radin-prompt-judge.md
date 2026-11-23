@@ -27,6 +27,8 @@ JUDGE_EVIDENCE
 </evidence>
 
 The evidence informs your decision and never binds it, in either direction.
+A `gap` line means the graph lookup failed, so the symbol tier is unknown, not empty.
+Decide from the file and directory tiers and the tasks.
 Read the tasks of both epics with `RADIN_CLI backlog list` and `RADIN_CLI backlog
 field <id> TASK_BODY` to see what each will change. A listed shared file the
 tasks never edit may be harmless. An empty tier may hide a dependency the tasks

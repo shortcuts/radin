@@ -1158,7 +1158,6 @@ fn lane_judge_records_one_judged_line_per_decision() {
             "both edit cli",
         ),
         ("maybe", "no", "no PARALLEL line: maybe"),
-        ("--gap", "no", "gap"),
     ];
     for (line, verdict, reason) in cases {
         let r = w.state(&["lane-judge", "ea", "eb", line]);
@@ -1172,7 +1171,7 @@ fn lane_judge_records_one_judged_line_per_decision() {
             "{last}"
         );
     }
-    assert_eq!(w.tele.borrow().len(), 4);
+    assert_eq!(w.tele.borrow().len(), 3);
     assert_eq!(w.state(&["lane-judge", "ea", "eb"]).code, 1);
 }
 
