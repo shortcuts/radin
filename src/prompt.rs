@@ -392,6 +392,32 @@ fn build(c: &Ctx, args: &[String]) -> R<Out> {
             .join(", ");
     }
 
+    let mut plan_base = String::new();
+    if kind == "planning" && ns.join("state/BACKLOG_STEPS.json").is_file() {
+        let deps = c.nested(&c.cwd, &["state", "deps-check", &task_id]);
+        let mut hints = Vec::new();
+        for (dep, hash) in deps.1.lines().filter_map(|l| l.split_once('\t')) {
+            if git(&root, &["merge-base", "--is-ancestor", hash, "HEAD"]).is_some() {
+                continue;
+            }
+            let refs = git(
+                &root,
+                &[
+                    "for-each-ref",
+                    "--contains",
+                    hash,
+                    "--format=%(refname:short)",
+                    "refs/heads/radin/",
+                ],
+            )
+            .unwrap_or_default();
+            if let Some(b) = refs.lines().next() {
+                hints.push(format!("{dep} ({hash}) is on {b}"));
+            }
+        }
+        plan_base = hints.join("; ");
+    }
+
     let mut stale_plan = String::new();
     let head_file = ns.join(format!("plans/{task_id}.head"));
     if kind == "execution" {
@@ -454,6 +480,7 @@ fn build(c: &Ctx, args: &[String]) -> R<Out> {
     for (on, name) in [
         (!plan_paths.is_empty(), "PLAN_PATHS"),
         (!earlier.is_empty(), "EARLIER_PLANS"),
+        (!plan_base.is_empty(), "PLAN_BASE"),
         (!skills.is_empty(), "SKILLS"),
         (!acceptance.is_empty(), "ACCEPTANCE"),
         (!facts.is_empty(), "FACTS"),
@@ -500,6 +527,7 @@ fn build(c: &Ctx, args: &[String]) -> R<Out> {
         ("TASK_DIR", &task_dir),
         ("TASK_ID", &task_id),
         ("EARLIER_PLAN_PATHS", &earlier),
+        ("PLAN_BASE_HINT", &plan_base),
         ("PLAN_PATHS", &or_none(&plan_paths)),
         ("DEPENDS_ON", &or_none(&depends_on)),
         ("STALE_PLAN", &or_none(&stale_plan)),

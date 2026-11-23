@@ -19,6 +19,10 @@ callees), when a dependency is shared, or when you doubt it. End with
 `STATUS: PLANNED — deferred: <what is shared, and with which task id>`.
 
 <!-- end -->
+<!-- if:PLAN_BASE -->
+Dependencies not on your tree yet: PLAN_BASE_HINT. Read them with `git show <branch>:<path>`, `git ls-tree -r <branch>` and `git diff HEAD...<branch>`. Read only: no checkout, merge or stash.
+
+<!-- end -->
 PLANNING_RULE
 
 When the task needs no plan, skip `/radin-plan` and go to the sizing step.

@@ -142,6 +142,12 @@ impl E {
                     "gap\tgraph missing\n".into(),
                 ),
                 ("backlog", "overlap") => (0, "file\tsrc/x.rs\n".into(), String::new()),
+                ("state", "deps-check") => {
+                    match fs::read_to_string(self.ns.join("state/deps-fixture")) {
+                        Ok(t) => (0, t, String::new()),
+                        Err(_) => (1, String::new(), "unresolved\n".into()),
+                    }
+                }
                 ("state", "task-dir") => (0, format!("{}\n", self.proj.display()), String::new()),
                 _ => (1, String::new(), format!("unexpected {a:?}\n")),
             }
@@ -511,6 +517,31 @@ fn prompt_judge_renders_evidence_and_the_execution_model() {
         assert!(!text.contains(token), "{token} left in {text}");
     }
     assert_eq!(e.go(&["judge", "ea"]).0, 1);
+}
+
+#[test]
+fn prompt_planning_names_the_unmerged_branch_of_a_done_dependency() {
+    let e = env(Host::Claude);
+    fs::write(e.ns.join("state/BACKLOG_STEPS.json"), "").unwrap();
+    cli::git(&e.proj, &["switch", "-q", "-c", "radin/floor", &e.base]);
+    fs::write(e.proj.join("floor.lua"), "x\n").unwrap();
+    cli::git(&e.proj, &["add", "floor.lua"]);
+    commit(&e.proj, &["-m", "floor"], 4);
+    let lane = cli::git(&e.proj, &["rev-parse", "--short=12", "HEAD"]);
+    cli::git(&e.proj, &["switch", "-q", "main"]);
+    let main = cli::git(&e.proj, &["rev-parse", "--short=12", "HEAD"]);
+    let deps = e.ns.join("state/deps-fixture");
+
+    fs::write(&deps, format!("t-floor\t{}\n", lane.trim())).unwrap();
+    let text = e.prompt_of(&e.go(&["planning", "t-one"]));
+    assert!(text.contains("t-floor"), "{text}");
+    assert!(text.contains("is on radin/floor"), "{text}");
+    assert!(text.contains("no checkout, merge or stash"), "{text}");
+    assert!(!text.contains("PLAN_BASE"), "{text}");
+
+    fs::write(&deps, format!("t-floor\t{}\n", main.trim())).unwrap();
+    let text = e.prompt_of(&e.go(&["planning", "t-one"]));
+    assert!(!text.contains("Dependencies not on your tree"), "{text}");
 }
 
 #[test]
