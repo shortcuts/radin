@@ -565,10 +565,8 @@ fn task_report_deferred_planned_line_warns_nothing_and_sets_no_meta() {
     assert_eq!(w.bl(&["meta", "t-one"], "").out, before);
 }
 
-const ALL_PASS: &str = "checks: test=pass, lint=pass, review=pass";
-
 #[test]
-fn task_report_success_without_a_passing_check_is_inconclusive_and_names_the_check() {
+fn task_report_absent_check_words_warn_but_a_failed_check_is_inconclusive() {
     let w = W::new();
     w.plan_with(&["lib/a.sh"]);
     w.commit_files(&["lib/a.sh"]);
@@ -580,37 +578,29 @@ fn task_report_success_without_a_passing_check_is_inconclusive_and_names_the_che
             &format!("STATUS: SUCCESS — {h}; built: p{tail}"),
         ])
     };
-    let r = report("");
+    let r = report("; checks: test=fail, lint=pass, review=pass");
     assert!(
         r.out
-            .contains("inconclusive: reported SUCCESS without a passing check: test, lint, review"),
+            .contains("inconclusive: reported SUCCESS with a failing check: test"),
         "{}",
         r.out
     );
-    assert!(r.out.ends_with("next\tcontinue\n"), "{}", r.out);
     assert!(!w.exists(".radin/state/completed.json"));
-    assert_eq!(
-        w.state(&["steps-waiting"]).out,
-        "t-one\tinconclusive\tinconclusive: reported SUCCESS without a passing check: test, lint, review\n"
-    );
-    let r = report("; checks: test=pass, lint=pass, review=skipped");
-    assert!(r.out.contains("passing check: review. "), "{}", r.out);
-    let r = report("; checks: test=na, lint=na, review=na");
-    assert!(r.out.contains("passing check: review. "), "{}", r.out);
-    let r = report("; checks: test=na, lint=na, review=pass");
+    let r = report("");
+    assert!(!r.out.contains("inconclusive"), "{}", r.out);
     assert!(
-        r.out.ends_with("next\tcontinue\n") && !r.out.contains("inconclusive"),
+        r.err
+            .contains("reported SUCCESS without a passing check: test, lint, review"),
         "{}",
-        r.out
+        r.err
     );
     assert_eq!(w.read(".radin/state/completed.json").lines().count(), 1);
     let j = w.read(".radin/state/journal.jsonl");
-    assert!(j.contains("\"detail\":\"built: p\"}"), "{j}");
-    assert!(!j.contains(ALL_PASS) && !j.contains("test=na"), "{j}");
+    assert!(j.contains("\"warn\""), "{j}");
 }
 
 #[test]
-fn task_report_planned_needs_plan_review_unless_no_plan_was_written() {
+fn task_report_planned_without_plan_review_warns_and_plans() {
     let w = W::new();
     w.plan_with(&["lib/a.sh"]);
     w.clean();
@@ -619,19 +609,13 @@ fn task_report_planned_needs_plan_review_unless_no_plan_was_written() {
         "t-one",
         "STATUS: PLANNED — p.md; complexity low: x",
     ]);
-    assert!(
-        r.out
-            .contains("inconclusive: reported PLANNED without a passing check: plan-review"),
-        "{}",
-        r.out
-    );
-    assert!(!w.bl(&["meta", "t-one"], "").out.contains("complexity"));
-    let r = w.state(&[
-        "task-report",
-        "t-one",
-        "STATUS: PLANNED — none needed: tiny; complexity low: x",
-    ]);
     assert_eq!(r.out, "task-report: planned t-one\nnext\tcontinue\n");
+    assert!(
+        r.err
+            .contains("reported PLANNED without a passing check: plan-review"),
+        "{}",
+        r.err
+    );
     let meta = w.bl(&["meta", "t-one"], "").out;
     assert!(meta.contains("complexity\tlow"), "{meta}");
 }

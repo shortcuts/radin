@@ -17,13 +17,18 @@ fn bullet_path(l: &str) -> Option<&str> {
     (!p.is_empty()).then_some(p)
 }
 
+/// A docs-only entry has no behavior to observe, so it needs no `You see:` line.
+fn doc_path(p: &str) -> bool {
+    p.starts_with("docs/") || p.starts_with("design/") || p.ends_with(".md") || p.ends_with(".txt")
+}
+
 pub fn lint(text: &str) -> Vec<String> {
     let mut out = vec![];
     let (mut fence, mut sec, mut got) = (false, String::new(), vec![]);
     let mut body: HashMap<String, u32> = HashMap::new();
     let (mut chg, mut seen_you, mut nchg, mut boxes) = (String::new(), false, 0, 0);
     let close = |chg: &mut String, seen: bool, out: &mut Vec<String>| {
-        if !chg.is_empty() && !seen {
+        if !chg.is_empty() && !seen && !doc_path(chg) {
             out.push(format!("changes: `{chg}` has no You see: line"));
         }
         chg.clear();
@@ -267,8 +272,18 @@ mod tests {
 
     #[test]
     fn a_change_without_you_see_is_named() {
-        let t = complete().replace("  You see: a\n", "");
-        assert_eq!(lint(&t), vec!["changes: `a.txt` has no You see: line"]);
+        let t = complete()
+            .replace("  You see: a\n", "")
+            .replace("a.txt", "a.rs");
+        assert_eq!(lint(&t), vec!["changes: `a.rs` has no You see: line"]);
+    }
+
+    #[test]
+    fn a_docs_only_change_needs_no_you_see() {
+        for p in ["docs/x.rs", "design/x.rs", "AGENTS.md", "a.txt"] {
+            let t = complete().replace("  You see: a\n", "").replace("a.txt", p);
+            assert_eq!(lint(&t), Vec::<String>::new(), "{p}");
+        }
     }
 
     #[test]

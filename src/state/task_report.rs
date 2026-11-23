@@ -167,14 +167,28 @@ fn ignored_gap(s: &S, paths: &[String]) -> Option<String> {
 const EXEC_CHECKS: [(&str, bool); 3] = [("test", true), ("lint", true), ("review", false)];
 const PLAN_CHECKS: [(&str, bool); 1] = [("plan-review", false)];
 
-/// Required keys the last `; checks:` clause of `line` lacks; the bool allows `na`.
-fn missing_checks(line: &str, required: &[(&'static str, bool)]) -> Vec<&'static str> {
+fn parsed_checks(line: &str) -> Vec<(&str, &str)> {
     let clause = line.rsplit_once("; checks:").map_or("", |x| x.1);
-    let got: Vec<(&str, &str)> = clause
+    clause
         .split(',')
         .filter_map(|i| i.split_once('='))
         .map(|(k, v)| (k.trim(), v.split_whitespace().next().unwrap_or("")))
-        .collect();
+        .collect()
+}
+
+/// Required keys that the last `; checks:` clause of `line` reports as `fail`.
+fn failed_checks(line: &str, required: &[(&'static str, bool)]) -> Vec<&'static str> {
+    let got = parsed_checks(line);
+    required
+        .iter()
+        .filter(|(k, _)| got.iter().any(|(gk, gv)| gk == k && *gv == "fail"))
+        .map(|(k, _)| *k)
+        .collect()
+}
+
+/// Required keys the last `; checks:` clause of `line` lacks; the bool allows `na`.
+fn missing_checks(line: &str, required: &[(&'static str, bool)]) -> Vec<&'static str> {
+    let got = parsed_checks(line);
     required
         .iter()
         .filter(|(k, na)| {
@@ -320,13 +334,22 @@ fn report_inner(s: &S, a: &[String], usages: &[String], io: &mut Io) -> R {
         _ => &[],
     };
     let lacks = missing_checks(line, required);
+    let failed = failed_checks(line, required);
     let mut forced = None;
-    if !lacks.is_empty() {
+    if !failed.is_empty() {
         forced = Some(format!(
-            "reported {word} without a passing check: {}",
-            lacks.join(", ")
+            "reported {word} with a failing check: {}",
+            failed.join(", ")
         ));
         word = "INCONCLUSIVE";
+    } else if !lacks.is_empty() {
+        // An absent check word never discards finished work: warn and keep the word.
+        let msg = format!(
+            "reported {word} without a passing check: {}",
+            lacks.join(", ")
+        );
+        s.journal("warn", id, &msg);
+        let _ = writeln!(io.err, "radin-state: warning: {id}: {msg}");
     }
     if word == "PLANNED" {
         let detail = line.split_once('—').map_or(line, |x| x.1);
@@ -584,5 +607,9 @@ mod tests {
         assert!(missing_checks(noted, &PLAN_CHECKS).is_empty());
         let noted_fail = "x; checks: plan-review=fail (was pass before)";
         assert_eq!(missing_checks(noted_fail, &PLAN_CHECKS), ["plan-review"]);
+        assert_eq!(failed_checks(noted_fail, &PLAN_CHECKS), ["plan-review"]);
+        assert_eq!(failed_checks(fail, &EXEC_CHECKS), ["test"]);
+        assert!(failed_checks(na, &EXEC_CHECKS).is_empty());
+        assert!(failed_checks("x", &EXEC_CHECKS).is_empty());
     }
 }

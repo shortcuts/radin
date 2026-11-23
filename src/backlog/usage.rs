@@ -53,7 +53,7 @@ pub const USAGE: &[(&str, &str)] = &[
     ),
     (
         "plan-lint",
-        r##"plan-lint <plan-file>      # print one line per plan-template defect (missing, out-of-order or empty section, a Changes entry with no "You see:" line, no Testing box); exit 1 when any"##,
+        r##"plan-lint <plan-file>      # print one line per plan-template defect (missing, out-of-order or empty section, a behavior Changes entry (not docs/, design/, .md or .txt) with no "You see:" line, no Testing box); exit 1 when any"##,
     ),
     (
         "set-category",
