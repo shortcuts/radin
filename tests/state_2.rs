@@ -224,6 +224,24 @@ fn prepare_gives_a_lane_task_the_epic_worktree_and_the_main_checkout_keeps_its_b
 }
 
 #[test]
+fn a_lane_task_commit_lands_on_its_lane_branch_never_on_the_base() {
+    let w = W::new();
+    let before = w.git(&["rev-parse", "HEAD"]);
+    w.lane_mode("lanes");
+    let dir = w.prep_dir("t-one");
+    assert_ne!(dir, w.p.to_string_lossy());
+    let wt = std::path::Path::new(&dir);
+    fs::write(wt.join("work.txt"), "x").unwrap();
+    w.git_at(wt, &["add", "work.txt"]);
+    w.git_at(wt, &["commit", "-q", "-m", "feat: work"]);
+    assert_eq!(w.git(&["rev-parse", "HEAD"]), before);
+    assert_eq!(
+        w.git_at(wt, &["branch", "--show-current"]),
+        "radin/maintenance"
+    );
+}
+
+#[test]
 fn prepare_works_on_the_base_in_main_mode() {
     let w = W::new();
     let before = w.base();
