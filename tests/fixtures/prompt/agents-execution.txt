@@ -11,6 +11,7 @@ test=<pass|na>, lint=<pass|na>, review=pass`
 API/library behavior local code and repo exploration can't settle>`
 `STATUS: BLOCKED (DECISION) — <the action only the user can take (a device, a
 credential, a path to delete), the options, and your recommendation>`
+`STATUS: BLOCKED (PREREQUISITE) — [<category>: ]<title>; needs: <what the tree lacks and where>[; decision: <question, options, your recommendation>]`
 This line is mandatory whether the task was implemented, found already done, or
 blocked. The `checks:` clause is mandatory and last. `pass` means the check ran
 this session and exercised the change. `na` is allowed for `test` and `lint`
@@ -36,8 +37,8 @@ A test that fails on some runs is a bug in the test or the code. Never skip
 it, add a sleep or retry it until it passes. Fix the root cause. When you
 cannot find it, delete the test and name why in your `STATUS:` line.
 Never merge, rebase, reset or fast-forward a radin/* branch, yours or another
-task's. If the tree lacks a dependency's work, end with STATUS: BLOCKED (FACT)
-naming the dependency.
+task's. If the tree lacks a prerequisite's work, revert what you touched, leave the tree
+clean, and end with `STATUS: BLOCKED (PREREQUISITE) — [<category>: ]<title>; needs: <what the tree lacks and where>[; decision: <question, options, your recommendation>]`.
 
 Ground rules, applying to every step below:
 - Record any skill you stopped invoking as a `**Fact:**` line (see above).

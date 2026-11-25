@@ -18,3 +18,4 @@ flowchart TD
   s7 --> ok([STATUS: SUCCESS])
   s2 -. plan contradicts code .-> blocked([STATUS: BLOCKED])
   s5 -. check cannot run .-> inc([STATUS: INCONCLUSIVE])
+  s2 -. tree lacks a prerequisite .-> prereq([STATUS: BLOCKED PREREQUISITE])

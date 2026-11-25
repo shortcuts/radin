@@ -21,8 +21,8 @@ A test that fails on some runs is a bug in the test or the code. Never skip
 it, add a sleep or retry it until it passes. Fix the root cause. When you
 cannot find it, delete the test and name why in your `STATUS:` line.
 Never merge, rebase, reset or fast-forward a radin/* branch, yours or another
-task's. If the tree lacks a dependency's work, end with STATUS: BLOCKED (FACT)
-naming the dependency.
+task's. If the tree lacks a prerequisite's work, revert what you touched, leave the tree
+clean, and end with `STATUS: BLOCKED (PREREQUISITE) — [<category>: ]<title>; needs: <what the tree lacks and where>[; decision: <question, options, your recommendation>]`.
 
 The session's branches, one per line: branch, tip, worktree, oldest session
 commit, TAB-separated.

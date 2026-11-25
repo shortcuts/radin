@@ -86,6 +86,15 @@ pub fn task_next(s: &S, want: &str, lane: Option<&str>, io: &mut Io) -> R {
             continue;
         }
         let planning = s.field(&pid, "PLANNING").is_ok() && s.field(&pid, "PLAN_PATHS").is_err();
+        if !planning {
+            if let Some(msg) = super::prereq::guard(s, &pid)? {
+                skip(io, &msg);
+                if want.is_empty() {
+                    continue;
+                }
+                return Ok(1);
+            }
+        }
         let entry = s.need_entry(&pid)?;
         let claimed = if planning {
             let n = num(&entry, "attempts");

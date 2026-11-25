@@ -21,6 +21,7 @@ test=<pass|na>, lint=<pass|na>, review=pass`
 API/library behavior local code and repo exploration can't settle>`
 `STATUS: BLOCKED (DECISION) — <the action only the user can take (a device, a
 credential, a path to delete), the options, and your recommendation>`
+`STATUS: BLOCKED (PREREQUISITE) — [<category>: ]<title>; needs: <what the tree lacks and where>[; decision: <question, options, your recommendation>]`
 This line is mandatory whether the task was implemented, found already done, or
 blocked. The `checks:` clause is mandatory and last. `pass` means the check ran
 this session and exercised the change. `na` is allowed for `test` and `lint`

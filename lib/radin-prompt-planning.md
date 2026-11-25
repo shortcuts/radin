@@ -62,6 +62,7 @@ third-party API/library behavior local code and repo exploration can't
 settle>`
 `STATUS: BLOCKED (DECISION) — <the decision question, the candidate
 options, and your recommendation>`
+`STATUS: BLOCKED (PREREQUISITE) — [<category>: ]<title>; needs: <what the tree lacks and where>[; decision: <question, options, your recommendation>]`
 Use BLOCKED (DECISION) only for irreversible work, an entry that gives no basis
 to choose, or the skill matching several entries for this title or none
 (backlog drift): report what it found, pick nothing, create nothing. Use BLOCKED

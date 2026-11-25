@@ -40,6 +40,7 @@
     finding with `RADIN_CLI backlog fact "<task id>" <label> "<finding>" --long "<path>"`,
     where `<path>` is the `state/facts/<id>.md` file. Then re-run the task (Phase 4).
   - `STATUS: NOT FOUND`: fall through to `(DECISION)`, with its report as context.
+- **`BLOCKED (PREREQUISITE)`**: needs no routing. `task-report` filed the task and printed `next<TAB>continue`.
 - **`BLOCKED (DECISION)`**: a choice, a confirmation or a human action the
   entry or plan doesn't settle. `task-report` recorded the task
   `blocked`. **Park it:** append the question, report `⏸️ Task <order>

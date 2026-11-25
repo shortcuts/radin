@@ -9,6 +9,7 @@ mod leftover;
 mod mergeq;
 mod park;
 mod plan_cover;
+mod prereq;
 mod queue;
 mod report;
 mod store;
