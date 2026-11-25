@@ -8,7 +8,48 @@ pub const MAX_ATTEMPTS: u64 = 3;
 pub const FINDING_SECTIONS: &str = "outcome decisions alternatives changes reach-and-reuse rubrics-triggered modes-and-states order testing risks out-of-scope";
 
 pub fn json_escape(s: &str) -> String {
-    s.replace('\\', "\\\\").replace('"', "\\\"")
+    use std::fmt::Write;
+    let mut o = String::with_capacity(s.len());
+    for c in s.chars() {
+        match c {
+            '\\' => o.push_str("\\\\"),
+            '"' => o.push_str("\\\""),
+            '\n' => o.push_str("\\n"),
+            '\r' => o.push_str("\\r"),
+            '\t' => o.push_str("\\t"),
+            c if c < ' ' => {
+                let _ = write!(o, "\\u{:04x}", c as u32);
+            }
+            c => o.push(c),
+        }
+    }
+    o
+}
+
+fn json_unescape(s: &str) -> String {
+    let mut o = String::with_capacity(s.len());
+    let mut it = s.chars();
+    while let Some(c) = it.next() {
+        if c != '\\' {
+            o.push(c);
+            continue;
+        }
+        match it.next() {
+            Some('n') => o.push('\n'),
+            Some('r') => o.push('\r'),
+            Some('t') => o.push('\t'),
+            Some('u') => {
+                let h: String = it.by_ref().take(4).collect();
+                match u32::from_str_radix(&h, 16).ok().and_then(char::from_u32) {
+                    Some(c) => o.push(c),
+                    None => o.push_str(&format!("\\u{h}")),
+                }
+            }
+            Some(c) => o.push(c),
+            None => o.push('\\'),
+        }
+    }
+    o
 }
 
 fn string_len(s: &str) -> Option<usize> {
@@ -31,9 +72,7 @@ pub fn get(line: &str, key: &str) -> String {
     while let Some(i) = line[..end].rfind(&pat) {
         let start = i + pat.len();
         if let Some(n) = string_len(&line[start..]) {
-            return line[start..start + n]
-                .replace("\\\"", "\"")
-                .replace("\\\\", "\\");
+            return json_unescape(&line[start..start + n]);
         }
         end = start - 1;
     }
@@ -429,8 +468,11 @@ mod tests {
     }
 
     #[test]
-    fn json_escape_touches_only_backslash_and_quote() {
-        assert_eq!(json_escape("a\\b\"c\td"), "a\\\\b\\\"c\td");
+    fn json_escape_encodes_control_characters_and_get_reads_them_back() {
+        let raw = "a\\b\"c\td\ne\u{1}";
+        let esc = json_escape(raw);
+        assert_eq!(esc, "a\\\\b\\\"c\\td\\ne\\u0001");
+        assert_eq!(get(&format!("{{\"k\":\"{esc}\"}}"), "k"), raw);
     }
 
     #[test]
