@@ -8,6 +8,7 @@
   base-failing <id> [--set]    # print the red test names recorded for the task's base, exit 1 when none; --set reads names from stdin (one per line) and replaces the record, empty stdin clears it
   set-status <id> <pending|in_progress|failed|blocked> [--reason deferred] [note]   # --reason deferred (only with blocked) marks a postponed decision; the note holds the question, options and recommendation; in lanes mode failed or blocked parks the partial work on radin/wip/<id>
   answered <id>                # the user answered a waiting task: back to pending, attempts 0, debugged kept
+  dep-owed <id> "<what is unverified>"  # an inconclusive task has committed work: its dependents may run; exit 3 when it has none
   retry <id>                   # a human looked at a MAX_ATTEMPTS-blocked task: back to pending, attempts 0, debugged cleared
   resume                       # move each failed entry and each retryable blocked entry to pending, attempts and debugged kept; print "id<TAB>old status" per move; blocked entries with a dependency, max-attempts or waiting reason stay
   stuck                        # print "id<TAB>attempts<TAB>note" per in_progress entry, exit 1 if none

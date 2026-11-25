@@ -232,6 +232,7 @@ Merge. Exit 0 prints, in order:
 - zero or more `blocked<TAB><id><TAB><why>` lines for tasks it skipped (an
   unresolved dependency, an entry the backlog lost, `MAX_ATTEMPTS` reached).
   It already marked each one `blocked`. Report each as skipped. The entry stays on the backlog with a `**Progress:**` note, and any work is a wip commit. When the user asks to retry one that hit `MAX_ATTEMPTS`, run `RADIN_CLI state retry "<task id>"`.
+  **Judge a blocked dependency.** For a `why` of "waiting on dependency 'D', which is blocked", read D's row in `RADIN_CLI state steps-waiting`. D's reason is `inconclusive` and its note says the code is committed and only a check the leaf could not run remains (a device, a credential, a paid call): run `RADIN_CLI state dep-owed "D" "<that check>"`, then run `task-next --lane` for the lane again. Exit 3 or any other note (nothing built, a failing test, a decision): leave the task blocked.
 <!-- host:claude -->
 - `id`, `order`, `kind`, `model`, an optional `effort` and `prompt` lines for the task to run now.
 <!-- /host -->

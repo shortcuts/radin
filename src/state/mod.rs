@@ -40,7 +40,7 @@ pub struct S<'a> {
 
 const HELP: &str = include_str!("help.txt");
 
-const VERBS: &str = "teardown|steps-init|steps-list|steps-open|steps-waiting|answered|retry|task-next|task-report|task-fact|task-diagnosis|task-done|base-failing|set-status|stuck|stop-check|preflight|resume|recover|recover-reject|report|session-set|session-get|prepare|dirty-check|trace|completed-show|completed-list|unlanded|session-commits|gate-map|leftovers|stash-triage|stash-claim|reconcile|gate-fix|gate-filed|gate-done|deps-check|task-dir|journal-tail|plan-covers|review-findings|finding-classes|pattern-seen|lane-cap|lanes-init|lane-next|lane-done|lane-judge|lanes-show|lanes-view|lane-sync|lane-queue|lane-merge|lane-gate|lanes-recover";
+const VERBS: &str = "teardown|steps-init|steps-list|steps-open|steps-waiting|answered|dep-owed|retry|task-next|task-report|task-fact|task-diagnosis|task-done|base-failing|set-status|stuck|stop-check|preflight|resume|recover|recover-reject|report|session-set|session-get|prepare|dirty-check|trace|completed-show|completed-list|unlanded|session-commits|gate-map|leftovers|stash-triage|stash-claim|reconcile|gate-fix|gate-filed|gate-done|deps-check|task-dir|journal-tail|plan-covers|review-findings|finding-classes|pattern-seen|lane-cap|lanes-init|lane-next|lane-done|lane-judge|lanes-show|lanes-view|lane-sync|lane-queue|lane-merge|lane-gate|lanes-recover";
 
 const ID_VERBS: &[&str] = &[
     "task-next",
@@ -50,6 +50,7 @@ const ID_VERBS: &[&str] = &[
     "task-done",
     "set-status",
     "answered",
+    "dep-owed",
     "retry",
     "recover",
     "recover-reject",
@@ -348,6 +349,7 @@ fn dispatch(c: &Ctx, args: &[String], io: &mut Io) -> R {
         "preflight" => queue::preflight(&s, io),
         "resume" => queue::resume(&s, io),
         "answered" => queue::answered(&s, a),
+        "dep-owed" => queue::dep_owed(&s, a, io),
         "retry" => queue::retry(&s, a),
         "set-status" => queue::set_status(&s, a),
         "lane-cap" => queue::lane_cap(&s, io),

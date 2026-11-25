@@ -375,6 +375,7 @@ fn build(c: &Ctx, args: &[String]) -> R<Out> {
     };
 
     let mut depends_on = String::new();
+    let mut owed = String::new();
     if kind == "execution" && ns.join("state/BACKLOG_STEPS.json").is_file() {
         let deps = c.nested(&c.cwd, &["state", "deps-check", &task_id]);
         if deps.0 != 0 {
@@ -382,21 +383,40 @@ fn build(c: &Ctx, args: &[String]) -> R<Out> {
                 "dependency of {task_id} is unresolved, so no execution prompt is due yet"
             ));
         }
-        depends_on = deps
+        let rows: Vec<Vec<&str>> = deps
             .1
             .lines()
-            .filter_map(|l| l.split_once('\t').or(Some((l, ""))))
-            .filter(|(dep, _)| !dep.is_empty())
-            .map(|(dep, hash)| format!("{dep}: {hash}"))
+            .map(|l| l.splitn(4, '\t').collect::<Vec<_>>())
+            .filter(|r| !r[0].is_empty())
+            .collect();
+        depends_on = rows
+            .iter()
+            .map(|r| format!("{}: {}", r[0], r.get(1).unwrap_or(&"")))
             .collect::<Vec<_>>()
             .join(", ");
+        owed = rows
+            .iter()
+            .filter(|r| r.get(2) == Some(&"owed"))
+            .map(|r| {
+                format!(
+                    "{} ({}) leaves unverified: {}",
+                    r[0],
+                    r[1],
+                    r.get(3).unwrap_or(&"")
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("; ");
     }
 
     let mut plan_base = String::new();
     if kind == "planning" && ns.join("state/BACKLOG_STEPS.json").is_file() {
         let deps = c.nested(&c.cwd, &["state", "deps-check", &task_id]);
         let mut hints = Vec::new();
-        for (dep, hash) in deps.1.lines().filter_map(|l| l.split_once('\t')) {
+        for (dep, hash) in deps.1.lines().filter_map(|l| {
+            let mut p = l.split('\t');
+            Some((p.next()?, p.next()?))
+        }) {
             if git(&root, &["merge-base", "--is-ancestor", hash, "HEAD"]).is_some() {
                 continue;
             }
@@ -487,6 +507,7 @@ fn build(c: &Ctx, args: &[String]) -> R<Out> {
         (!location.is_empty(), "LOCATION"),
         (!epic.is_empty(), "EPIC_CONTEXT"),
         (!depends_on.is_empty(), "DEPENDS_ON"),
+        (!owed.is_empty(), "OWED"),
         (!stale_plan.is_empty(), "STALE_PLAN"),
         (claims.is_ok_and(|m| m.len() > 0), "STASH_BASE"),
         (!depends_on.is_empty() || !stale_plan.is_empty(), "DRIFT"),
@@ -530,6 +551,7 @@ fn build(c: &Ctx, args: &[String]) -> R<Out> {
         ("PLAN_BASE_HINT", &plan_base),
         ("PLAN_PATHS", &or_none(&plan_paths)),
         ("DEPENDS_ON", &or_none(&depends_on)),
+        ("OWED", &owed),
         ("STALE_PLAN", &or_none(&stale_plan)),
         ("SKILLS", &or_none(&skills)),
         ("CATEGORY", &category),

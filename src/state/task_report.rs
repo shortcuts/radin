@@ -124,7 +124,7 @@ fn infra_error(text: &str) -> bool {
         })
 }
 
-fn first_hash(text: &str) -> Option<String> {
+pub(super) fn first_hash(text: &str) -> Option<String> {
     let b = text.as_bytes();
     let mut i = 0;
     while i < b.len() {

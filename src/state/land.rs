@@ -106,8 +106,19 @@ fn record_lane_base(s: &S, dir: &Path, id: &str) {
     }
 }
 
+/// Merges each owed dependency's wip branch into the lane, keeping the branch for that dependency's own retry.
+fn merge_owed_deps(s: &S, dir: &Path, id: &str, io: &mut Io) -> Result<(), Fail> {
+    let Ok((rows, _)) = super::queue::deps_check(s, id) else {
+        return Ok(());
+    };
+    for dep in rows.iter().filter(|r| r.split('\t').nth(2) == Some("owed")) {
+        resume_wip(s, dir, dep.split('\t').next().unwrap_or(""), true, io)?;
+    }
+    Ok(())
+}
+
 /// Merges a parked task's `radin/wip/<id>` back into its lane tree.
-fn resume_wip(s: &S, dir: &Path, id: &str, io: &mut Io) -> Result<(), Fail> {
+fn resume_wip(s: &S, dir: &Path, id: &str, keep: bool, io: &mut Io) -> Result<(), Fail> {
     let wip = format!("radin/wip/{id}");
     if !s.branch_exists(&wip) {
         return Ok(());
@@ -131,7 +142,9 @@ fn resume_wip(s: &S, dir: &Path, id: &str, io: &mut Io) -> Result<(), Fail> {
             "resume of {id} from {wip} conflicts with the lane"
         )));
     }
-    g(&s.root, &["branch", "-D", &wip]);
+    if !keep {
+        g(&s.root, &["branch", "-D", &wip]);
+    }
     s.journal("resume", id, &wip);
     Ok(())
 }
@@ -151,7 +164,8 @@ pub fn prepare(s: &S, a: &[String], io: &mut Io) -> R {
         }
         prepare_commit(s, &wt, id, io)?;
         record_lane_base(s, &wt, id);
-        resume_wip(s, &wt, id, io)?;
+        resume_wip(s, &wt, id, false, io)?;
+        merge_owed_deps(s, &wt, id, io)?;
         s.journal(
             "prepare",
             id,
@@ -160,7 +174,7 @@ pub fn prepare(s: &S, a: &[String], io: &mut Io) -> R {
         wt
     } else {
         prepare_commit(s, &s.root, id, io)?;
-        resume_wip(s, &s.root, id, io)?;
+        resume_wip(s, &s.root, id, false, io)?;
         s.journal("prepare", id, "current checkout, current branch");
         s.root.clone()
     };

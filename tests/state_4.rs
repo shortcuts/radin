@@ -864,3 +864,59 @@ fn task_next_skips_an_owner_deferred_task_silently_until_retry() {
         Some("id\tt-one")
     );
 }
+
+#[test]
+fn dep_owed_frees_a_dependent_of_an_inconclusive_task_with_committed_work_only() {
+    let w = W::new();
+    w.clean();
+    w.bl(&["add", "fix", "t two"], "body\n");
+    w.steps_init("t-one\t1\t\tpending\nt-two\t2\t\tpending\n");
+    w.bl(&["set-deps", "t-two", "t-one"], "");
+    let head = w.git(&["rev-parse", "--short=12", "HEAD"]);
+    let head = head.trim();
+
+    w.state(&["task-report", "t-one", "STATUS: INCONCLUSIVE — no device"]);
+    let r = w.state(&["dep-owed", "t-one", "device run"]);
+    assert_eq!(
+        (r.code, r.err.contains("no committed work")),
+        (3, true),
+        "{}",
+        r.err
+    );
+    assert_eq!(w.state(&["deps-check", "t-two"]).code, 1);
+
+    let note = format!("committed {head}, no device");
+    w.state(&[
+        "task-report",
+        "t-one",
+        &format!("STATUS: INCONCLUSIVE — {note}"),
+    ]);
+    let r = w.state(&["dep-owed", "t-one", "device run"]);
+    assert_eq!((r.code, r.out), (0, format!("owed\tt-one\t{head}\n")));
+    let r = w.state(&["deps-check", "t-two"]);
+    assert_eq!(
+        (r.code, r.out),
+        (0, format!("t-one\t{head}\towed\tdevice run\n"))
+    );
+    assert_eq!(w.state(&["task-next", "t-two"]).code, 0);
+
+    w.state(&["retry", "t-one"]);
+    assert_eq!(w.state(&["deps-check", "t-two"]).code, 1);
+}
+
+#[test]
+fn dep_owed_refuses_a_dependency_blocked_for_another_reason() {
+    let w = W::new();
+    w.clean();
+    w.steps_init("t-one\t1\t\tpending\n");
+    w.state(&[
+        "set-status",
+        "t-one",
+        "blocked",
+        "--reason",
+        "deferred",
+        "which db?",
+    ]);
+    let r = w.state(&["dep-owed", "t-one", "x"]);
+    assert_eq!((r.code, r.out.as_str()), (3, ""));
+}

@@ -16,7 +16,7 @@ hash>", or "no commit, gitignored: <path>[, <path>]" when every change is in a g
 made and why, or "none">; open: <what you skipped, did not check, or a risk the user must know, or "none">; checks:
 test=<pass|na>, lint=<pass|na>, review=pass`
 `STATUS: FAILED — <reason>`
-`STATUS: INCONCLUSIVE — <what could not be checked, and why>`
+`STATUS: INCONCLUSIVE — <what could not be checked, and why; the hash of the work you committed, or "none">`
 `STATUS: BLOCKED (FACT) — <what's unverifiable from here and why, e.g. a third-party
 API/library behavior local code and repo exploration can't settle>`
 `STATUS: BLOCKED (DECISION) — <the action only the user can take (a device, a
@@ -134,6 +134,9 @@ Invoke each skill named here before implementing: SKILLS
 <!-- if:DEPENDS_ON -->
 This task's scope/plan was written assuming other tasks would land a
    certain way. They already committed this session: DEPENDS_ON
+<!-- end -->
+<!-- if:OWED -->
+**Owed check.** A dependency's code is committed and its check is unrun: OWED. Build on that code, run that check never, and add one `open:` clause to your SUCCESS line that names it.
 <!-- end -->
 <!-- if:STALE_PLAN -->
 Commits landed after this task's plan was written and touched the files

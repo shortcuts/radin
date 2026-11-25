@@ -6,7 +6,7 @@ stateDiagram-v2
   in_progress --> blocked: STATUS BLOCKED
   in_progress --> pending: no STATUS line or dirty tree (wip commit), retry
   failed --> in_progress: debug pass, then re-run
-  blocked --> pending: answered, retry, or its dependency lands
+  blocked --> pending: answered, retry, its dependency lands, or its dependency is inconclusive with committed work (dep-owed)
   pending --> blocked: owner deferral on the entry, skipped silently by task-next
   pending --> blocked: dependency unresolved or MAX_ATTEMPTS
   failed --> [*]: reconcile lands its branch, Finish entry filed
