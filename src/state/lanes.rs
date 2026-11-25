@@ -420,12 +420,83 @@ pub fn lane_next(s: &S, a: &[String], io: &mut Io) -> R {
             Ok(0)
         }
         Next::Judge(c) => {
+            let auto: Vec<String> = c
+                .iter()
+                .filter(|e| auto_clear(s, e, &running))
+                .cloned()
+                .collect();
+            if !auto.is_empty() {
+                let all: Vec<String> = cleared.iter().chain(&auto).cloned().collect();
+                return lane_next(s, &["--cleared".into(), all.join(",")], io);
+            }
             for e in c {
                 let _ = writeln!(io.out, "judge\t{e}\t{}", running.join(","));
             }
             Ok(2)
         }
     }
+}
+
+/// Clears a candidate against every running epic when `overlap` shows both sides name files and share none.
+fn auto_clear(s: &S, candidate: &str, running: &[String]) -> bool {
+    let known = |out: &str| {
+        out.lines()
+            .find_map(|l| l.strip_prefix("known\ta="))
+            .and_then(|l| l.split_once("\tb="))
+            .is_some_and(|(a, b)| a != "0" && b != "0")
+    };
+    let seen: Vec<(String, i32, String, String)> = running
+        .iter()
+        .map(|r| {
+            let (code, out, err) = s.bl(&["overlap", candidate, r], "");
+            (r.clone(), code, out, err)
+        })
+        .collect();
+    let clear = seen.iter().all(|(_, code, out, _)| {
+        *code == 0 && out.contains("tiers\tfile=0\tsymbol=0\t") && known(out)
+    });
+    if clear {
+        for (r, _, out, err) in &seen {
+            record_judged(
+                s,
+                candidate,
+                r,
+                "yes",
+                "no shared file or symbol",
+                &flatten(out, err),
+            );
+        }
+    }
+    clear
+}
+
+fn flatten(out: &str, err: &str) -> String {
+    format!("{out}{err}")
+        .lines()
+        .filter(|l| !l.is_empty())
+        .collect::<Vec<_>>()
+        .join("; ")
+        .chars()
+        .take(2000)
+        .collect()
+}
+
+fn record_judged(s: &S, c: &str, r: &str, verdict: &str, reason: &str, evidence: &str) {
+    s.telemetry(
+        "judged",
+        &[
+            format!("epic={c}"),
+            format!("with={r}"),
+            format!("verdict={verdict}"),
+            format!("reason={reason}"),
+            format!("evidence={evidence}"),
+        ],
+    );
+    s.journal(
+        "lane-judge",
+        "",
+        &format!("{c} vs {r}: {verdict}: {reason}"),
+    );
 }
 
 /// Records the overlap judge's decision for one candidate and running lane.
@@ -445,29 +516,7 @@ pub fn lane_judge(s: &S, a: &[String], io: &mut Io) -> R {
         ("no", format!("no PARALLEL line: {line}"))
     };
     let (_, out, err) = s.bl(&["overlap", c, r], "");
-    let evidence: String = format!("{out}{err}")
-        .lines()
-        .filter(|l| !l.is_empty())
-        .collect::<Vec<_>>()
-        .join("; ")
-        .chars()
-        .take(2000)
-        .collect();
-    s.telemetry(
-        "judged",
-        &[
-            format!("epic={c}"),
-            format!("with={r}"),
-            format!("verdict={verdict}"),
-            format!("reason={reason}"),
-            format!("evidence={evidence}"),
-        ],
-    );
-    s.journal(
-        "lane-judge",
-        "",
-        &format!("{c} vs {r}: {verdict}: {reason}"),
-    );
+    record_judged(s, c, r, verdict, &reason, &flatten(&out, &err));
     let _ = writeln!(io.out, "judged\t{c}\t{r}\t{verdict}");
     Ok(0)
 }

@@ -212,7 +212,8 @@ A lane is one epic. Its tasks run one at a time, each with its own `task-next`,
 its own dispatch and its own `task-report`. Repeat the four steps below as rounds.
 
 **Fill slots.** Run `RADIN_CLI state lane-next` until it exits 1 or 2.
-Exit 0 prints `start<TAB>epic`: that lane runs now. Exit 2 prints one
+Exit 0 prints `start<TAB>epic`: that lane runs now, with no judge when
+`lane-next` cleared it itself on disjoint named files. Exit 2 prints one
 `judge<TAB>epic<TAB>running csv` line per candidate in start order. Take the
 first candidate and run `RADIN_CLI prompt judge "<candidate>" "<running>"`
 for each running epic. Any non-zero exit: print its stderr and take the next
