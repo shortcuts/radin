@@ -577,6 +577,20 @@ fn stamp_of(dir: &Path, hash: &str) -> Option<String> {
     (!t.is_empty()).then(|| t.to_string())
 }
 
+/// True for a criterion made only of `make format|lint|test|check` passing, which the session gate already runs.
+fn gate_criterion(c: &str) -> bool {
+    let c = c.to_lowercase().replace(',', " ");
+    let mut w = c.split_whitespace().peekable();
+    w.peek().is_some()
+        && c.contains("make ")
+        && w.all(|x| {
+            [
+                "make", "format", "lint", "test", "check", "and", "pass", "passes", "clean",
+            ]
+            .contains(&x)
+        })
+}
+
 /// Acceptance criteria no `**Fact:** [measured]` line starts with; read before task-done deletes the task file.
 fn unproven_criteria(s: &S, id: &str) -> Vec<String> {
     let facts: Vec<String> = s
@@ -594,9 +608,10 @@ fn unproven_criteria(s: &S, id: &str) -> Vec<String> {
     meta.lines()
         .filter_map(|l| l.strip_prefix("acceptance\t"))
         .filter(|c| {
-            !facts
-                .iter()
-                .any(|f| f.starts_with(&format!("**Fact:** [measured] {c}")))
+            !gate_criterion(c)
+                && !facts
+                    .iter()
+                    .any(|f| f.starts_with(&format!("**Fact:** [measured] {c}")))
         })
         .map(String::from)
         .collect()
@@ -605,6 +620,14 @@ fn unproven_criteria(s: &S, id: &str) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn gate_criterion_matches_only_make_target_passes() {
+        assert!(gate_criterion("make format, make lint and make test pass"));
+        assert!(gate_criterion("make check passes"));
+        assert!(!gate_criterion("make check passes and the TUI shows X"));
+        assert!(!gate_criterion("lint output is clean"));
+    }
 
     #[test]
     fn missing_checks_applies_the_value_matrix() {

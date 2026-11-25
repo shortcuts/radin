@@ -11,6 +11,7 @@ One row per hard rule in [AGENTS.md](../../AGENTS.md). Add a row with every new 
 | Rendered `.md` only under `~/.radin/hosts/<host>/lib` | `tests/install_*.rs` layout test, `tests/shipped.rs` (`lib` versus `hostlib` kinds) | None. |
 | One list of shipped files | `tests/shipped.rs`, run by `make check` | README row text is hand-written. |
 | The `fff` server entry is added only when absent and removed only when radin added it | `tests/install_companions.rs` (the claude fff test, the codex and opencode companion tests), `src/jsonedit.rs` (`opencode_mcp` keeps a foreign entry) | Codex `mcp get` exit codes run against a stub. |
+| `radin install` removes the stale `~/.radin/registry.json` | `tests/install_upgrade.rs` (`assert_migrated`) | Runs on the migration path only. |
 | Install changes only paths radin owns | `tests/install_*.rs` (the unowned, edited and `--force` tests) | A foreign file inside a radin skill directory is overlaid, not checked. |
 | A forbid hit stops one host | `tests/install_*.rs` (the claude and agents render-failure tests) | None. |
 | Companion install is advisory | `tests/install_*.rs` ("a failing companion tool...") | None. |

@@ -131,6 +131,8 @@ fn task_report_success_journals_the_summary_and_each_unproven_criterion() {
             "crit one",
             "--acceptance",
             "crit two",
+            "--acceptance",
+            "make format, make lint and make test pass",
         ],
         "body\n",
     );
@@ -160,6 +162,7 @@ fn task_report_success_journals_the_summary_and_each_unproven_criterion() {
         "{j}"
     );
     assert!(!j.contains("\"detail\":\"crit one\""), "{j}");
+    assert!(!j.contains("make test pass"), "{j}");
     let rep = w.state(&["report"]).out;
     assert!(
         rep.contains("✅ Session complete: 1 succeeded, 0 landed with a follow-up, 0 failed, 0 awaiting your decision."),

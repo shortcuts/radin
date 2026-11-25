@@ -91,6 +91,7 @@ Read these before you change `src/cbm/config.rs` or tell a user they are covered
 - **One file says which tool answers which question.** `lib/radin-explore-rule.md` holds it, and `src/prompt.rs` injects it at `EXPLORE_RULE`. **Why:** five paraphrases drifted apart, and only some said to confirm an empty graph result with Grep.
 - **The CLAUDE.md section check is not locked.** `ensure_claude_md` checks for the marker, then appends. Two runs at once can both append the section. **Why:** no lock, because no duplicate has a traced cause and a lock adds state to fix a guess; a duplicate section costs only prompt tokens. The `~/.claude/CLAUDE.md` copies a prompt audit found have no known cause and are left alone.
 - **MCP tool names exist in one file.** `src/cbm/hooks.rs` names them, and each must exist in upstream's MCP Tools table. `semantic_query` is a `search_graph` parameter, not a tool. Every skill and prompt names the server, never its verbs. **Why:** a wrong name costs a failed call in every sub-agent. No test pins this, so review does.
+- **`radin install` deletes `~/.radin/registry.json`.** No code reads or writes it. **Why:** the shell version wrote it, it lists 4 repos, and the telemetry store already records every repo, so the file only looks like missing data.
 
 ## Skills and sub-agents
 
