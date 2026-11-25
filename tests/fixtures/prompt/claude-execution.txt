@@ -229,6 +229,7 @@ not touch.
    with `RADIN_CLI backlog add fix "<short title>" --location "<path:line>"`
    and a body that gives the failing check, its output and the cause, then
    finish your own task. A red base never makes the task `INCONCLUSIVE`.
+   A gate such as `make check` that stops at a base-red step hides every step after it: run each later step on its own. Compare the red names with `base-failing`. Report `checks:` green when the only red names are listed there, and commit passing work.
    Fix what the checks surface before step 10.
 9. Stage your task's files (`git add <paths>`, never `.radin/`) and
    follow the review brief at the end of this prompt at level `diff`: spec the
