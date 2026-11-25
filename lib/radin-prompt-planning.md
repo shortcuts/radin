@@ -36,6 +36,8 @@ saved workflow.
 Where the skill would ask, take the non-destructive path: don't split, don't
 overwrite.
 Implement nothing.
+Run the skill through its Step 4 review before you report.
+`plan-review=pass` is true only when that review ran this session and no `critical` or `warning` finding stands.
 
 The plan must settle every decision: the executor makes no judgment calls,
 and a vague plan step is a defect. Apply this rule:
