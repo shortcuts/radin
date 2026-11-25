@@ -13,6 +13,17 @@ pub fn is_test_path(p: &str) -> bool {
             .any(|s| p.contains(s))
 }
 
+/// Doc and wiring files every task in a repo may edit.
+pub fn is_shared_path(p: &str) -> bool {
+    [
+        "AGENTS.md",
+        "docs/key-systems.md",
+        "docs/technical-overview.md",
+        "production/dashboard/wiring.json",
+    ]
+    .contains(&p)
+}
+
 /// Files that judge a change: CI workflows, build and lint config, and the rubric files.
 pub fn is_verify_path(p: &str) -> bool {
     p.starts_with(".github/workflows/")
@@ -70,7 +81,7 @@ pub fn plan_covers_file(tree: &Path, file: &str, plan: &[String]) -> bool {
     })
 }
 
-/// Comma-joined files commit `hash` changes outside the plan; tests, `.radin/` and generated output of a listed input are exempt.
+/// Comma-joined files commit `hash` changes outside the plan; tests, shared doc and wiring files, `.radin/` and generated output of a listed input are exempt.
 pub fn plan_extras(dir: &Path, hash: &str, plan: &[String]) -> String {
     if plan.is_empty() || hash.is_empty() {
         return String::new();
@@ -89,7 +100,11 @@ pub fn plan_extras(dir: &Path, hash: &str, plan: &[String]) -> String {
     .unwrap_or_default();
     let mut extras: Vec<&str> = Vec::new();
     for f in files.lines().filter(|f| !f.is_empty()) {
-        if is_test_path(f) || f.starts_with(".radin/") || plan_covers_file(dir, f, plan) {
+        if is_test_path(f)
+            || is_shared_path(f)
+            || f.starts_with(".radin/")
+            || plan_covers_file(dir, f, plan)
+        {
             continue;
         }
         let gen = match f {
@@ -135,6 +150,35 @@ mod tests {
         for p in ["lib/a.sh", "libtests/a", "attest.sh"] {
             assert!(!is_test_path(p), "{p}");
         }
+    }
+
+    #[test]
+    fn shared_doc_and_wiring_files_are_no_extras() {
+        let d = tempfile::tempdir().unwrap();
+        let t = d.path();
+        let git = |a: &[&str]| g(t, a).unwrap();
+        git(&["init", "-q"]);
+        for f in [
+            "AGENTS.md",
+            "docs/key-systems.md",
+            "production/dashboard/wiring.json",
+            "lib/other.sh",
+        ] {
+            std::fs::create_dir_all(t.join(f).parent().unwrap()).unwrap();
+            std::fs::write(t.join(f), "x").unwrap();
+        }
+        git(&["add", "."]);
+        git(&[
+            "-c",
+            "user.name=t",
+            "-c",
+            "user.email=t@t",
+            "commit",
+            "-q",
+            "-m",
+            "c",
+        ]);
+        assert_eq!(plan_extras(t, "HEAD", &v(&["lib/a.sh"])), "lib/other.sh");
     }
 
     #[test]
