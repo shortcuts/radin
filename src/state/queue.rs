@@ -147,6 +147,32 @@ pub fn steps_waiting(s: &S, io: &mut Io) -> R {
     Ok(i32::from(!found))
 }
 
+/// Prints "id<TAB>reason<TAB>note" per task and exits 0 when every open task is blocked; exits 1 when one can run.
+pub fn stop_check(s: &S, io: &mut Io) -> R {
+    let mut rows = Vec::new();
+    for l in read_lines(&s.steps) {
+        let id = get(&l, "id");
+        match get(&l, "status").as_str() {
+            "blocked" => rows.push(format!("{id}\t{}\t{}", get(&l, "reason"), get(&l, "note"))),
+            "pending" => {
+                if let Some(m) = deps_check(s, &id)?.1 {
+                    rows.push(format!("{id}\tdependency\t{m}"));
+                } else if super::done::owner_deferred(s, &id) {
+                    rows.push(format!("{id}\tdeferred\towner deferral stands"));
+                } else {
+                    return Ok(1);
+                }
+            }
+            "excluded" => {}
+            _ => return Ok(1),
+        }
+    }
+    for r in &rows {
+        let _ = writeln!(io.out, "{r}");
+    }
+    Ok(i32::from(rows.is_empty()))
+}
+
 pub fn stuck_lines(s: &S) -> Vec<String> {
     read_lines(&s.steps)
         .iter()
@@ -359,6 +385,51 @@ pub fn teardown(s: &S) -> R {
     Ok(0)
 }
 
+/// A dependency the router judged owed counts as resolved while it stays blocked as inconclusive.
+fn owed_row(s: &S, dep: &str) -> Option<String> {
+    let e = s.entry(dep)?;
+    if get(&e, "status") != "blocked" || get(&e, "reason") != "inconclusive" {
+        return None;
+    }
+    let (hash, note) = s
+        .read(&format!("owed/{dep}"))
+        .trim_end()
+        .split_once('\t')
+        .map(|(h, n)| (h.to_string(), n.to_string()))?;
+    Some(format!("{dep}\t{hash}\towed\t{note}"))
+}
+
+/// Records that an inconclusive task's code is committed and only `note` is unverified, so its dependents may run.
+pub fn dep_owed(s: &S, a: &[String], io: &mut Io) -> R {
+    let (id, note) = (arg(a, 0), arg(a, 1));
+    if id.is_empty() || note.is_empty() {
+        return Err(die("usage: dep-owed <id> \"<what is unverified>\""));
+    }
+    if !s.steps.is_file() {
+        return Err(die(format!("no state file: {}", s.steps.display())));
+    }
+    let e = s.need_entry(id)?;
+    if get(&e, "status") != "blocked" || get(&e, "reason") != "inconclusive" {
+        let _ = writeln!(io.err, "dep-owed: {id} is not blocked as inconclusive");
+        return Ok(3);
+    }
+    let wip = format!("radin/wip/{id}");
+    let hash = if s.lane_mode() == "lanes" {
+        s.branch_exists(&wip)
+            .then(|| s.gt(&["rev-parse", "--short=12", &wip]))
+    } else {
+        super::task_report::first_hash(&get(&e, "note"))
+            .filter(|h| s.git_ok(&["merge-base", "--is-ancestor", h, "HEAD"]))
+    };
+    let Some(hash) = hash else {
+        let _ = writeln!(io.err, "dep-owed: {id} has no committed work");
+        return Ok(3);
+    };
+    s.set_marker(id, &format!("owed/{id}"), &format!("{hash}\t{note}\n"));
+    let _ = writeln!(io.out, "owed\t{id}\t{hash}");
+    Ok(0)
+}
+
 /// Dependency gate: the "dep<TAB>hash" rows, and the message naming the first unresolved dependency.
 pub fn deps_check(s: &S, id: &str) -> Result<(Vec<String>, Option<String>), crate::backlog::Fail> {
     let entry = s.need_entry(id)?;
@@ -366,6 +437,10 @@ pub fn deps_check(s: &S, id: &str) -> Result<(Vec<String>, Option<String>), crat
     for dep in s.live_deps(id, &entry).split(',').filter(|d| !d.is_empty()) {
         if let Some(h) = s.completed_get(dep) {
             rows.push(format!("{dep}\t{h}"));
+            continue;
+        }
+        if let Some(row) = owed_row(s, dep) {
+            rows.push(row);
             continue;
         }
         let status = s.entry(dep).map_or_else(

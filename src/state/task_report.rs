@@ -7,7 +7,7 @@ use crate::backlog::{Fail, Io, R};
 use std::fmt::Write;
 use std::path::Path;
 
-fn order_title(s: &S, id: &str) -> (u64, String) {
+pub(super) fn order_title(s: &S, id: &str) -> (u64, String) {
     let order = s.entry(id).map_or(0, |e| num(&e, "order"));
     let title = s.task_title(id);
     (
@@ -124,7 +124,7 @@ fn infra_error(text: &str) -> bool {
         })
 }
 
-fn first_hash(text: &str) -> Option<String> {
+pub(super) fn first_hash(text: &str) -> Option<String> {
     let b = text.as_bytes();
     let mut i = 0;
     while i < b.len() {
@@ -311,6 +311,8 @@ fn report_inner(s: &S, a: &[String], usages: &[String], io: &mut Io) -> R {
         (word, tag) = ("BLOCKED", "FACT");
     } else if head.starts_with("BLOCKED (DECISION)") {
         (word, tag) = ("BLOCKED", "DECISION");
+    } else if head.starts_with("BLOCKED (PREREQUISITE)") {
+        (word, tag) = ("BLOCKED", "PREREQUISITE");
     } else if head.starts_with("INCONCLUSIVE") {
         word = "INCONCLUSIVE";
     } else if head.starts_with("SUCCESS") {
@@ -412,6 +414,28 @@ fn report_inner(s: &S, a: &[String], usages: &[String], io: &mut Io) -> R {
     };
     let mut detail =
         forced.unwrap_or_else(|| detail.strip_prefix(' ').unwrap_or(detail).to_string());
+    if word == "BLOCKED" && tag == "PREREQUISITE" {
+        let (cat, title, needs, decision) = super::prereq::parse_line(&detail);
+        match super::prereq::file(s, id, &cat, &title, &needs, &decision) {
+            Ok(new) => {
+                let (order, dep_title) = order_title(s, id);
+                let why = if decision.is_empty() {
+                    String::new()
+                } else {
+                    format!(", which is blocked: {decision}")
+                };
+                let _ = writeln!(
+                    io.out,
+                    "⏸️ Task {order} '{dep_title}' waits on prerequisite {new} '{title}'{why}."
+                );
+                return next_continue(io);
+            }
+            Err(e) => {
+                detail = e.msg.trim().to_string();
+                tag = "FACT";
+            }
+        }
+    }
     if word == "BLOCKED" {
         if tag == "FACT" {
             s.dispatch_new(id, "factfind");

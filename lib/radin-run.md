@@ -186,6 +186,10 @@ Omit the selection flag when Phase 2 chose none. Resolving free text
 to ids is yours; the excluded set, renumbering and the `depends_on` precedence are not. Every listed
 task keeps the `order` number the report printed.
 
+Then run `RADIN_CLI state stop-check`. Exit 0 means no task can run: print its
+`id<TAB>reason<TAB>note` lines as the stop message and end the run, dispatching
+nothing. Exit 1: go on.
+
 Then run `RADIN_CLI state lanes-init` and print its output. It derives the lane
 mode and prints one `lane<TAB>epic<TAB>state<TAB>count` line per epic. An exit 1 with
 `epic dependency cycle` names the epics and the task dependency behind each edge. Print it and stop.
@@ -228,6 +232,7 @@ Merge. Exit 0 prints, in order:
 - zero or more `blocked<TAB><id><TAB><why>` lines for tasks it skipped (an
   unresolved dependency, an entry the backlog lost, `MAX_ATTEMPTS` reached).
   It already marked each one `blocked`. Report each as skipped. The entry stays on the backlog with a `**Progress:**` note, and any work is a wip commit. When the user asks to retry one that hit `MAX_ATTEMPTS`, run `RADIN_CLI state retry "<task id>"`.
+  **Judge a blocked dependency.** For a `why` of "waiting on dependency 'D', which is blocked", read D's row in `RADIN_CLI state steps-waiting`. D's reason is `inconclusive` and its note says the code is committed and only a check the leaf could not run remains (a device, a credential, a paid call): run `RADIN_CLI state dep-owed "D" "<that check>"`, then run `task-next --lane` for the lane again. Exit 3 or any other note (nothing built, a failing test, a decision): leave the task blocked.
 <!-- host:claude -->
 - `id`, `order`, `kind`, `model`, an optional `effort` and `prompt` lines for the task to run now.
 <!-- /host -->
@@ -376,15 +381,13 @@ most 15 words, no hashes. A task you no longer remember gets its line from
 
 Then run `RADIN_CLI state steps-waiting`. Exit 1: go to Phase 6. Exit 0
 <!-- host:claude -->
-prints the `waiting` entries this run left, parked ones included, so ask via one `AskUserQuestion`:
+prints the `waiting` entries this run left, parked ones included, so ask one `AskUserQuestion` each,
 <!-- /host -->
 <!-- host:agents -->
-prints the `waiting` entries this run left, parked ones included, so ask per `RADIN_LIB/radin-ask-rule.md`:
+prints the `waiting` entries this run left, parked ones included, so ask one question each,
 <!-- /host -->
-"Settle N open decisions now?" Options: `Yes` / `Later`. `Yes`: settle them per
-"Settling Waiting Entries" in `RADIN_LIB/radin-batch-clarify.md`, then tell the
-user the answered entries are `pending` and re-invoking the skill runs them.
-`Later`: change nothing.
+per "Settling At Batch End" in `RADIN_LIB/radin-batch-clarify.md`, then tell the
+user the answered entries are `pending` and the blocked ones wait for an answer.
 
 ## Phase 6: Review
 

@@ -1237,3 +1237,22 @@ fn a_lane_map_prints_risk_high_only_after_a_lane_task_reported_high_risk() {
     let map = w.state(&["lane-gate", "ea", "--map"]).out;
     assert!(map.ends_with("\nrisk\thigh\n"), "{map}");
 }
+
+#[test]
+fn prepare_merges_an_owed_dependency_wip_branch_and_keeps_it() {
+    let w = W::new();
+    epics(&w);
+    w.lane_mode("lanes");
+    let wt = lane_tree(&w, "a-one");
+    let r = w.state(&["dep-owed", "a-one", "device run"]);
+    assert_eq!(r.code, 3, "{}", r.all());
+    let work = commit_in(&w, &wt, "one.txt", "1\n");
+    w.state(&["task-report", "a-one", "STATUS: INCONCLUSIVE — no device"]);
+    assert!(!wt.join("one.txt").exists());
+    let r = w.state(&["dep-owed", "a-one", "device run"]);
+    assert_eq!(r.code, 0, "{}", r.all());
+    assert_eq!(w.state(&["deps-check", "a-two"]).code, 0);
+    let wt = lane_tree(&w, "a-two");
+    assert_eq!(std::fs::read_to_string(wt.join("one.txt")).unwrap(), "1\n");
+    assert_eq!(w.git(&["rev-parse", "radin/wip/a-one~1"]), work);
+}

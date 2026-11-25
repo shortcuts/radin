@@ -864,3 +864,262 @@ fn task_next_skips_an_owner_deferred_task_silently_until_retry() {
         Some("id\tt-one")
     );
 }
+
+#[test]
+fn dep_owed_frees_a_dependent_of_an_inconclusive_task_with_committed_work_only() {
+    let w = W::new();
+    w.clean();
+    w.bl(&["add", "fix", "t two"], "body\n");
+    w.steps_init("t-one\t1\t\tpending\nt-two\t2\t\tpending\n");
+    w.bl(&["set-deps", "t-two", "t-one"], "");
+    let head = w.git(&["rev-parse", "--short=12", "HEAD"]);
+    let head = head.trim();
+
+    w.state(&["task-report", "t-one", "STATUS: INCONCLUSIVE — no device"]);
+    let r = w.state(&["dep-owed", "t-one", "device run"]);
+    assert_eq!(
+        (r.code, r.err.contains("no committed work")),
+        (3, true),
+        "{}",
+        r.err
+    );
+    assert_eq!(w.state(&["deps-check", "t-two"]).code, 1);
+
+    let note = format!("committed {head}, no device");
+    w.state(&[
+        "task-report",
+        "t-one",
+        &format!("STATUS: INCONCLUSIVE — {note}"),
+    ]);
+    let r = w.state(&["dep-owed", "t-one", "device run"]);
+    assert_eq!((r.code, r.out), (0, format!("owed\tt-one\t{head}\n")));
+    let r = w.state(&["deps-check", "t-two"]);
+    assert_eq!(
+        (r.code, r.out),
+        (0, format!("t-one\t{head}\towed\tdevice run\n"))
+    );
+    assert_eq!(w.state(&["task-next", "t-two"]).code, 0);
+
+    w.state(&["retry", "t-one"]);
+    assert_eq!(w.state(&["deps-check", "t-two"]).code, 1);
+}
+
+#[test]
+fn dep_owed_refuses_a_dependency_blocked_for_another_reason() {
+    let w = W::new();
+    w.clean();
+    w.steps_init("t-one\t1\t\tpending\n");
+    w.state(&[
+        "set-status",
+        "t-one",
+        "blocked",
+        "--reason",
+        "deferred",
+        "which db?",
+    ]);
+    let r = w.state(&["dep-owed", "t-one", "x"]);
+    assert_eq!((r.code, r.out.as_str()), (3, ""));
+}
+
+fn prereq_id(out: &str) -> String {
+    out.split("waits on prerequisite ")
+        .nth(1)
+        .unwrap()
+        .split(' ')
+        .next()
+        .unwrap()
+        .to_string()
+}
+
+fn two_tasks(w: &W) {
+    w.clean();
+    w.bl(&["add", "fix", "t two"], "body\n");
+    w.steps_init("t-one\t1\t\tpending\nt-two\t2\t\tpending\n");
+}
+
+fn plan_for(w: &W, task: &str, bullets: &str) {
+    let rel = format!(".radin/plans/{task}.md");
+    w.write(
+        &rel,
+        &format!("# Plan\n\n## Reach and reuse\n\n{bullets}\n## Order\n\n1. x\n"),
+    );
+    let plan = w.p.join(&rel);
+    assert_eq!(
+        w.bl(&["set-meta", task, "plan", plan.to_str().unwrap()], "")
+            .code,
+        0
+    );
+}
+
+#[test]
+fn prerequisite_report_files_a_task_that_runs_first_and_frees_the_dependent() {
+    let w = W::new();
+    two_tasks(&w);
+    let r = w.state(&[
+        "task-report",
+        "t-one",
+        "STATUS: BLOCKED (PREREQUISITE) — fix: add rollSeason; needs: Seed.rollSeason in src/seed.rs",
+    ]);
+    assert!(
+        r.out
+            .starts_with("⏸️ Task 1 't one' waits on prerequisite "),
+        "{}",
+        r.out
+    );
+    assert!(
+        r.out.ends_with("'add rollSeason'.\nnext\tcontinue\n"),
+        "{}",
+        r.out
+    );
+    let new = prereq_id(&r.out);
+    let steps = w.state(&["steps-list"]).out;
+    assert!(
+        steps.contains(&format!(
+            "t-one\t1\tblocked\t0\twaiting on prerequisite {new}: add rollSeason"
+        )),
+        "{steps}"
+    );
+    assert!(
+        steps.contains(&format!("{new}\t0\tpending\t0\t")),
+        "{steps}"
+    );
+    assert!(w.bl(&["find", "t-one"], "").out.contains(&new));
+    assert!(w
+        .bl(&["find", &new], "")
+        .out
+        .starts_with(&format!("{new}\tfix\tadd rollSeason")));
+    assert!(w
+        .read(
+            &w.task_file(&new)
+                .replace(&format!("{}/", w.p.display()), "")
+        )
+        .contains("Seed.rollSeason in src/seed.rs"));
+    let next = w.state(&["task-next"]).out;
+    assert!(
+        next.starts_with(&format!("id\t{new}\norder\t0\nkind\texecution\n")),
+        "{next}"
+    );
+    w.commit_files(&["f.txt"]);
+    let h = w.hash.borrow().clone();
+    assert_eq!(w.state(&["task-done", &new, &h]).code, 0);
+    let again = w.state(&["task-next", "t-one"]).out;
+    assert!(
+        again.starts_with("id\tt-one\norder\t1\nkind\texecution\n"),
+        "{again}"
+    );
+}
+
+#[test]
+fn prerequisite_decision_blocks_the_new_task_with_the_question_and_the_cap_ends_at_a_human() {
+    let w = W::new();
+    two_tasks(&w);
+    let line = "STATUS: BLOCKED (PREREQUISITE) — feat: pick a store; needs: a store; decision: sqlite or files? sqlite";
+    let r = w.state(&["task-report", "t-one", line]);
+    assert!(
+        r.out
+            .contains(", which is blocked: sqlite or files? sqlite.\n"),
+        "{}",
+        r.out
+    );
+    let new = prereq_id(&r.out);
+    let waiting = w.state(&["steps-waiting"]).out;
+    assert!(
+        waiting.contains(&format!("{new}\tdecision\tsqlite or files? sqlite")),
+        "{waiting}"
+    );
+    assert!(w
+        .read(
+            &w.task_file(&new)
+                .replace(&format!("{}/", w.p.display()), "")
+        )
+        .contains("**Open decision:** sqlite or files? sqlite"));
+    let count = w.bl(&["count"], "").out;
+    w.state(&["task-report", "t-one", line]);
+    w.state(&["task-report", "t-one", line]);
+    let fourth = w.state(&["task-report", "t-one", line]).out;
+    assert_eq!(fourth, "next\tclarify FACT\n");
+    assert_eq!(
+        w.bl(&["count"], "").out.trim().parse::<u32>().unwrap(),
+        count.trim().parse::<u32>().unwrap() + 2
+    );
+}
+
+#[test]
+fn task_next_files_a_prerequisite_for_a_symbol_no_revision_holds() {
+    let w = W::new();
+    two_tasks(&w);
+    w.commit_files(&["src/present.txt"]);
+    w.write("src/present.txt", "presentSymbol\n");
+    w.git(&["add", "src/present.txt"]);
+    w.git(&["commit", "-q", "-m", "sym"]);
+    plan_for(
+        &w,
+        "t-one",
+        "- `presentSymbol` — src/present.txt:1 → in Changes\n",
+    );
+    let ok = w.state(&["task-next", "t-one"]).out;
+    assert!(ok.starts_with("id\tt-one\n"), "{ok}");
+    w.state(&["set-status", "t-one", "pending"]);
+    plan_for(
+        &w,
+        "t-one",
+        "- `ghostSymbol` — src/ghost.txt:1 → in Changes\n",
+    );
+    let count = w.bl(&["count"], "").out.trim().parse::<u32>().unwrap();
+    let r = w.state(&["task-next"]).out;
+    assert!(
+        r.starts_with("blocked\tt-one\twaits on new prerequisite "),
+        "{r}"
+    );
+    let new = r
+        .split("prerequisite ")
+        .nth(1)
+        .unwrap()
+        .split(':')
+        .next()
+        .unwrap()
+        .to_string();
+    assert!(
+        r.contains(&format!("id\t{new}\norder\t0\nkind\texecution\n")),
+        "{r}"
+    );
+    assert_eq!(
+        w.bl(&["count"], "").out.trim().parse::<u32>().unwrap(),
+        count + 1
+    );
+    let again = w.state(&["task-next"]).out;
+    assert!(!again.contains("blocked\tt-one"), "{again}");
+    assert_eq!(
+        w.bl(&["count"], "").out.trim().parse::<u32>().unwrap(),
+        count + 1
+    );
+}
+
+#[test]
+fn task_next_waits_on_the_open_task_whose_plan_adds_the_symbol() {
+    let w = W::new();
+    two_tasks(&w);
+    w.commit_files(&["f.txt"]);
+    plan_for(
+        &w,
+        "t-one",
+        "- `ghostSymbol` — src/ghost.txt:1 → in Changes\n",
+    );
+    plan_for(
+        &w,
+        "t-two",
+        "- `ghostSymbol` — reuse: none — searched x; sibling: src/a.rs:3\n",
+    );
+    let count = w.bl(&["count"], "").out.trim().parse::<u32>().unwrap();
+    let r = w.state(&["task-next"]).out;
+    assert!(
+        r.starts_with("blocked\tt-one\twaits on t-two, which adds ghostSymbol\n"),
+        "{r}"
+    );
+    assert!(r.contains("id\tt-two\norder\t2\n"), "{r}");
+    assert_eq!(
+        w.bl(&["count"], "").out.trim().parse::<u32>().unwrap(),
+        count
+    );
+    assert!(w.bl(&["find", "t-one"], "").out.contains("t-two"));
+}

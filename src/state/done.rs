@@ -86,6 +86,15 @@ pub fn task_next(s: &S, want: &str, lane: Option<&str>, io: &mut Io) -> R {
             continue;
         }
         let planning = s.field(&pid, "PLANNING").is_ok() && s.field(&pid, "PLAN_PATHS").is_err();
+        if !planning {
+            if let Some(msg) = super::prereq::guard(s, &pid)? {
+                skip(io, &msg);
+                if want.is_empty() {
+                    continue;
+                }
+                return Ok(1);
+            }
+        }
         let entry = s.need_entry(&pid)?;
         let claimed = if planning {
             let n = num(&entry, "attempts");
@@ -335,6 +344,7 @@ pub fn record_done(s: &S, id: &str, hash: &str, io: &mut Io) -> R {
     }
     s.rm(&format!("base-failing/{id}.txt"));
     s.rm(&format!("lane-base/{id}"));
+    s.rm(&format!("owed/{id}"));
     if s.steps.is_file() {
         let key = format!("\"id\":\"{id}\"");
         let kept: String = store::read_lines(&s.steps)

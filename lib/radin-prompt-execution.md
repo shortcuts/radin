@@ -16,11 +16,12 @@ hash>", or "no commit, gitignored: <path>[, <path>]" when every change is in a g
 made and why, or "none">; open: <what you skipped, did not check, or a risk the user must know, or "none">; checks:
 test=<pass|na>, lint=<pass|na>, review=pass`
 `STATUS: FAILED — <reason>`
-`STATUS: INCONCLUSIVE — <what could not be checked, and why>`
+`STATUS: INCONCLUSIVE — <what could not be checked, and why; the hash of the work you committed, or "none">`
 `STATUS: BLOCKED (FACT) — <what's unverifiable from here and why, e.g. a third-party
 API/library behavior local code and repo exploration can't settle>`
 `STATUS: BLOCKED (DECISION) — <the action only the user can take (a device, a
 credential, a path to delete), the options, and your recommendation>`
+`STATUS: BLOCKED (PREREQUISITE) — [<category>: ]<title>; needs: <what the tree lacks and where>[; decision: <question, options, your recommendation>]`
 This line is mandatory whether the task was implemented, found already done, or
 blocked. The `checks:` clause is mandatory and last. `pass` means the check ran
 this session and exercised the change. `na` is allowed for `test` and `lint`
@@ -135,6 +136,9 @@ Invoke each skill named here before implementing: SKILLS
 This task's scope/plan was written assuming other tasks would land a
    certain way. They already committed this session: DEPENDS_ON
 <!-- end -->
+<!-- if:OWED -->
+**Owed check.** A dependency's code is committed and its check is unrun: OWED. Build on that code, run that check never, and add one `open:` clause to your SUCCESS line that names it.
+<!-- end -->
 <!-- if:STALE_PLAN -->
 Commits landed after this task's plan was written and touched the files
    it names: STALE_PLAN
@@ -218,6 +222,7 @@ COMMENT_RULE
    with `RADIN_CLI backlog add fix "<short title>" --location "<path:line>"`
    and a body that gives the failing check, its output and the cause, then
    finish your own task. A red base never makes the task `INCONCLUSIVE`.
+   A gate such as `make check` that stops at a base-red step hides every step after it: run each later step on its own. Compare the red names with `base-failing`. Report `checks:` green when the only red names are listed there, and commit passing work.
    Fix what the checks surface before step 10.
 9. Stage your task's files (`git add <paths>`, never `.radin/`) and
    follow the review brief at the end of this prompt at level `diff`: spec the

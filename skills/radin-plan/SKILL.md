@@ -210,6 +210,8 @@ belongs, or "Nothing: the entry's scope is covered in full above.">
 
 ## Step 4: Review each plan
 
+**This step is required.** A plan is not planned until its review ran and no `critical` or `warning` finding stands.
+
 Review it with `RADIN_LIB/radin-review-core.md` at level `plan`: scope the
 plan file, spec the `task_file` Step 1 printed. Interactive: dispatch one
 sub-agent whose brief names the core file, the level, both absolute paths and

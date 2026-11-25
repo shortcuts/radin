@@ -552,3 +552,21 @@ fn prompt_judge_renders_the_evidence_with_an_overlap_gap() {
     let text = e.prompt_of(&out);
     assert!(text.contains("gap\tgraph missing"), "{text}");
 }
+
+#[test]
+fn an_owed_dependency_adds_the_owed_block_to_the_execution_prompt() {
+    let e = env(Host::Claude);
+    fs::write(e.ns.join("state/BACKLOG_STEPS.json"), "").unwrap();
+    let deps = e.ns.join("state/deps-fixture");
+
+    fs::write(&deps, "t-floor\tabc1234\towed\tdevice run\n").unwrap();
+    let text = e.prompt_of(&e.go(&["execution", "t-one"]));
+    assert!(
+        text.contains("t-floor (abc1234) leaves unverified: device run"),
+        "{text}"
+    );
+
+    fs::write(&deps, "t-floor\tabc1234\n").unwrap();
+    let text = e.prompt_of(&e.go(&["execution", "t-one"]));
+    assert!(!text.contains("Owed check"), "{text}");
+}
