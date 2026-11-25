@@ -91,6 +91,43 @@ fn lane_next_fills_slots_waits_for_merges_and_asks_for_clearance() {
 }
 
 #[test]
+fn lane_next_clears_epics_with_disjoint_named_files_and_judges_the_rest() {
+    let w = W::new();
+    for (e, t, loc) in [
+        ("ea", "a one", "src/a.rs"),
+        ("eb", "b one", "src/b.rs"),
+        ("ec", "c one", "src/a.rs"),
+        ("ed", "d one", ""),
+    ] {
+        assert_eq!(w.bl(&["epic-add", e], "").code, 0);
+        let mut a = vec!["add", "fix", t, "--epic", e];
+        if !loc.is_empty() {
+            a.extend(["--location", loc]);
+        }
+        assert_eq!(w.bl(&a, "body\n").code, 0);
+    }
+    w.steps_init(
+        "a-one\t1\t\tpending\nb-one\t2\t\tpending\nc-one\t3\t\tpending\nd-one\t4\t\tpending\n",
+    );
+    w.state(&["lanes-init"]);
+    assert_eq!(w.state(&["lane-next"]).out, "start\tea\n");
+    let r = w.state(&["lane-next"]);
+    assert_eq!((r.code, r.out.as_str()), (0, "start\teb\n"));
+    let t = w.tele.borrow().join("\n");
+    assert!(
+        t.starts_with(
+            "judged epic=eb with=ea verdict=yes reason=no shared file or symbol evidence="
+        ),
+        "{t}"
+    );
+    let r = w.state(&["lane-next"]);
+    assert_eq!(
+        (r.code, r.out.as_str()),
+        (2, "judge\tec\tea,eb\njudge\ted\tea,eb\n")
+    );
+}
+
+#[test]
 fn a_lane_of_only_deferred_tasks_is_never_started() {
     let w = W::new();
     epics(&w);

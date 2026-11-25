@@ -20,7 +20,8 @@ Explore by this rule:
 EXPLORE_RULE
 
 The tool measured this evidence between the two epics, tiered from shared file
-to shared symbol to shared directory:
+to shared symbol to named directory. A `file` line lists the task ids of each
+epic that name the file:
 
 <evidence>
 JUDGE_EVIDENCE
@@ -32,7 +33,9 @@ Decide from the file and directory tiers and the tasks.
 Read the tasks of both epics with `RADIN_CLI backlog list` and `RADIN_CLI backlog
 field <id> TASK_BODY` to see what each will change. A listed shared file the
 tasks never edit may be harmless. An empty tier may hide a dependency the tasks
-make plain. When you doubt it, answer `no`.
+make plain. Answer `no` only when you can name one task of each epic that edits
+the same file or function. A shared file the tasks only read, or edit in
+separate functions, is `yes`: the merge leaf resolves a textual conflict.
 
 Your final message is exactly one of these lines, and nothing else:
 `STATUS: PARALLEL — yes: <reason, one sentence>`

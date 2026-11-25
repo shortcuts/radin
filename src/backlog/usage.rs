@@ -145,7 +145,7 @@ pub const USAGE: &[(&str, &str)] = &[
     ),
     (
         "overlap",
-        r##"overlap <epic-a> <epic-b>  # print tiered overlap evidence ("tiers", "file", "symbol", "directory" TAB lines; symbol evidence is one CALLS hop through `codebase-memory-mcp cli`); exit 2 with "gap" lines and one telemetry setup-issue record when the graph is missing, stale or unindexed for a path; exit 1 on an unknown epic or the same epic twice"##,
+        r##"overlap <epic-a> <epic-b>  # print tiered overlap evidence ("tiers", "known" (files each epic names), "file" (with each side's task ids), "symbol", "directory" TAB lines; symbol evidence is one CALLS hop through `codebase-memory-mcp cli`); exit 2 with "gap" lines and one telemetry setup-issue record when the graph is missing, stale or unindexed for a path; exit 1 on an unknown epic or the same epic twice"##,
     ),
 ];
 

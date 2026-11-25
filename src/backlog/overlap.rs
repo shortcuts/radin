@@ -15,7 +15,7 @@ const GRAPH_EXT: &[&str] = &[
 
 #[derive(Default)]
 struct Side {
-    files: BTreeSet<String>,
+    files: BTreeMap<String, BTreeSet<String>>,
     dirs: BTreeSet<String>,
 }
 
@@ -52,11 +52,7 @@ fn cited(text: &str, exists: impl Fn(&str) -> bool) -> Vec<String> {
     set.into_iter().collect()
 }
 
-fn parent(p: &str) -> &str {
-    p.rsplit_once('/').map_or(".", |(d, _)| d)
-}
-
-fn add(side: &mut Side, root: &Path, raw: &str) {
+fn add(side: &mut Side, root: &Path, raw: &str, id: &str) {
     let p = normalize(raw);
     if !safe(&p) {
         return;
@@ -64,8 +60,7 @@ fn add(side: &mut Side, root: &Path, raw: &str) {
     if raw.ends_with('/') || root.join(&p).is_dir() {
         side.dirs.insert(p);
     } else {
-        side.dirs.insert(parent(&p).to_string());
-        side.files.insert(p);
+        side.files.entry(p).or_default().insert(id.to_string());
     }
 }
 
@@ -74,11 +69,13 @@ fn collect(cx: &Ctx, idx: &Index, epic: &str, io: &mut Io) -> Side {
     let mut side = Side::default();
     for e in idx.entries.iter().filter(|e| e.epic() == epic) {
         if let Some(loc) = e.opt("location") {
-            add(&mut side, root, strip_line(&loc));
+            add(&mut side, root, strip_line(&loc), &e.id());
         }
         for pf in e.arr("plan") {
             match fs::read_to_string(root.join(&pf)) {
-                Ok(t) => changes_of(&t).iter().for_each(|p| add(&mut side, root, p)),
+                Ok(t) => changes_of(&t)
+                    .iter()
+                    .for_each(|p| add(&mut side, root, p, &e.id())),
                 Err(_) => io
                     .err
                     .push_str(&format!("radin-backlog: plan file not found: {pf}\n")),
@@ -86,7 +83,7 @@ fn collect(cx: &Ctx, idx: &Index, epic: &str, io: &mut Io) -> Side {
         }
         let body = fs::read_to_string(idx.entry_path(e)).unwrap_or_default();
         for p in cited(&body, |t| root.join(t).is_file()) {
-            add(&mut side, root, &p);
+            add(&mut side, root, &p, &e.id());
         }
     }
     side
@@ -172,12 +169,14 @@ pub fn overlap(cx: &Ctx, a: &[String], io: &mut Io) -> R {
     let idx = Index::load(cx.ns.backlog_index.clone())?;
     let (sa, sb) = (collect(cx, &idx, ea, io), collect(cx, &idx, eb, io));
     let root = &cx.ns.repo_root;
-    let files: BTreeSet<&String> = sa.files.intersection(&sb.files).collect();
+    let (ka, kb): (BTreeSet<&String>, BTreeSet<&String>) =
+        (sa.files.keys().collect(), sb.files.keys().collect());
+    let files: Vec<&&String> = ka.intersection(&kb).collect();
     let dirs: BTreeSet<&String> = sa.dirs.intersection(&sb.dirs).collect();
     let graph_side = |s: &Side, o: &Side| -> BTreeSet<String> {
         s.files
-            .difference(&o.files)
-            .filter(|f| is_graph_file(root, f))
+            .keys()
+            .filter(|f| !o.files.contains_key(*f) && is_graph_file(root, f))
             .cloned()
             .collect()
     };
@@ -197,9 +196,17 @@ pub fn overlap(cx: &Ctx, a: &[String], io: &mut Io) -> R {
         sym.len(),
         dirs.len()
     ));
-    files
-        .iter()
-        .for_each(|f| io.out.push_str(&format!("file\t{f}\n")));
+    io.out.push_str(&format!(
+        "known\ta={}\tb={}\n",
+        sa.files.len(),
+        sb.files.len()
+    ));
+    let csv = |s: &BTreeSet<String>| s.iter().cloned().collect::<Vec<_>>().join(",");
+    for f in &files {
+        let (ia, ib) = (&sa.files[**f], &sb.files[**f]);
+        io.out
+            .push_str(&format!("file\t{f}\t{}\t{}\n", csv(ia), csv(ib)));
+    }
     sym.iter().for_each(|s| io.out.push_str(&format!("{s}\n")));
     dirs.iter()
         .for_each(|d| io.out.push_str(&format!("directory\t{d}\n")));

@@ -152,9 +152,26 @@ fn file_and_directory_tiers_need_no_graph() {
     assert_eq!(r.code, 0, "{}", r.err);
     assert_eq!(
         r.out,
-        "tiers\tfile=1\tsymbol=0\tdirectory=1\nfile\tdocs/x.md\ndirectory\tdocs\n"
+        "tiers\tfile=1\tsymbol=0\tdirectory=0\nknown\ta=1\tb=2\nfile\tdocs/x.md\tta\ttb\n"
     );
     assert_eq!(w.calls(), "");
+}
+
+#[test]
+fn a_directory_counts_only_when_a_task_names_it() {
+    let w = W::new();
+    w.epics();
+    w.write("docs/x.md", "x");
+    w.index(&[
+        w.task("a", "ta", "docs/", "notes"),
+        w.task("b", "tb", "docs", "notes"),
+    ]);
+    let r = w.overlap(true);
+    assert_eq!(r.code, 0, "{}", r.err);
+    assert_eq!(
+        r.out,
+        "tiers\tfile=0\tsymbol=0\tdirectory=1\nknown\ta=0\tb=0\ndirectory\tdocs\n"
+    );
 }
 
 #[test]
@@ -168,10 +185,9 @@ fn symbol_tier_prints_call_and_common_evidence() {
     assert_eq!(r.code, 0, "{}", r.err);
     assert_eq!(
         r.out,
-        "tiers\tfile=1\tsymbol=2\tdirectory=2\nfile\tlib/shared.rs\n\
+        "tiers\tfile=1\tsymbol=2\tdirectory=0\nknown\ta=2\tb=2\nfile\tlib/shared.rs\tta\ttb\n\
 symbol\tcall\ta\ta_fn\tsrc/a.rs\tb\tb_fn\tsrc/b.rs\n\
-symbol\tcommon\tutil\tu.rs\tsrc/a.rs\tsrc/b.rs\n\
-directory\tlib\ndirectory\tsrc\n"
+symbol\tcommon\tutil\tu.rs\tsrc/a.rs\tsrc/b.rs\n"
     );
     let q = w
         .calls()
