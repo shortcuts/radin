@@ -11,6 +11,7 @@
   retry <id>                   # a human looked at a MAX_ATTEMPTS-blocked task: back to pending, attempts 0, debugged cleared
   resume                       # move each failed entry and each retryable blocked entry to pending, attempts and debugged kept; print "id<TAB>old status" per move; blocked entries with a dependency, max-attempts or waiting reason stay
   stuck                        # print "id<TAB>attempts<TAB>note" per in_progress entry, exit 1 if none
+  stop-check                   # after steps-init: when no task can run and each open one is blocked, print "id<TAB>reason<TAB>note" per task and exit 0; exit 1 when any task can run or none is blocked
   steps-waiting                # print "id<TAB>reason<TAB>note" per blocked entry whose reason (deferred, inconclusive, fact, decision) holds an unanswered question, exit 1 if none
   preflight                    # run the startup checks, print "empty" | "stuck<TAB>id<TAB>attempts<TAB>note" | "waiting<TAB>id<TAB>reason<TAB>note" | "loose<TAB>csv" | "rank<TAB>csv" | "leftovers", exit 0
   steps-open                   # print "id<TAB>question" per open decision of a pending entry, exit 1 if none

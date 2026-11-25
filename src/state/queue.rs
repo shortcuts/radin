@@ -147,6 +147,32 @@ pub fn steps_waiting(s: &S, io: &mut Io) -> R {
     Ok(i32::from(!found))
 }
 
+/// Prints "id<TAB>reason<TAB>note" per task and exits 0 when every open task is blocked; exits 1 when one can run.
+pub fn stop_check(s: &S, io: &mut Io) -> R {
+    let mut rows = Vec::new();
+    for l in read_lines(&s.steps) {
+        let id = get(&l, "id");
+        match get(&l, "status").as_str() {
+            "blocked" => rows.push(format!("{id}\t{}\t{}", get(&l, "reason"), get(&l, "note"))),
+            "pending" => {
+                if let Some(m) = deps_check(s, &id)?.1 {
+                    rows.push(format!("{id}\tdependency\t{m}"));
+                } else if super::done::owner_deferred(s, &id) {
+                    rows.push(format!("{id}\tdeferred\towner deferral stands"));
+                } else {
+                    return Ok(1);
+                }
+            }
+            "excluded" => {}
+            _ => return Ok(1),
+        }
+    }
+    for r in &rows {
+        let _ = writeln!(io.out, "{r}");
+    }
+    Ok(i32::from(rows.is_empty()))
+}
+
 pub fn stuck_lines(s: &S) -> Vec<String> {
     read_lines(&s.steps)
         .iter()

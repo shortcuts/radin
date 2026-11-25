@@ -186,6 +186,10 @@ Omit the selection flag when Phase 2 chose none. Resolving free text
 to ids is yours; the excluded set, renumbering and the `depends_on` precedence are not. Every listed
 task keeps the `order` number the report printed.
 
+Then run `RADIN_CLI state stop-check`. Exit 0 means no task can run: print its
+`id<TAB>reason<TAB>note` lines as the stop message and end the run, dispatching
+nothing. Exit 1: go on.
+
 Then run `RADIN_CLI state lanes-init` and print its output. It derives the lane
 mode and prints one `lane<TAB>epic<TAB>state<TAB>count` line per epic. An exit 1 with
 `epic dependency cycle` names the epics and the task dependency behind each edge. Print it and stop.

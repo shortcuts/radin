@@ -152,6 +152,24 @@ fn steps_waiting_prints_id_note_for_each_deferred_entry_and_skips_max_attempts_b
 }
 
 #[test]
+fn stop_check_lists_blocked_tasks_and_exits_0_only_when_none_can_run() {
+    let w = W::new();
+    let blocked = "{\"id\":\"t-one\",\"order\":1,\"status\":\"blocked\",\"reason\":\"deferred\",\"depends_on\":[],\"attempts\":1,\"debugged\":0,\"note\":\"which db?\"}\n";
+    w.write(".radin/state/BACKLOG_STEPS.json", blocked);
+    let r = w.state(&["stop-check"]);
+    assert_eq!(
+        (r.code, r.out.as_str()),
+        (0, "t-one\tdeferred\twhich db?\n")
+    );
+    w.write(
+        ".radin/state/BACKLOG_STEPS.json",
+        &format!("{blocked}{{\"id\":\"t-two\",\"order\":2,\"status\":\"in_progress\",\"depends_on\":[],\"attempts\":1,\"debugged\":0,\"note\":\"\"}}\n"),
+    );
+    let r = w.state(&["stop-check"]);
+    assert_eq!((r.code, r.out.as_str()), (1, ""));
+}
+
+#[test]
 fn preflight_prints_one_tagged_line_per_applicable_branch_and_only_empty_on_an_empty_backlog() {
     let w = W::new();
     w.write(
