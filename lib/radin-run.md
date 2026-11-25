@@ -380,15 +380,13 @@ most 15 words, no hashes. A task you no longer remember gets its line from
 
 Then run `RADIN_CLI state steps-waiting`. Exit 1: go to Phase 6. Exit 0
 <!-- host:claude -->
-prints the `waiting` entries this run left, parked ones included, so ask via one `AskUserQuestion`:
+prints the `waiting` entries this run left, parked ones included, so ask one `AskUserQuestion` each,
 <!-- /host -->
 <!-- host:agents -->
-prints the `waiting` entries this run left, parked ones included, so ask per `RADIN_LIB/radin-ask-rule.md`:
+prints the `waiting` entries this run left, parked ones included, so ask one question each,
 <!-- /host -->
-"Settle N open decisions now?" Options: `Yes` / `Later`. `Yes`: settle them per
-"Settling Waiting Entries" in `RADIN_LIB/radin-batch-clarify.md`, then tell the
-user the answered entries are `pending` and re-invoking the skill runs them.
-`Later`: change nothing.
+per "Settling At Batch End" in `RADIN_LIB/radin-batch-clarify.md`, then tell the
+user the answered entries are `pending` and the blocked ones wait for an answer.
 
 ## Phase 6: Review
 

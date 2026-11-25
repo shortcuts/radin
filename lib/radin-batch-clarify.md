@@ -91,7 +91,7 @@ entry as `pending`.
 
 ## Settling Waiting Entries
 
-Phase 0 and Phase 5 read this section for every `waiting` entry. Handle the entries whose reason is `deferred` apart from the
+Phase 0 reads this section for every `waiting` entry. Handle the entries whose reason is `deferred` apart from the
 rest. Ask one yes/no question for all of them, per `RADIN_LIB/radin-ask-rule.md`:
 "Should deferred entries remain deferred?" `Yes`: change nothing. `steps-init`
 keeps each one `blocked`, so `task-next` and the lanes skip it and the run
@@ -103,3 +103,14 @@ one question at a time, your recommendation first. Append each answer as
 above, then run `RADIN_CLI state answered "<task id>"`. An entry the user
 explicitly defers again keeps its `blocked` status and its `deferred` reason, and
 gets `**Progress:** Deferred again by the owner: <question>`.
+
+## Settling At Batch End
+
+Phase 5 reads this section for each `steps-waiting` line whose reason is not
+`deferred`. Ask one question per entry, never several in one call, per
+`RADIN_LIB/radin-ask-rule.md`. Give at most 3 options: your recommendation first,
+the next best option from its `**Open decision:**` line, and `Block this task`.
+Offer no `Later` option. An answer settles the entry: append `**Decision:** <answer>`,
+then run `RADIN_CLI state answered "<task id>"`. `Block this task` blocks it:
+run `RADIN_CLI state set-status "<task id>" blocked --reason deferred "<question, options, recommendation>"`
+and append `**Progress:** Deferred by the owner: <question>`. Print `N settled, M blocked`.
