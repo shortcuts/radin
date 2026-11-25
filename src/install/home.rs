@@ -75,6 +75,7 @@ impl Session<'_> {
     pub(super) fn remove_orphans(&self) {
         let s = crate::shipped::shipped();
         let lib = self.rh.join("lib");
+        self.remove_file(&self.rh.join("registry.json"));
         if self.migrated {
             for n in s.hostlib.iter().chain(&s.retired_lib) {
                 self.remove_file(&lib.join(n));

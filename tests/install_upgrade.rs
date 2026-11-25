@@ -66,6 +66,7 @@ fn seed_old_layout(s: &Sandbox, real: Option<&Path>) {
         "{\"installed_at\": \"2026-01-01T00:00:00Z\", \"companion_tools\": {}}\n",
     )
     .unwrap();
+    fs::write(old.join("registry.json"), "{}\n").unwrap();
     fs::write(old.join("lib/radin-run.md"), "stale\n").unwrap();
     fs::write(old.join("lib/radin-tui.sh"), "stale\n").unwrap();
     fs::write(old.join("backups/snap/settings.json"), "sentinel\n").unwrap();
@@ -83,6 +84,7 @@ fn seed_old_layout(s: &Sandbox, real: Option<&Path>) {
 
 fn assert_migrated(s: &Sandbox) {
     assert!(!s.p(".claude/.radin").exists());
+    assert!(!s.p(".radin/registry.json").exists());
     assert_eq!(s.read(".radin/backups/snap/settings.json"), "sentinel\n");
     assert!(!s.p(".radin/lib/radin-run.md").exists() && !s.p(".radin/lib/radin-tui.sh").exists());
     assert!(s.p(".radin/hosts/claude/lib/radin-run.md").is_file());
