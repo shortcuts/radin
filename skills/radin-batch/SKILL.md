@@ -13,4 +13,4 @@ argument-hint: "[epic | task id | title]"
 Read `RADIN_LIB/radin-run.md` in full now and follow it as this skill's body.
 Re-read it after any compaction.
 
-**Reply:** the run loop's Phase 5 summary, verbatim.
+**Reply:** the run loop's Phase 5 summary, verbatim, then each open choice asked as a question.

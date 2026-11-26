@@ -48,5 +48,5 @@ report the removal, run nothing.
 Read `RADIN_LIB/radin-run.md` in full now and follow it as this skill's body.
 Re-read it after any compaction. The invoking scope is the task id from Step 1.
 
-**Reply:** the run loop's Phase 5 summary, verbatim; or, after a stop, the
+**Reply:** the run loop's Phase 5 summary, verbatim, then each open choice asked as a question; or, after a stop, the
 removal line from `backlog remove`.

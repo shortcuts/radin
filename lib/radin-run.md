@@ -390,6 +390,14 @@ prints the `waiting` entries this run left, parked ones included, so ask one que
 per "Settling At Batch End" in `RADIN_LIB/radin-batch-clarify.md`, then tell the
 user the answered entries are `pending` and the blocked ones wait for an answer.
 
+**Ask what remains.** Each item of the summary that needs the user's choice
+becomes a question per `RADIN_LIB/radin-ask-rule.md`, never a bullet. One question per
+`Failed` entry: `Retry now` (run `RADIN_CLI state retry "<task id>"`, then go back to
+Phase 4) or `Leave it on the backlog`. One question for a gate result
+`RADIN_LIB/radin-batch-gate.md` hands to the user: `Triage it now with /radin-review`
+or `Leave it`. **The test:** would the user otherwise have to ask for this as a
+question? If yes, ask it.
+
 ## Phase 6: Review
 
 Phase 4.5 already reviewed the session. Close the summary with `To triage the
