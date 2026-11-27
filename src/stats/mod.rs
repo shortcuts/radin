@@ -213,7 +213,7 @@ pub fn run(c: &Ctx, args: &[String]) -> Out {
                 ),
             );
             out += &table(
-                "Sub-agents (outcomes from background completions only)",
+                "Sub-agents (outcomes from background completions and agent-team transcripts)",
                 &hdr(
                     row([
                         "vendor",

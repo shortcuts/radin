@@ -11,11 +11,10 @@ argument-hint: "<task id | title | keyword>"
 # Plan a Backlog Entry
 
 **You own the plan, not the code.** The plan is a checklist an executor runs
-box by box, and a reviewer audits from the evidence each box names. It runs
-inline in whichever context invokes it. A caller that cannot reach the user
-says so in its prompt; the branches marked "non-interactive" are then the
-defaults, and anything only the user could settle is reported and stops the
-run.
+box by box, and a reviewer audits from the evidence each box names. A caller
+that cannot reach the user says so in its prompt; the branches marked
+"non-interactive" are then the defaults, and anything only the user could
+settle is reported and stops the run.
 
 ## Step 1: Resolve the task scope
 
@@ -66,9 +65,9 @@ For each sub-task, in order:
    the plan, its glossary or domain-model doc where it has one, and respect
    any ADR covering the area.
 3. Settle each open fact before you write:
-   - A fact you can observe by running something (a command or a scratch
-     script outside the repo tree) is yours to run. Delete
-     it after.
+   - Probe each fact with the smallest command or scratch script outside the
+     repo tree, then delete it. Never apply the change, even to a copy, or run
+     the repo's whole or end-to-end suite: the executor does both.
    - Third-party API or library behavior local code cannot confirm: read the
      entry's `**Fact:**` lines and the `facts` file Step 1 printed first.
      Still open, interactive: hand the question to
@@ -105,7 +104,7 @@ For each sub-task, in order:
 
 This skill's whole output is the plan file(s), the plan pointer, and, when
 research ran, the `**Fact:**` line and `facts` pointer. No source file is
-edited, no build or test runs, nothing is committed.
+edited, nothing is committed.
 
 ### The plan template
 

@@ -108,14 +108,15 @@ pub fn age_cell(iso: &str, now: i64) -> String {
     }
 }
 
-fn parse_iso(s: &str) -> Option<i64> {
+pub(crate) fn parse_iso(s: &str) -> Option<i64> {
     let s = s.strip_suffix('Z')?;
     let (date, time) = s.split_once('T')?;
     let mut d = date.splitn(3, '-');
     let mut t = time.splitn(3, ':');
     let n = |it: &mut std::str::SplitN<char>| it.next()?.parse::<i64>().ok();
     let (y, mo, da) = (n(&mut d)?, n(&mut d)?, n(&mut d)?);
-    let (h, mi, se) = (n(&mut t)?, n(&mut t)?, n(&mut t)?);
+    let (h, mi) = (n(&mut t)?, n(&mut t)?);
+    let se: i64 = t.next()?.split('.').next()?.parse().ok()?;
     Some(days_from_civil(y, mo, da) * 86400 + h * 3600 + mi * 60 + se)
 }
 

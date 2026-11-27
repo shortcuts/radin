@@ -52,6 +52,34 @@ fn transcripts(w: &W) -> PathBuf {
         "2025-01-02",
         &agent("toolu_A2", "\"subagent_type\":\"caveman:cavecrew-builder\""),
     );
+    // An agent-team teammate reports no task-notification: its own transcript is the usage.
+    s1 += &line(
+        "2025-01-02",
+        &agent(
+            "toolu_A3",
+            "\"model\":\"sonnet\",\"name\":\"radin-planning-team-task\"",
+        ),
+    );
+    s1 += &line("2025-01-02", "\"message\":{\"content\":[{\"tool_use_id\":\"toolu_A3\",\"type\":\"tool_result\"}]},\"toolUseResult\":{\"status\":\"teammate_spawned\",\"agentId\":\"aradin-planning-team-task-ab12\"}");
+    fs::create_dir_all(p.join("s1/subagents")).unwrap();
+    let turn = |time: &str, block: &str, stop: &str, n: u32| {
+        format!("{{\"timestamp\":\"2025-01-02T{time}Z\",\"type\":\"assistant\",\"message\":{{\"content\":[{{\"type\":\"{block}\"}}],\"stop_reason\":\"{stop}\",\"usage\":{{\"input_tokens\":{n},\"cache_creation_input_tokens\":{n},\"cache_read_input_tokens\":{n},\"output_tokens\":{n}}}}}}}\n")
+    };
+    fs::write(
+        p.join("s1/subagents/agent-aradin-planning-team-task-ab12.jsonl"),
+        turn(
+            "10:00:00.500",
+            "tool_use\",\"id\":\"toolu_T1",
+            "tool_use",
+            1,
+        ) + &turn(
+            "10:00:40.000",
+            "tool_use\",\"id\":\"toolu_T2",
+            "tool_use",
+            2,
+        ) + &turn("10:01:30.900", "text", "end_turn", 175),
+    )
+    .unwrap();
     s1 += &line("2025-01-02", &note("tk1", "toolu_A1", "completed", 1000));
     s1 += &line("2025-01-02", &note("tk1", "toolu_A1", "completed", 3000));
     s1 += &line("2025-01-02", &note("tk2", "toolu_A2", "failed", 500));
@@ -181,9 +209,9 @@ fn the_transcript_tables_count_skills_agents_roles_and_hooks() {
         table(&o.1, "Stack by vendor"),
         vec![
             row(&["vendor", "uses (skills + sub-agents)"]),
+            row(&["built-in", "2"]),
             row(&["caveman", "2"]),
             row(&["radin", "2"]),
-            row(&["built-in", "1"]),
             row(&["other", "1"]),
         ]
     );
@@ -206,15 +234,15 @@ fn the_transcript_tables_count_skills_agents_roles_and_hooks() {
             row(&[
                 "built-in",
                 "general-purpose",
-                "1",
-                "1",
-                "1",
+                "2",
+                "2",
+                "2",
                 "0",
                 "0",
-                "3000",
-                "5.0",
-                "20",
-                "sonnet=1"
+                "1850",
+                "3.5",
+                "55",
+                "sonnet=2"
             ]),
             row(&[
                 "caveman",
@@ -245,11 +273,16 @@ fn the_transcript_tables_count_skills_agents_roles_and_hooks() {
                 "tasks"
             ]),
             row(&["execution", "1", "3000", "3000", "5.0", "20", "5", "1"]),
+            row(&["planning", "1", "700", "700", "2.0", "90", "2", "1"]),
         ]
     );
     assert_eq!(
         table(&o.1, "radin tasks"),
-        vec![row(&["task", "tokens"]), row(&["my-task", "3000"])]
+        vec![
+            row(&["task", "tokens"]),
+            row(&["my-task", "3000"]),
+            row(&["team-task", "700"]),
+        ]
     );
     assert_eq!(
         table(&o.1, "Hooks"),
@@ -435,7 +468,8 @@ fn repo_tables_count_journal_events_and_refixed_tasks() {
                 "clean%"
             ]),
             row(&["execution", "3000", "600", "-", "-", "-"]),
-            row(&["all", "3000", "600", "0", "0", "0"]),
+            row(&["planning", "700", "350", "-", "-", "-"]),
+            row(&["all", "1850", "529", "0", "0", "0"]),
         ]
     );
 }

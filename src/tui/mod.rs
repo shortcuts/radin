@@ -6,6 +6,7 @@ mod model;
 mod palette;
 mod task;
 mod text;
+pub(crate) use text::parse_iso;
 mod view;
 
 pub use app::{App, Effect, Then};

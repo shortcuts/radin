@@ -1,4 +1,5 @@
 use super::{f0, f1, sorted, Rows};
+use crate::tui::parse_iso;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::fs;
 use std::io::{BufRead, BufReader};
@@ -122,6 +123,16 @@ pub(super) struct Notice {
     ms: u64,
 }
 
+/// An agent-team teammate sends no task-notification, so its own transcript is the only usage record.
+#[derive(Default)]
+struct Teammate {
+    first: String,
+    last: String,
+    tokens: u64,
+    tools: u64,
+    ended: bool,
+}
+
 #[derive(Default)]
 pub(super) struct Scan {
     min: String,
@@ -137,6 +148,8 @@ pub(super) struct Scan {
     type_of: HashMap<String, String>,
     name_of: HashMap<String, String>,
     notices: HashMap<String, Notice>,
+    spawned: HashMap<String, String>,
+    turns: HashMap<String, Teammate>,
     hooks: BTreeMap<(String, String), [u64; 3]>,
     hook_sessions: HashSet<(String, String, String)>,
     hook_last: HashMap<(String, String), String>,
@@ -154,6 +167,57 @@ impl Scan {
         let last = self.skill_last.entry(name.into()).or_default();
         if day > last.as_str() {
             *last = day.into();
+        }
+    }
+
+    fn turn(&mut self, agent: &str, l: &str, since: &str) {
+        let key = "\"timestamp\":\"";
+        let Some(at) = l.rfind(key).and_then(|i| val(&l[i..], key, 1)) else {
+            return;
+        };
+        if !since.is_empty() && at < since {
+            return;
+        }
+        let t = self.turns.entry(agent.into()).or_default();
+        if t.first.is_empty() {
+            t.first = at.into();
+        }
+        t.last = at.into();
+        t.tools += l.matches("\"type\":\"tool_use\"").count() as u64;
+        t.ended = l.contains("\"stop_reason\":\"end_turn\"");
+        if let Some(i) = l.find("\"usage\":{") {
+            let total: u64 = [
+                "input_tokens",
+                "cache_creation_input_tokens",
+                "cache_read_input_tokens",
+                "output_tokens",
+            ]
+            .iter()
+            .map(|k| num(&l[i..], &format!("\"{k}\":")))
+            .sum();
+            // A usage-limit message reports zero usage and must not erase the real figure.
+            if total > 0 {
+                t.tokens = total;
+            }
+        }
+    }
+
+    /// Gives each teammate the notice its harness never sent, shaped like a `<task-notification>`.
+    fn close_teammates(&mut self) {
+        for (agent, tool_use) in &self.spawned {
+            let Some(t) = self.turns.get(agent) else {
+                continue;
+            };
+            let secs = parse_iso(&t.last)
+                .zip(parse_iso(&t.first))
+                .map_or(0, |(b, a)| (b - a).max(0));
+            self.notices.entry(agent.clone()).or_insert_with(|| Notice {
+                tool_use: tool_use.clone(),
+                status: if t.ended { "completed" } else { "?" }.into(),
+                tokens: t.tokens,
+                tools: t.tools,
+                ms: secs as u64 * 1000,
+            });
         }
     }
 
@@ -209,6 +273,14 @@ impl Scan {
                 if day > last.as_str() {
                     *last = day.into();
                 }
+            }
+            return;
+        }
+        if l.contains("\"status\":\"teammate_spawned\"") {
+            if let (Some(agent), Some(tool_use)) =
+                (val(l, "\"agentId\":\"", 1), val(l, "\"tool_use_id\":\"", 1))
+            {
+                self.spawned.insert(agent.into(), tool_use.into());
             }
             return;
         }
@@ -310,6 +382,11 @@ pub(super) fn scan_transcripts(root: &Path, since: &str) -> Scan {
             .get(1)
             .map(|p| p.strip_suffix(".jsonl").unwrap_or(p).to_string())
             .unwrap_or_default();
+        let agent = parts
+            .iter()
+            .any(|p| p == "subagents")
+            .then(|| f.file_stem()?.to_str()?.strip_prefix("agent-"))
+            .flatten();
         let Ok(file) = fs::File::open(&f) else {
             continue;
         };
@@ -322,13 +399,18 @@ pub(super) fn scan_transcripts(root: &Path, since: &str) -> Scan {
                 || l.contains("\"name\":\"Agent\",\"input\":")
                 || l.contains("<command-name>/")
                 || l.contains("<task-notification>")
+                || l.contains("\"status\":\"teammate_spawned\"")
                 || l.contains("\"type\":\"hook_");
+            if let Some(a) = agent.filter(|_| l.contains("\"type\":\"assistant\"")) {
+                s.turn(a, l, since);
+            }
             if hit && !skip_attachment(l) {
                 s.line(l, &proj, &sid, since);
             }
             buf.clear();
         }
     }
+    s.close_teammates();
     s
 }
 
