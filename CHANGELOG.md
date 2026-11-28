@@ -1,5 +1,31 @@
 # Changelog
 
+## [3.4.0](https://github.com/shortcuts/radin/compare/v3.3.0...v3.4.0) (2026-11-27)
+
+
+### Features
+
+* **batch:** ask one question per open decision at batch end ([8844d48](https://github.com/shortcuts/radin/commit/8844d48fb87e92e4b8c3e2d2cf42c34ec6ca18fd))
+* **lanes:** clear disjoint epics in lane-next and judge at task-file level ([093ea39](https://github.com/shortcuts/radin/commit/093ea39e0d53da0a79aba28c38c7b9749b74b1cf))
+* **prompt:** show planners the unmerged lane branch of a done dependency ([25de97f](https://github.com/shortcuts/radin/commit/25de97f74c83c741edddf3ab162c481b4047f27d))
+* **state:** file a prerequisite task when a leaf or plan finds one missing ([61b6eeb](https://github.com/shortcuts/radin/commit/61b6eebbe0ab6f478a02dc399cba11f91ba0ba92))
+* **state:** let a dependent run on an inconclusive dependency with committed code ([b3b4cbd](https://github.com/shortcuts/radin/commit/b3b4cbded3ae6c6b5676c5d5c757927b2841dfc9))
+* **state:** stop-check ends a batch when every open task is blocked ([31340b4](https://github.com/shortcuts/radin/commit/31340b44f8524d7d37ec882382336e17838ff487))
+
+
+### Bug Fixes
+
+* **batch:** park decision blocks, let planners choose, skip owner-deferred tasks ([565737c](https://github.com/shortcuts/radin/commit/565737c79cc8374aa4df424e3d60c383832246e1))
+* **install:** remove the orphan ~/.radin/registry.json ([12aef02](https://github.com/shortcuts/radin/commit/12aef020446c120ad8e58977000b37260dc7f2e7))
+* **plan:** make the plan review a required step before PLANNED ([1ee4d40](https://github.com/shortcuts/radin/commit/1ee4d40cb24694b9101bfbb495d6d230ae02d454))
+* **prompt:** run steps behind a base-red gate step instead of stopping ([49e8fe3](https://github.com/shortcuts/radin/commit/49e8fe3d5ead35bb76a6ac6ab467afd087a8f3f5))
+* remove double gate ([1641999](https://github.com/shortcuts/radin/commit/1641999ca5d0d33879f36ed750fe691f6184fd12))
+* **state:** escape control characters in journal JSON ([e1f9f1a](https://github.com/shortcuts/radin/commit/e1f9f1a6df2c7b7bf8771d78c4f25e363de0245f))
+* **state:** exempt shared doc and wiring files from the out-of-bounds check ([5e946ba](https://github.com/shortcuts/radin/commit/5e946bafbaeda4ad53e36becb9a0944e7435e710))
+* **task-report:** skip gate-checked criteria in unproven events ([728da3b](https://github.com/shortcuts/radin/commit/728da3bdbe987ffb8d28d26408ab909b8d3dbc06))
+* treat a graph gap as unknown overlap evidence ([75c8356](https://github.com/shortcuts/radin/commit/75c8356eeee970f8eeae3aabe1a3642ea950dfa6))
+* warn instead of discarding work on a missing check word ([8033def](https://github.com/shortcuts/radin/commit/8033def33ee5b241f641450f843770e33c0778b5))
+
 ## [3.3.0](https://github.com/shortcuts/radin/compare/v3.2.0...v3.3.0) (2026-11-19)
 
 
